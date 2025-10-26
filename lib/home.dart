@@ -29,7 +29,7 @@ class _HomePageState extends State<HomePage> {
           Container(
             height: 60,
             decoration: const BoxDecoration(
-              color: Colors.white,
+              color: Color.fromARGB(255, 255, 255, 255),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black12,
@@ -43,12 +43,13 @@ class _HomePageState extends State<HomePage> {
               children: [
                 // LOGO À ESQUERDA
                 Padding(
-                  padding: const EdgeInsets.only(left: 20),
+                  padding: const EdgeInsets.only(left: 0),
                   child: Row(
                     children: [
                       Image.asset(
                         'assets/logo_top_home.png',
-                        height: 35,
+                        //height: 40,
+                        fit: BoxFit.contain,
                       ),
                       const SizedBox(width: 10),                      
                     ],
@@ -100,39 +101,44 @@ class _HomePageState extends State<HomePage> {
                               onTap: () {
                                 setState(() => selectedIndex = index);
                               },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 15, horizontal: 10),
+                              child: AnimatedContainer(
+                                key: ValueKey(index), // força o Flutter a animar a troca entre itens
+                                duration: const Duration(milliseconds: 600), // tempo da transição
+                                curve: Curves.easeInOut, // suaviza início e fim
+                                padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 10),
                                 decoration: BoxDecoration(
                                   color: isSelected
-                                      ? Colors.white
-                                      : Colors.transparent,
-                                  border: isSelected
-                                      ? const Border(
-                                          left: BorderSide(
-                                              color: Color(0xFF2E7D32),
-                                              width: 4))
-                                      : null,
+                                      ? Colors.white.withOpacity(1)
+                                      : const Color(0xFFF5F5F5).withOpacity(1),
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: isSelected ? const Color.fromARGB(255, 100, 167, 255) : Colors.transparent,
+                                      width: 4,
+                                    ),
+                                  ),
                                 ),
                                 child: Row(
                                   children: [
-                                    Icon(
-                                      _getMenuIcon(menuItems[index]),
-                                      color: isSelected
-                                          ? const Color(0xFF2E7D32)
-                                          : Colors.grey[700],
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        menuItems[index],
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w500,
-                                          color: isSelected
-                                              ? const Color(0xFF2E7D32)
-                                              : Colors.grey[800],
-                                        ),
+                                    AnimatedDefaultTextStyle(
+                                      duration: const Duration(milliseconds: 600),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        color: isSelected
+                                            ? const Color(0xFF2E7D32)
+                                            : Colors.grey[800],
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            _getMenuIcon(menuItems[index]),
+                                            color: isSelected
+                                                ? const Color(0xFF2E7D32)
+                                                : Colors.grey[700],
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Text(menuItems[index]),
+                                        ],
                                       ),
                                     ),
                                   ],
@@ -148,7 +154,13 @@ class _HomePageState extends State<HomePage> {
 
                 // ÁREA PRINCIPAL
                 Expanded(
-                  child: _buildPageContent(),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 400), // tempo da animação
+                    transitionBuilder: (child, animation) {
+                      return FadeTransition(opacity: animation, child: child); // efeito fade
+                    },
+                    child: _buildPageContent(), // o conteúdo que muda
+                  ),
                 ),
               ],
             ),
@@ -254,7 +266,7 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: const Color(0xFF2E7D32), size: 50),
+              Icon(icon, color: const Color.fromARGB(255, 48, 153, 35), size: 50),
               const SizedBox(height: 6),
               Text(
                 label,
