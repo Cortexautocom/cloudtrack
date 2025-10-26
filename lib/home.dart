@@ -50,15 +50,7 @@ class _HomePageState extends State<HomePage> {
                         'assets/logo_top_home.png',
                         height: 35,
                       ),
-                      const SizedBox(width: 10),
-                      const Text(
-                        "CloudTrack",
-                        style: TextStyle(
-                          color: Color(0xFF0D47A1),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                        ),
-                      ),
+                      const SizedBox(width: 10),                      
                     ],
                   ),
                 ),
@@ -222,13 +214,15 @@ class _HomePageState extends State<HomePage> {
               },
             ),
           ),
-          const SizedBox(height: 30),
-          // GRID DE SESSÕES
+          const SizedBox(height: 25),
+
+          // GRID DE SESSÕES (cards menores)
           Expanded(
             child: GridView.count(
-              crossAxisCount: 4,
-              crossAxisSpacing: 20,
-              mainAxisSpacing: 20,
+              crossAxisCount: 5, // 🔹 aumenta colunas para cards menores
+              crossAxisSpacing: 15,
+              mainAxisSpacing: 15,
+              childAspectRatio: 1, // 🔹 1 = quadrado, >1 = mais largo
               children: sessoes
                   .where((s) => s['label']
                       .toLowerCase()
@@ -246,29 +240,26 @@ class _HomePageState extends State<HomePage> {
     return Material(
       elevation: 1,
       color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      clipBehavior: Clip.hardEdge, // 🔹 impede o hover ultrapassar o card
+      borderRadius: BorderRadius.circular(10),
+      clipBehavior: Clip.hardEdge, // mantém hover dentro
       child: InkWell(
-        onTap: () {
-          // ação do card
-        },
-        onHover: (hovering) {
-          // opcional: efeitos mais sutis podem ser adicionados aqui
-        },
-        hoverColor: const Color(0xFFE8F5E9), // cor de destaque suave
+        onTap: () {},
+        hoverColor: const Color(0xFFE8F5E9),
         child: Container(
+          width: 110, // 🔹 define largura mínima visual
+          height: 110, // 🔹 define altura menor
           decoration: BoxDecoration(
             border: Border.all(color: Colors.grey.shade200),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: const Color(0xFF2E7D32), size: 45),
-              const SizedBox(height: 10),
+              Icon(icon, color: const Color(0xFF2E7D32), size: 50),
+              const SizedBox(height: 6),
               Text(
                 label,
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 13,
                   color: Color(0xFF0D47A1),
                   fontWeight: FontWeight.w600,
                 ),
@@ -279,6 +270,7 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+
 
 
   IconData _getMenuIcon(String item) {
