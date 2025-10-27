@@ -7,7 +7,8 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage>
+    with SingleTickerProviderStateMixin {
   int selectedIndex = 0;
   TextEditingController searchController = TextEditingController();
 
@@ -19,13 +20,18 @@ class _HomePageState extends State<HomePage> {
     'Ajuda'
   ];
 
+  // Controle dos menus
+  bool showConversaoList = false;
+  bool showTabelaVolume = false;
+  bool showTabelaDensidade = false;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // 🔹 TOPBAR FIXA NO TOPO
+          // ===== Barra superior =====
           Container(
             height: 60,
             decoration: const BoxDecoration(
@@ -41,30 +47,25 @@ class _HomePageState extends State<HomePage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // LOGO À ESQUERDA
                 Padding(
                   padding: const EdgeInsets.only(left: 10),
                   child: Row(
                     children: [
                       Image.asset(
                         'assets/logo_top_home.png',
-                        //height: 40,
                         fit: BoxFit.contain,
                       ),
-                      const SizedBox(width: 10),                      
+                      const SizedBox(width: 10),
                     ],
                   ),
                 ),
-                // MENU USUÁRIO (direita)
                 Padding(
                   padding: const EdgeInsets.only(right: 20),
                   child: PopupMenuButton<String>(
                     icon: const Icon(Icons.account_circle,
                         color: Color(0xFF0D47A1), size: 30),
                     onSelected: (value) {
-                      if (value == 'Sair') {
-                        // Implementar logout depois
-                      }
+                      if (value == 'Sair') {}
                     },
                     itemBuilder: (BuildContext context) {
                       return {'Perfil', 'Sair'}.map((String choice) {
@@ -80,18 +81,17 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
 
-          // 🔹 CONTEÚDO: MENU + PÁGINA
+          // ===== Corpo principal =====
           Expanded(
             child: Row(
               children: [
-                // MENU LATERAL (agora começa abaixo da topbar)
+                // ===== Menu lateral =====
                 Container(
-                  width: 150,
+                  width: 180,
                   color: const Color(0xFFF5F5F5),
                   child: Column(
                     children: [
                       const SizedBox(height: 20),
-                      // MENU ITENS
                       Expanded(
                         child: ListView.builder(
                           itemCount: menuItems.length,
@@ -102,17 +102,21 @@ class _HomePageState extends State<HomePage> {
                                 setState(() => selectedIndex = index);
                               },
                               child: AnimatedContainer(
-                                key: ValueKey(index), // força o Flutter a animar a troca entre itens
-                                duration: const Duration(milliseconds: 600), // tempo da transição
-                                curve: Curves.easeInOut, // suaviza início e fim
-                                padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 10),
+                                key: ValueKey(index),
+                                duration: const Duration(milliseconds: 600),
+                                curve: Curves.easeInOut,
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 15, horizontal: 10),
                                 decoration: BoxDecoration(
                                   color: isSelected
                                       ? Colors.white.withOpacity(1)
                                       : const Color(0xFFF5F5F5).withOpacity(1),
                                   border: Border(
                                     left: BorderSide(
-                                      color: isSelected ? const Color.fromARGB(255, 100, 167, 255) : Colors.transparent,
+                                      color: isSelected
+                                          ? const Color.fromARGB(
+                                              255, 100, 167, 255)
+                                          : Colors.transparent,
                                       width: 4,
                                     ),
                                   ),
@@ -120,9 +124,12 @@ class _HomePageState extends State<HomePage> {
                                 child: Row(
                                   children: [
                                     AnimatedDefaultTextStyle(
-                                      duration: const Duration(milliseconds: 600),
+                                      duration:
+                                          const Duration(milliseconds: 600),
                                       style: TextStyle(
-                                        fontWeight: FontWeight.w500,
+                                        fontWeight: isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.w500,
                                         color: isSelected
                                             ? const Color(0xFF2E7D32)
                                             : Colors.grey[800],
@@ -152,14 +159,13 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
 
-                // ÁREA PRINCIPAL
+                // ===== Conteúdo principal =====
                 Expanded(
                   child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 400), // tempo da animação
-                    transitionBuilder: (child, animation) {
-                      return FadeTransition(opacity: animation, child: child); // efeito fade
-                    },
-                    child: _buildPageContent(), // o conteúdo que muda
+                    duration: const Duration(milliseconds: 400),
+                    transitionBuilder: (child, animation) =>
+                        FadeTransition(opacity: animation, child: child),
+                    child: _buildPageContent(),
                   ),
                 ),
               ],
@@ -170,9 +176,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // --------------------------------
-  // CONTEÚDOS DAS PÁGINAS
-  // --------------------------------
+  // ====== Decide o que mostrar ======
   Widget _buildPageContent() {
     if (menuItems[selectedIndex] == 'Sessões') {
       return _buildSessoesPage();
@@ -190,9 +194,10 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  // ===== Página de Sessões =====
   Widget _buildSessoesPage() {
     final List<Map<String, dynamic>> sessoes = [
-      {'icon': Icons.local_shipping, 'label': 'Tabelas de conversão'},
+      {'icon': Icons.view_list, 'label': 'Tabelas de conversão'},
       {'icon': Icons.people, 'label': 'Motoristas'},
       {'icon': Icons.map, 'label': 'Rotas'},
       {'icon': Icons.local_gas_station, 'label': 'Abastecimentos'},
@@ -202,71 +207,210 @@ class _HomePageState extends State<HomePage> {
 
     return Padding(
       padding: const EdgeInsets.all(30),
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 500),
+        transitionBuilder: (child, animation) =>
+            FadeTransition(opacity: animation, child: child),
+        child: showConversaoList
+            ? _buildConversaoList()
+            : _buildGridWithSearch(sessoes),
+      ),
+    );
+  }
+
+  // ===== Grade + Barra de Pesquisa =====
+  Widget _buildGridWithSearch(List<Map<String, dynamic>> sessoes) {
+    return Column(
+      key: const ValueKey('grid_with_search'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ===== Barra de Pesquisa =====
+        Container(
+          width: 400,
+          height: 45,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: TextField(
+            controller: searchController,
+            decoration: const InputDecoration(
+              hintText: 'Pesquisar sessões...',
+              prefixIcon: Icon(Icons.search, color: Colors.grey),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(vertical: 10),
+            ),
+            onChanged: (value) {
+              setState(() {});
+            },
+          ),
+        ),
+        const SizedBox(height: 25),
+
+        // ===== Grade de cards =====
+        Expanded(
+          child: GridView.count(
+            key: const ValueKey('grid'),
+            shrinkWrap: true,
+            physics: const AlwaysScrollableScrollPhysics(),
+            crossAxisCount: 10,
+            crossAxisSpacing: 15,
+            mainAxisSpacing: 15,
+            childAspectRatio: 1,
+            children: sessoes
+                .where((s) => s['label']
+                    .toLowerCase()
+                    .contains(searchController.text.toLowerCase()))
+                .map((s) => _buildSessaoCard(s['icon'], s['label']))
+                .toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ===== Menu de tabelas de conversão (lista expansível) =====
+  Widget _buildConversaoList() {
+    return Container(
+      key: const ValueKey('list'),
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(10),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // CAMPO DE BUSCA
-          Container(
-            width: 400,
-            height: 45,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: TextField(
-              controller: searchController,
-              decoration: const InputDecoration(
-                hintText: 'Pesquisar sessões...',
-                prefixIcon: Icon(Icons.search, color: Colors.grey),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 10),
+          // Botão de voltar
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
+                onPressed: () {
+                  setState(() {
+                    showConversaoList = false;
+                    showTabelaVolume = false;
+                    showTabelaDensidade = false;
+                  });
+                },
               ),
-              onChanged: (value) {
-                setState(() {});
-              },
-            ),
+              const Text(
+                "Tabelas de conversão",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0D47A1),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 25),
+          const Divider(),
 
-          // GRID DE SESSÕES (cards menores)
-          Expanded(
-            child: GridView.count(
-              crossAxisCount: 5, // 🔹 aumenta colunas para cards menores
-              crossAxisSpacing: 15,
-              mainAxisSpacing: 15,
-              childAspectRatio: 1, // 🔹 1 = quadrado, >1 = mais largo
-              children: sessoes
-                  .where((s) => s['label']
-                      .toLowerCase()
-                      .contains(searchController.text.toLowerCase()))
-                  .map((s) => _buildSessaoCard(s['icon'], s['label']))
-                  .toList(),
+          // Lista principal
+          ListTile(
+            leading: const Icon(Icons.stacked_bar_chart, color: Colors.green),
+            title: const Text("Tabela de Conversão de Volume"),
+            trailing: Icon(
+              showTabelaVolume ? Icons.expand_less : Icons.expand_more,
             ),
+            onTap: () {
+              setState(() {
+                showTabelaVolume = !showTabelaVolume;
+                showTabelaDensidade = false;
+              });
+            },
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            child: showTabelaVolume
+                ? Padding(
+                    padding: const EdgeInsets.only(left: 40),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        ListTile(
+                          title: Text("TCV Anidro e Hidratado"),
+                          leading: Icon(Icons.insert_drive_file_outlined),
+                        ),
+                        ListTile(
+                          title: Text("TCV Gasolina e Diesel"),
+                          leading: Icon(Icons.insert_drive_file_outlined),
+                        ),
+                      ],
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+
+          ListTile(
+            leading: const Icon(Icons.science, color: Colors.blue),
+            title: const Text("Tabela de Conversão de Densidade"),
+            trailing: Icon(
+              showTabelaDensidade ? Icons.expand_less : Icons.expand_more,
+            ),
+            onTap: () {
+              setState(() {
+                showTabelaDensidade = !showTabelaDensidade;
+                showTabelaVolume = false;
+              });
+            },
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            child: showTabelaDensidade
+                ? Padding(
+                    padding: const EdgeInsets.only(left: 40),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        ListTile(
+                          title: Text("TCD Anidro e Hidratado"),
+                          leading: Icon(Icons.insert_drive_file_outlined),
+                        ),
+                        ListTile(
+                          title: Text("TCD Gasolina e Diesel"),
+                          leading: Icon(Icons.insert_drive_file_outlined),
+                        ),
+                      ],
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ),
         ],
       ),
     );
   }
 
+  // ===== Cada card da grade =====
   Widget _buildSessaoCard(IconData icon, String label) {
     return Material(
       elevation: 1,
       color: Colors.white,
       borderRadius: BorderRadius.circular(10),
-      clipBehavior: Clip.hardEdge, // mantém hover dentro
+      clipBehavior: Clip.hardEdge,
       child: InkWell(
-        onTap: () {},
+        onTap: () {
+          if (label == 'Tabelas de conversão') {
+            setState(() {
+              showConversaoList = true;
+              showTabelaVolume = false;
+              showTabelaDensidade = false;
+            });
+          }
+        },
         hoverColor: const Color(0xFFE8F5E9),
         child: Container(
-          width: 110, // 🔹 define largura mínima visual
-          height: 110, // 🔹 define altura menor
           decoration: BoxDecoration(
             border: Border.all(color: Colors.grey.shade200),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: const Color.fromARGB(255, 48, 153, 35), size: 50),
+              Icon(icon,
+                  color: const Color.fromARGB(255, 48, 153, 35), size: 50),
               const SizedBox(height: 6),
               Text(
                 label,
@@ -283,8 +427,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-
-
+  // ===== Ícones do menu lateral =====
   IconData _getMenuIcon(String item) {
     switch (item) {
       case 'Dashboard':
