@@ -43,7 +43,7 @@ class _HomePageState extends State<HomePage> {
               children: [
                 // LOGO À ESQUERDA
                 Padding(
-                  padding: const EdgeInsets.only(left: 0),
+                  padding: const EdgeInsets.only(left: 10),
                   child: Row(
                     children: [
                       Image.asset(
@@ -192,7 +192,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildSessoesPage() {
     final List<Map<String, dynamic>> sessoes = [
-      {'icon': Icons.local_shipping, 'label': 'Frotas'},
+      {'icon': Icons.local_shipping, 'label': 'Tabelas de conversão'},
       {'icon': Icons.people, 'label': 'Motoristas'},
       {'icon': Icons.map, 'label': 'Rotas'},
       {'icon': Icons.local_gas_station, 'label': 'Abastecimentos'},

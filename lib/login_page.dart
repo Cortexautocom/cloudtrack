@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'home.dart'; // Importa a tela principal para navegar após o login
+import 'home.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -11,8 +12,56 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  bool _obscureText = true; // Mostrar/esconder senha
+  bool _isLoading = false;  // Para exibir o carregamento durante o login
 
-  bool _obscureText = true; // Para mostrar/esconder senha
+  // ======= Função para fazer login no Supabase =======
+  Future<void> loginUser() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final supabase = Supabase.instance.client;
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+
+    try {
+      final response = await supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+
+      if (response.user != null) {
+        // ✅ Login bem-sucedido
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Login realizado com sucesso!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          // Navega para a HomePage
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomePage()),
+          );
+        }
+      }
+    } catch (error) {
+      // ❌ Erro no login
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao fazer login: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,11 +80,10 @@ class _LoginPageState extends State<LoginPage> {
 
           // ======= Logo no canto superior esquerdo =======
           Positioned(
-            top: 80, // controla o afastamento de cima
-            left: 80, // controla o afastamento da esquerda
+            top: 80, // Afastamento do topo
+            left: 80, // Afastamento da esquerda
             child: Image.asset(
               'assets/logo_top_login.png',
-              //width: 160, // tamanho da logo
             ),
           ),
 
@@ -59,7 +107,7 @@ class _LoginPageState extends State<LoginPage> {
               // ======= Campos de login =======
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                children: [                  
+                children: [
                   const SizedBox(height: 10),
                   const Text(
                     "Entre com suas credenciais",
@@ -117,19 +165,16 @@ class _LoginPageState extends State<LoginPage> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      onPressed: () {
-                        // ======= Aqui está a navegação para a HomePage =======
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const HomePage(),
-                          ),
-                        );
-                      },
-                      child: const Text(
-                        'Entrar',
-                        style: TextStyle(fontSize: 16, color: Colors.white),
-                      ),
+                      onPressed: _isLoading ? null : loginUser,
+                      child: _isLoading
+                          ? const CircularProgressIndicator(
+                              color: Colors.white,
+                            )
+                          : const Text(
+                              'Entrar',
+                              style:
+                                  TextStyle(fontSize: 16, color: Colors.white),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 20),

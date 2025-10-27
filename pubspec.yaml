@@ -1,5 +1,5 @@
 name: cloudtrack
-description: "A new Flutter project."
+description: "App de gerenciamento logístico com Supabase e Flutter."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -10,7 +10,18 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
+  # Ícones do iOS
   cupertino_icons: ^1.0.8
+
+  # Banco de dados e autenticação
+  supabase_flutter: ^2.10.3
+
+  # Variáveis de ambiente (.env)
+  flutter_dotenv: ^6.0.0
+
+  # Animações e melhorias visuais (opcional, mas útil para futuras telas)
+  flutter_animate: ^4.5.0
 
 dev_dependencies:
   flutter_test:
@@ -19,7 +30,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
   assets:
     - assets/logo_top_home.png
     - assets/background_login.jpg
     - assets/logo_top_login.png
+    - .env
