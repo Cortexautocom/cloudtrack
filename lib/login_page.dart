@@ -23,9 +23,19 @@ class _LoginPageState extends State<LoginPage> {
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
-                image: AssetImage('assets/background_login.png'),
+                image: AssetImage('assets/background_login.jpg'),
                 fit: BoxFit.cover,
               ),
+            ),
+          ),
+
+          // ======= Logo no canto superior esquerdo =======
+          Positioned(
+            top: 80, // controla o afastamento de cima
+            left: 80, // controla o afastamento da esquerda
+            child: Image.asset(
+              'assets/logo_top_login.png',
+              //width: 160, // tamanho da logo
             ),
           ),
 
@@ -49,15 +59,7 @@ class _LoginPageState extends State<LoginPage> {
               // ======= Campos de login =======
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    "Bem-vindo de volta 👋",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0A4B78), // azul escuro
-                    ),
-                  ),
+                children: [                  
                   const SizedBox(height: 10),
                   const Text(
                     "Entre com suas credenciais",
