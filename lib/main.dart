@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'home.dart'; // importa a tela que criamos separadamente
+import 'login_page.dart';
+
+ // importa a tela que criamos separadamente
+
 
 void main() {
   runApp(const MyApp());
@@ -17,7 +20,7 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Arial',
         scaffoldBackgroundColor: Colors.white,
       ),
-      home: const HomePage(),
+      home: const LoginPage(),
     );
   }
 }
