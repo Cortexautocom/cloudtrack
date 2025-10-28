@@ -22,6 +22,10 @@ dependencies:
 
   # Animações e melhorias visuais (opcional, mas útil para futuras telas)
   flutter_animate: ^4.5.0
+  dio: ^5.9.0
+  path_provider: ^2.1.5
+  open_filex: ^4.7.0
+  universal_html: ^2.2.4
 
 dev_dependencies:
   flutter_test:

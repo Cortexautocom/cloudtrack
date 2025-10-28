@@ -212,7 +212,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    "AwaySoftwares Solution - 505 North Angier Avenue, Atlanta, GA 30308, Estados Unidos.",
+                    "AwaySoftwares Solution - 505 North Angier Avenue, Atlanta, GA 30308, EUA.",
                     style: TextStyle(
                       color: Colors.grey.shade400,
                       fontSize: 13,
