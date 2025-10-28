@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'sessoes/tabelasdeconversao.dart'; // ✅ Import do arquivo separado
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -20,7 +21,7 @@ class _HomePageState extends State<HomePage>
     'Ajuda'
   ];
 
-  // Controle dos menus
+  // Controle da exibição de seções
   bool showConversaoList = false;
   bool showTabelaVolume = false;
   bool showTabelaDensidade = false;
@@ -35,7 +36,7 @@ class _HomePageState extends State<HomePage>
           Container(
             height: 60,
             decoration: const BoxDecoration(
-              color: Color.fromARGB(255, 255, 255, 255),
+              color: Colors.white,
               boxShadow: [
                 BoxShadow(
                   color: Colors.black12,
@@ -109,8 +110,8 @@ class _HomePageState extends State<HomePage>
                                     vertical: 15, horizontal: 10),
                                 decoration: BoxDecoration(
                                   color: isSelected
-                                      ? Colors.white.withOpacity(1)
-                                      : const Color(0xFFF5F5F5).withOpacity(1),
+                                      ? Colors.white
+                                      : const Color(0xFFF5F5F5),
                                   border: Border(
                                     left: BorderSide(
                                       color: isSelected
@@ -212,7 +213,16 @@ class _HomePageState extends State<HomePage>
         transitionBuilder: (child, animation) =>
             FadeTransition(opacity: animation, child: child),
         child: showConversaoList
-            ? _buildConversaoList()
+            ? TabelasDeConversao(
+                key: const ValueKey('tabelas'),
+                onVoltar: () {
+                  setState(() {
+                    showConversaoList = false;
+                    showTabelaVolume = false;
+                    showTabelaDensidade = false;
+                  });
+                },
+              )
             : _buildGridWithSearch(sessoes),
       ),
     );
@@ -250,7 +260,6 @@ class _HomePageState extends State<HomePage>
         // ===== Grade de cards =====
         Expanded(
           child: GridView.count(
-            key: const ValueKey('grid'),
             shrinkWrap: true,
             physics: const AlwaysScrollableScrollPhysics(),
             crossAxisCount: 10,
@@ -269,121 +278,6 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ===== Menu de tabelas de conversão (lista expansível) =====
-  Widget _buildConversaoList() {
-    return Container(
-      key: const ValueKey('list'),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Botão de voltar
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
-                onPressed: () {
-                  setState(() {
-                    showConversaoList = false;
-                    showTabelaVolume = false;
-                    showTabelaDensidade = false;
-                  });
-                },
-              ),
-              const Text(
-                "Tabelas de conversão",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0D47A1),
-                ),
-              ),
-            ],
-          ),
-          const Divider(),
-
-          // Lista principal
-          ListTile(
-            leading: const Icon(Icons.stacked_bar_chart, color: Colors.green),
-            title: const Text("Tabela de Conversão de Volume"),
-            trailing: Icon(
-              showTabelaVolume ? Icons.expand_less : Icons.expand_more,
-            ),
-            onTap: () {
-              setState(() {
-                showTabelaVolume = !showTabelaVolume;
-                showTabelaDensidade = false;
-              });
-            },
-          ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            child: showTabelaVolume
-                ? Padding(
-                    padding: const EdgeInsets.only(left: 40),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        ListTile(
-                          title: Text("TCV Anidro e Hidratado"),
-                          leading: Icon(Icons.insert_drive_file_outlined),
-                        ),
-                        ListTile(
-                          title: Text("TCV Gasolina e Diesel"),
-                          leading: Icon(Icons.insert_drive_file_outlined),
-                        ),
-                      ],
-                    ),
-                  )
-                : const SizedBox.shrink(),
-          ),
-
-          ListTile(
-            leading: const Icon(Icons.science, color: Colors.blue),
-            title: const Text("Tabela de Conversão de Densidade"),
-            trailing: Icon(
-              showTabelaDensidade ? Icons.expand_less : Icons.expand_more,
-            ),
-            onTap: () {
-              setState(() {
-                showTabelaDensidade = !showTabelaDensidade;
-                showTabelaVolume = false;
-              });
-            },
-          ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            child: showTabelaDensidade
-                ? Padding(
-                    padding: const EdgeInsets.only(left: 40),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        ListTile(
-                          title: Text("TCD Anidro e Hidratado"),
-                          leading: Icon(Icons.insert_drive_file_outlined),
-                        ),
-                        ListTile(
-                          title: Text("TCD Gasolina e Diesel"),
-                          leading: Icon(Icons.insert_drive_file_outlined),
-                        ),
-                      ],
-                    ),
-                  )
-                : const SizedBox.shrink(),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ===== Cada card da grade =====
   Widget _buildSessaoCard(IconData icon, String label) {
     return Material(
@@ -396,8 +290,6 @@ class _HomePageState extends State<HomePage>
           if (label == 'Tabelas de conversão') {
             setState(() {
               showConversaoList = true;
-              showTabelaVolume = false;
-              showTabelaDensidade = false;
             });
           }
         },

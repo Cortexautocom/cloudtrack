@@ -191,6 +191,40 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
           ),
+
+          // ======= Rodapé com endereço =======
+          Positioned(
+            bottom: 30, // distância da borda inferior
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "© 2025 OneTrust, LLC. Todos os direitos reservados.",
+                    style: TextStyle(
+                      color: Colors.grey.shade400,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "AwaySoftwares Solution - 505 North Angier Avenue, Atlanta, GA 30308, Estados Unidos.",
+                    style: TextStyle(
+                      color: Colors.grey.shade400,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 4),                  
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
