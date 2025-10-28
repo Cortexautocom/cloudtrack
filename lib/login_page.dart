@@ -202,7 +202,7 @@ class _LoginPageState extends State<LoginPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    "© 2025 OneTrust, LLC. Todos os direitos reservados.",
+                    "© 2025 CloudTrack, LLC. All rights reserved.",
                     style: TextStyle(
                       color: Colors.grey.shade400,
                       fontSize: 13,
