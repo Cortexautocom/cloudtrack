@@ -4,7 +4,6 @@ import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:universal_html/html.dart' as html; // ✅ Substitui dart:html (seguro para web)
-import 'dart:io' show Platform;
 
 class TabelasDeConversao extends StatefulWidget {
   final VoidCallback onVoltar; // Função para voltar aos cards
@@ -28,7 +27,7 @@ class _TabelasDeConversaoState extends State<TabelasDeConversao>
     try {
       if (kIsWeb) {
         // 🌐 FLUTTER WEB → download direto pelo navegador
-        final anchor = html.AnchorElement(href: url)
+        html.AnchorElement(href: url)
           ..download = titulo.replaceAll(' ', '_') + '.xlsx'
           ..target = '_blank'
           ..click();
