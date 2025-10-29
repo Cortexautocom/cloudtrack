@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'sessoes/tabelasdeconversao.dart';
-import 'login_page.dart'; // para voltar ao LoginPage
+import 'configuracoes/controle_acesso_usuarios.dart';
+import 'login_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomePage extends StatefulWidget {
@@ -15,6 +16,7 @@ class _HomePageState extends State<HomePage>
   int selectedIndex = 0;
   TextEditingController searchController = TextEditingController();
 
+  // Itens do menu lateral
   final List<String> menuItems = [
     'Dashboard',
     'Sessões',
@@ -23,9 +25,10 @@ class _HomePageState extends State<HomePage>
     'Ajuda'
   ];
 
+  // Controle de exibição
   bool showConversaoList = false;
-  bool showTabelaVolume = false;
-  bool showTabelaDensidade = false;
+  bool showControleAcesso = false;
+  bool showConfigList = false;
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +54,7 @@ class _HomePageState extends State<HomePage>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // ===== Logo lado esquerdo =====
+                // ===== Logo =====
                 Padding(
                   padding: const EdgeInsets.only(left: 10),
                   child: Image.asset(
@@ -60,12 +63,11 @@ class _HomePageState extends State<HomePage>
                   ),
                 ),
 
-                // ===== Nome do usuário + menu de perfil =====
+                // ===== Nome + Perfil =====
                 Padding(
                   padding: const EdgeInsets.only(right: 20),
                   child: Row(
                     children: [
-                      // Nome do usuário logado
                       Text(
                         usuario != null ? usuario.nome : "",
                         style: const TextStyle(
@@ -75,8 +77,6 @@ class _HomePageState extends State<HomePage>
                         ),
                       ),
                       const SizedBox(width: 10),
-
-                      // Dropdown de perfil
                       PopupMenuButton<String>(
                         icon: const Icon(
                           Icons.account_circle,
@@ -85,10 +85,8 @@ class _HomePageState extends State<HomePage>
                         ),
                         onSelected: (value) async {
                           if (value == 'Sair') {
-                            // 🔹 Desloga do Supabase e volta ao login
                             await Supabase.instance.client.auth.signOut();
                             UsuarioAtual.instance = null;
-
                             if (context.mounted) {
                               Navigator.pushAndRemoveUntil(
                                 context,
@@ -99,8 +97,8 @@ class _HomePageState extends State<HomePage>
                             }
                           }
                         },
-                        itemBuilder: (BuildContext context) {
-                          return {'Perfil', 'Sair'}.map((String choice) {
+                        itemBuilder: (context) {
+                          return {'Perfil', 'Sair'}.map((choice) {
                             return PopupMenuItem<String>(
                               value: choice,
                               child: Text(choice),
@@ -132,11 +130,16 @@ class _HomePageState extends State<HomePage>
                           itemBuilder: (context, index) {
                             bool isSelected = selectedIndex == index;
                             return InkWell(
-                              onTap: () => setState(() => selectedIndex = index),
+                              onTap: () {
+                                setState(() {
+                                  selectedIndex = index;
+                                  showConversaoList = false;
+                                  showControleAcesso = false;
+                                  showConfigList = false;
+                                });
+                              },
                               child: AnimatedContainer(
-                                key: ValueKey(index),
-                                duration: const Duration(milliseconds: 600),
-                                curve: Curves.easeInOut,
+                                duration: const Duration(milliseconds: 400),
                                 padding: const EdgeInsets.symmetric(
                                     vertical: 15, horizontal: 10),
                                 decoration: BoxDecoration(
@@ -146,8 +149,7 @@ class _HomePageState extends State<HomePage>
                                   border: Border(
                                     left: BorderSide(
                                       color: isSelected
-                                          ? const Color.fromARGB(
-                                              255, 100, 167, 255)
+                                          ? const Color(0xFF64A7FF)
                                           : Colors.transparent,
                                       width: 4,
                                     ),
@@ -155,9 +157,16 @@ class _HomePageState extends State<HomePage>
                                 ),
                                 child: Row(
                                   children: [
-                                    AnimatedDefaultTextStyle(
-                                      duration:
-                                          const Duration(milliseconds: 600),
+                                    Icon(
+                                      _getMenuIcon(menuItems[index]),
+                                      color: isSelected
+                                          ? const Color(0xFF2E7D32)
+                                          : Colors.grey[700],
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      menuItems[index],
                                       style: TextStyle(
                                         fontWeight: isSelected
                                             ? FontWeight.bold
@@ -165,19 +174,6 @@ class _HomePageState extends State<HomePage>
                                         color: isSelected
                                             ? const Color(0xFF2E7D32)
                                             : Colors.grey[800],
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            _getMenuIcon(menuItems[index]),
-                                            color: isSelected
-                                                ? const Color(0xFF2E7D32)
-                                                : Colors.grey[700],
-                                            size: 20,
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Text(menuItems[index]),
-                                        ],
                                       ),
                                     ),
                                   ],
@@ -210,26 +206,28 @@ class _HomePageState extends State<HomePage>
 
   // ===== Decide o que mostrar =====
   Widget _buildPageContent(UsuarioAtual? usuario) {
-    if (menuItems[selectedIndex] == 'Sessões') {
-      return _buildSessoesPage(usuario);
-    } else {
-      return Center(
-        child: Text(
-          '${menuItems[selectedIndex]} em construção...',
-          style: const TextStyle(
-            fontSize: 22,
-            color: Color(0xFF0D47A1),
-            fontWeight: FontWeight.w600,
+    switch (menuItems[selectedIndex]) {
+      case 'Sessões':
+        return _buildSessoesPage(usuario);
+      case 'Configurações':
+        return _buildConfiguracoesPage(usuario);
+      default:
+        return Center(
+          child: Text(
+            '${menuItems[selectedIndex]} em construção...',
+            style: const TextStyle(
+              fontSize: 22,
+              color: Color(0xFF0D47A1),
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-      );
+        );
     }
   }
 
   // ===== Página de Sessões =====
   Widget _buildSessoesPage(UsuarioAtual? usuario) {
-    // Lista completa das sessões disponíveis
-    final List<Map<String, dynamic>> sessoes = [
+    final sessoes = [
       {
         'icon': Icons.view_list,
         'label': 'Tabelas de conversão',
@@ -246,11 +244,10 @@ class _HomePageState extends State<HomePage>
       {'icon': Icons.warehouse, 'label': 'Depósitos', 'id': 'uuid_depositos'},
     ];
 
-    // 🔒 Filtra sessões de acordo com as permissões do usuário
     final sessoesVisiveis = sessoes.where((sessao) {
       if (usuario == null) return false;
-      if (usuario.nivel >= 2) return true; // gerente ou admin veem tudo
-      return usuario.temPermissao(sessao['id']);
+      if (usuario.nivel >= 2) return true;
+      return usuario.temPermissao(sessao['id']?.toString() ?? '');
     }).toList();
 
     return Padding(
@@ -263,25 +260,112 @@ class _HomePageState extends State<HomePage>
             ? TabelasDeConversao(
                 key: const ValueKey('tabelas'),
                 onVoltar: () {
-                  setState(() {
-                    showConversaoList = false;
-                    showTabelaVolume = false;
-                    showTabelaDensidade = false;
-                  });
+                  setState(() => showConversaoList = false);
                 },
               )
-            : _buildGridWithSearch(sessoesVisiveis),
+            : _buildGridWithSearch(sessoesVisiveis, usuario),
       ),
     );
   }
 
-  // ===== Grade + Pesquisa =====
-  Widget _buildGridWithSearch(List<Map<String, dynamic>> sessoes) {
+  // ===== Página de Configurações =====
+  Widget _buildConfiguracoesPage(UsuarioAtual? usuario) {
+    if (showControleAcesso) {
+      return ControleAcessoUsuarios(
+        key: const ValueKey('controle_acesso'),
+        onVoltar: () => setState(() => showControleAcesso = false),
+      );
+    }
+
+    final List<Map<String, dynamic>> configCards = [];
+
+    // Apenas nível 2 ou 3 visualiza o card Controle de Acesso
+    if (usuario != null && usuario.nivel >= 2) {
+      configCards.add({
+        'icon': Icons.admin_panel_settings,
+        'label': 'Controle de acesso',
+      });
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(30),
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 400),
+        transitionBuilder: (child, animation) =>
+            FadeTransition(opacity: animation, child: child),
+        child: showConfigList
+            ? _buildGridConfiguracoes(configCards)
+            : _buildGridConfiguracoes(configCards),
+      ),
+    );
+  }
+
+  // ===== Grade de Configurações =====
+  Widget _buildGridConfiguracoes(List<Map<String, dynamic>> configCards) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Configurações do sistema",
+          style: TextStyle(
+            fontSize: 18,
+            color: Color(0xFF0D47A1),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 20),
+        Expanded(
+          child: GridView.count(
+            crossAxisCount: 6,
+            crossAxisSpacing: 15,
+            mainAxisSpacing: 15,
+            childAspectRatio: 1,
+            children: configCards.map((c) {
+              return Material(
+                color: Colors.white,
+                elevation: 1,
+                borderRadius: BorderRadius.circular(10),
+                clipBehavior: Clip.hardEdge,
+                child: InkWell(
+                  onTap: () {
+                    if (c['label'] == 'Controle de acesso') {
+                      setState(() => showControleAcesso = true);
+                    }
+                  },
+                  hoverColor: const Color(0xFFE8F5E9),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(c['icon'],
+                          color: const Color.fromARGB(255, 48, 153, 35),
+                          size: 50),
+                      const SizedBox(height: 8),
+                      Text(
+                        c['label'],
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF0D47A1),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ===== Grade de Sessões com busca =====
+  Widget _buildGridWithSearch(
+      List<Map<String, dynamic>> sessoes, UsuarioAtual? usuario) {
     return Column(
       key: const ValueKey('grid_with_search'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Barra de pesquisa
         Container(
           width: 400,
           height: 45,
@@ -295,18 +379,14 @@ class _HomePageState extends State<HomePage>
               hintText: 'Pesquisar sessões...',
               prefixIcon: Icon(Icons.search, color: Colors.grey),
               border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(vertical: 10),
             ),
             onChanged: (_) => setState(() {}),
           ),
         ),
         const SizedBox(height: 25),
-
-        // Grade de cards filtrados
         Expanded(
           child: GridView.count(
             shrinkWrap: true,
-            physics: const AlwaysScrollableScrollPhysics(),
             crossAxisCount: 7,
             crossAxisSpacing: 15,
             mainAxisSpacing: 15,
@@ -333,9 +413,7 @@ class _HomePageState extends State<HomePage>
       child: InkWell(
         onTap: () {
           if (label == 'Tabelas de conversão') {
-            setState(() {
-              showConversaoList = true;
-            });
+            setState(() => showConversaoList = true);
           }
         },
         hoverColor: const Color(0xFFE8F5E9),
@@ -364,7 +442,7 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ===== Ícones do menu lateral =====
+  // ===== Ícones =====
   IconData _getMenuIcon(String item) {
     switch (item) {
       case 'Dashboard':

@@ -63,7 +63,7 @@ class _LoginPageState extends State<LoginPage> {
       // 🔹 2. Busca dados complementares do usuário
       final usuarioData = await supabase
           .from('usuarios')
-          .select('id, nome, nivel, filial_id')
+          .select('id, nome, nivel, id_filial')
           .eq('id', userId)
           .maybeSingle();
 
@@ -90,8 +90,8 @@ class _LoginPageState extends State<LoginPage> {
         id: usuarioData['id'],
         nome: usuarioData['nome'],
         nivel: usuarioData['nivel'],
-        filialId: usuarioData['filial_id'] != null
-            ? usuarioData['filial_id'].toString()
+        filialId: usuarioData['id_filial'] != null
+            ? usuarioData['id_filial'].toString()
             : null, // ✅ evita erro de tipo
         sessoesPermitidas: sessoesPermitidas,
       );
