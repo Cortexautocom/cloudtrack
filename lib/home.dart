@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'sessoes/tabelasdeconversao.dart';
-import 'login_page.dart'; // para usar UsuarioAtual
+import 'login_page.dart'; // para voltar ao LoginPage
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomePage extends StatefulWidget {
@@ -76,15 +76,27 @@ class _HomePageState extends State<HomePage>
                       ),
                       const SizedBox(width: 10),
 
-                      // Menu de perfil
+                      // Dropdown de perfil
                       PopupMenuButton<String>(
-                        icon: const Icon(Icons.account_circle,
-                            color: Color(0xFF0D47A1), size: 30),
-                        onSelected: (value) {
+                        icon: const Icon(
+                          Icons.account_circle,
+                          color: Color(0xFF0D47A1),
+                          size: 30,
+                        ),
+                        onSelected: (value) async {
                           if (value == 'Sair') {
-                            Supabase.instance.client.auth.signOut();
+                            // 🔹 Desloga do Supabase e volta ao login
+                            await Supabase.instance.client.auth.signOut();
                             UsuarioAtual.instance = null;
-                            Navigator.pushReplacementNamed(context, '/');
+
+                            if (context.mounted) {
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => const LoginPage()),
+                                (route) => false,
+                              );
+                            }
                           }
                         },
                         itemBuilder: (BuildContext context) {
