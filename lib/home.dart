@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'sessoes/tabelasdeconversao.dart';
-import 'login_page.dart';
+import 'login_page.dart'; // para usar UsuarioAtual
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomePage extends StatefulWidget {
@@ -51,46 +51,52 @@ class _HomePageState extends State<HomePage>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Logo
+                // ===== Logo lado esquerdo =====
                 Padding(
                   padding: const EdgeInsets.only(left: 10),
+                  child: Image.asset(
+                    'assets/logo_top_home.png',
+                    fit: BoxFit.contain,
+                  ),
+                ),
+
+                // ===== Nome do usuário + menu de perfil =====
+                Padding(
+                  padding: const EdgeInsets.only(right: 20),
                   child: Row(
                     children: [
-                      Image.asset('assets/logo_top_home.png', fit: BoxFit.contain),
-                      const SizedBox(width: 10),
+                      // Nome do usuário logado
                       Text(
                         usuario != null ? usuario.nome : "",
                         style: const TextStyle(
                           fontSize: 14,
                           color: Color(0xFF0D47A1),
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
-                  ),
-                ),
+                      const SizedBox(width: 10),
 
-                // Menu do usuário
-                Padding(
-                  padding: const EdgeInsets.only(right: 20),
-                  child: PopupMenuButton<String>(
-                    icon: const Icon(Icons.account_circle,
-                        color: Color(0xFF0D47A1), size: 30),
-                    onSelected: (value) {
-                      if (value == 'Sair') {
-                        Supabase.instance.client.auth.signOut();
-                        UsuarioAtual.instance = null;
-                        Navigator.pushReplacementNamed(context, '/');
-                      }
-                    },
-                    itemBuilder: (BuildContext context) {
-                      return {'Perfil', 'Sair'}.map((String choice) {
-                        return PopupMenuItem<String>(
-                          value: choice,
-                          child: Text(choice),
-                        );
-                      }).toList();
-                    },
+                      // Menu de perfil
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.account_circle,
+                            color: Color(0xFF0D47A1), size: 30),
+                        onSelected: (value) {
+                          if (value == 'Sair') {
+                            Supabase.instance.client.auth.signOut();
+                            UsuarioAtual.instance = null;
+                            Navigator.pushReplacementNamed(context, '/');
+                          }
+                        },
+                        itemBuilder: (BuildContext context) {
+                          return {'Perfil', 'Sair'}.map((String choice) {
+                            return PopupMenuItem<String>(
+                              value: choice,
+                              child: Text(choice),
+                            );
+                          }).toList();
+                        },
+                      ),
+                    ],
                   ),
                 ),
               ],

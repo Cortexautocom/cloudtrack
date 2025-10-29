@@ -9,20 +9,20 @@ class UsuarioAtual {
   final String id;
   final String nome;
   final int nivel;
-  final String filialId;
-  final List<String> sessoesPermitidas; // IDs das sessões liberadas
+  final String? filialId; // ✅ agora pode ser nulo
+  final List<String> sessoesPermitidas;
 
   UsuarioAtual({
     required this.id,
     required this.nome,
     required this.nivel,
-    required this.filialId,
+    this.filialId, // ✅ opcional
     required this.sessoesPermitidas,
   });
 
   bool temPermissao(String idSessao) {
-    if (nivel >= 2) return true; // Nível 2 e 3 têm acesso total
-    return sessoesPermitidas.contains(idSessao); // Nível 1 só as liberadas
+    if (nivel >= 2) return true; // nível 2 e 3 têm acesso total
+    return sessoesPermitidas.contains(idSessao);
   }
 }
 
@@ -71,7 +71,7 @@ class _LoginPageState extends State<LoginPage> {
         throw 'Usuário não encontrado na tabela de usuários.';
       }
 
-      // 🔹 3. Busca permissões, apenas se nível = 1 (funcionário)
+      // 🔹 3. Busca permissões, apenas se nível = 1
       List<String> sessoesPermitidas = [];
 
       if (usuarioData['nivel'] == 1) {
@@ -85,16 +85,18 @@ class _LoginPageState extends State<LoginPage> {
             List<String>.from(permissoes.map((p) => p['id_sessao']));
       }
 
-      // 🔹 4. Salva o usuário globalmente
+      // 🔹 4. Cria objeto do usuário (sem exigir filial)
       UsuarioAtual.instance = UsuarioAtual(
         id: usuarioData['id'],
         nome: usuarioData['nome'],
         nivel: usuarioData['nivel'],
-        filialId: usuarioData['filial_id'],
+        filialId: usuarioData['filial_id'] != null
+            ? usuarioData['filial_id'].toString()
+            : null, // ✅ evita erro de tipo
         sessoesPermitidas: sessoesPermitidas,
       );
 
-      // 🔹 5. Mensagem de sucesso + navegação
+      // 🔹 5. Mensagem e navegação
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -108,7 +110,6 @@ class _LoginPageState extends State<LoginPage> {
         );
       }
     } catch (error) {
-      // ❌ Erro no login
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Erro ao fazer login: $error'),
@@ -136,14 +137,14 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
 
-          // ===== Logo superior =====
+          // ===== Logo =====
           Positioned(
             top: 80,
             left: 80,
             child: Image.asset('assets/logo_top_login.png'),
           ),
 
-          // ===== Caixa central =====
+          // ===== Caixa principal =====
           Center(
             child: Container(
               width: 380,
