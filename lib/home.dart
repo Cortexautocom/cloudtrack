@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'sessoes/tabelasdeconversao.dart'; // ✅ Import do arquivo separado
+import 'sessoes/tabelasdeconversao.dart';
+import 'login_page.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -21,13 +23,14 @@ class _HomePageState extends State<HomePage>
     'Ajuda'
   ];
 
-  // Controle da exibição de seções
   bool showConversaoList = false;
   bool showTabelaVolume = false;
   bool showTabelaDensidade = false;
 
   @override
   Widget build(BuildContext context) {
+    final usuario = UsuarioAtual.instance;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
@@ -48,25 +51,37 @@ class _HomePageState extends State<HomePage>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                // Logo
                 Padding(
                   padding: const EdgeInsets.only(left: 10),
                   child: Row(
                     children: [
-                      Image.asset(
-                        'assets/logo_top_home.png',
-                        fit: BoxFit.contain,
-                      ),
+                      Image.asset('assets/logo_top_home.png', fit: BoxFit.contain),
                       const SizedBox(width: 10),
+                      Text(
+                        usuario != null ? usuario.nome : "",
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF0D47A1),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ],
                   ),
                 ),
+
+                // Menu do usuário
                 Padding(
                   padding: const EdgeInsets.only(right: 20),
                   child: PopupMenuButton<String>(
                     icon: const Icon(Icons.account_circle,
                         color: Color(0xFF0D47A1), size: 30),
                     onSelected: (value) {
-                      if (value == 'Sair') {}
+                      if (value == 'Sair') {
+                        Supabase.instance.client.auth.signOut();
+                        UsuarioAtual.instance = null;
+                        Navigator.pushReplacementNamed(context, '/');
+                      }
                     },
                     itemBuilder: (BuildContext context) {
                       return {'Perfil', 'Sair'}.map((String choice) {
@@ -99,9 +114,7 @@ class _HomePageState extends State<HomePage>
                           itemBuilder: (context, index) {
                             bool isSelected = selectedIndex == index;
                             return InkWell(
-                              onTap: () {
-                                setState(() => selectedIndex = index);
-                              },
+                              onTap: () => setState(() => selectedIndex = index),
                               child: AnimatedContainer(
                                 key: ValueKey(index),
                                 duration: const Duration(milliseconds: 600),
@@ -166,7 +179,7 @@ class _HomePageState extends State<HomePage>
                     duration: const Duration(milliseconds: 400),
                     transitionBuilder: (child, animation) =>
                         FadeTransition(opacity: animation, child: child),
-                    child: _buildPageContent(),
+                    child: _buildPageContent(usuario),
                   ),
                 ),
               ],
@@ -177,10 +190,10 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ====== Decide o que mostrar ======
-  Widget _buildPageContent() {
+  // ===== Decide o que mostrar =====
+  Widget _buildPageContent(UsuarioAtual? usuario) {
     if (menuItems[selectedIndex] == 'Sessões') {
-      return _buildSessoesPage();
+      return _buildSessoesPage(usuario);
     } else {
       return Center(
         child: Text(
@@ -196,15 +209,31 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== Página de Sessões =====
-  Widget _buildSessoesPage() {
+  Widget _buildSessoesPage(UsuarioAtual? usuario) {
+    // Lista completa das sessões disponíveis
     final List<Map<String, dynamic>> sessoes = [
-      {'icon': Icons.view_list, 'label': 'Tabelas de conversão'},
-      {'icon': Icons.people, 'label': 'Motoristas'},
-      {'icon': Icons.map, 'label': 'Rotas'},
-      {'icon': Icons.local_gas_station, 'label': 'Abastecimentos'},
-      {'icon': Icons.description, 'label': 'Documentos'},
-      {'icon': Icons.warehouse, 'label': 'Depósitos'},
+      {
+        'icon': Icons.view_list,
+        'label': 'Tabelas de conversão',
+        'id': '1748397b-d907-4d7e-a566-2f8e5cffc7d9'
+      },
+      {'icon': Icons.people, 'label': 'Motoristas', 'id': 'uuid_motoristas'},
+      {'icon': Icons.map, 'label': 'Rotas', 'id': 'uuid_rotas'},
+      {
+        'icon': Icons.local_gas_station,
+        'label': 'Abastecimentos',
+        'id': 'uuid_abastecimentos'
+      },
+      {'icon': Icons.description, 'label': 'Documentos', 'id': 'uuid_documentos'},
+      {'icon': Icons.warehouse, 'label': 'Depósitos', 'id': 'uuid_depositos'},
     ];
+
+    // 🔒 Filtra sessões de acordo com as permissões do usuário
+    final sessoesVisiveis = sessoes.where((sessao) {
+      if (usuario == null) return false;
+      if (usuario.nivel >= 2) return true; // gerente ou admin veem tudo
+      return usuario.temPermissao(sessao['id']);
+    }).toList();
 
     return Padding(
       padding: const EdgeInsets.all(30),
@@ -223,18 +252,18 @@ class _HomePageState extends State<HomePage>
                   });
                 },
               )
-            : _buildGridWithSearch(sessoes),
+            : _buildGridWithSearch(sessoesVisiveis),
       ),
     );
   }
 
-  // ===== Grade + Barra de Pesquisa =====
+  // ===== Grade + Pesquisa =====
   Widget _buildGridWithSearch(List<Map<String, dynamic>> sessoes) {
     return Column(
       key: const ValueKey('grid_with_search'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ===== Barra de Pesquisa =====
+        // Barra de pesquisa
         Container(
           width: 400,
           height: 45,
@@ -250,19 +279,17 @@ class _HomePageState extends State<HomePage>
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(vertical: 10),
             ),
-            onChanged: (value) {
-              setState(() {});
-            },
+            onChanged: (_) => setState(() {}),
           ),
         ),
         const SizedBox(height: 25),
 
-        // ===== Grade de cards =====
+        // Grade de cards filtrados
         Expanded(
           child: GridView.count(
             shrinkWrap: true,
             physics: const AlwaysScrollableScrollPhysics(),
-            crossAxisCount: 10,
+            crossAxisCount: 7,
             crossAxisSpacing: 15,
             mainAxisSpacing: 15,
             childAspectRatio: 1,
@@ -278,7 +305,7 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ===== Cada card da grade =====
+  // ===== Cada card =====
   Widget _buildSessaoCard(IconData icon, String label) {
     return Material(
       elevation: 1,

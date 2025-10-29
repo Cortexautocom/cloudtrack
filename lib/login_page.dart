@@ -2,6 +2,30 @@ import 'package:flutter/material.dart';
 import 'home.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// 🧩 Classe global que armazena dados do usuário logado
+class UsuarioAtual {
+  static UsuarioAtual? instance;
+
+  final String id;
+  final String nome;
+  final int nivel;
+  final String filialId;
+  final List<String> sessoesPermitidas; // IDs das sessões liberadas
+
+  UsuarioAtual({
+    required this.id,
+    required this.nome,
+    required this.nivel,
+    required this.filialId,
+    required this.sessoesPermitidas,
+  });
+
+  bool temPermissao(String idSessao) {
+    if (nivel >= 2) return true; // Nível 2 e 3 têm acesso total
+    return sessoesPermitidas.contains(idSessao); // Nível 1 só as liberadas
+  }
+}
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -12,41 +36,76 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  bool _obscureText = true; // Mostrar/esconder senha
-  bool _isLoading = false;  // Para exibir o carregamento durante o login
+  bool _obscureText = true;
+  bool _isLoading = false;
 
-  // ======= Função para fazer login no Supabase =======
+  // ======= Função de login com controle de acesso =======
   Future<void> loginUser() async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     final supabase = Supabase.instance.client;
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
     try {
+      // 🔹 1. Autentica no Supabase Auth
       final response = await supabase.auth.signInWithPassword(
         email: email,
         password: password,
       );
 
-      if (response.user != null) {
-        // ✅ Login bem-sucedido
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Login realizado com sucesso!'),
-              backgroundColor: Colors.green,
-            ),
-          );
+      if (response.user == null) {
+        throw 'Usuário ou senha incorretos';
+      }
 
-          // Navega para a HomePage
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const HomePage()),
-          );
-        }
+      final userId = response.user!.id;
+
+      // 🔹 2. Busca dados complementares do usuário
+      final usuarioData = await supabase
+          .from('usuarios')
+          .select('id, nome, nivel, filial_id')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (usuarioData == null) {
+        throw 'Usuário não encontrado na tabela de usuários.';
+      }
+
+      // 🔹 3. Busca permissões, apenas se nível = 1 (funcionário)
+      List<String> sessoesPermitidas = [];
+
+      if (usuarioData['nivel'] == 1) {
+        final permissoes = await supabase
+            .from('permissoes')
+            .select('id_sessao')
+            .eq('id_usuario', usuarioData['id'])
+            .eq('permitido', true);
+
+        sessoesPermitidas =
+            List<String>.from(permissoes.map((p) => p['id_sessao']));
+      }
+
+      // 🔹 4. Salva o usuário globalmente
+      UsuarioAtual.instance = UsuarioAtual(
+        id: usuarioData['id'],
+        nome: usuarioData['nome'],
+        nivel: usuarioData['nivel'],
+        filialId: usuarioData['filial_id'],
+        sessoesPermitidas: sessoesPermitidas,
+      );
+
+      // 🔹 5. Mensagem de sucesso + navegação
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Login realizado com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+        );
       }
     } catch (error) {
       // ❌ Erro no login
@@ -57,18 +116,17 @@ class _LoginPageState extends State<LoginPage> {
         ),
       );
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
+  // ======= Interface de login =======
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          // ======= Fundo com imagem =======
+          // ===== Fundo =====
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
@@ -78,16 +136,14 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
 
-          // ======= Logo no canto superior esquerdo =======
+          // ===== Logo superior =====
           Positioned(
-            top: 80, // Afastamento do topo
-            left: 80, // Afastamento da esquerda
-            child: Image.asset(
-              'assets/logo_top_login.png',
-            ),
+            top: 80,
+            left: 80,
+            child: Image.asset('assets/logo_top_login.png'),
           ),
 
-          // ======= Conteúdo principal =======
+          // ===== Caixa central =====
           Center(
             child: Container(
               width: 380,
@@ -103,8 +159,6 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ],
               ),
-
-              // ======= Campos de login =======
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -115,7 +169,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 30),
 
-                  // ======= Campo de e-mail =======
+                  // ===== Campo de e-mail =====
                   TextField(
                     controller: emailController,
                     decoration: InputDecoration(
@@ -128,7 +182,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 20),
 
-                  // ======= Campo de senha =======
+                  // ===== Campo de senha =====
                   TextField(
                     controller: passwordController,
                     obscureText: _obscureText,
@@ -141,11 +195,8 @@ class _LoginPageState extends State<LoginPage> {
                               ? Icons.visibility_off_outlined
                               : Icons.visibility_outlined,
                         ),
-                        onPressed: () {
-                          setState(() {
-                            _obscureText = !_obscureText;
-                          });
-                        },
+                        onPressed: () =>
+                            setState(() => _obscureText = !_obscureText),
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -154,7 +205,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 25),
 
-                  // ======= Botão de login =======
+                  // ===== Botão Entrar =====
                   SizedBox(
                     width: double.infinity,
                     height: 48,
@@ -167,9 +218,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       onPressed: _isLoading ? null : loginUser,
                       child: _isLoading
-                          ? const CircularProgressIndicator(
-                              color: Colors.white,
-                            )
+                          ? const CircularProgressIndicator(color: Colors.white)
                           : const Text(
                               'Entrar',
                               style:
@@ -179,7 +228,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 20),
 
-                  // ======= Esqueci minha senha =======
+                  // ===== Esqueci senha =====
                   TextButton(
                     onPressed: () {},
                     child: const Text(
@@ -192,9 +241,9 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
 
-          // ======= Rodapé com endereço =======
+          // ===== Rodapé =====
           Positioned(
-            bottom: 30, // distância da borda inferior
+            bottom: 30,
             left: 0,
             right: 0,
             child: Center(
@@ -220,7 +269,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 4),                  
                 ],
               ),
             ),

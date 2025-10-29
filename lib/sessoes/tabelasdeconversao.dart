@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb; // ✅ Detecta se está no navegador
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:universal_html/html.dart' as html; // ✅ Substitui dart:html (seguro para web)
+import 'package:universal_html/html.dart' as html;
 
 class TabelasDeConversao extends StatefulWidget {
   final VoidCallback onVoltar; // Função para voltar aos cards
