@@ -16,7 +16,6 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
 
   bool carregando = true;
   bool exibindoSessoes = false;
-  bool houveAlteracao = false;
 
   List<Map<String, dynamic>> usuarios = [];
   List<Map<String, dynamic>> sessoes = [];
@@ -91,6 +90,56 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
       debugPrint('Erro ao carregar sessões: $e');
     } finally {
       setState(() => carregando = false);
+    }
+  }
+
+  // 🔹 Atualiza permissão no banco em tempo real
+  Future<void> _atualizarPermissao(String sessaoId, bool permitido) async {
+    if (usuarioSelecionadoId == null) return;
+
+    try {
+      // Verifica se já existe permissão cadastrada
+      final existente = await supabase
+          .from('permissoes')
+          .select('id')
+          .eq('id_usuario', usuarioSelecionadoId!)
+          .eq('id_sessao', sessaoId)
+          .maybeSingle();
+
+      if (permitido) {
+        // Se for permitido e não existir, insere
+        if (existente == null) {
+          await supabase.from('permissoes').insert({
+            'id_usuario': usuarioSelecionadoId!,
+            'id_sessao': sessaoId,
+            'permitido': true,
+          });
+        } else {
+          // Se já existir, apenas garante o campo verdadeiro
+          await supabase
+              .from('permissoes')
+              .update({'permitido': true})
+              .eq('id', existente['id']);
+        }
+      } else {
+        // Se desmarcou, remove a permissão
+        if (existente != null) {
+          await supabase
+              .from('permissoes')
+              .delete()
+              .eq('id', existente['id']);
+        }
+      }
+    } catch (e) {
+      debugPrint("Erro ao atualizar permissão: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Erro ao atualizar permissão."),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -192,11 +241,9 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
               IconButton(
                 icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
                 onPressed: () {
-                  _confirmarSaida(() {
-                    setState(() {
-                      exibindoSessoes = false;
-                      usuarioSelecionadoId = null;
-                    });
+                  setState(() {
+                    exibindoSessoes = false;
+                    usuarioSelecionadoId = null;
                   });
                 },
               ),
@@ -227,166 +274,41 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
                 final s = sessoes[index];
                 final permitido = permissoes[s['id']] ?? false;
 
-                return InkWell(
-                  onTap: () {
-                    setState(() {
-                      permissoes[s['id']] = !permitido;
-                      houveAlteracao = true;
-                    });
-                  },
-                  hoverColor: const Color(0xFFF9F9F9),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Row(
-                      children: [
-                        Checkbox(
-                          activeColor: const Color(0xFF2E7D32),
-                          value: permitido,
-                          onChanged: (valor) {
-                            if (valor != null) {
-                              setState(() {
-                                permissoes[s['id']] = valor;
-                                houveAlteracao = true;
-                              });
-                            }
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            s['nome'] ?? '',
-                            style: TextStyle(
-                              fontSize: 15,
-                              color: Colors.grey[800],
-                              fontWeight: FontWeight.w500,
-                            ),
+                return Padding(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  child: Row(
+                    children: [
+                      Checkbox(
+                        activeColor: const Color(0xFF2E7D32),
+                        value: permitido,
+                        onChanged: (valor) async {
+                          if (valor == null) return;
+                          setState(() {
+                            permissoes[s['id']] = valor;
+                          });
+                          await _atualizarPermissao(s['id'], valor);
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          s['nome'] ?? '',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: Colors.grey[800],
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 );
               },
             ),
           ),
-
-          // ===== Botão "Aplicar configurações" =====
-          Align(
-            alignment: Alignment.centerRight,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 10, bottom: 5),
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.save, color: Colors.white),
-                label: const Text(
-                  "Aplicar configurações",
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade700,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 25, vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  elevation: 2,
-                ),
-                onPressed: () async {
-                  await _aplicarAlteracoes();
-                  setState(() {
-                    houveAlteracao = false;
-                  });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Configurações aplicadas com sucesso!"),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
         ],
       ),
     );
-  }
-
-  // ============================
-  // 🔹 CONFIRMAR SAÍDA
-  // ============================
-  Future<void> _confirmarSaida(Function acaoSaida) async {
-    if (!houveAlteracao) {
-      acaoSaida();
-      return;
-    }
-
-    final resultado = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text("Deseja aplicar as alterações realizadas?"),
-        content: const Text(
-          "Existem modificações que ainda não foram aplicadas.",
-          style: TextStyle(fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context, true);
-            },
-            child: const Text("Aplicar", style: TextStyle(color: Colors.green)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context, false);
-            },
-            child: const Text("Descartar alterações",
-                style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-
-    if (resultado == true) {
-      await _aplicarAlteracoes();
-      setState(() {
-        houveAlteracao = false;
-      });
-      acaoSaida();
-    } else if (resultado == false) {
-      setState(() {
-        houveAlteracao = false;
-      });
-      acaoSaida();
-    }
-  }
-
-  // ============================
-  // 🔹 APLICAR ALTERAÇÕES
-  // ============================
-  Future<void> _aplicarAlteracoes() async {
-    if (usuarioSelecionadoId == null) return;
-    try {
-      await supabase
-          .from('permissoes')
-          .delete()
-          .eq('id_usuario', usuarioSelecionadoId!);
-
-      final novasPermissoes = permissoes.entries
-          .where((p) => p.value == true)
-          .map((p) => {
-                'id_usuario': usuarioSelecionadoId!,
-                'id_sessao': p.key,
-                'permitido': true,
-              })
-          .toList();
-
-      if (novasPermissoes.isNotEmpty) {
-        await supabase.from('permissoes').insert(novasPermissoes);
-      }
-    } catch (e) {
-      debugPrint("Erro ao aplicar alterações: $e");
-    }
   }
 }

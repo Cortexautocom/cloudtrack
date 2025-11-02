@@ -9,19 +9,19 @@ class UsuarioAtual {
   final String id;
   final String nome;
   final int nivel;
-  final String? filialId; // ✅ agora pode ser nulo
+  final String? filialId;
   final List<String> sessoesPermitidas;
 
   UsuarioAtual({
     required this.id,
     required this.nome,
     required this.nivel,
-    this.filialId, // ✅ opcional
+    this.filialId,
     required this.sessoesPermitidas,
   });
 
   bool temPermissao(String idSessao) {
-    if (nivel >= 2) return true; // nível 2 e 3 têm acesso total
+    if (nivel >= 2) return true;
     return sessoesPermitidas.contains(idSessao);
   }
 }
@@ -39,28 +39,26 @@ class _LoginPageState extends State<LoginPage> {
   bool _obscureText = true;
   bool _isLoading = false;
 
-  // ======= Função de login com controle de acesso =======
+  // ======= Função de login =======
   Future<void> loginUser() async {
     setState(() => _isLoading = true);
-
     final supabase = Supabase.instance.client;
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
     try {
-      // 🔹 1. Autentica no Supabase Auth
+      // 🔹 1. Autentica usuário
       final response = await supabase.auth.signInWithPassword(
         email: email,
         password: password,
       );
 
       if (response.user == null) {
-        throw 'Usuário ou senha incorretos';
+        throw 'Usuário ou senha incorretos.';
       }
-
       final userId = response.user!.id;
 
-      // 🔹 2. Busca dados complementares do usuário
+      // 🔹 2. Busca dados do usuário
       final usuarioData = await supabase
           .from('usuarios')
           .select('id, nome, nivel, id_filial')
@@ -71,45 +69,46 @@ class _LoginPageState extends State<LoginPage> {
         throw 'Usuário não encontrado na tabela de usuários.';
       }
 
-      // 🔹 3. Busca permissões, apenas se nível = 1
+      // 🔹 3. Busca permissões (apenas nível 1)
       List<String> sessoesPermitidas = [];
-
       if (usuarioData['nivel'] == 1) {
         final permissoes = await supabase
             .from('permissoes')
-            .select('id_sessao')
-            .eq('id_usuario', usuarioData['id'])
-            .eq('permitido', true);
+            .select('id_sessao, permitido')
+            .eq('id_usuario', usuarioData['id']);
 
-        sessoesPermitidas =
-            List<String>.from(permissoes.map((p) => p['id_sessao']));
+        // Inclui todos com permitido = true ou null
+        sessoesPermitidas = List<String>.from(
+          permissoes
+              .where((p) => p['permitido'] == true || p['permitido'] == null)
+              .map((p) => p['id_sessao'] as String),
+        );
       }
 
-      // 🔹 4. Cria objeto do usuário (sem exigir filial)
+      // 🔹 4. Cria objeto global do usuário
       UsuarioAtual.instance = UsuarioAtual(
         id: usuarioData['id'],
         nome: usuarioData['nome'],
         nivel: usuarioData['nivel'],
-        filialId: usuarioData['id_filial'] != null
-            ? usuarioData['id_filial'].toString()
-            : null, // ✅ evita erro de tipo
+        filialId: usuarioData['id_filial']?.toString(),
         sessoesPermitidas: sessoesPermitidas,
       );
 
       // 🔹 5. Mensagem e navegação
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Login realizado com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomePage()),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Login realizado com sucesso!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomePage()),
+      );
     } catch (error) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Erro ao fazer login: $error'),
@@ -117,7 +116,7 @@ class _LoginPageState extends State<LoginPage> {
         ),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

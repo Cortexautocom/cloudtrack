@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'sessoes/tabelasdeconversao.dart';
 import 'configuracoes/controle_acesso_usuarios.dart';
 import 'login_page.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -11,12 +11,10 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage>
-    with SingleTickerProviderStateMixin {
+class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   int selectedIndex = 0;
   TextEditingController searchController = TextEditingController();
 
-  // Itens do menu lateral
   final List<String> menuItems = [
     'Dashboard',
     'Sessões',
@@ -25,10 +23,55 @@ class _HomePageState extends State<HomePage>
     'Ajuda'
   ];
 
-  // Controle de exibição
   bool showConversaoList = false;
   bool showControleAcesso = false;
   bool showConfigList = false;
+  bool carregandoSessoes = false;
+
+  List<Map<String, dynamic>> sessoes = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarSessoesDoBanco();
+  }
+
+  /// 🔹 Carrega todas as sessões do banco e aplica filtro de permissões
+  Future<void> _carregarSessoesDoBanco() async {
+    setState(() => carregandoSessoes = true);
+    final supabase = Supabase.instance.client;
+    final usuario = UsuarioAtual.instance;
+
+    try {
+      final dados = await supabase.from('sessoes').select('id, nome');
+
+      // Aplica filtro conforme nível
+      List<Map<String, dynamic>> filtradas = [];
+      for (var s in dados) {
+        final idSessao = s['id'].toString();
+        final nome = s['nome'] ?? 'Sem nome';
+        if (usuario != null) {
+          if (usuario.nivel >= 2 || usuario.temPermissao(idSessao)) {
+            filtradas.add({
+              'id': idSessao,
+              'label': nome,
+              'icon': _definirIcone(nome),
+            });
+          }
+        }
+      }
+
+      setState(() {
+        sessoes = filtradas;
+      });
+
+      debugPrint('Sessões carregadas e filtradas: $sessoes');
+    } catch (e) {
+      debugPrint('Erro ao carregar sessões: $e');
+    } finally {
+      setState(() => carregandoSessoes = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +97,6 @@ class _HomePageState extends State<HomePage>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // ===== Logo =====
                 Padding(
                   padding: const EdgeInsets.only(left: 10),
                   child: Image.asset(
@@ -62,14 +104,12 @@ class _HomePageState extends State<HomePage>
                     fit: BoxFit.contain,
                   ),
                 ),
-
-                // ===== Nome + Perfil =====
                 Padding(
                   padding: const EdgeInsets.only(right: 20),
                   child: Row(
                     children: [
                       Text(
-                        usuario != null ? usuario.nome : "",
+                        usuario?.nome ?? '',
                         style: const TextStyle(
                           fontSize: 14,
                           color: Color(0xFF0D47A1),
@@ -90,8 +130,7 @@ class _HomePageState extends State<HomePage>
                             if (context.mounted) {
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(
-                                    builder: (context) => const LoginPage()),
+                                MaterialPageRoute(builder: (_) => const LoginPage()),
                                 (route) => false,
                               );
                             }
@@ -227,35 +266,25 @@ class _HomePageState extends State<HomePage>
 
   // ===== Página de Sessões =====
   Widget _buildSessoesPage(UsuarioAtual? usuario) {
-    final sessoes = [
-      {
-        'icon': Icons.view_list,
-        'label': 'Tabelas de conversão',
-        'id': '1748397b-d907-4d7e-a566-2f8e5cffc7d9'
-      },
-      {'icon': Icons.people, 'label': 'Motoristas', 'id': 'uuid_motoristas'},
-      {'icon': Icons.map, 'label': 'Rotas', 'id': 'uuid_rotas'},
-      {
-        'icon': Icons.local_gas_station,
-        'label': 'Abastecimentos',
-        'id': 'uuid_abastecimentos'
-      },
-      {'icon': Icons.description, 'label': 'Documentos', 'id': 'uuid_documentos'},
-      {'icon': Icons.warehouse, 'label': 'Depósitos', 'id': 'uuid_depositos'},
-    ];
+    if (carregandoSessoes) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF0D47A1)),
+      );
+    }
 
-    final sessoesVisiveis = sessoes.where((sessao) {
-      if (usuario == null) return false;
-      if (usuario.nivel >= 2) return true;
-      return usuario.temPermissao(sessao['id']?.toString() ?? '');
-    }).toList();
+    if (sessoes.isEmpty) {
+      return const Center(
+        child: Text(
+          'Nenhuma sessão disponível.',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.all(30),
       child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 500),
-        transitionBuilder: (child, animation) =>
-            FadeTransition(opacity: animation, child: child),
+        duration: const Duration(milliseconds: 400),
         child: showConversaoList
             ? TabelasDeConversao(
                 key: const ValueKey('tabelas'),
@@ -263,7 +292,7 @@ class _HomePageState extends State<HomePage>
                   setState(() => showConversaoList = false);
                 },
               )
-            : _buildGridWithSearch(sessoesVisiveis, usuario),
+            : _buildGridWithSearch(sessoes),
       ),
     );
   }
@@ -279,7 +308,6 @@ class _HomePageState extends State<HomePage>
 
     final List<Map<String, dynamic>> configCards = [];
 
-    // Apenas nível 2 ou 3 visualiza o card Controle de Acesso
     if (usuario != null && usuario.nivel >= 2) {
       configCards.add({
         'icon': Icons.admin_panel_settings,
@@ -289,14 +317,7 @@ class _HomePageState extends State<HomePage>
 
     return Padding(
       padding: const EdgeInsets.all(30),
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 400),
-        transitionBuilder: (child, animation) =>
-            FadeTransition(opacity: animation, child: child),
-        child: showConfigList
-            ? _buildGridConfiguracoes(configCards)
-            : _buildGridConfiguracoes(configCards),
-      ),
+      child: _buildGridConfiguracoes(configCards),
     );
   }
 
@@ -360,10 +381,17 @@ class _HomePageState extends State<HomePage>
   }
 
   // ===== Grade de Sessões com busca =====
-  Widget _buildGridWithSearch(
-      List<Map<String, dynamic>> sessoes, UsuarioAtual? usuario) {
+  // ===== Grade de Sessões com busca =====
+  Widget _buildGridWithSearch(List<Map<String, dynamic>> sessoes) {
+    final termoBusca = searchController.text.toLowerCase();
+
+    // 🔹 Garante que a lista está segura e não nula
+    final sessoesFiltradas = sessoes.where((s) {
+      final label = (s['label'] ?? '').toString().toLowerCase();
+      return label.contains(termoBusca);
+    }).toList();
+
     return Column(
-      key: const ValueKey('grid_with_search'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
@@ -384,27 +412,32 @@ class _HomePageState extends State<HomePage>
           ),
         ),
         const SizedBox(height: 25),
-        Expanded(
-          child: GridView.count(
-            shrinkWrap: true,
-            crossAxisCount: 7,
-            crossAxisSpacing: 15,
-            mainAxisSpacing: 15,
-            childAspectRatio: 1,
-            children: sessoes
-                .where((s) => s['label']
-                    .toLowerCase()
-                    .contains(searchController.text.toLowerCase()))
-                .map((s) => _buildSessaoCard(s['icon'], s['label']))
-                .toList(),
+
+        // 🔹 Se não houver sessões
+        if (sessoesFiltradas.isEmpty)
+          const Center(
+            child: Text(
+              'Nenhuma sessão encontrada.',
+              style: TextStyle(color: Colors.grey),
+            ),
+          )
+        else
+          Expanded(
+            child: GridView.count(
+              shrinkWrap: true,
+              crossAxisCount: 7,
+              crossAxisSpacing: 15,
+              mainAxisSpacing: 15,
+              childAspectRatio: 1,
+              children: sessoesFiltradas.map((s) => _buildSessaoCard(s)).toList(),
+            ),
           ),
-        ),
       ],
     );
   }
 
   // ===== Cada card =====
-  Widget _buildSessaoCard(IconData icon, String label) {
+  Widget _buildSessaoCard(Map<String, dynamic> sessao) {
     return Material(
       elevation: 1,
       color: Colors.white,
@@ -412,7 +445,7 @@ class _HomePageState extends State<HomePage>
       clipBehavior: Clip.hardEdge,
       child: InkWell(
         onTap: () {
-          if (label == 'Tabelas de conversão') {
+          if (sessao['label'] == 'Tabelas de conversão') {
             setState(() => showConversaoList = true);
           }
         },
@@ -424,11 +457,11 @@ class _HomePageState extends State<HomePage>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon,
+              Icon(sessao['icon'],
                   color: const Color.fromARGB(255, 48, 153, 35), size: 50),
               const SizedBox(height: 6),
               Text(
-                label,
+                sessao['label'],
                 style: const TextStyle(
                   fontSize: 13,
                   color: Color(0xFF0D47A1),
@@ -442,7 +475,18 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  // ===== Ícones =====
+  // ===== Ícone automático conforme nome =====
+  IconData _definirIcone(String nome) {
+    final lower = nome.toLowerCase();
+    if (lower.contains('tabela')) return Icons.view_list;
+    if (lower.contains('motor')) return Icons.people;
+    if (lower.contains('rota')) return Icons.map;
+    if (lower.contains('abaste')) return Icons.local_gas_station;
+    if (lower.contains('document')) return Icons.description;
+    if (lower.contains('dep')) return Icons.warehouse;
+    return Icons.apps;
+  }
+
   IconData _getMenuIcon(String item) {
     switch (item) {
       case 'Dashboard':
