@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'home.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'cadastro_novo_usuario.dart';
 
 /// 🧩 Classe global que armazena dados do usuário logado
 class UsuarioAtual {
@@ -233,6 +234,21 @@ class _LoginPageState extends State<LoginPage> {
                     onPressed: () {},
                     child: const Text(
                       "Esqueci minha senha",
+                      style: TextStyle(color: Color(0xFF0A4B78)),
+                    ),
+                  ),
+                  // ===== Me cadastrar =====
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CadastroNovoUsuario(),
+                        ),
+                      );
+                    },
+                    child: const Text(
+                      "Me cadastrar",
                       style: TextStyle(color: Color(0xFF0A4B78)),
                     ),
                   ),

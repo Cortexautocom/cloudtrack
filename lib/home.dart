@@ -37,7 +37,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   /// 🔹 Carrega todas as sessões do banco e aplica filtro de permissões
-  Future<void> _carregarSessoesDoBanco() async {
+    Future<void> _carregarSessoesDoBanco() async {
     setState(() => carregandoSessoes = true);
     final supabase = Supabase.instance.client;
     final usuario = UsuarioAtual.instance;
@@ -64,10 +64,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       setState(() {
         sessoes = filtradas;
       });
-
-      debugPrint('Sessões carregadas e filtradas: $sessoes');
     } catch (e) {
-      debugPrint('Erro ao carregar sessões: $e');
+      // Manter o catch é uma boa prática
     } finally {
       setState(() => carregandoSessoes = false);
     }
@@ -309,10 +307,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final List<Map<String, dynamic>> configCards = [];
 
     if (usuario != null && usuario.nivel >= 2) {
-      configCards.add({
-        'icon': Icons.admin_panel_settings,
-        'label': 'Controle de acesso',
-      });
+      configCards.addAll([
+        {
+          'icon': Icons.admin_panel_settings,
+          'label': 'Controle de acesso',
+        },
+      ]);
     }
 
     return Padding(
@@ -380,7 +380,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  // ===== Grade de Sessões com busca =====
   // ===== Grade de Sessões com busca =====
   Widget _buildGridWithSearch(List<Map<String, dynamic>> sessoes) {
     final termoBusca = searchController.text.toLowerCase();
