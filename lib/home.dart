@@ -174,9 +174,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                               onTap: () {
                                 setState(() {
                                   selectedIndex = index;
+
+                                  // 🔹 Resetar tudo ao trocar de aba
                                   showConversaoList = false;
                                   showControleAcesso = false;
                                   showConfigList = false;
+                                  showUsuarios = false; // <- adicionamos este
+
+                                  // 🔹 Se sair da aba Configurações, garantir retorno aos cards
+                                  if (menuItems[index] != 'Configurações') {
+                                    showControleAcesso = false;
+                                    showUsuarios = false;
+                                  }
                                 });
                               },
                               child: AnimatedContainer(
