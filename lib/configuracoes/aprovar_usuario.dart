@@ -20,19 +20,53 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
   final _formKey = GlobalKey<FormState>();
   bool _salvando = false;
   String? nivelSelecionado;
+  List<Map<String, dynamic>> _filiais = [];
 
-  // 🔹 Aprova o usuário recebido
+  // Controladores dos campos (para edição)
+  final nomeController = TextEditingController();
+  final emailController = TextEditingController();
+  final celularController = TextEditingController();
+  final funcaoController = TextEditingController();
+  String? filialSelecionada;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarFiliais();
+    _preencherCampos();
+  }
+
+  void _preencherCampos() {
+    final u = widget.usuario;
+    nomeController.text = u['nome'] ?? '';
+    emailController.text = u['email'] ?? '';
+    celularController.text = u['celular'] ?? '';
+    funcaoController.text = u['funcao'] ?? '';
+    filialSelecionada = u['id_filial']?.toString();
+  }
+
+  Future<void> _carregarFiliais() async {
+    try {
+      final res = await supabase.from('filiais').select('id, nome');
+      setState(() {
+        _filiais = List<Map<String, dynamic>>.from(res);
+      });
+    } catch (e) {
+      debugPrint('❌ Erro ao carregar filiais: $e');
+    }
+  }
+
+  // 🔹 Aprova o usuário (já com campos editáveis)
   Future<void> _aprovarUsuario() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _salvando = true);
 
     try {
-      final email = widget.usuario['email'] as String;
-      final nome = widget.usuario['nome'] as String;
-      final celular = widget.usuario['celular'] as String?;
-      final funcao = widget.usuario['funcao'] as String?;
-      final filialId = widget.usuario['filial_id']?.toString();
+      final nome = nomeController.text.trim();
+      final email = emailController.text.trim();
+      final celular = celularController.text.trim();
+      final funcao = funcaoController.text.trim();
+      final filialId = filialSelecionada;
 
       final int nivel =
           nivelSelecionado == "Gerência e coordenação" ? 2 : 1;
@@ -53,18 +87,25 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
       // 3️⃣ Atualiza o cadastro pendente
       await supabase
           .from('cadastros_pendentes')
-          .update({'status': 'aprovado', 'nivel': nivel})
+          .update({
+            'status': 'aprovado',
+            'nivel': nivel,
+            'nome': nome,
+            'celular': celular,
+            'funcao': funcao,
+            'id_filial': filialId
+          })
           .eq('email', email);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content:
-                Text("✅ Usuário aprovado e e-mail de acesso enviado para $email."),
+            content: Text(
+                "✅ Usuário aprovado e e-mail de acesso enviado para $email."),
             backgroundColor: Colors.green,
           ),
         );
-        widget.onVoltar(); // Volta para a lista
+        widget.onVoltar();
       }
     } catch (e) {
       debugPrint("❌ Erro ao aprovar usuário: $e");
@@ -83,8 +124,6 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
 
   @override
   Widget build(BuildContext context) {
-    final u = widget.usuario;
-
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.all(30),
@@ -112,12 +151,31 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
             const Divider(),
             const SizedBox(height: 20),
 
-            // 🔹 Campos do usuário (somente leitura)
-            _campo("Nome completo", u['nome']),
-            _campo("E-mail", u['email']),
-            _campo("Celular", u['celular']),
-            _campo("Função / Cargo", u['funcao']),
-            _campo("Filial ID", u['filial_id']),
+            // 🔹 Campos editáveis
+            _campoEditavel("Nome completo", nomeController),
+            _campoEditavel("E-mail", emailController,
+                tipo: TextInputType.emailAddress),
+            _campoEditavel("Celular", celularController,
+                tipo: TextInputType.phone),
+            _campoEditavel("Função / Cargo", funcaoController),
+
+            // 🔹 Campo Filial (nome)
+            DropdownButtonFormField<String>(
+              value: filialSelecionada,
+              decoration: const InputDecoration(
+                labelText: "Filial",
+                border: OutlineInputBorder(),
+              ),
+              items: _filiais
+                  .map((f) => DropdownMenuItem(
+                        value: f['id'].toString(),
+                        child: Text(f['nome']),
+                      ))
+                  .toList(),
+              onChanged: (v) => setState(() => filialSelecionada = v),
+              validator: (v) =>
+                  v == null ? "Selecione uma filial" : null,
+            ),
             const SizedBox(height: 20),
 
             // 🔹 Selecionar nível
@@ -176,16 +234,20 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
     );
   }
 
-  Widget _campo(String label, String? valor) {
+  // 🔹 Campo genérico editável
+  Widget _campoEditavel(String label, TextEditingController controller,
+      {TextInputType tipo = TextInputType.text}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: TextFormField(
-        initialValue: valor ?? '',
-        readOnly: true,
+        controller: controller,
+        keyboardType: tipo,
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),
         ),
+        validator: (v) =>
+            v == null || v.isEmpty ? "Preencha este campo" : null,
       ),
     );
   }
