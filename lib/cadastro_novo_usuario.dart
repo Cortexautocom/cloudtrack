@@ -1,195 +1,319 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'login_page.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 
-
-class CadastroNovoUsuario extends StatefulWidget {
-  const CadastroNovoUsuario({super.key});
+class CadastroNovoUsuarioPage extends StatefulWidget {
+  const CadastroNovoUsuarioPage({super.key});
 
   @override
-  State<CadastroNovoUsuario> createState() => _CadastroNovoUsuarioState();
+  State<CadastroNovoUsuarioPage> createState() =>
+      _CadastroNovoUsuarioPageState();
 }
 
-class _CadastroNovoUsuarioState extends State<CadastroNovoUsuario> {
+class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
   final _formKey = GlobalKey<FormState>();
+  final supabase = Supabase.instance.client;
 
+  // Controladores dos campos
   final nomeController = TextEditingController();
-  final funcaoController = TextEditingController();
-  final celularController = TextEditingController();
   final emailController = TextEditingController();
-  final senhaController = TextEditingController();
+  final celularController = TextEditingController();
+  final funcaoController = TextEditingController();
 
-  final mascaraTelefone = MaskTextInputFormatter(
+  // Filiais
+  List<Map<String, dynamic>> filiais = [];
+  String? filialSelecionadaNome;
+  String? filialSelecionadaId;
+  bool carregandoFiliais = true;
+  bool _salvando = false;
+
+  // Máscara de telefone (99) 9 9999-9999
+  final maskTelefone = MaskTextInputFormatter(
     mask: '(##) # ####-####',
     filter: {"#": RegExp(r'[0-9]')},
   );
 
-  bool carregando = false;
-
   @override
-  void dispose() {
-    nomeController.dispose();
-    funcaoController.dispose();
-    celularController.dispose();
-    emailController.dispose();
-    senhaController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _carregarFiliais();
   }
 
-  // 🔹 Função temporária (por enquanto só mostra mensagem)
-  void _solicitarCadastro() {
-    if (_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              "Solicitação enviada! Em breve a equipe entrará em contato."),
-          backgroundColor: Colors.green,
-        ),
-      );
-      Navigator.pop(context); // Volta para a tela de login
+  // 🔹 Carrega filiais do Supabase
+  Future<void> _carregarFiliais() async {
+    try {
+      final response =
+          await supabase.from('filiais').select('id, nome').order('nome');
+
+      // ✅ Garante que é uma lista de mapas
+      setState(() {
+        filiais = List<Map<String, dynamic>>.from(response);
+      });
+    } catch (e) {
+      debugPrint("❌ Erro ao carregar filiais: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Erro ao carregar filiais: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => carregandoFiliais = false);
+    }
+  }
+
+  // 🔹 Envia a solicitação de cadastro
+  Future<void> _enviarCadastro() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _salvando = true);
+
+    try {
+      final nome = nomeController.text.trim();
+      final email = emailController.text.trim();
+      final celular = celularController.text.trim();
+      final funcao = funcaoController.text.trim();
+
+      // 1️⃣ Verifica se já existe um cadastro pendente
+      final existe = await supabase
+          .from('cadastros_pendentes')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+
+      if (existe != null) {
+        throw Exception(
+            "Já existe uma solicitação de cadastro pendente para este e-mail.");
+      }
+
+      // 2️⃣ Insere o novo cadastro
+      await supabase.from('cadastros_pendentes').insert({
+        'nome': nome,
+        'email': email,
+        'celular': celular,
+        'funcao': funcao,
+        'id_filial': filialSelecionadaId,
+        'status': 'pendente',
+      });
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            title: const Text("Solicitação enviada"),
+            content: const Text(
+              "Seu cadastro foi enviado para análise.\n\n"
+              "Você receberá um e-mail assim que for aprovado.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context); // Fecha o diálogo
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginPage()),
+                  );
+                },
+                child: const Text("OK"),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("❌ Erro ao enviar cadastro: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Erro: ${e.toString()}"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _salvando = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      body: Center(
-        child: SingleChildScrollView(
-          child: Container(
-            width: 400,
-            padding: const EdgeInsets.all(30),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // 🔹 Título
-                  const Text(
-                    "Solicitar cadastro",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0A4B78),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    "Preencha seus dados para solicitar acesso ao sistema.",
-                    style: TextStyle(color: Colors.grey),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 30),
-
-                  // Nome completo
-                  TextFormField(
-                    controller: nomeController,
-                    decoration: _inputDecoration("Nome completo"),
-                    validator: (v) =>
-                        v == null || v.isEmpty ? "Informe o nome completo" : null,
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Função
-                  TextFormField(
-                    controller: funcaoController,
-                    decoration: _inputDecoration("Função / Cargo"),
-                    validator: (v) =>
-                        v == null || v.isEmpty ? "Informe a função" : null,
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Celular
-                  TextFormField(
-                    controller: celularController,
-                    keyboardType: TextInputType.phone,
-                    inputFormatters: [mascaraTelefone], // 🔹 aplica a máscara aqui
-                    decoration: _inputDecoration("Celular (com WhatsApp)"),
-                    validator: (v) =>
-                        v == null || v.isEmpty ? "Informe o celular" : null,
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Email
-                  TextFormField(
-                    controller: emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: _inputDecoration("E-mail corporativo"),
-                    validator: (v) {
-                      if (v == null || v.isEmpty) {
-                        return "Informe o e-mail";
-                      }
-
-                      // Expressão regular para validar e-mails
-                      final emailValido = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-
-                      if (!emailValido.hasMatch(v)) {
-                        return "E-mail inválido";
-                      }
-
-                      return null; // está tudo certo
-                    },
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Senha
-                  TextFormField(
-                    controller: senhaController,
-                    obscureText: true,
-                    decoration: _inputDecoration("Senha de acesso desejada"),
-                    validator: (v) => v == null || v.length < 6
-                        ? "A senha deve ter pelo menos 6 caracteres"
-                        : null,
-                  ),
-                  const SizedBox(height: 30),
-
-                  // Botão enviar
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      onPressed: carregando ? null : _solicitarCadastro,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2E7D32),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      icon: const Icon(Icons.send, color: Colors.white),
-                      label: Text(
-                        carregando ? "Enviando..." : "Solicitar cadastro",
-                        style: const TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Voltar
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text(
-                      "Voltar ao login",
-                      style: TextStyle(color: Color(0xFF0A4B78)),
-                    ),
-                  ),
-                ],
+      body: Stack(
+        children: [
+          // Fundo com imagem
+          Container(
+            decoration: const BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage('assets/background_login.jpg'),
+                fit: BoxFit.cover,
               ),
             ),
           ),
-        ),
+
+          // Conteúdo principal
+          Center(
+            child: SingleChildScrollView(
+              child: Container(
+                width: 420,
+                padding: const EdgeInsets.all(30),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        "Solicitação de cadastro",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0A4B78),
+                        ),
+                      ),
+                      const SizedBox(height: 25),
+
+                      // Nome completo
+                      TextFormField(
+                        controller: nomeController,
+                        decoration: _inputDecoration("Nome completo"),
+                        validator: (v) => v == null || v.isEmpty
+                            ? "Informe seu nome completo"
+                            : null,
+                      ),
+                      const SizedBox(height: 20),
+
+                      // E-mail
+                      TextFormField(
+                        controller: emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        autocorrect: false,
+                        autofillHints: const [AutofillHints.email],
+                        decoration: _inputDecoration("E-mail corporativo"),
+                        validator: (v) {
+                          if (v == null || v.isEmpty) {
+                            return "Informe o e-mail";
+                          }
+                          final emailValido =
+                              RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                          if (!emailValido.hasMatch(v)) {
+                            return "E-mail inválido";
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Celular
+                      TextFormField(
+                        controller: celularController,
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [maskTelefone],
+                        decoration: _inputDecoration("Celular (WhatsApp)"),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Função / Cargo
+                      TextFormField(
+                        controller: funcaoController,
+                        decoration: _inputDecoration("Função / Cargo"),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Filial (lista real)
+                      if (carregandoFiliais)
+                        const Center(
+                            child: CircularProgressIndicator(
+                                color: Color(0xFF0A4B78)))
+                      else
+                        DropdownButtonFormField<String>(
+                          value: filialSelecionadaNome,
+                          decoration: _inputDecoration("Filial"),
+                          items: filiais.map((f) {
+                            return DropdownMenuItem<String>(
+                              value: f['nome'],
+                              child: Text(f['nome']),
+                            );
+                          }).toList(),
+                          onChanged: (valor) {
+                            setState(() {
+                              filialSelecionadaNome = valor;
+                              filialSelecionadaId = filiais.firstWhere(
+                                (f) => f['nome'] == valor,
+                                orElse: () => {'id': null},
+                              )['id']?.toString();
+                            });
+                          },
+                        ),
+                      const SizedBox(height: 30),
+
+                      // Botão enviar
+                      SizedBox(
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: _salvando ? null : _enviarCadastro,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0A4B78),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: _salvando
+                              ? const CircularProgressIndicator(
+                                  color: Colors.white,
+                                )
+                              : const Text(
+                                  "Solicitar cadastro",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Voltar para login
+                      Center(
+                        child: TextButton(
+                          onPressed: () {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const LoginPage()),
+                            );
+                          },
+                          child: const Text(
+                            "Voltar ao login",
+                            style: TextStyle(color: Color(0xFF0A4B78)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -197,10 +321,9 @@ class _CadastroNovoUsuarioState extends State<CadastroNovoUsuario> {
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-      focusedBorder: const OutlineInputBorder(
-        borderSide: BorderSide(color: Color(0xFF0A4B78)),
-      ),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      contentPadding:
+          const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
     );
   }
 }

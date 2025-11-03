@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'sessoes/tabelasdeconversao.dart';
 import 'configuracoes/controle_acesso_usuarios.dart';
 import 'login_page.dart';
+import 'configuracoes/usuarios.dart';
+
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -27,6 +29,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool showControleAcesso = false;
   bool showConfigList = false;
   bool carregandoSessoes = false;
+  bool showUsuarios = false;
+
 
   List<Map<String, dynamic>> sessoes = [];
 
@@ -297,6 +301,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   // ===== Página de Configurações =====
   Widget _buildConfiguracoesPage(UsuarioAtual? usuario) {
+    if (showUsuarios) {
+      return UsuariosPage(
+        key: const ValueKey('usuarios'),
+        onVoltar: () => setState(() => showUsuarios = false),
+      );
+    }    
+    
     if (showControleAcesso) {
       return ControleAcessoUsuarios(
         key: const ValueKey('controle_acesso'),
@@ -311,6 +322,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         {
           'icon': Icons.admin_panel_settings,
           'label': 'Controle de acesso',
+        },
+        {
+          'icon': Icons.people_alt,
+          'label': 'Usuários',
         },
       ]);
     }
@@ -351,6 +366,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   onTap: () {
                     if (c['label'] == 'Controle de acesso') {
                       setState(() => showControleAcesso = true);
+                    } else if (c['label'] == 'Usuários') {
+                      setState(() => showUsuarios = true);
                     }
                   },
                   hoverColor: const Color(0xFFE8F5E9),
