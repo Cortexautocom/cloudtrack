@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'aprovar_usuario.dart';
+import 'editar_usuario.dart';
 
 class UsuariosPage extends StatefulWidget {
   final VoidCallback onVoltar;
@@ -200,16 +201,29 @@ class _UsuariosPageState extends State<UsuariosPage> {
       );
     }
 
-    // 🔹 Se o usuário clicou em um item PENDENTE, abre o form de aprovação
-    if (usuarioSelecionado != null &&
-        usuarioSelecionado!['tabela'] == 'cadastros_pendentes') {
-      return AprovarUsuarioPage(
-        usuario: usuarioSelecionado!['dados'],
-        onVoltar: () {
-          setState(() => usuarioSelecionado = null);
-          _carregarUsuarios(); // Atualiza lista ao voltar
-        },
-      );
+    // 🔹 Abre a tela correspondente conforme o tipo do usuário selecionado
+    if (usuarioSelecionado != null) {
+      // 🟠 Caso seja um cadastro pendente → abre tela de aprovação
+      if (usuarioSelecionado!['tabela'] == 'cadastros_pendentes') {
+        return AprovarUsuarioPage(
+          usuario: usuarioSelecionado!['dados'],
+          onVoltar: () {
+            setState(() => usuarioSelecionado = null);
+            _carregarUsuarios(); // Atualiza lista ao voltar
+          },
+        );
+      }
+
+      // 🟢 Caso seja um usuário já ativo → abre tela de edição
+      if (usuarioSelecionado!['tabela'] == 'usuarios') {
+        return EditarUsuarioPage(
+          usuario: usuarioSelecionado!['dados'],
+          onVoltar: () {
+            setState(() => usuarioSelecionado = null);
+            _carregarUsuarios(); // Atualiza lista ao voltar
+          },
+        );
+      }
     }
 
     // 🔹 Lista principal de usuários
@@ -322,7 +336,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
                             ),
                             onTap: () {
                               // Abre somente se for pendente
-                              if (u['tabela'] == 'cadastros_pendentes') {
+                              if (u['tabela'] == 'cadastros_pendentes' || u['tabela'] == 'usuarios') {
                                 setState(() {
                                   usuarioSelecionado = u;
                                 });
