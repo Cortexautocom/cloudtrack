@@ -23,7 +23,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
     _carregarUsuarios();
   }
 
-  /// 🔹 Busca todos os usuários e pendentes diretamente do Supabase
+  /// 🔹 Busca todos os usuários e cadastros pendentes diretamente do Supabase
   Future<void> _carregarUsuarios() async {
     try {
       setState(() => carregando = true);
@@ -37,32 +37,30 @@ class _UsuariosPageState extends State<UsuariosPage> {
       final List<Map<String, dynamic>> pendentes =
           List<Map<String, dynamic>>.from(pendentesResponse);
 
-      // 2️⃣ Busca usuários ativos/suspensos
+      // 2️⃣ Busca todos os usuários com seus respectivos status
       final usuariosResponse = await supabase
           .from('usuarios')
-          .select('id, nome, email, nivel, ativo')
+          .select('id, nome, email, nivel, status')
           .order('id', ascending: false);
 
-      final List<Map<String, dynamic>> ativos =
+      final List<Map<String, dynamic>> listaUsuarios =
           List<Map<String, dynamic>>.from(usuariosResponse);
 
-      // 3️⃣ Junta as duas listas com status padronizado
+      // 3️⃣ Junta as duas listas (pendentes + usuários)
       final todos = <Map<String, dynamic>>[
         ...pendentes.map((p) => {
               'id': p['id'],
               'nome': p['nome'],
               'email': p['email'],
-              'status': 'Pendente de aprovação',
+              'status': 'pendente', // forçado para diferenciar na UI
               'tabela': 'cadastros_pendentes',
               'dados': p,
             }),
-        ...ativos.map((u) => {
+        ...listaUsuarios.map((u) => {
               'id': u['id'],
               'nome': u['nome'],
               'email': u['email'],
-              'status': (u['ativo'] == false)
-                  ? 'Suspenso'
-                  : 'Ativo',
+              'status': (u['status'] ?? '').toString().toLowerCase(),
               'tabela': 'usuarios',
               'dados': u,
             }),
@@ -84,6 +82,29 @@ class _UsuariosPageState extends State<UsuariosPage> {
     } finally {
       if (mounted) setState(() => carregando = false);
     }
+  }
+
+  /// 🔹 Define cor de acordo com o status
+  Color _corStatus(String status) {
+    switch (status.toLowerCase()) {
+      case 'ativo':
+        return Colors.green;
+      case 'suspenso':
+        return Colors.red;
+      case 'pendente':
+        return Colors.orange;
+      case 'bloqueado':
+        return Colors.grey;
+      default:
+        return Colors.blueGrey;
+    }
+  }
+
+  /// 🔹 Formata texto de exibição do status (primeira letra maiúscula)
+  String _textoStatus(String status, String tabela) {
+    if (tabela == 'cadastros_pendentes') return 'Pendente';
+    if (status.isEmpty) return 'Desconhecido';
+    return status[0].toUpperCase() + status.substring(1).toLowerCase();
   }
 
   @override
@@ -145,18 +166,12 @@ class _UsuariosPageState extends State<UsuariosPage> {
                     separatorBuilder: (_, __) => const Divider(),
                     itemBuilder: (context, index) {
                       final u = usuarios[index];
-                      final cor = switch (u['status']) {
-                        'Ativo' => Colors.green,
-                        'Pendente de aprovação' => Colors.orange,
-                        'Suspenso' => Colors.red,
-                        _ => Colors.grey,
-                      };
+                      final cor = _corStatus(u['status'] ?? '');
+                      final texto =
+                          _textoStatus(u['status'] ?? '', u['tabela'] ?? '');
 
                       return ListTile(
-                        leading: Icon(
-                          Icons.person_outline,
-                          color: cor,
-                        ),
+                        leading: Icon(Icons.person_outline, color: cor),
                         title: Text(u['nome'] ?? 'Sem nome'),
                         subtitle: Text(u['email'] ?? ''),
                         trailing: Container(
@@ -168,13 +183,13 @@ class _UsuariosPageState extends State<UsuariosPage> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            u['status'],
+                            texto,
                             style: TextStyle(color: cor, fontSize: 12),
                           ),
                         ),
                         onTap: () {
                           // Abre somente se for pendente
-                          if (u['status'] == 'Pendente de aprovação') {
+                          if (u['tabela'] == 'cadastros_pendentes') {
                             setState(() {
                               usuarioSelecionado = u;
                             });
