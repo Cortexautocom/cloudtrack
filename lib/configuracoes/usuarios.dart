@@ -13,7 +13,10 @@ class UsuariosPage extends StatefulWidget {
 class _UsuariosPageState extends State<UsuariosPage> {
   bool carregando = true;
   List<Map<String, dynamic>> usuarios = [];
+  List<Map<String, dynamic>> usuariosFiltrados = [];
   Map<String, dynamic>? usuarioSelecionado;
+  final TextEditingController _controllerPesquisa = TextEditingController();
+  final Map<String, String> _cacheFiliais = {}; // Mudado para String key (UUID)
 
   final supabase = Supabase.instance.client;
 
@@ -21,6 +24,69 @@ class _UsuariosPageState extends State<UsuariosPage> {
   void initState() {
     super.initState();
     _carregarUsuarios();
+    _controllerPesquisa.addListener(_filtrarUsuarios);
+  }
+
+  @override
+  void dispose() {
+    _controllerPesquisa.dispose();
+    super.dispose();
+  }
+
+  /// 🔹 Filtra usuários baseado no texto de pesquisa
+  void _filtrarUsuarios() {
+    final termo = _controllerPesquisa.text.toLowerCase().trim();
+    
+    if (termo.isEmpty) {
+      setState(() {
+        usuariosFiltrados = usuarios;
+      });
+      return;
+    }
+
+    if (usuarios.isEmpty) {
+      setState(() {
+        usuariosFiltrados = [];
+      });
+      return;
+    }
+
+    setState(() {
+      usuariosFiltrados = usuarios.where((usuario) {
+        final nome = usuario['nome']?.toString().toLowerCase() ?? '';
+        final email = usuario['email']?.toString().toLowerCase() ?? '';
+        final filial = usuario['filial_nome']?.toString().toLowerCase() ?? '';
+        
+        return nome.contains(termo) || 
+               email.contains(termo) || 
+               filial.contains(termo);
+      }).toList();
+    });
+  }
+
+  /// 🔹 Busca o nome da filial pelo ID
+  Future<String> _obterNomeFilial(String? idFilial) async {
+    if (idFilial == null || idFilial.isEmpty) return 'N/A';
+    
+    // Verifica se já está em cache
+    if (_cacheFiliais.containsKey(idFilial)) {
+      return _cacheFiliais[idFilial]!;
+    }
+
+    try {
+      final response = await supabase
+          .from('filiais')
+          .select('nome')
+          .eq('id', idFilial)
+          .single();
+
+      final nomeFilial = response['nome']?.toString() ?? 'N/A';
+      _cacheFiliais[idFilial] = nomeFilial;
+      return nomeFilial;
+    } catch (e) {
+      debugPrint("❌ Erro ao buscar filial $idFilial: $e");
+      return 'N/A';
+    }
   }
 
   /// 🔹 Busca todos os usuários e cadastros pendentes diretamente do Supabase
@@ -31,43 +97,62 @@ class _UsuariosPageState extends State<UsuariosPage> {
       // 1️⃣ Busca cadastros pendentes
       final pendentesResponse = await supabase
           .from('cadastros_pendentes')
-          .select('id, nome, email, status, funcao, celular, id_filial')
-          .order('id', ascending: false);
+          .select('*')
+          .order('criado_em', ascending: false);
 
       final List<Map<String, dynamic>> pendentes =
           List<Map<String, dynamic>>.from(pendentesResponse);
 
-      // 2️⃣ Busca todos os usuários com seus respectivos status
+      // 2️⃣ Busca todos os usuários
       final usuariosResponse = await supabase
           .from('usuarios')
-          .select('id, nome, email, nivel, status')
-          .order('id', ascending: false);
+          .select('*')
+          .order('nome', ascending: true);
 
       final List<Map<String, dynamic>> listaUsuarios =
           List<Map<String, dynamic>>.from(usuariosResponse);
 
-      // 3️⃣ Junta as duas listas (pendentes + usuários)
+      // 3️⃣ Processa pendentes com nome da filial
+      final pendentesComFilial = await Future.wait(
+        pendentes.map((p) async {
+          final nomeFilial = await _obterNomeFilial(p['id_filial']?.toString());
+          return {
+            'id': p['id'],
+            'nome': p['nome'],
+            'email': p['email'],
+            'status': 'pendente',
+            'tabela': 'cadastros_pendentes',
+            'filial_nome': nomeFilial,
+            'dados': p,
+          };
+        }),
+      );
+
+      // 4️⃣ Processa usuários com nome da filial
+      final usuariosComFilial = await Future.wait(
+        listaUsuarios.map((u) async {
+          final nomeFilial = await _obterNomeFilial(u['id_filial']?.toString());
+          return {
+            'id': u['id'],
+            'nome': u['nome'],
+            'email': u['email'],
+            'status': (u['status'] ?? 'ativo').toString().toLowerCase(),
+            'tabela': 'usuarios',
+            'filial_nome': nomeFilial,
+            'dados': u,
+          };
+        }),
+      );
+
+      // 5️⃣ Junta as duas listas
       final todos = <Map<String, dynamic>>[
-        ...pendentes.map((p) => {
-              'id': p['id'],
-              'nome': p['nome'],
-              'email': p['email'],
-              'status': 'pendente', // forçado para diferenciar na UI
-              'tabela': 'cadastros_pendentes',
-              'dados': p,
-            }),
-        ...listaUsuarios.map((u) => {
-              'id': u['id'],
-              'nome': u['nome'],
-              'email': u['email'],
-              'status': (u['status'] ?? '').toString().toLowerCase(),
-              'tabela': 'usuarios',
-              'dados': u,
-            }),
+        ...pendentesComFilial,
+        ...usuariosComFilial,
       ];
 
       setState(() {
         usuarios = todos;
+        usuariosFiltrados = todos;
       });
     } catch (e) {
       debugPrint("❌ Erro ao carregar usuários: $e");
@@ -129,7 +214,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
 
     // 🔹 Lista principal de usuários
     return Padding(
-      padding: const EdgeInsets.all(30),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -151,54 +236,104 @@ class _UsuariosPageState extends State<UsuariosPage> {
             ],
           ),
           const Divider(),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
-          Expanded(
-            child: usuarios.isEmpty
-                ? const Center(
-                    child: Text(
-                      "Nenhum usuário encontrado.",
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  )
-                : ListView.separated(
-                    itemCount: usuarios.length,
-                    separatorBuilder: (_, __) => const Divider(),
-                    itemBuilder: (context, index) {
-                      final u = usuarios[index];
-                      final cor = _corStatus(u['status'] ?? '');
-                      final texto =
-                          _textoStatus(u['status'] ?? '', u['tabela'] ?? '');
-
-                      return ListTile(
-                        leading: Icon(Icons.person_outline, color: cor),
-                        title: Text(u['nome'] ?? 'Sem nome'),
-                        subtitle: Text(u['email'] ?? ''),
-                        trailing: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: cor.withOpacity(0.1),
-                            border: Border.all(color: cor),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            texto,
-                            style: TextStyle(color: cor, fontSize: 12),
-                          ),
-                        ),
-                        onTap: () {
-                          // Abre somente se for pendente
-                          if (u['tabela'] == 'cadastros_pendentes') {
-                            setState(() {
-                              usuarioSelecionado = u;
-                            });
-                          }
-                        },
-                      );
-                    },
-                  ),
+          // Campo de pesquisa
+          Container(
+            width: 700,
+            height: 40,
+            margin: const EdgeInsets.only(bottom: 16),
+            child: TextField(
+              controller: _controllerPesquisa,
+              decoration: InputDecoration(
+                hintText: 'Pesquisar por nome, email ou filial...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            ),
           ),
+
+          // Lista de usuários
+          Expanded(
+            child: Container(
+              width: 700,
+              constraints: const BoxConstraints(maxWidth: 700),
+              child: usuariosFiltrados.isEmpty
+                  ? const Center(
+                      child: Text(
+                        "Nenhum usuário encontrado.",
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: usuariosFiltrados.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final u = usuariosFiltrados[index];
+                        final cor = _corStatus(u['status'] ?? '');
+                        final texto =
+                            _textoStatus(u['status'] ?? '', u['tabela'] ?? '');
+
+                        return SizedBox(
+                          height: 60,
+                          child: ListTile(
+                            dense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            leading: Icon(Icons.person_outline, color: cor, size: 20),
+                            title: Text(
+                              u['nome'] ?? 'Sem nome',
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (u['filial_nome'] != null && u['filial_nome'] != 'N/A')
+                                  Text(
+                                    u['filial_nome']!,
+                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                if (u['filial_nome'] != null && u['filial_nome'] != 'N/A')
+                                  const Text("  |  ", style: TextStyle(fontSize: 12, color: Color.fromARGB(255, 133, 133, 133))),
+                                Text(
+                                  u['email'] ?? '',
+                                  style: const TextStyle(fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                            trailing: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: cor.withOpacity(0.1),
+                                border: Border.all(color: cor),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                texto,
+                                style: TextStyle(color: cor, fontSize: 10),
+                              ),
+                            ),
+                            onTap: () {
+                              // Abre somente se for pendente
+                              if (u['tabela'] == 'cadastros_pendentes') {
+                                setState(() {
+                                  usuarioSelecionado = u;
+                                });
+                              }
+                            },
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ),          
         ],
       ),
     );
