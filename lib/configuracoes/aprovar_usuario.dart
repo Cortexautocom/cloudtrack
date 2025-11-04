@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AprovarUsuarioPage extends StatefulWidget {
@@ -56,7 +58,7 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
     }
   }
 
-  // 🔹 Aprova o usuário (já com campos editáveis)
+  // 🔹 Aprova o usuário (chama a função HTTP do Supabase)
   Future<void> _aprovarUsuario() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _salvando = true);
@@ -71,41 +73,51 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
       final int nivel =
           nivelSelecionado == "Gerência e coordenação" ? 2 : 1;
 
-      // 1️⃣ Cria usuário no Supabase Auth e envia e-mail de convite
-      await supabase.auth.admin.inviteUserByEmail(email);
+      // 🌐 URL da função no Supabase
+      final url =
+          "https://ikaxzlpaihdkqyjqrxyw.functions.supabase.co/aprovar-usuario";
 
-      // 2️⃣ Insere na tabela 'usuarios'
-      await supabase.from('usuarios').insert({
-        'nome': nome,
-        'email': email,
-        'nivel': nivel,
-        'celular': celular,
-        'funcao': funcao,
-        'id_filial': filialId,
-      });
+      // 🔹 Envia os dados via POST para a função
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          'nome': nome,
+          'email': email,
+          'celular': celular,
+          'funcao': funcao,
+          'id_filial': filialId,
+          'nivel': nivel,
+        }),
+      );
 
-      // 3️⃣ Atualiza o cadastro pendente
-      await supabase
-          .from('cadastros_pendentes')
-          .update({
-            'status': 'aprovado',
-            'nivel': nivel,
-            'nome': nome,
-            'celular': celular,
-            'funcao': funcao,
-            'id_filial': filialId
-          })
-          .eq('email', email);
+      final result = jsonDecode(response.body);
+      if (result['success'] == true) {
+        // ✅ Atualiza o cadastro pendente
+        await supabase
+            .from('cadastros_pendentes')
+            .update({
+              'status': 'aprovado',
+              'nivel': nivel,
+              'nome': nome,
+              'celular': celular,
+              'funcao': funcao,
+              'id_filial': filialId
+            })
+            .eq('email', email);
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                "✅ Usuário aprovado e e-mail de acesso enviado para $email."),
-            backgroundColor: Colors.green,
-          ),
-        );
-        widget.onVoltar();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  "✅ Usuário aprovado e convite enviado para $email."),
+              backgroundColor: Colors.green,
+            ),
+          );
+          widget.onVoltar();
+        }
+      } else {
+        throw Exception(result['error'] ?? 'Erro desconhecido.');
       }
     } catch (e) {
       debugPrint("❌ Erro ao aprovar usuário: $e");

@@ -361,7 +361,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         const SizedBox(height: 20),
         Expanded(
           child: GridView.count(
-            crossAxisCount: 6,
+            crossAxisCount: 7,
             crossAxisSpacing: 15,
             mainAxisSpacing: 15,
             childAspectRatio: 1,
