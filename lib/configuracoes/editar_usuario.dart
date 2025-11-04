@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 
 class EditarUsuarioPage extends StatefulWidget {
   final VoidCallback onVoltar;
-  final Map<String, dynamic> usuario; // ✅ Usuário selecionado
+  final Map<String, dynamic> usuario;
 
   const EditarUsuarioPage({
     super.key,
@@ -19,11 +20,16 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
   final supabase = Supabase.instance.client;
   final _formKey = GlobalKey<FormState>();
 
-  // Controladores dos campos
   final nomeController = TextEditingController();
   final emailController = TextEditingController();
   final celularController = TextEditingController();
   final funcaoController = TextEditingController();
+
+  final nomeFocus = FocusNode();
+  final emailFocus = FocusNode();
+  final celularFocus = FocusNode();
+  final funcaoFocus = FocusNode();
+
   String? filialSelecionada;
   String? nivelSelecionado;
   String? statusAtual;
@@ -32,11 +38,33 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
   bool _salvando = false;
   bool _editado = false;
 
+  // Máscara de celular
+  final celularMask = MaskTextInputFormatter(
+    mask: '(##) # ####-####',
+    filter: {"#": RegExp(r'[0-9]')},
+  );
+
   @override
   void initState() {
     super.initState();
     _carregarFiliais();
     _preencherCampos();
+    _configurarListenersDeFoco();
+  }
+
+  void _configurarListenersDeFoco() {
+    nomeFocus.addListener(() {
+      if (!nomeFocus.hasFocus) _verificarAlteracoes();
+    });
+    emailFocus.addListener(() {
+      if (!emailFocus.hasFocus) _verificarAlteracoes();
+    });
+    celularFocus.addListener(() {
+      if (!celularFocus.hasFocus) _verificarAlteracoes();
+    });
+    funcaoFocus.addListener(() {
+      if (!funcaoFocus.hasFocus) _verificarAlteracoes();
+    });
   }
 
   void _preencherCampos() {
@@ -48,12 +76,6 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
     filialSelecionada = u['id_filial']?.toString();
     nivelSelecionado = u['nivel']?.toString();
     statusAtual = u['status'] ?? 'ativo';
-
-    // Detecta alterações
-    nomeController.addListener(_verificarAlteracoes);
-    emailController.addListener(_verificarAlteracoes);
-    celularController.addListener(_verificarAlteracoes);
-    funcaoController.addListener(_verificarAlteracoes);
   }
 
   Future<void> _carregarFiliais() async {
@@ -117,27 +139,28 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
     }
   }
 
-  Future<void> _suspenderUsuario() async {
+  Future<void> _alternarStatusUsuario() async {
+    final novoStatus = statusAtual == 'suspenso' ? 'ativo' : 'suspenso';
     try {
       await supabase
           .from('usuarios')
-          .update({'status': 'suspenso'}).eq('id', widget.usuario['id']);
+          .update({'status': novoStatus}).eq('id', widget.usuario['id']);
 
       if (mounted) {
+        final mensagem = novoStatus == 'ativo'
+            ? '✅ Usuário reativado com sucesso.'
+            : '⚠️ Usuário suspenso com sucesso.';
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('⚠️ Usuário suspenso com sucesso.'),
-            backgroundColor: Colors.orange,
-          ),
+          SnackBar(content: Text(mensagem)),
         );
-        widget.onVoltar();
+        widget.onVoltar(); // Volta para lista após mudar status
       }
     } catch (e) {
-      debugPrint('❌ Erro ao suspender usuário: $e');
+      debugPrint('❌ Erro ao alterar status: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erro ao suspender: $e'),
+            content: Text('Erro ao alterar status: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -147,145 +170,187 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.all(30),
-      child: Form(
-        key: _formKey,
-        child: ListView(
-          children: [
-            // 🔹 Cabeçalho
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
-                  onPressed: widget.onVoltar,
-                ),
-                const Text(
-                  "Editar Usuário",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0D47A1),
+    final bool suspenso = statusAtual == 'suspenso';
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 20, left: 20, right: 20), // 🔹 respeita a topbar e alinha à esquerda
+      child: Container(
+        width: 800, // 🔹 largura limitada
+        color: Colors.white,
+        padding: const EdgeInsets.all(30),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              // 🔹 Cabeçalho
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
+                    onPressed: widget.onVoltar,
                   ),
-                ),
-              ],
-            ),
-            const Divider(),
-            const SizedBox(height: 20),
-
-            // 🔹 Campos
-            _campo("Nome completo", nomeController),
-            _campo("E-mail", emailController, tipo: TextInputType.emailAddress),
-            _campo("Celular", celularController, tipo: TextInputType.phone),
-            _campo("Função / Cargo", funcaoController),
-
-            // 🔹 Filial
-            DropdownButtonFormField<String>(
-              value: filialSelecionada,
-              decoration: const InputDecoration(
-                labelText: "Filial",
-                border: OutlineInputBorder(),
-              ),
-              items: _filiais
-                  .map((f) => DropdownMenuItem(
-                        value: f['id'].toString(),
-                        child: Text(f['nome']),
-                      ))
-                  .toList(),
-              onChanged: (v) {
-                setState(() {
-                  filialSelecionada = v;
-                  _verificarAlteracoes();
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-
-            // 🔹 Nível
-            DropdownButtonFormField<String>(
-              value: nivelSelecionado,
-              decoration: const InputDecoration(
-                labelText: "Nível de acesso",
-                border: OutlineInputBorder(),
-              ),
-              items: const [
-                DropdownMenuItem(value: "1", child: Text("Usuário comum")),
-                DropdownMenuItem(value: "2", child: Text("Gerência")),
-                DropdownMenuItem(value: "3", child: Text("Administrador")),
-              ],
-              onChanged: (v) {
-                setState(() {
-                  nivelSelecionado = v;
-                  _verificarAlteracoes();
-                });
-              },
-            ),
-            const SizedBox(height: 20),
-
-            // 🔹 Status
-            TextFormField(
-              enabled: false,
-              decoration: InputDecoration(
-                labelText: "Status atual: $statusAtual",
-                border: const OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 30),
-
-            // 🔹 Botão "Salvar e sair"
-            Center(
-              child: ElevatedButton.icon(
-                onPressed: (_editado && !_salvando) ? _salvarAlteracoes : null,
-                icon: const Icon(Icons.save, color: Colors.white),
-                label: Text(_salvando ? "Salvando..." : "Salvar e sair"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2E7D32),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 40, vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                  Text(
+                    suspenso ? "Usuário Suspenso" : "Editar Usuário",
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0D47A1),
+                    ),
                   ),
-                ),
+                ],
               ),
-            ),
-            const SizedBox(height: 40),
+              const Divider(),
+              const SizedBox(height: 20),
 
-            // 🔹 Botão "Suspender usuário"
-            Align(
-              alignment: Alignment.bottomRight,
-              child: ElevatedButton.icon(
-                onPressed: _suspenderUsuario,
-                icon: const Icon(Icons.block, color: Colors.white),
-                label: const Text("Suspender usuário"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 30, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+              // 🔹 Campos
+              _campo("Nome completo", nomeController,
+                  habilitado: !suspenso,
+                  obrigatorio: true,
+                  focusNode: nomeFocus),
+              _campo("E-mail", emailController,
+                  tipo: TextInputType.emailAddress,
+                  habilitado: !suspenso,
+                  focusNode: emailFocus),
+              _campo("Celular", celularController,
+                  tipo: TextInputType.phone,
+                  habilitado: !suspenso,
+                  mask: celularMask,
+                  focusNode: celularFocus),
+              _campo("Função / Cargo", funcaoController,
+                  habilitado: !suspenso, focusNode: funcaoFocus),
+
+              // 🔹 Filial
+              DropdownButtonFormField<String>(
+                value: filialSelecionada,
+                decoration: const InputDecoration(
+                  labelText: "Filial",
+                  border: OutlineInputBorder(),
+                ),
+                items: _filiais
+                    .map((f) => DropdownMenuItem(
+                          value: f['id'].toString(),
+                          child: Text(f['nome']),
+                        ))
+                    .toList(),
+                onChanged: suspenso
+                    ? null
+                    : (v) {
+                        setState(() {
+                          filialSelecionada = v;
+                        });
+                        _verificarAlteracoes();
+                      },
+              ),
+              const SizedBox(height: 16),
+
+              // 🔹 Nível
+              DropdownButtonFormField<String>(
+                value: nivelSelecionado,
+                decoration: const InputDecoration(
+                  labelText: "Nível de acesso",
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: "1", child: Text("Usuário comum")),
+                  DropdownMenuItem(value: "2", child: Text("Gerência")),
+                  DropdownMenuItem(value: "3", child: Text("Administrador")),
+                ],
+                onChanged: suspenso
+                    ? null
+                    : (v) {
+                        setState(() {
+                          nivelSelecionado = v;
+                        });
+                        _verificarAlteracoes();
+                      },
+              ),
+              const SizedBox(height: 20),
+
+              // 🔹 Status
+              TextFormField(
+                enabled: false,
+                decoration: InputDecoration(
+                  labelText: "Status atual: $statusAtual",
+                  border: const OutlineInputBorder(),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 30),
+
+              // 🔹 Linha com os dois botões lado a lado
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // 🟢 Botão "Salvar e sair" (só aparece se não estiver suspenso)
+                  if (!suspenso)
+                    ElevatedButton.icon(
+                      onPressed: (_editado && !_salvando) ? _salvarAlteracoes : null,
+                      icon: const Icon(Icons.save, color: Colors.white),
+                      label: Text(_salvando ? "Salvando..." : "Salvar e sair"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2E7D32),
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+
+                  // 🔴 Botão "Suspender / Reativar"
+                  ElevatedButton.icon(
+                    onPressed: _alternarStatusUsuario,
+                    icon: Icon(
+                      suspenso ? Icons.check_circle : Icons.block,
+                      color: Colors.white,
+                    ),
+                    label: Text(
+                      suspenso ? "Reativar usuário" : "Suspender usuário",
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          suspenso ? Colors.green : Colors.redAccent,
+                      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   // 🔹 Campo genérico
-  Widget _campo(String label, TextEditingController controller,
-      {TextInputType tipo = TextInputType.text}) {
+  Widget _campo(
+    String label,
+    TextEditingController controller, {
+    TextInputType tipo = TextInputType.text,
+    bool habilitado = true,
+    bool obrigatorio = false,
+    MaskTextInputFormatter? mask,
+    FocusNode? focusNode,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: TextFormField(
+        enabled: habilitado,
         controller: controller,
+        focusNode: focusNode,
         keyboardType: tipo,
+        inputFormatters: mask != null ? [mask] : [],
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),
+          filled: !habilitado,
+          fillColor: habilitado ? null : Colors.grey.shade200,
         ),
+        validator: obrigatorio && habilitado
+            ? (v) => v == null || v.isEmpty ? "Preencha este campo" : null
+            : null,
       ),
     );
   }
