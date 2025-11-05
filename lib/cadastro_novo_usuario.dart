@@ -146,7 +146,7 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
     return Scaffold(
       body: Stack(
         children: [
-          // Fundo com imagem
+          // ===== Fundo =====
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
@@ -156,7 +156,14 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
             ),
           ),
 
-          // Conteúdo principal
+          // ===== Logo (mesma posição que na página de login) =====
+          Positioned(
+            top: 80,
+            left: 80,
+            child: Image.asset('assets/logo_top_login.png'),
+          ),
+
+          // ===== Conteúdo principal =====
           Center(
             child: SingleChildScrollView(
               child: Container(
@@ -310,6 +317,39 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
                     ],
                   ),
                 ),
+              ),
+            ),
+          ),
+
+          // ===== Rodapé (mesmo que na página de login) =====
+          Positioned(
+            bottom: 30,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "© 2025 CloudTrack, LLC. All rights reserved.",
+                    style: TextStyle(
+                      color: Colors.grey.shade400,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "AwaySoftwares Solution - 505 North Angier Avenue, Atlanta, GA 30308, EUA.",
+                    style: TextStyle(
+                      color: Colors.grey.shade400,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
             ),
           ),
