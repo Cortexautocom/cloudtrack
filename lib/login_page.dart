@@ -70,21 +70,8 @@ class _LoginPageState extends State<LoginPage> {
         throw 'Usuário não encontrado na tabela de usuários.';
       }
 
-      // 🔹 3. Busca permissões (apenas nível 1)
+      // 🔹 3. Inicializa lista vazia (será carregada depois)
       List<String> sessoesPermitidas = [];
-      if (usuarioData['nivel'] == 1) {
-        final permissoes = await supabase
-            .from('permissoes')
-            .select('id_sessao, permitido')
-            .eq('id_usuario', usuarioData['id']);
-
-        // Inclui todos com permitido = true ou null
-        sessoesPermitidas = List<String>.from(
-          permissoes
-              .where((p) => p['permitido'] == true || p['permitido'] == null)
-              .map((p) => p['id_sessao'] as String),
-        );
-      }
 
       // 🔹 4. Cria objeto global do usuário
       UsuarioAtual.instance = UsuarioAtual(

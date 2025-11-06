@@ -17,7 +17,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
   List<Map<String, dynamic>> usuariosFiltrados = [];
   Map<String, dynamic>? usuarioSelecionado;
   final TextEditingController _controllerPesquisa = TextEditingController();
-  final Map<String, String> _cacheFiliais = {}; // Mudado para String key (UUID)
+  final Map<String, String> _cacheFiliais = {};
 
   final supabase = Supabase.instance.client;
 
@@ -34,21 +34,10 @@ class _UsuariosPageState extends State<UsuariosPage> {
     super.dispose();
   }
 
-  /// 🔹 Filtra usuários baseado no texto de pesquisa
   void _filtrarUsuarios() {
     final termo = _controllerPesquisa.text.toLowerCase().trim();
-    
     if (termo.isEmpty) {
-      setState(() {
-        usuariosFiltrados = usuarios;
-      });
-      return;
-    }
-
-    if (usuarios.isEmpty) {
-      setState(() {
-        usuariosFiltrados = [];
-      });
+      setState(() => usuariosFiltrados = usuarios);
       return;
     }
 
@@ -57,19 +46,15 @@ class _UsuariosPageState extends State<UsuariosPage> {
         final nome = usuario['nome']?.toString().toLowerCase() ?? '';
         final email = usuario['email']?.toString().toLowerCase() ?? '';
         final filial = usuario['filial_nome']?.toString().toLowerCase() ?? '';
-        
-        return nome.contains(termo) || 
-               email.contains(termo) || 
-               filial.contains(termo);
+        return nome.contains(termo) ||
+            email.contains(termo) ||
+            filial.contains(termo);
       }).toList();
     });
   }
 
-  /// 🔹 Busca o nome da filial pelo ID
   Future<String> _obterNomeFilial(String? idFilial) async {
     if (idFilial == null || idFilial.isEmpty) return 'N/A';
-    
-    // Verifica se já está em cache
     if (_cacheFiliais.containsKey(idFilial)) {
       return _cacheFiliais[idFilial]!;
     }
@@ -80,7 +65,6 @@ class _UsuariosPageState extends State<UsuariosPage> {
           .select('nome')
           .eq('id', idFilial)
           .single();
-
       final nomeFilial = response['nome']?.toString() ?? 'N/A';
       _cacheFiliais[idFilial] = nomeFilial;
       return nomeFilial;
@@ -90,30 +74,21 @@ class _UsuariosPageState extends State<UsuariosPage> {
     }
   }
 
-  /// 🔹 Busca todos os usuários e cadastros pendentes diretamente do Supabase
   Future<void> _carregarUsuarios() async {
     try {
       setState(() => carregando = true);
 
-      // 1️⃣ Busca cadastros pendentes
       final pendentesResponse = await supabase
           .from('cadastros_pendentes')
           .select('*')
           .order('criado_em', ascending: false);
 
-      final List<Map<String, dynamic>> pendentes =
-          List<Map<String, dynamic>>.from(pendentesResponse);
+      final pendentes = List<Map<String, dynamic>>.from(pendentesResponse);
 
-      // 2️⃣ Busca todos os usuários
-      final usuariosResponse = await supabase
-          .from('usuarios')
-          .select('*')
-          .order('nome', ascending: true);
+      final usuariosResponse =
+          await supabase.from('usuarios').select('*').order('nome', ascending: true);
+      final listaUsuarios = List<Map<String, dynamic>>.from(usuariosResponse);
 
-      final List<Map<String, dynamic>> listaUsuarios =
-          List<Map<String, dynamic>>.from(usuariosResponse);
-
-      // 3️⃣ Processa pendentes com nome da filial
       final pendentesComFilial = await Future.wait(
         pendentes.map((p) async {
           final nomeFilial = await _obterNomeFilial(p['id_filial']?.toString());
@@ -122,6 +97,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
             'nome': p['nome'],
             'email': p['email'],
             'status': 'pendente',
+            'nivel': p['nivel'] ?? 1,
             'tabela': 'cadastros_pendentes',
             'filial_nome': nomeFilial,
             'dados': p,
@@ -129,7 +105,6 @@ class _UsuariosPageState extends State<UsuariosPage> {
         }),
       );
 
-      // 4️⃣ Processa usuários com nome da filial
       final usuariosComFilial = await Future.wait(
         listaUsuarios.map((u) async {
           final nomeFilial = await _obterNomeFilial(u['id_filial']?.toString());
@@ -138,6 +113,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
             'nome': u['nome'],
             'email': u['email'],
             'status': (u['status'] ?? 'ativo').toString().toLowerCase(),
+            'nivel': u['nivel'] ?? 1,
             'tabela': 'usuarios',
             'filial_nome': nomeFilial,
             'dados': u,
@@ -145,7 +121,6 @@ class _UsuariosPageState extends State<UsuariosPage> {
         }),
       );
 
-      // 5️⃣ Junta as duas listas
       final todos = <Map<String, dynamic>>[
         ...pendentesComFilial,
         ...usuariosComFilial,
@@ -170,7 +145,6 @@ class _UsuariosPageState extends State<UsuariosPage> {
     }
   }
 
-  /// 🔹 Define cor de acordo com o status
   Color _corStatus(String status) {
     switch (status.toLowerCase()) {
       case 'ativo':
@@ -179,18 +153,43 @@ class _UsuariosPageState extends State<UsuariosPage> {
         return Colors.red;
       case 'pendente':
         return Colors.orange;
-      case 'bloqueado':
-        return Colors.grey;
       default:
         return Colors.blueGrey;
     }
   }
 
-  /// 🔹 Formata texto de exibição do status (primeira letra maiúscula)
   String _textoStatus(String status, String tabela) {
     if (tabela == 'cadastros_pendentes') return 'Pendente';
     if (status.isEmpty) return 'Desconhecido';
     return status[0].toUpperCase() + status.substring(1).toLowerCase();
+  }
+
+  /// 🔹 Cor da tag de nível
+  Color _corNivel(int nivel) {
+    switch (nivel) {
+      case 1:
+        return Colors.blueGrey;
+      case 2:
+        return const Color.fromARGB(255, 0, 47, 255);
+      case 3:
+        return const Color.fromARGB(255, 240, 184, 0);
+      default:
+        return Colors.grey;
+    }
+  }
+
+  /// 🔹 Texto exibido na tag de nível
+  String _textoNivel(int nivel) {
+    switch (nivel) {
+      case 1:
+        return "Logística / Operações";
+      case 2:
+        return "Gerência e supervisão";
+      case 3:
+        return "Diretoria e Administração";
+      default:
+        return "N/A";
+    }
   }
 
   @override
@@ -201,38 +200,32 @@ class _UsuariosPageState extends State<UsuariosPage> {
       );
     }
 
-    // 🔹 Abre a tela correspondente conforme o tipo do usuário selecionado
     if (usuarioSelecionado != null) {
-      // 🟠 Caso seja um cadastro pendente → abre tela de aprovação
       if (usuarioSelecionado!['tabela'] == 'cadastros_pendentes') {
         return AprovarUsuarioPage(
           usuario: usuarioSelecionado!['dados'],
           onVoltar: () {
             setState(() => usuarioSelecionado = null);
-            _carregarUsuarios(); // Atualiza lista ao voltar
+            _carregarUsuarios();
           },
         );
       }
-
-      // 🟢 Caso seja um usuário já ativo → abre tela de edição
       if (usuarioSelecionado!['tabela'] == 'usuarios') {
         return EditarUsuarioPage(
           usuario: usuarioSelecionado!['dados'],
           onVoltar: () {
             setState(() => usuarioSelecionado = null);
-            _carregarUsuarios(); // Atualiza lista ao voltar
+            _carregarUsuarios();
           },
         );
       }
     }
 
-    // 🔹 Lista principal de usuários
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cabeçalho
           Row(
             children: [
               IconButton(
@@ -252,7 +245,6 @@ class _UsuariosPageState extends State<UsuariosPage> {
           const Divider(),
           const SizedBox(height: 16),
 
-          // Campo de pesquisa
           Container(
             width: 700,
             height: 40,
@@ -265,12 +257,12 @@ class _UsuariosPageState extends State<UsuariosPage> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
             ),
           ),
 
-          // Lista de usuários
           Expanded(
             child: Container(
               width: 700,
@@ -287,33 +279,46 @@ class _UsuariosPageState extends State<UsuariosPage> {
                       separatorBuilder: (_, __) => const Divider(height: 1),
                       itemBuilder: (context, index) {
                         final u = usuariosFiltrados[index];
-                        final cor = _corStatus(u['status'] ?? '');
-                        final texto =
+                        final corStatus = _corStatus(u['status'] ?? '');
+                        final textoStatus =
                             _textoStatus(u['status'] ?? '', u['tabela'] ?? '');
+                        final nivel = int.tryParse(u['nivel'].toString()) ?? 1;
+                        final corNivel = _corNivel(nivel);
+                        final textoNivel = _textoNivel(nivel);
 
                         return SizedBox(
                           height: 60,
                           child: ListTile(
                             dense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            leading: Icon(Icons.person_outline, color: cor, size: 20),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 4),
+                            leading: Icon(Icons.person_outline,
+                                color: corStatus, size: 20),
                             title: Text(
                               u['nome'] ?? 'Sem nome',
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                              style: const TextStyle(
+                                  fontSize: 14, fontWeight: FontWeight.w500),
                               overflow: TextOverflow.ellipsis,
                             ),
                             subtitle: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                if (u['filial_nome'] != null && u['filial_nome'] != 'N/A')
+                                if (u['filial_nome'] != null &&
+                                    u['filial_nome'] != 'N/A')
                                   Text(
                                     u['filial_nome']!,
-                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                    style: const TextStyle(
+                                        fontSize: 12, color: Colors.grey),
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                if (u['filial_nome'] != null && u['filial_nome'] != 'N/A')
-                                  const Text("  |  ", style: TextStyle(fontSize: 12, color: Color.fromARGB(255, 133, 133, 133))),
+                                if (u['filial_nome'] != null &&
+                                    u['filial_nome'] != 'N/A')
+                                  const Text("  |  ",
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: Color.fromARGB(
+                                              255, 133, 133, 133))),
                                 Text(
                                   u['email'] ?? '',
                                   style: const TextStyle(fontSize: 12),
@@ -321,22 +326,46 @@ class _UsuariosPageState extends State<UsuariosPage> {
                                 ),
                               ],
                             ),
-                            trailing: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: cor.withOpacity(0.1),
-                                border: Border.all(color: cor),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                texto,
-                                style: TextStyle(color: cor, fontSize: 10),
-                              ),
+
+                            // 🔹 TAGS de status + nível lado a lado
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: corStatus.withOpacity(0.1),
+                                    border: Border.all(color: corStatus),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    textoStatus,
+                                    style: TextStyle(
+                                        color: corStatus, fontSize: 10),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: corNivel.withOpacity(0.1),
+                                    border: Border.all(color: corNivel),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    textoNivel,
+                                    style: TextStyle(
+                                        color: corNivel, fontSize: 10),
+                                  ),
+                                ),
+                              ],
                             ),
+
                             onTap: () {
-                              // Abre somente se for pendente
-                              if (u['tabela'] == 'cadastros_pendentes' || u['tabela'] == 'usuarios') {
+                              if (u['tabela'] == 'cadastros_pendentes' ||
+                                  u['tabela'] == 'usuarios') {
                                 setState(() {
                                   usuarioSelecionado = u;
                                 });
@@ -347,7 +376,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
                       },
                     ),
             ),
-          ),          
+          ),
         ],
       ),
     );

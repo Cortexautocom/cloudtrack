@@ -37,11 +37,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   @override
   void initState() {
     super.initState();
-    _carregarSessoesDoBanco();
   }
 
   /// 🔹 Carrega todas as sessões do banco e aplica filtro de permissões
-    Future<void> _carregarSessoesDoBanco() async {
+  Future<void> _carregarSessoesDoBanco() async {
     setState(() => carregandoSessoes = true);
     final supabase = Supabase.instance.client;
     final usuario = UsuarioAtual.instance;
@@ -72,6 +71,64 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       // Manter o catch é uma boa prática
     } finally {
       setState(() => carregandoSessoes = false);
+    }
+  }
+
+  /// 🔹 Verifica permissões do usuário ao clicar em "Sessões"
+  /// 🔹 Sempre verifica as permissões do usuário ao clicar em "Sessões"
+  Future<void> _verificarPermissoesUsuario() async {
+    final usuario = UsuarioAtual.instance;
+    if (usuario == null) return;
+
+    try {
+      final supabase = Supabase.instance.client;
+
+      // 🔹 Nível 2+ tem acesso total
+      if (usuario.nivel >= 2) {
+        UsuarioAtual.instance = UsuarioAtual(
+          id: usuario.id,
+          nome: usuario.nome,
+          nivel: usuario.nivel,
+          filialId: usuario.filialId,
+          sessoesPermitidas: [], // não precisa checar permissões
+        );
+        await _carregarSessoesDoBanco();
+        return;
+      }
+
+      // 🔹 Busca permissões atualizadas da tabela
+      final permissoes = await supabase
+          .from('permissoes')
+          .select('id_sessao, permitido')
+          .eq('id_usuario', usuario.id);
+
+      final sessoesPermitidas = List<String>.from(
+        permissoes
+            .where((p) => p['permitido'] == true || p['permitido'] == null)
+            .map((p) => p['id_sessao'].toString()),
+      );
+
+      // 🔹 Atualiza as permissões no objeto global (sem cache permanente)
+      UsuarioAtual.instance = UsuarioAtual(
+        id: usuario.id,
+        nome: usuario.nome,
+        nivel: usuario.nivel,
+        filialId: usuario.filialId,
+        sessoesPermitidas: sessoesPermitidas,
+      );
+
+      // 🔹 Atualiza a exibição das sessões
+      await _carregarSessoesDoBanco();
+    } catch (e) {
+      debugPrint("❌ Erro ao carregar permissões: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Erro ao carregar permissões."),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -171,23 +228,29 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           itemBuilder: (context, index) {
                             bool isSelected = selectedIndex == index;
                             return InkWell(
-                              onTap: () {
+                              onTap: () async {
                                 setState(() {
                                   selectedIndex = index;
-
-                                  // 🔹 Resetar tudo ao trocar de aba
                                   showConversaoList = false;
                                   showControleAcesso = false;
                                   showConfigList = false;
-                                  showUsuarios = false; // <- adicionamos este
+                                  showUsuarios = false;
+                                });
 
-                                  // 🔹 Se sair da aba Configurações, garantir retorno aos cards
-                                  if (menuItems[index] != 'Configurações') {
+                                // 🔹 Se o menu clicado for "Sessões", verifica permissões antes de carregar
+                                if (menuItems[index] == 'Sessões') {
+                                  await _verificarPermissoesUsuario();
+                                }
+
+                                // 🔹 Se sair da aba Configurações, garantir retorno aos cards
+                                if (menuItems[index] != 'Configurações') {
+                                  setState(() {
                                     showControleAcesso = false;
                                     showUsuarios = false;
-                                  }
-                                });
+                                  });
+                                }
                               },
+
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 400),
                                 padding: const EdgeInsets.symmetric(

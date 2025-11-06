@@ -199,12 +199,16 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
               ),
               items: const [
                 DropdownMenuItem(
-                  value: "Operação, usuário comum",
-                  child: Text("Operação, usuário comum"),
+                  value: "Logística / Operações ♦ Nível 1",
+                  child: Text("Operação, usuário comum ♦ Nível 1"),
                 ),
                 DropdownMenuItem(
-                  value: "Gerência e coordenação",
-                  child: Text("Gerência e coordenação"),
+                  value: "Gerência e supervisão ♦ Nível 2",
+                  child: Text("Gerência e supervisão ♦ Nível 2"),
+                ),
+                DropdownMenuItem(
+                  value: "Diretoria e Administração ♦ Nível 2",
+                  child: Text("Diretoria e Administração ♦ Nível 2"),
                 ),
               ],
               onChanged: (v) => setState(() => nivelSelecionado = v),

@@ -259,9 +259,9 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
                   border: OutlineInputBorder(),
                 ),
                 items: const [
-                  DropdownMenuItem(value: "1", child: Text("Usuário comum")),
-                  DropdownMenuItem(value: "2", child: Text("Gerência")),
-                  DropdownMenuItem(value: "3", child: Text("Administrador")),
+                  DropdownMenuItem(value: "1", child: Text("Logística / Operações ♦ Nível 1")),
+                  DropdownMenuItem(value: "2", child: Text("Gerência e supervisão ♦ Nível 2")),
+                  DropdownMenuItem(value: "3", child: Text("Diretoria e Administração ♦ Nível 3")),
                 ],
                 onChanged: suspenso
                     ? null
