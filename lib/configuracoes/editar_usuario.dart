@@ -173,11 +173,16 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
     final bool suspenso = statusAtual == 'suspenso';
 
     return Padding(
-      padding: const EdgeInsets.only(top: 20, left: 20, right: 20), // 🔹 respeita a topbar e alinha à esquerda
+      padding: const EdgeInsets.only(top: 5, left: 20, right: 20), // 🔹 respeita a topbar e alinha à esquerda
       child: Container(
         width: 800, // 🔹 largura limitada
         color: Colors.white,
-        padding: const EdgeInsets.all(30),
+        padding: const EdgeInsets.only(
+          left: 30,
+          right: 30,
+          bottom: 30,
+          top: 10,
+        ),
         child: Form(
           key: _formKey,
           child: ListView(
@@ -188,7 +193,10 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
                   IconButton(
                     icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
                     onPressed: widget.onVoltar,
+                    padding: EdgeInsets.zero, // 🔹 Remove padding do ícone
+                    visualDensity: VisualDensity.compact, // 🔹 Torna mais compacto
                   ),
+                  const SizedBox(width: 8), // 🔹 Reduz espaçamento
                   Text(
                     suspenso ? "Usuário Suspenso" : "Editar Usuário",
                     style: const TextStyle(
