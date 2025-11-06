@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'home.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'cadastro_novo_usuario.dart';
+import 'configuracoes/esqueci_senha.dart';
 
 /// 🧩 Classe global que armazena dados do usuário logado
 class UsuarioAtual {
@@ -217,8 +218,14 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 20),
 
                   // ===== Esqueci senha =====
+                  // ===== Esqueci senha =====
                   TextButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const EsqueciSenhaPage()),
+                      );
+                    },
                     child: const Text(
                       "Esqueci minha senha",
                       style: TextStyle(color: Color(0xFF0A4B78)),
