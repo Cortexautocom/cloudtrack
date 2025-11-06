@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_strategy/url_strategy.dart';
-
+import 'configuracoes/escolher_senha.dart';
 import 'login_page.dart';
 import 'home.dart';
 import 'configuracoes/esqueci_senha.dart';
@@ -129,6 +129,7 @@ class _MyAppState extends State<MyApp> {
         '/redefinir-senha': (context) => const RedefinirSenhaPage(),
         '/': (context) => const LoginPage(),
         '/reset-password': (context) => const RedefinirSenhaPage(),
+        '/escolher-senha': (context) => const EscolherSenhaPage(),
       },
     );
   }
