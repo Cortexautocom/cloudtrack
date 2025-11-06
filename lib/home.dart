@@ -5,7 +5,6 @@ import 'configuracoes/controle_acesso_usuarios.dart';
 import 'login_page.dart';
 import 'configuracoes/usuarios.dart';
 
-
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -18,7 +17,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   TextEditingController searchController = TextEditingController();
 
   final List<String> menuItems = [
-    'Dashboard',
     'Sessões',
     'Relatórios',
     'Configurações',
@@ -30,7 +28,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool showConfigList = false;
   bool carregandoSessoes = false;
   bool showUsuarios = false;
-
 
   List<Map<String, dynamic>> sessoes = [];
 
@@ -132,6 +129,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
+  /// 🔹 Navega para a página Início
+  void _navegarParaInicio() {
+    setState(() {
+      selectedIndex = -1; // -1 indica que está na página Início
+      showConversaoList = false;
+      showControleAcesso = false;
+      showConfigList = false;
+      showUsuarios = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final usuario = UsuarioAtual.instance;
@@ -156,11 +164,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                // 🔹 LOGO CLICÁVEL - LEVA PARA INÍCIO
                 Padding(
                   padding: const EdgeInsets.only(left: 10),
-                  child: Image.asset(
-                    'assets/logo_top_home.png',
-                    fit: BoxFit.contain,
+                  child: InkWell(
+                    onTap: _navegarParaInicio,
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Image.asset(
+                        'assets/logo_top_home.png',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
                   ),
                 ),
                 Padding(
@@ -319,6 +334,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   // ===== Decide o que mostrar =====
   Widget _buildPageContent(UsuarioAtual? usuario) {
+    // 🔹 Se selectedIndex = -1, mostra a página Início
+    if (selectedIndex == -1) {
+      return _buildInicioPage(usuario);
+    }
+
     switch (menuItems[selectedIndex]) {
       case 'Sessões':
         return _buildSessoesPage(usuario);
@@ -577,8 +597,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   IconData _getMenuIcon(String item) {
     switch (item) {
-      case 'Dashboard':
-        return Icons.dashboard;
       case 'Sessões':
         return Icons.apps;
       case 'Relatórios':
@@ -590,5 +608,44 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       default:
         return Icons.circle;
     }
+  }
+
+  // ===== Página Início =====
+  Widget _buildInicioPage(UsuarioAtual? usuario) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.home,
+            size: 80,
+            color: Color(0xFF0D47A1),
+          ),
+          SizedBox(height: 20),
+          Text(
+            'Bem-vindo ao CloudTrack!',
+            style: TextStyle(
+              fontSize: 24,
+              color: Color(0xFF0D47A1),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 20),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              'Seu ambiente moderno de gestão de estoques e logística totalmente na nuvem,\ncom rotinas e fluxos planejados e implementados por inteligência artificial,\nbuscando máxima eficiência e redução de custos operacionais.',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[700],
+                height: 1.6,
+                letterSpacing: 0.2,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
