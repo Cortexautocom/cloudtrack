@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 
 class EsqueciSenhaPage extends StatefulWidget {
   const EsqueciSenhaPage({super.key});
@@ -22,11 +24,15 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
     final supabase = Supabase.instance.client;
     final email = _emailController.text.trim();
 
-    try {
+    try {      
       await supabase.auth.resetPasswordForEmail(
         email,
-        redirectTo: 'cloudtrack://reset-password', // URL customizada para deep linking
+        redirectTo: kIsWeb
+            ? 'https://cloudtrack-app.web.app/reset-password'
+            : 'cloudtrack://reset-password',
       );
+
+
 
       setState(() => _emailSent = true);
       

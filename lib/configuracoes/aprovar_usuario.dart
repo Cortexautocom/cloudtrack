@@ -200,7 +200,7 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
               items: const [
                 DropdownMenuItem(
                   value: "Logística / Operações ♦ Nível 1",
-                  child: Text("Operação, usuário comum ♦ Nível 1"),
+                  child: Text("Logística / Operações ♦ Nível 1"),
                 ),
                 DropdownMenuItem(
                   value: "Gerência e supervisão ♦ Nível 2",

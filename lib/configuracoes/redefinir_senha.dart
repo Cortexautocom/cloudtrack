@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../home.dart';
 
 class RedefinirSenhaPage extends StatefulWidget {
   const RedefinirSenhaPage({super.key});
@@ -26,12 +25,13 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
     final supabase = Supabase.instance.client;
 
     try {
+      // 🔐 Atualiza a senha do usuário
       await supabase.auth.updateUser(
         UserAttributes(password: _novaSenhaController.text.trim()),
       );
 
       setState(() => _senhaRedefinida = true);
-      
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -40,15 +40,17 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
         ),
       );
 
-      // Aguarda um pouco para mostrar a mensagem de sucesso
+      // ⏳ Aguarda um pouco para exibir a mensagem de sucesso
       await Future.delayed(const Duration(seconds: 2));
-      
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
-      );
 
+      // 🚪 Desloga o usuário (encerra a sessão temporária de recuperação)
+      await supabase.auth.signOut();
+
+      if (!mounted) return;
+
+      // 🔁 Redireciona para a tela de login (não para Home)
+      Navigator.pushReplacementNamed(context, '/login');
+      
     } on AuthException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -69,6 +71,7 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
 
   // ======= Validação de força da senha =======
   String? _validarForcaSenha(String? value) {

@@ -213,7 +213,7 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
                         keyboardType: TextInputType.emailAddress,
                         autocorrect: false,
                         autofillHints: const [AutofillHints.email],
-                        decoration: _inputDecoration("E-mail corporativo"),
+                        decoration: _inputDecoration("E-mail"),
                         validator: (v) {
                           if (v == null || v.isEmpty) {
                             return "Informe o e-mail";
@@ -233,7 +233,7 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
                         controller: celularController,
                         keyboardType: TextInputType.phone,
                         inputFormatters: [maskTelefone],
-                        decoration: _inputDecoration("Celular (WhatsApp)"),
+                        decoration: _inputDecoration("Celular (com WhatsApp)"),
                       ),
                       const SizedBox(height: 20),
 
