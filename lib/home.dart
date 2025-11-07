@@ -88,6 +88,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           nivel: usuario.nivel,
           filialId: usuario.filialId,
           sessoesPermitidas: [], // não precisa checar permissões
+          senhaTemporaria: usuario.senhaTemporaria, // ✅ ADICIONAR ESTA LINHA
         );
         await _carregarSessoesDoBanco();
         return;
@@ -112,6 +113,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         nivel: usuario.nivel,
         filialId: usuario.filialId,
         sessoesPermitidas: sessoesPermitidas,
+        senhaTemporaria: usuario.senhaTemporaria,
       );
 
       // 🔹 Atualiza a exibição das sessões

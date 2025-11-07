@@ -1,5 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../home.dart'; // ✅ IMPORT ADICIONADO
+import '../login_page.dart';
 
 class EscolherSenhaPage extends StatefulWidget {
   const EscolherSenhaPage({super.key});
@@ -25,27 +29,62 @@ class _EscolherSenhaPageState extends State<EscolherSenhaPage> {
     final supabase = Supabase.instance.client;
 
     try {
-      // Atualiza a senha no Supabase
-      await supabase.auth.updateUser(
-        UserAttributes(password: _novaSenhaController.text.trim()),
+      final novaSenha = _novaSenhaController.text.trim();
+      final token = supabase.auth.currentSession?.accessToken;
+
+      if (token == null) {
+        throw Exception("Usuário não autenticado");
+      }
+
+      // 🌐 Chama a NOVA Edge Function
+      final url = "https://ikaxzlpaihdkqyjqrxyw.functions.supabase.co/definir-senha-definitiva";
+      
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode({
+          'nova_senha': novaSenha,
+        }),
       );
 
-      setState(() => _senhaDefinida = true);
+      final result = jsonDecode(response.body);
+      
+      if (result['success'] == true) {
+        // ✅ Atualiza o objeto do usuário localmente
+        if (UsuarioAtual.instance != null) {
+          UsuarioAtual.instance = UsuarioAtual(
+            id: UsuarioAtual.instance!.id,
+            nome: UsuarioAtual.instance!.nome,
+            nivel: UsuarioAtual.instance!.nivel,
+            filialId: UsuarioAtual.instance!.filialId,
+            sessoesPermitidas: UsuarioAtual.instance!.sessoesPermitidas,
+            senhaTemporaria: false, // ✅ AGORA É FALSE
+          );
+        }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Senha criada com sucesso!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+        setState(() => _senhaDefinida = true);
 
-      // Aguarda um pouco e redireciona para o login
-      await Future.delayed(const Duration(seconds: 2));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Senha definida com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
 
-      await supabase.auth.signOut();
+        // 🔄 Aguarda e redireciona para HOME (não faz logout)
+        await Future.delayed(const Duration(seconds: 2));
 
-      if (!mounted) return;
-      Navigator.pushReplacementNamed(context, '/login');
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+        );
+      } else {
+        throw Exception(result['error'] ?? 'Erro ao definir senha');
+      }
     } on AuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -56,7 +95,7 @@ class _EscolherSenhaPageState extends State<EscolherSenhaPage> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erro inesperado: $e'),
+          content: Text('Erro: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -120,7 +159,7 @@ class _EscolherSenhaPageState extends State<EscolherSenhaPage> {
                       size: 64, color: Color(0xFF0A4B78)),
                   const SizedBox(height: 15),
                   const Text(
-                    'Definir Senha',
+                    'Definir Nova Senha',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -130,8 +169,8 @@ class _EscolherSenhaPageState extends State<EscolherSenhaPage> {
                   const SizedBox(height: 10),
                   Text(
                     _senhaDefinida
-                        ? 'Senha definida com sucesso! Você será redirecionado.'
-                        : 'Crie uma senha para sua nova conta CloudTrack',
+                        ? 'Senha definida com sucesso! Redirecionando...'
+                        : 'Crie uma nova senha para sua conta CloudTrack',
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 14, color: Colors.grey),
                   ),
@@ -193,7 +232,7 @@ class _EscolherSenhaPageState extends State<EscolherSenhaPage> {
                                       color: Colors.white,
                                     )
                                   : const Text(
-                                      'Salvar Senha',
+                                      'Salvar Nova Senha',
                                       style: TextStyle(
                                         fontSize: 16,
                                         color: Colors.white,

@@ -49,8 +49,9 @@ class _MyAppState extends State<MyApp> {
   }
 
   // Ouve eventos de autenticação (login, logout, recuperação, etc.)
+  // NO MyApp, modifique o _setupAuthListener():
   void _setupAuthListener() {
-    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       final event = data.event;
       final session = data.session;
 
@@ -65,13 +66,35 @@ class _MyAppState extends State<MyApp> {
           print('🔵 Sessão de recuperação ativa — indo pra tela de redefinição.');
           _redirectToResetPassword();
         } else {
-          print('🟢 Login normal detectado — indo pra Home.');
-          _redirectToHome();
+          print('🟢 Login normal detectado — verificando senha temporária.');
+          
+          // ✅ VERIFICAR SENHA TEMPORÁRIA AQUI
+          final supabase = Supabase.instance.client;
+          final userData = await supabase
+              .from('usuarios')
+              .select('senha_temporaria')
+              .eq('id', session.user.id)
+              .maybeSingle();
+              
+          if (userData != null && userData['senha_temporaria'] == true) {
+            print('🔐 Redirecionando para troca de senha');
+            _redirectToEscolherSenha();
+          } else {
+            print('🔐 Redirecionando para home');
+            _redirectToHome();
+          }
         }
       } else if (event == AuthChangeEvent.signedOut) {
         print('🚪 Usuário deslogado — voltando pra Login.');
         _redirectToLogin();
       }
+    });
+  }
+
+  // ADICIONAR este método:
+  void _redirectToEscolherSenha() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Navigator.of(context).pushNamedAndRemoveUntil('/escolher-senha', (route) => false);
     });
   }
 
@@ -121,13 +144,12 @@ class _MyAppState extends State<MyApp> {
           ),
         ),
       ),
-      home: const AuthWrapper(),
+      home: const LoginPage(),
       routes: {
         '/home': (context) => const HomePage(),
         '/login': (context) => const LoginPage(),
         '/esqueci-senha': (context) => const EsqueciSenhaPage(),
         '/redefinir-senha': (context) => const RedefinirSenhaPage(),
-        '/': (context) => const LoginPage(),
         '/reset-password': (context) => const RedefinirSenhaPage(),
         '/escolher-senha': (context) => const EscolherSenhaPage(),
       },
@@ -176,10 +198,48 @@ class _AuthWrapperState extends State<AuthWrapper> {
           Navigator.of(context)
               .pushNamedAndRemoveUntil('/redefinir-senha', (route) => false);
         });
+      } else if (_session != null) {
+        // ✅ NOVA VERIFICAÇÃO: Se usuário logado tem senha temporária
+        await _verificarSenhaTemporaria();
       }
     } catch (error) {
       print('Erro ao verificar sessão/URL: $error');
       setState(() => _isLoading = false);
+    }
+  }
+
+  // ✅ NOVO MÉTODO: Verifica se usuário precisa trocar senha
+  Future<void> _verificarSenhaTemporaria() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = _session!.user.id;
+
+      final userData = await supabase
+          .from('usuarios')
+          .select('senha_temporaria')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (userData != null && userData['senha_temporaria'] == true) {
+        print('🔐 Usuário com senha temporária - redirecionando para troca de senha');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Navigator.of(context)
+              .pushNamedAndRemoveUntil('/escolher-senha', (route) => false);
+        });
+      } else {
+        print('🔐 Usuário com senha definitiva - redirecionando para home');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Navigator.of(context)
+              .pushNamedAndRemoveUntil('/home', (route) => false);
+        });
+      }
+    } catch (error) {
+      print('❌ Erro ao verificar senha temporária: $error');
+      // Em caso de erro, redireciona para home por segurança
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil('/home', (route) => false);
+      });
     }
   }
 
@@ -196,12 +256,22 @@ class _AuthWrapperState extends State<AuthWrapper> {
       return const RedefinirSenhaPage();
     }
 
-    // 🔓 Caso normal
-    if (_session != null) {
-      return const HomePage();
-    } else {
-      return const LoginPage();
-    }
+    // 🔓 Caso normal - AuthWrapper decide baseado na verificação assíncrona
+    // A navegação é tratada nos métodos acima, então mostramos loading
+    return const Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text(
+              'Verificando acesso...',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
   }
-
 }

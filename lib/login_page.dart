@@ -3,6 +3,7 @@ import 'home.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'cadastro_novo_usuario.dart';
 import 'configuracoes/esqueci_senha.dart';
+import 'configuracoes/escolher_senha.dart'; // ✅ IMPORT ADICIONADO
 
 /// 🧩 Classe global que armazena dados do usuário logado
 class UsuarioAtual {
@@ -13,6 +14,7 @@ class UsuarioAtual {
   final int nivel;
   final String? filialId;
   final List<String> sessoesPermitidas;
+  final bool senhaTemporaria; // ✅ NOVO CAMPO
 
   UsuarioAtual({
     required this.id,
@@ -20,12 +22,16 @@ class UsuarioAtual {
     required this.nivel,
     this.filialId,
     required this.sessoesPermitidas,
+    required this.senhaTemporaria, // ✅ NOVO PARÂMETRO
   });
 
   bool temPermissao(String idSessao) {
     if (nivel >= 2) return true;
     return sessoesPermitidas.contains(idSessao);
   }
+
+  // ✅ NOVO MÉTODO PARA VERIFICAR SE PRECISA TROCAR SENHA
+  bool get precisaTrocarSenha => senhaTemporaria;
 }
 
 class LoginPage extends StatefulWidget {
@@ -60,10 +66,10 @@ class _LoginPageState extends State<LoginPage> {
       }
       final userId = response.user!.id;
 
-      // 🔹 2. Busca dados do usuário
+      // 🔹 2. Busca dados do usuário (AGORA COM senha_temporaria)
       final usuarioData = await supabase
           .from('usuarios')
-          .select('id, nome, nivel, id_filial')
+          .select('id, nome, nivel, id_filial, senha_temporaria') // ✅ ADICIONADO
           .eq('id', userId)
           .maybeSingle();
 
@@ -74,28 +80,47 @@ class _LoginPageState extends State<LoginPage> {
       // 🔹 3. Inicializa lista vazia (será carregada depois)
       List<String> sessoesPermitidas = [];
 
-      // 🔹 4. Cria objeto global do usuário
+      // 🔹 4. Cria objeto global do usuário (AGORA COM senhaTemporaria)
       UsuarioAtual.instance = UsuarioAtual(
         id: usuarioData['id'],
         nome: usuarioData['nome'],
         nivel: usuarioData['nivel'],
         filialId: usuarioData['id_filial']?.toString(),
         sessoesPermitidas: sessoesPermitidas,
+        senhaTemporaria: usuarioData['senha_temporaria'] ?? true, // ✅ NOVO
       );
 
-      // 🔹 5. Mensagem e navegação
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Login realizado com sucesso!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      // 🔹 5. VERIFICA SE PRECISA REDIRECIONAR PARA TROCA DE SENHA
+      if (UsuarioAtual.instance!.precisaTrocarSenha) {
+        if (!mounted) return;
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Por favor, defina uma nova senha para sua conta.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
-      );
+        // 🔄 REDIRECIONA PARA TELA DE ESCOLHER SENHA
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const EscolherSenhaPage()),
+        );
+      } else {
+        // 🔹 6. Login normal - vai para Home
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Login realizado com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+        );
+      }
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -218,7 +243,6 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 20),
 
                   // ===== Esqueci senha =====
-                  // ===== Esqueci senha =====
                   TextButton(
                     onPressed: () {
                       Navigator.push(
@@ -231,6 +255,7 @@ class _LoginPageState extends State<LoginPage> {
                       style: TextStyle(color: Color(0xFF0A4B78)),
                     ),
                   ),
+                  
                   // ===== Me cadastrar =====
                   TextButton(
                     onPressed: () {

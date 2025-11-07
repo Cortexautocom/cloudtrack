@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AprovarUsuarioPage extends StatefulWidget {
   final VoidCallback onVoltar;
-  final Map<String, dynamic> usuario; // ✅ Recebe o usuário selecionado
+  final Map<String, dynamic> usuario;
 
   const AprovarUsuarioPage({
     super.key,
@@ -24,12 +24,19 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
   String? nivelSelecionado;
   List<Map<String, dynamic>> _filiais = [];
 
-  // Controladores dos campos (para edição)
+  // Controladores dos campos
   final nomeController = TextEditingController();
   final emailController = TextEditingController();
   final celularController = TextEditingController();
   final funcaoController = TextEditingController();
+  
+  // 🔹 NOVOS CONTROLADORES PARA SENHA
+  final senhaInicialController = TextEditingController();
+  final confirmarSenhaController = TextEditingController();
+  
   String? filialSelecionada;
+  bool _obscureSenha1 = true;
+  bool _obscureSenha2 = true;
 
   @override
   void initState() {
@@ -58,7 +65,25 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
     }
   }
 
-  // 🔹 Aprova o usuário (chama a função HTTP do Supabase)
+  // 🔹 VALIDAÇÃO DA SENHA
+  String? _validarSenha(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Digite a senha inicial';
+    }
+    if (value.length < 6) {
+      return 'A senha deve ter pelo menos 6 caracteres';
+    }
+    return null;
+  }
+
+  String? _validarConfirmacaoSenha(String? value) {
+    if (value != senhaInicialController.text) {
+      return 'As senhas não coincidem';
+    }
+    return null;
+  }
+
+  // 🔹 Aprova o usuário (AGORA COM SENHA)
   Future<void> _aprovarUsuario() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _salvando = true);
@@ -69,15 +94,14 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
       final celular = celularController.text.trim();
       final funcao = funcaoController.text.trim();
       final filialId = filialSelecionada;
+      final senhaInicial = senhaInicialController.text.trim();
 
-      final int nivel =
-          nivelSelecionado == "Gerência e coordenação" ? 2 : 1;
+      final int nivel = nivelSelecionado == "Gerência e coordenação" ? 2 : 1;
 
       // 🌐 URL da função no Supabase
-      final url =
-          "https://ikaxzlpaihdkqyjqrxyw.functions.supabase.co/aprovar-usuario";
+      final url = "https://ikaxzlpaihdkqyjqrxyw.functions.supabase.co/aprovar-usuario";
 
-      // 🔹 Envia os dados via POST para a função
+      // 🔹 Envia os dados via POST para a função (AGORA COM SENHA)
       final response = await http.post(
         Uri.parse(url),
         headers: {"Content-Type": "application/json"},
@@ -88,6 +112,7 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
           'funcao': funcao,
           'id_filial': filialId,
           'nivel': nivel,
+          'senha_inicial': senhaInicial, // ✅ NOVO CAMPO
         }),
       );
 
@@ -109,8 +134,7 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                  "✅ Usuário aprovado e convite enviado para $email."),
+              content: Text("✅ Usuário aprovado! Senha definida e notificação enviada para $email."),
               backgroundColor: Colors.green,
             ),
           );
@@ -171,7 +195,7 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
                 tipo: TextInputType.phone),
             _campoEditavel("Função / Cargo", funcaoController),
 
-            // 🔹 Campo Filial (nome)
+            // 🔹 Campo Filial
             DropdownButtonFormField<String>(
               value: filialSelecionada,
               decoration: const InputDecoration(
@@ -185,8 +209,44 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
                       ))
                   .toList(),
               onChanged: (v) => setState(() => filialSelecionada = v),
-              validator: (v) =>
-                  v == null ? "Selecione uma filial" : null,
+              validator: (v) => v == null ? "Selecione uma filial" : null,
+            ),
+            const SizedBox(height: 20),
+
+            // 🔹 NOVO: Campo Senha Inicial
+            TextFormField(
+              controller: senhaInicialController,
+              obscureText: _obscureSenha1,
+              decoration: InputDecoration(
+                labelText: "Senha inicial",
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscureSenha1 
+                      ? Icons.visibility_off_outlined 
+                      : Icons.visibility_outlined),
+                  onPressed: () => setState(() => _obscureSenha1 = !_obscureSenha1),
+                ),
+                helperText: "Mínimo 6 caracteres",
+              ),
+              validator: _validarSenha,
+            ),
+            const SizedBox(height: 16),
+
+            // 🔹 NOVO: Campo Confirmar Senha
+            TextFormField(
+              controller: confirmarSenhaController,
+              obscureText: _obscureSenha2,
+              decoration: InputDecoration(
+                labelText: "Confirmar senha inicial",
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscureSenha2 
+                      ? Icons.visibility_off_outlined 
+                      : Icons.visibility_outlined),
+                  onPressed: () => setState(() => _obscureSenha2 = !_obscureSenha2),
+                ),
+              ),
+              validator: _validarConfirmacaoSenha,
             ),
             const SizedBox(height: 20),
 
@@ -212,10 +272,36 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
                 ),
               ],
               onChanged: (v) => setState(() => nivelSelecionado = v),
-              validator: (v) =>
-                  v == null ? "Selecione o nível de acesso" : null,
+              validator: (v) => v == null ? "Selecione o nível de acesso" : null,
             ),
             const SizedBox(height: 30),
+
+            // 🔹 Informação importante
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "O usuário receberá um email de notificação e poderá fazer login "
+                      "com esta senha. Na primeira vez, será solicitado que crie uma nova senha.",
+                      style: TextStyle(
+                        color: Colors.blue[800],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
 
             // 🔹 Botão de aprovação
             Center(
@@ -262,9 +348,20 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
           labelText: label,
           border: const OutlineInputBorder(),
         ),
-        validator: (v) =>
-            v == null || v.isEmpty ? "Preencha este campo" : null,
+        validator: (v) => v == null || v.isEmpty ? "Preencha este campo" : null,
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    // 🔹 Limpa os controladores
+    nomeController.dispose();
+    emailController.dispose();
+    celularController.dispose();
+    funcaoController.dispose();
+    senhaInicialController.dispose();
+    confirmarSenhaController.dispose();
+    super.dispose();
   }
 }
