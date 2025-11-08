@@ -86,7 +86,9 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
   // 🔹 Aprova o usuário (AGORA COM SENHA)
   Future<void> _aprovarUsuario() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _salvando = true);
+
+    if (!mounted) return;
+      setState(() => _salvando = true);
 
     try {
       final nome = nomeController.text.trim();
@@ -136,9 +138,18 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
             SnackBar(
               content: Text("✅ Usuário aprovado! Senha definida e notificação enviada para $email."),
               backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
             ),
           );
-          widget.onVoltar();
+          
+          // ✅ SOLUÇÃO DEFINITIVA: Usar PostFrameCallback + Delay
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Future.delayed(const Duration(milliseconds: 1500), () {
+              if (mounted) {
+                widget.onVoltar();
+              }
+            });
+          });
         }
       } else {
         throw Exception(result['error'] ?? 'Erro desconhecido.');

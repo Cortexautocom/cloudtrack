@@ -6,6 +6,7 @@ import 'login_page.dart';
 import 'home.dart';
 import 'configuracoes/esqueci_senha.dart';
 import 'configuracoes/redefinir_senha.dart';
+import 'splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -144,7 +145,7 @@ class _MyAppState extends State<MyApp> {
           ),
         ),
       ),
-      home: const LoginPage(),
+      home: const SplashScreen(),
       routes: {
         '/home': (context) => const HomePage(),
         '/login': (context) => const LoginPage(),

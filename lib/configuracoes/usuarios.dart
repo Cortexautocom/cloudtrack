@@ -205,8 +205,13 @@ class _UsuariosPageState extends State<UsuariosPage> {
         return AprovarUsuarioPage(
           usuario: usuarioSelecionado!['dados'],
           onVoltar: () {
-            setState(() => usuarioSelecionado = null);
-            _carregarUsuarios();
+            // ✅ SOLUÇÃO: Usar PostFrameCallback para evitar erro de Navigator
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() => usuarioSelecionado = null);
+                _carregarUsuarios();
+              }
+            });
           },
         );
       }
@@ -214,8 +219,13 @@ class _UsuariosPageState extends State<UsuariosPage> {
         return EditarUsuarioPage(
           usuario: usuarioSelecionado!['dados'],
           onVoltar: () {
-            setState(() => usuarioSelecionado = null);
-            _carregarUsuarios();
+            // ✅ SOLUÇÃO: Usar PostFrameCallback para evitar erro de Navigator
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() => usuarioSelecionado = null);
+                _carregarUsuarios();
+              }
+            });
           },
         );
       }
