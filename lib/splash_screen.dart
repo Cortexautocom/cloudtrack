@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'login_page.dart';
+import 'home.dart';
+import 'configuracoes/escolher_senha.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -9,85 +12,78 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  final supabase = Supabase.instance.client;
+
   @override
   void initState() {
     super.initState();
-    _checkAuth();
+    _verificarSessao();
   }
 
-  Future<void> _checkAuth() async {
-    // Pequeno delay para mostrar o splash
-    await Future.delayed(const Duration(milliseconds: 1000));
-    
-    final supabase = Supabase.instance.client;
+  Future<void> _verificarSessao() async {
+    await Future.delayed(const Duration(seconds: 2)); // efeito visual do splash
+
     final session = supabase.auth.currentSession;
-    
-    if (!mounted) return;
-    
-    if (session != null) {
-      // ✅ Usuário JÁ ESTÁ LOGADO - Verifica se precisa trocar senha
-      await _verificarSenhaTemporaria(session.user.id);
+
+    if (session == null) {
+      // Nenhuma sessão salva → login obrigatório
+      _irParaLogin();
+      return;
+    }
+
+    // ⚙️ Verifica se a sessão é válida no servidor
+    final refresh = await supabase.auth.refreshSession();
+
+    // Se falhou ou expirou → login obrigatório
+    if (refresh.session == null) {
+      _irParaLogin();
+      return;
+    }
+
+    // 🕒 Verifica se o login tem mais de 1 dia
+    final dataLogin = DateTime.parse(session.user.createdAt);
+    final limite = DateTime.now().subtract(const Duration(hours: 24));
+    if (dataLogin.isBefore(limite)) {
+      await supabase.auth.signOut(); // força novo login
+      _irParaLogin();
+      return;
+    }
+
+    // 🔐 Se ainda tem senha provisória, obriga definir nova
+    final usuario = await supabase
+        .from('usuarios')
+        .select('senha_temporaria')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+    if (usuario != null && usuario['senha_temporaria'] == true) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const EscolherSenhaPage()),
+      );
     } else {
-      // ❌ Usuário NÃO LOGADO - Vai para login
-      Navigator.pushReplacementNamed(context, '/login');
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HomePage()),
+      );
     }
   }
 
-  // ✅ NOVO: Verifica se usuário precisa trocar senha
-  Future<void> _verificarSenhaTemporaria(String userId) async {
-    try {
-      final supabase = Supabase.instance.client;
-      
-      final userData = await supabase
-          .from('usuarios')
-          .select('senha_temporaria')
-          .eq('id', userId)
-          .maybeSingle();
-
-      if (userData != null && userData['senha_temporaria'] == true) {
-        // 🔐 PRECISA TROCAR SENHA
-        Navigator.pushReplacementNamed(context, '/escolher-senha');
-      } else {
-        // 🏠 PODE IR PARA HOME
-        Navigator.pushReplacementNamed(context, '/home');
-      }
-    } catch (error) {
-      // ⚠️ EM CASO DE ERRO, VAI PARA HOME POR SEGURANÇA
-      Navigator.pushReplacementNamed(context, '/home');
-    }
+  void _irParaLogin() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return const Scaffold(
       backgroundColor: Colors.white,
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset('assets/logo_top_login.png', width: 200),
-            const SizedBox(height: 30),
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0A4B78)),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'CloudTrack',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF0A4B78),
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Carregando...',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-              ),
-            ),
-          ],
+        child: Image(
+          image: AssetImage('assets/logo_top_login.png'),
+          width: 200,
         ),
       ),
     );
