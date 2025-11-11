@@ -25,7 +25,13 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
     final supabase = Supabase.instance.client;
 
     try {
-      // 🔐 Atualiza a senha do usuário
+      // 🔐 **ANTES de atualizar, verifica e mantém a sessão**
+      final currentSession = supabase.auth.currentSession;
+      if (currentSession == null) {
+        throw AuthException('Sessão de recuperação expirada. Solicite um novo link.');
+      }
+
+      // 🔄 Atualiza a senha do usuário
       await supabase.auth.updateUser(
         UserAttributes(password: _novaSenhaController.text.trim()),
       );
@@ -43,12 +49,18 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
       // ⏳ Aguarda um pouco para exibir a mensagem de sucesso
       await Future.delayed(const Duration(seconds: 2));
 
-      // 🚪 Desloga o usuário (encerra a sessão temporária de recuperação)
-      await supabase.auth.signOut();
+      // 🚪 **MODIFICAÇÃO IMPORTANTE:** Não faz signOut imediatamente
+      // Primeiro verifica se a senha foi realmente atualizada
+      final updatedSession = await supabase.auth.refreshSession();
+      if (updatedSession.session != null) {
+        // ✅ Senha atualizada com sucesso, agora pode deslogar
+        await supabase.auth.signOut();
+      }
 
       if (!mounted) return;
-      // 🔁 Redireciona para a tela de login (não para Home)
+      // 🔁 Redireciona para a tela de login
       Navigator.pushReplacementNamed(context, '/login');
+      
     } on AuthException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
