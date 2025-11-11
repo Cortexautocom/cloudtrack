@@ -15,8 +15,7 @@ Future<void> main() async {
   setPathUrlStrategy();
 
   const String supabaseUrl = 'https://ikaxzlpaihdkqyjqrxyw.supabase.co';
-  const String supabaseAnonKey =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrYXh6bHBhaWhka3F5anFyeHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1MjkxNzAsImV4cCI6MjA3NzEwNTE3MH0.s9bx_3YDw3M9SozXCBRu22vZe8DJoXR9p-dyVeEH5K4';
+  const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrYXh6bHBhaWhka3F5anFyeHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1MjkxNzAsImV4cCI6MjA3NzEwNTE3MH0.s9bx_3YDw3M9SozXCBRu22vZe8DJoXR9p-dyVeEH5K4';
 
   await Supabase.initialize(
     url: supabaseUrl,
@@ -48,44 +47,27 @@ class _MyAppState extends State<MyApp> {
     Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       final event = data.event;
       final session = data.session;
-
+      
       print('🔐 Evento de autenticação detectado: $event');
-      final uri = Uri.base.toString();
-      final isRecoveryLink = uri.contains('type=recovery');
-
-      // 🔸 Evita conflito de múltiplos redirecionamentos
-      if (isRecoveryLink) {
-        print('🟡 Modo recuperação ativo — ignorando demais eventos.');
-        return;
-      }
 
       if (event == AuthChangeEvent.passwordRecovery) {
         print('🟡 Link de recuperação detectado — indo para redefinição de senha');
         _redirectToResetPassword();
-        return;
-      }
-
-      if (event == AuthChangeEvent.signedIn && session != null) {
+      } else if (event == AuthChangeEvent.signedIn && session != null) {
         final fragment = Uri.base.fragment;
         if (fragment.contains('type=recovery')) {
           print('🔵 Sessão de recuperação ativa — indo para tela de redefinição.');
           _redirectToResetPassword();
-          return;
         } else {
           print('🟢 Login normal — verificando senha temporária...');
           await _verificarSenhaTemporaria(session.user.id);
-          return;
         }
-      }
-
-      if (event == AuthChangeEvent.signedOut) {
+      } else if (event == AuthChangeEvent.signedOut) {
         print('🚪 Usuário deslogado — voltando para login.');
         _redirectToLogin();
-        return;
       }
     });
   }
-
 
   // Verifica se o usuário precisa trocar uma senha temporária
   Future<void> _verificarSenhaTemporaria(String userId) async {

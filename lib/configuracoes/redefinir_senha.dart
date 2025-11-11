@@ -47,10 +47,8 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
       await supabase.auth.signOut();
 
       if (!mounted) return;
-
       // 🔁 Redireciona para a tela de login (não para Home)
       Navigator.pushReplacementNamed(context, '/login');
-      
     } on AuthException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -71,7 +69,6 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
-
 
   // ======= Validação de força da senha =======
   String? _validarForcaSenha(String? value) {
@@ -181,7 +178,7 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
                   ),
                   
                   const SizedBox(height: 30),
-
+                  
                   if (!_senhaRedefinida) ...[
                     // ===== Formulário de redefinição =====
                     Form(
@@ -197,12 +194,11 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
                               prefixIcon: const Icon(Icons.lock_outline),
                               suffixIcon: IconButton(
                                 icon: Icon(
-                                  _obscureText1
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined,
+                                  _obscureText1 
+                                    ? Icons.visibility_off_outlined 
+                                    : Icons.visibility_outlined,
                                 ),
-                                onPressed: () =>
-                                    setState(() => _obscureText1 = !_obscureText1),
+                                onPressed: () => setState(() => _obscureText1 = !_obscureText1),
                               ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -213,7 +209,7 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
                           ),
                           
                           const SizedBox(height: 20),
-
+                          
                           // ===== Confirmar Senha =====
                           TextFormField(
                             controller: _confirmarSenhaController,
@@ -223,12 +219,11 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
                               prefixIcon: const Icon(Icons.lock_outline),
                               suffixIcon: IconButton(
                                 icon: Icon(
-                                  _obscureText2
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined,
+                                  _obscureText2 
+                                    ? Icons.visibility_off_outlined 
+                                    : Icons.visibility_outlined,
                                 ),
-                                onPressed: () =>
-                                    setState(() => _obscureText2 = !_obscureText2),
+                                onPressed: () => setState(() => _obscureText2 = !_obscureText2),
                               ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -241,7 +236,7 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
                     ),
                     
                     const SizedBox(height: 25),
-
+                    
                     // ===== Botão Redefinir Senha =====
                     SizedBox(
                       width: double.infinity,
@@ -254,15 +249,15 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
                           ),
                         ),
                         onPressed: _isLoading ? null : _redefinirSenha,
-                        child: _isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text(
-                                'Redefinir Senha',
-                                style: TextStyle(
-                                  fontSize: 16, 
-                                  color: Colors.white
-                                ),
+                        child: _isLoading 
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text(
+                              'Redefinir Senha',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.white
                               ),
+                            ),
                       ),
                     ),
                   ] else ...[
@@ -283,7 +278,7 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
                       ],
                     ),
                   ],
-
+                  
                   const SizedBox(height: 20),
                 ],
               ),
@@ -308,7 +303,9 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
                     ),
                     textAlign: TextAlign.center,
                   ),
+                  
                   const SizedBox(height: 4),
+                  
                   Text(
                     "AwaySoftwares Solution - 505 North Angier Avenue, Atlanta, GA 30308, EUA.",
                     style: TextStyle(
