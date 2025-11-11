@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'login_page.dart';
 import 'home.dart';
 import 'configuracoes/escolher_senha.dart';
+import 'configuracoes/redefinir_senha.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -23,33 +24,51 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _verificarSessao() async {
     await Future.delayed(const Duration(seconds: 2)); // efeito visual do splash
 
+    final uri = Uri.base.toString();
+    print('🔗 URL detectada no Splash: $uri');
+
+    // 🧩 Se for link de recuperação (contém #access_token&type=recovery)
+    if (uri.contains('type=recovery')) {
+      print('🟡 Detecção de link de recuperação! Redirecionando para RedefinirSenhaPage.');
+      // 🔒 Evita qualquer navegação concorrente
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const RedefinirSenhaPage()),
+        (route) => false,
+      );
+      return; // 🚫 Impede o restante do código de rodar
+    }
+
+    // 🔐 Verificação normal de sessão
     final session = supabase.auth.currentSession;
 
     if (session == null) {
-      // Nenhuma sessão salva → login obrigatório
+      print('🚪 Nenhuma sessão ativa. Indo para Login.');
       _irParaLogin();
       return;
     }
 
-    // ⚙️ Verifica se a sessão é válida no servidor
+    // ⚙️ Tenta atualizar a sessão
     final refresh = await supabase.auth.refreshSession();
 
-    // Se falhou ou expirou → login obrigatório
     if (refresh.session == null) {
+      print('🔒 Sessão expirada. Indo para Login.');
       _irParaLogin();
       return;
     }
 
-    // 🕒 Verifica se o login tem mais de 1 dia
+    // 🕒 Verifica validade da sessão (24h)
     final dataLogin = DateTime.parse(session.user.createdAt);
     final limite = DateTime.now().subtract(const Duration(hours: 24));
     if (dataLogin.isBefore(limite)) {
-      await supabase.auth.signOut(); // força novo login
+      await supabase.auth.signOut();
+      print('⌛ Sessão antiga. Requer novo login.');
       _irParaLogin();
       return;
     }
 
-    // 🔐 Se ainda tem senha provisória, obriga definir nova
+    // 🔐 Verifica se o usuário ainda tem senha provisória
     final usuario = await supabase
         .from('usuarios')
         .select('senha_temporaria')
@@ -57,11 +76,15 @@ class _SplashScreenState extends State<SplashScreen> {
         .maybeSingle();
 
     if (usuario != null && usuario['senha_temporaria'] == true) {
+      print('🔐 Senha provisória detectada — redirecionando.');
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const EscolherSenhaPage()),
       );
     } else {
+      print('✅ Sessão válida. Indo para Home.');
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const HomePage()),
@@ -70,6 +93,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void _irParaLogin() {
+    if (!mounted) return;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const LoginPage()),

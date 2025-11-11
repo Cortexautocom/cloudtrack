@@ -23,32 +23,50 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
     final email = _emailController.text.trim();
 
     try {
-      // 🔹 Chama a Edge Function personalizada para envio via Resend
+      // 🔹 URL correta da Edge Function
       final url = Uri.parse(
-        'https://ikaxzlpaihdkqyjqrxyw.functions.supabase.co/redefinir-senha',
+        'https://ikaxzlpaihdkqyjqrxyw.supabase.co/functions/v1/redefinir-senha',
       );
 
+      debugPrint('🚀 Enviando requisição para Edge Function...');
+      debugPrint('🌐 URL: $url');
+      debugPrint('📧 E-mail: $email');
+
+      // 🔹 Requisição HTTP com autorização correta
       final response = await http.post(
         url,
-        headers: {"Content-Type": "application/json"},
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization":
+              "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrYXh6bHBhaWhka3F5anFyeHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1MjkxNzAsImV4cCI6MjA3NzEwNTE3MH0.s9bx_3YDw3M9SozXCBRu22vZe8DJoXR9p-dyVeEH5K4"
+        },
         body: jsonEncode({"email": email}),
       );
 
-      if (response.statusCode == 200) {
-        setState(() => _emailSent = true);
+      debugPrint('📡 Status HTTP: ${response.statusCode}');
+      debugPrint('📦 Corpo da resposta: ${response.body}');
 
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Link de recuperação enviado para $email'),
-            backgroundColor: Colors.green,
-          ),
-        );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          setState(() => _emailSent = true);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ Link de recuperação enviado para $email'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          throw Exception(data['error'] ?? 'Falha ao enviar o e-mail.');
+        }
       } else {
         final body = jsonDecode(response.body);
         throw Exception(body['error'] ?? 'Falha ao enviar o e-mail.');
       }
-    } catch (error) {
+    } catch (error, stack) {
+      debugPrint('💥 Erro ao enviar link: $error');
+      debugPrint('🧩 Stack trace: $stack');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -61,14 +79,13 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
     }
   }
 
-
   // ======= Interface =======
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          // ===== Fundo (mesmo do login) =====
+          // ===== Fundo =====
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
@@ -115,17 +132,17 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const SizedBox(height: 10),
-                  
-                  // ===== Ícone =====
+
                   Icon(
-                    _emailSent ? Icons.check_circle_outline : Icons.lock_reset_outlined,
+                    _emailSent
+                        ? Icons.check_circle_outline
+                        : Icons.lock_reset_outlined,
                     size: 64,
                     color: const Color(0xFF0A4B78),
                   ),
-                  
+
                   const SizedBox(height: 20),
-                  
-                  // ===== Título =====
+
                   Text(
                     _emailSent ? 'Email Enviado!' : 'Recuperar Senha',
                     style: const TextStyle(
@@ -134,25 +151,24 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
                       color: Color(0xFF0A4B78),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 10),
-                  
-                  // ===== Descrição =====
+
                   Text(
-                    _emailSent 
-                      ? 'Enviamos um link de recuperação para seu email. Verifique sua caixa de entrada e pasta de spam.'
-                      : 'Digite seu email para receber um link de recuperação de senha',
+                    _emailSent
+                        ? 'Enviamos um link de recuperação para seu email. Verifique sua caixa de entrada e pasta de spam.'
+                        : 'Digite seu email para receber um link de recuperação de senha',
                     style: const TextStyle(
                       fontSize: 14,
                       color: Colors.grey,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  
+
                   const SizedBox(height: 30),
 
                   if (!_emailSent) ...[
-                    // ===== Formulário de email =====
+                    // ===== Campo e botão =====
                     Form(
                       key: _formKey,
                       child: TextFormField(
@@ -171,17 +187,17 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
                           if (value == null || value.isEmpty) {
                             return 'Por favor, digite seu email';
                           }
-                          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                              .hasMatch(value)) {
                             return 'Digite um email válido';
                           }
                           return null;
                         },
                       ),
                     ),
-                    
+
                     const SizedBox(height: 25),
 
-                    // ===== Botão Enviar Link =====
                     SizedBox(
                       width: double.infinity,
                       height: 48,
@@ -205,14 +221,11 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
                             : const Text(
                                 'Enviar Link de Recuperação',
                                 style: TextStyle(
-                                  fontSize: 16, 
-                                  color: Colors.white
-                                ),
+                                    fontSize: 16, color: Colors.white),
                               ),
                       ),
                     ),
                   ] else ...[
-                    // ===== Botão Voltar para Login =====
                     SizedBox(
                       width: double.infinity,
                       height: 48,
@@ -227,25 +240,18 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
                         child: const Text(
                           'Voltar para Login',
                           style: TextStyle(
-                            fontSize: 16, 
-                            color: Colors.white
-                          ),
+                              fontSize: 16, color: Colors.white),
                         ),
                       ),
                     ),
-
-                    // ===== Botão Reenviar =====
                     const SizedBox(height: 15),
-                    
                     TextButton(
                       onPressed: _isLoading ? null : _recuperarSenha,
                       child: _isLoading
                           ? const SizedBox(
                               width: 16,
                               height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                              ),
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Text(
                               'Reenviar link',
@@ -258,8 +264,7 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
                   ],
 
                   const SizedBox(height: 10),
-                  
-                  // ===== Informação adicional =====
+
                   if (!_emailSent)
                     Padding(
                       padding: const EdgeInsets.only(top: 16.0),
@@ -277,7 +282,7 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
             ),
           ),
 
-          // ===== Rodapé (mesmo do login) =====
+          // ===== Rodapé =====
           Positioned(
             bottom: 30,
             left: 0,

@@ -1,57 +1,60 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-serve(async (req: Request) => {
+serve(async (req: Request): Promise<Response> => {
+  // ===== CORS =====
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers":
       "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   };
 
+  // ===== OPTIONS (pré-flight) =====
   if (req.method === "OPTIONS") {
     console.log("🟢 Pré-flight OPTIONS recebido.");
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    console.log("🚀 Iniciando função redefinir-senha");
+    console.log("🚀 Iniciando função redefinir-senha...");
 
-    // === 1️⃣ Leitura e validação do e-mail ===
+    // === 1️⃣ Valida o corpo ===
     const { email } = await req.json();
     console.log("📩 E-mail recebido:", email || "(vazio)");
     if (!email) throw new Error("E-mail é obrigatório.");
 
-    // === 2️⃣ Variáveis de ambiente ===
+    // === 2️⃣ Valida autorização do Flutter ===
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader) throw new Error("Requisição sem token de autorização.");
+    const anonKey = Deno.env.get("PUBLIC_ANON_KEY");
+    if (!anonKey) throw new Error("Chave pública (anon) não configurada.");
+    if (authHeader !== `Bearer ${anonKey}`) {
+      throw new Error("Token de autorização inválido ou não reconhecido.");
+    }
+
+    // === 3️⃣ Variáveis de ambiente ===
     const supabaseUrl = Deno.env.get("PROJECT_URL");
     const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY");
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    const redirectUrl = "https://cloudtrack.app/redefinir-senha";
+    const redirectUrl = "https://cloudtrack-app.web.app/redefinir-senha";
 
     console.log("🔧 Variáveis carregadas:");
     console.log({
       hasProjectUrl: !!supabaseUrl,
       hasServiceRoleKey: !!serviceRoleKey,
       hasResendApiKey: !!resendApiKey,
-      serviceRolePrefix: serviceRoleKey?.slice(0, 10),
     });
 
     if (!supabaseUrl || !serviceRoleKey || !resendApiKey) {
       throw new Error("❌ Variáveis de ambiente ausentes ou incorretas.");
     }
 
-    // === 3️⃣ Criação do cliente Supabase ===
+    // === 4️⃣ Criação do cliente Supabase ===
     console.log("⚙️ Criando cliente Supabase...");
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Teste rápido de conexão ao banco
-    console.log("🧠 Testando acesso ao banco...");
-    const test = await supabase.from("usuarios").select("id").limit(1);
-    console.log("🧩 Teste de conexão:", {
-      error: test.error ? test.error.message : "ok",
-      rowCount: test.data?.length,
-    });
-
-    // === 4️⃣ Gerar link de redefinição ===
+    // === 5️⃣ Gerar link de redefinição ===
     console.log("🧩 Gerando link de redefinição...");
     const { data, error } = await supabase.auth.admin.generateLink({
       type: "recovery",
@@ -66,11 +69,11 @@ serve(async (req: Request) => {
 
     const recoveryLink = data?.properties?.action_link || data?.action_link;
     console.log("🔗 Link de redefinição gerado:", recoveryLink || "(nenhum)");
-
-    if (!recoveryLink)
+    if (!recoveryLink) {
       throw new Error("Não foi possível gerar o link de redefinição.");
+    }
 
-    // === 5️⃣ Montagem do e-mail ===
+    // === 6️⃣ Montagem do e-mail ===
     const html = `
       <h2>🔑 Redefinição de senha</h2>
       <p>Olá,</p>
@@ -89,9 +92,9 @@ serve(async (req: Request) => {
         © 2025 CloudTrack • Powered by AwaySoftwares LLC
       </p>
     `;
-    console.log("🧱 HTML montado com sucesso.");
+    console.log("🧱 HTML do e-mail montado com sucesso.");
 
-    // === 6️⃣ Envio de e-mail via Resend ===
+    // === 7️⃣ Envio via Resend ===
     const resendPayload = {
       from: "CloudTrack Suporte <suporte@cortexac.com.br>",
       to: [email],
@@ -99,8 +102,7 @@ serve(async (req: Request) => {
       html,
     };
 
-    console.log("📦 Payload de envio Resend:", resendPayload);
-
+    console.log("📦 Enviando e-mail via Resend...");
     const resendResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -111,36 +113,31 @@ serve(async (req: Request) => {
     });
 
     const resendText = await resendResponse.text();
-    console.log("📩 Resposta do Resend:", resendText || "(sem resposta)");
-    console.log("📊 Status HTTP:", resendResponse.status);
+    console.log("📊 Status HTTP Resend:", resendResponse.status);
+    console.log("📩 Corpo da resposta Resend:", resendText || "(sem resposta)");
 
     if (!resendResponse.ok) {
       throw new Error(`Erro ao enviar e-mail via Resend: ${resendText}`);
     }
 
-    // === ✅ Sucesso total ===
     console.log("✅ E-mail enviado com sucesso!");
     return new Response(
       JSON.stringify({ success: true, message: "E-mail enviado com sucesso!" }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
-
   } catch (err: unknown) {
-    // 🔍 Tratamento detalhado de erro
-    const message =
-      err instanceof Error ? err.message : String(err);
-    const stack =
-      err instanceof Error && err.stack ? err.stack : "(sem stack)";
-
-    console.error("❌ ERRO DETECTADO:", message, "\nStack:", stack);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("❌ ERRO DETECTADO:", message);
 
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: message,
-        stack,
-      }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      JSON.stringify({ success: false, error: message }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 });
