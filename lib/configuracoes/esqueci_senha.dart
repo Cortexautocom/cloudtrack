@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class EsqueciSenhaPage extends StatefulWidget {
   const EsqueciSenhaPage({super.key});
@@ -21,41 +20,39 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
-    final supabase = Supabase.instance.client;
     final email = _emailController.text.trim();
 
-    try {      
-      await supabase.auth.resetPasswordForEmail(
-        email,
-        redirectTo: kIsWeb
-            ? 'https://cloudtrack-app.web.app/reset-password'
-            : 'cloudtrack://reset-password',
+    try {
+      // 🔹 Chama a Edge Function personalizada para envio via Resend
+      final url = Uri.parse(
+        'https://ikaxzlpaihdkqyjqrxyw.functions.supabase.co/redefinir-senha',
       );
 
-
-
-      setState(() => _emailSent = true);
-      
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Link de recuperação enviado para $email'),
-          backgroundColor: Colors.green,
-        ),
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"email": email}),
       );
-    } on AuthException catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro: ${error.message}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+
+      if (response.statusCode == 200) {
+        setState(() => _emailSent = true);
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Link de recuperação enviado para $email'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        final body = jsonDecode(response.body);
+        throw Exception(body['error'] ?? 'Falha ao enviar o e-mail.');
+      }
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erro inesperado: $error'),
+          content: Text('Erro: $error'),
           backgroundColor: Colors.red,
         ),
       );
@@ -63,6 +60,7 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
 
   // ======= Interface =======
   @override
