@@ -115,6 +115,12 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    // 🔍 Verifica se é uma URL de recovery
+    final isRecoveryLink = Uri.base.toString().contains('type=recovery');
+    
+    print('🔗 URL atual: ${Uri.base.toString()}');
+    print('🟡 É recovery link? $isRecoveryLink');
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'CloudTrack',
@@ -140,7 +146,9 @@ class _MyAppState extends State<MyApp> {
           ),
         ),
       ),
-      home: const SplashScreen(),
+      // ⚡ **MUDANÇA PRINCIPAL AQUI** ⚡
+      // Se for recovery, vai direto para redefinição, senão usa Splash normal
+      home: isRecoveryLink ? const RedefinirSenhaPage() : const SplashScreen(),
       routes: {
         '/home': (context) => const HomePage(),
         '/login': (context) => const LoginPage(),
