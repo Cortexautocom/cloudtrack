@@ -192,6 +192,74 @@ class _UsuariosPageState extends State<UsuariosPage> {
     }
   }
 
+  void _mostrarMenuAcoes(
+    BuildContext context,
+    Map<String, dynamic> usuario,
+    GlobalKey key,
+  ) async {
+    final RenderBox button = key.currentContext!.findRenderObject() as RenderBox;
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(button.size.bottomRight(Offset.zero), ancestor: overlay),
+      ),
+      Offset.zero & overlay.size,
+    );
+
+    final value = await showMenu(
+      context: context,
+      position: position,
+      items: [
+        const PopupMenuItem(
+          value: 'editar',
+          child: Row(
+            children: [
+              Icon(Icons.edit, color: Colors.blue, size: 18),
+              SizedBox(width: 8),
+              Text('Editar usuário'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'suspender_reativar',
+          child: Row(
+            children: [
+              Icon(Icons.block, color: Colors.red, size: 18),
+              SizedBox(width: 8),
+              Text('Suspender usuário'),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'redefinir_senha',
+          child: Row(
+            children: [
+              Icon(Icons.lock_reset, color: Colors.orange, size: 18),
+              SizedBox(width: 8),
+              Text('Redefinir senha'),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (value != null) {
+      switch (value) {
+        case 'editar':
+          setState(() => usuarioSelecionado = usuario);
+          break;
+        case 'suspender_reativar':
+          break;
+        case 'redefinir_senha':
+          break;
+      }
+    }
+  }
+
+
+
   @override
   Widget build(BuildContext context) {
     if (carregando) {
@@ -205,7 +273,6 @@ class _UsuariosPageState extends State<UsuariosPage> {
         return AprovarUsuarioPage(
           usuario: usuarioSelecionado!['dados'],
           onVoltar: () {
-            // ✅ SOLUÇÃO: Usar PostFrameCallback para evitar erro de Navigator
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
                 setState(() => usuarioSelecionado = null);
@@ -219,7 +286,6 @@ class _UsuariosPageState extends State<UsuariosPage> {
         return EditarUsuarioPage(
           usuario: usuarioSelecionado!['dados'],
           onVoltar: () {
-            // ✅ SOLUÇÃO: Usar PostFrameCallback para evitar erro de Navigator
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
                 setState(() => usuarioSelecionado = null);
@@ -295,6 +361,8 @@ class _UsuariosPageState extends State<UsuariosPage> {
                         final nivel = int.tryParse(u['nivel'].toString()) ?? 1;
                         final corNivel = _corNivel(nivel);
                         final textoNivel = _textoNivel(nivel);
+                        final menuKey = GlobalKey();
+
 
                         return SizedBox(
                           height: 60,
@@ -337,7 +405,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
                               ],
                             ),
 
-                            // 🔹 TAGS de status + nível lado a lado
+                            // 🔹 TAGS de status + nível + menu de ações
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -369,6 +437,18 @@ class _UsuariosPageState extends State<UsuariosPage> {
                                     style: TextStyle(
                                         color: corNivel, fontSize: 10),
                                   ),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  key: menuKey,
+                                  icon: const Icon(Icons.more_vert, size: 18),
+                                  color: Colors.grey,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 30,
+                                    minHeight: 30,
+                                  ),
+                                  onPressed: () => _mostrarMenuAcoes(context, u, menuKey),
                                 ),
                               ],
                             ),

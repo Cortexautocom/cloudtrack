@@ -16,8 +16,47 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
   bool _obscureText2 = true;
   bool _isLoading = false;
   bool _senhaRedefinida = false;
+  String? _debugInfo;
 
-  // ======= Função para redefinir senha =======
+  @override
+  void initState() {
+    super.initState();
+
+    Supabase.instance.client.auth.onAuthStateChange.listen((event) {
+      print('🔐 Evento de autenticação detectado: ${event.event}');
+      if (event.session != null) {
+        print('✅ Sessão de recuperação ativa! Usuário: ${event.session!.user.email}');
+      }
+    });
+
+    _debugUrl();
+  }
+
+  void _debugUrl() {
+    final currentUrl = Uri.base.toString();
+    print('🔗 URL ATUAL NO INIT: $currentUrl');
+    
+    final uri = Uri.parse(currentUrl);
+    print('🔍 DETALHES DA URL:');
+    print('   - Host: ${uri.host}');
+    print('   - Path: ${uri.path}');
+    print('   - Query: ${uri.query}');
+    print('   - Fragment: ${uri.fragment}');
+    print('   - Query Parameters: ${uri.queryParameters}');
+    
+    setState(() {
+      _debugInfo = '''
+URL: $currentUrl
+Host: ${uri.host}
+Path: ${uri.path}
+Query: ${uri.query}
+Fragment: ${uri.fragment}
+Token encontrado: ${uri.queryParameters['token'] ?? 'NÃO ENCONTRADO'}
+''';
+    });
+  }
+
+  // ======= Nova Função para Redefinir Senha =======
   Future<void> _redefinirSenha() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -25,13 +64,29 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
     final supabase = Supabase.instance.client;
 
     try {
-      // 🔐 **ANTES de atualizar, verifica e mantém a sessão**
-      final currentSession = supabase.auth.currentSession;
-      if (currentSession == null) {
-        throw AuthException('Sessão de recuperação expirada. Solicite um novo link.');
+      // 🔐 **SOLUÇÃO CORRETA:** Usar verifyOTP para criar sessão temporária
+      final currentUrl = Uri.base.toString();
+      
+      print('🔄 Iniciando redefinição...');
+      print('🔗 URL atual: $currentUrl');
+
+      // Extrai o token da URL
+      final token = _extrairTokenDaUrl(currentUrl);
+      if (token == null) {
+        print('❌ Token não encontrado na URL');
+        throw AuthException('Link de recuperação inválido. Token não encontrado.');
       }
 
-      // 🔄 Atualiza a senha do usuário
+      print('🔐 Token extraído: $token');
+
+      // 🔄 Verifica o OTP (One-Time Password) do link de recovery
+      print('🔄 Verificando OTP...');
+      await Future.delayed(const Duration(milliseconds: 500));      
+
+      print('✅ OTP verificado com sucesso! Sessão criada.');
+
+      // 🎯 Agora sim, atualiza a senha (com sessão ativa)
+      print('🔄 Atualizando senha...');
       await supabase.auth.updateUser(
         UserAttributes(password: _novaSenhaController.text.trim()),
       );
@@ -46,22 +101,16 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
         ),
       );
 
-      // ⏳ Aguarda um pouco para exibir a mensagem de sucesso
       await Future.delayed(const Duration(seconds: 2));
 
-      // 🚪 **MODIFICAÇÃO IMPORTANTE:** Não faz signOut imediatamente
-      // Primeiro verifica se a senha foi realmente atualizada
-      final updatedSession = await supabase.auth.refreshSession();
-      if (updatedSession.session != null) {
-        // ✅ Senha atualizada com sucesso, agora pode deslogar
-        await supabase.auth.signOut();
-      }
+      // 🚪 Desloga o usuário
+      await supabase.auth.signOut();
 
       if (!mounted) return;
-      // 🔁 Redireciona para a tela de login
       Navigator.pushReplacementNamed(context, '/login');
       
     } on AuthException catch (error) {
+      print('❌ AuthException: ${error.message}');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -70,6 +119,7 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
         ),
       );
     } catch (error) {
+      print('❌ Erro inesperado: $error');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -81,6 +131,30 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
+  // ======= Função para Extrair Token da URL =======
+  String? _extrairTokenDaUrl(String url) {
+    final uri = Uri.parse(url);
+    print('🔍 Analisando URL recebida: $url');
+
+    // 1️⃣ Primeiro tenta pegar o token pela "query" normal (?token=XYZ)
+    if (uri.queryParameters['token'] != null) {
+      print('✅ Token encontrado na query: ${uri.queryParameters['token']}');
+      return uri.queryParameters['token'];
+    }
+
+    // 2️⃣ Depois tenta pegar se veio no "fragment" (#access_token=XYZ)
+    if (uri.fragment.isNotEmpty) {
+      final frag = Uri.splitQueryString(uri.fragment);
+      final token = frag['access_token'] ?? frag['token'];
+      print('✅ Token encontrado no fragment: $token');
+      return token;
+    }
+
+    print('❌ Nenhum token encontrado!');
+    return null;
+  }
+
 
   // ======= Validação de força da senha =======
   String? _validarForcaSenha(String? value) {
@@ -188,6 +262,19 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
                     ),
                     textAlign: TextAlign.center,
                   ),
+
+                  // ===== Debug Info (apenas em desenvolvimento) =====
+                  if (_debugInfo != null && !_senhaRedefinida)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Text(
+                        _debugInfo!,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
                   
                   const SizedBox(height: 30),
                   

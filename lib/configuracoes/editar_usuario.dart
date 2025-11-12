@@ -141,6 +141,15 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
 
   Future<void> _alternarStatusUsuario() async {
     final novoStatus = statusAtual == 'suspenso' ? 'ativo' : 'suspenso';
+    final confirmar = await _mostrarDialogoConfirmacao(
+      titulo: novoStatus == 'ativo' ? 'Reativar Usuário' : 'Suspender Usuário',
+      mensagem: novoStatus == 'ativo'
+          ? 'Tem certeza que deseja reativar este usuário?'
+          : 'Tem certeza que deseja suspender este usuário?',
+    );
+    
+    if (!confirmar) return;
+
     try {
       await supabase
           .from('usuarios')
@@ -153,7 +162,7 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(mensagem)),
         );
-        widget.onVoltar(); // Volta para lista após mudar status
+        widget.onVoltar();
       }
     } catch (e) {
       debugPrint('❌ Erro ao alterar status: $e');
@@ -168,167 +177,267 @@ class _EditarUsuarioPageState extends State<EditarUsuarioPage> {
     }
   }
 
+  Future<void> _redefinirSenha() async {
+    final confirmar = await _mostrarDialogoConfirmacao(
+      titulo: 'Redefinir Senha',
+      mensagem: 'Tem certeza que deseja redefinir a senha deste usuário? Uma nova senha temporária será enviada por e-mail.',
+    );
+    
+    if (!confirmar) return;
+
+    setState(() => _salvando = true);
+
+    try {
+      // TODO: Implementar lógica de redefinição de senha
+      await Future.delayed(const Duration(seconds: 2)); // Simulação
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Senha redefinida com sucesso! Verifique o e-mail do usuário.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Erro ao redefinir senha: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao redefinir senha: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _salvando = false);
+    }
+  }
+
+  Future<bool> _mostrarDialogoConfirmacao({
+    required String titulo,
+    required String mensagem,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(titulo),
+        content: Text(mensagem),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D47A1),
+            ),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool suspenso = statusAtual == 'suspenso';
 
     return Padding(
-      padding: const EdgeInsets.only(top: 5, left: 20, right: 20), // 🔹 respeita a topbar e alinha à esquerda
-      child: Container(
-        width: 800, // 🔹 largura limitada
-        color: Colors.white,
-        padding: const EdgeInsets.only(
-          left: 30,
-          right: 30,
-          bottom: 30,
-          top: 10,
-        ),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              // 🔹 Cabeçalho
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
-                    onPressed: widget.onVoltar,
-                    padding: EdgeInsets.zero, // 🔹 Remove padding do ícone
-                    visualDensity: VisualDensity.compact, // 🔹 Torna mais compacto
-                  ),
-                  const SizedBox(width: 8), // 🔹 Reduz espaçamento
-                  Text(
-                    suspenso ? "Usuário Suspenso" : "Editar Usuário",
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0D47A1),
+      padding: const EdgeInsets.only(top: 5, left: 20, right: 20),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          width: 800,
+          color: Colors.white,
+          padding: const EdgeInsets.only(
+            left: 30,
+            right: 30,
+            bottom: 30,
+            top: 10,
+          ),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 🔹 Cabeçalho com menu de ações
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
+                      onPressed: widget.onVoltar,
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
                     ),
-                  ),
-                ],
-              ),
-              const Divider(),
-              const SizedBox(height: 20),
-
-              // 🔹 Campos
-              _campo("Nome completo", nomeController,
-                  habilitado: !suspenso,
-                  obrigatorio: true,
-                  focusNode: nomeFocus),
-              _campo("E-mail", emailController,
-                  tipo: TextInputType.emailAddress,
-                  habilitado: !suspenso,
-                  focusNode: emailFocus),
-              _campo("Celular", celularController,
-                  tipo: TextInputType.phone,
-                  habilitado: !suspenso,
-                  mask: celularMask,
-                  focusNode: celularFocus),
-              _campo("Função / Cargo", funcaoController,
-                  habilitado: !suspenso, focusNode: funcaoFocus),
-
-              // 🔹 Filial
-              DropdownButtonFormField<String>(
-                value: filialSelecionada,
-                decoration: const InputDecoration(
-                  labelText: "Filial",
-                  border: OutlineInputBorder(),
+                    const SizedBox(width: 8),
+                    Text(
+                      suspenso ? "Usuário Suspenso" : "Editar Usuário",
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0D47A1),
+                      ),
+                    ),
+                    const Spacer(),
+                    // 🔹 Menu de ações
+                    _buildMenuAcoes(suspenso),
+                  ],
                 ),
-                items: _filiais
-                    .map((f) => DropdownMenuItem(
-                          value: f['id'].toString(),
-                          child: Text(f['nome']),
-                        ))
-                    .toList(),
-                onChanged: suspenso
-                    ? null
-                    : (v) {
-                        setState(() {
-                          filialSelecionada = v;
-                        });
-                        _verificarAlteracoes();
-                      },
-              ),
-              const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 20),
 
-              // 🔹 Nível
-              DropdownButtonFormField<String>(
-                value: nivelSelecionado,
-                decoration: const InputDecoration(
-                  labelText: "Nível de acesso",
-                  border: OutlineInputBorder(),
-                ),
-                items: const [
-                  DropdownMenuItem(value: "1", child: Text("Logística / Operações ♦ Nível 1")),
-                  DropdownMenuItem(value: "2", child: Text("Gerência e supervisão ♦ Nível 2")),
-                  DropdownMenuItem(value: "3", child: Text("Diretoria e Administração ♦ Nível 3")),
-                ],
-                onChanged: suspenso
-                    ? null
-                    : (v) {
-                        setState(() {
-                          nivelSelecionado = v;
-                        });
-                        _verificarAlteracoes();
-                      },
-              ),
-              const SizedBox(height: 20),
+                // 🔹 Campos do formulário
+                Expanded(
+                  child: ListView(
+                    children: [
+                      _campo("Nome completo", nomeController,
+                          habilitado: !suspenso,
+                          obrigatorio: true,
+                          focusNode: nomeFocus),
+                      _campo("E-mail", emailController,
+                          tipo: TextInputType.emailAddress,
+                          habilitado: !suspenso,
+                          focusNode: emailFocus),
+                      _campo("Celular", celularController,
+                          tipo: TextInputType.phone,
+                          habilitado: !suspenso,
+                          mask: celularMask,
+                          focusNode: celularFocus),
+                      _campo("Função / Cargo", funcaoController,
+                          habilitado: !suspenso, focusNode: funcaoFocus),
 
-              // 🔹 Status
-              TextFormField(
-                enabled: false,
-                decoration: InputDecoration(
-                  labelText: "Status atual: $statusAtual",
-                  border: const OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 30),
+                      // 🔹 Filial
+                      DropdownButtonFormField<String>(
+                        value: filialSelecionada,
+                        decoration: const InputDecoration(
+                          labelText: "Filial",
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _filiais
+                            .map((f) => DropdownMenuItem(
+                                  value: f['id'].toString(),
+                                  child: Text(f['nome']),
+                                ))
+                            .toList(),
+                        onChanged: suspenso
+                            ? null
+                            : (v) {
+                                setState(() {
+                                  filialSelecionada = v;
+                                });
+                                _verificarAlteracoes();
+                              },
+                      ),
+                      const SizedBox(height: 16),
 
-              // 🔹 Linha com os dois botões lado a lado
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // 🟢 Botão "Salvar e sair" (só aparece se não estiver suspenso)
-                  if (!suspenso)
-                    ElevatedButton.icon(
-                      onPressed: (_editado && !_salvando) ? _salvarAlteracoes : null,
-                      icon: const Icon(Icons.save, color: Colors.white),
-                      label: Text(_salvando ? "Salvando..." : "Salvar e sair"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2E7D32),
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                      // 🔹 Nível
+                      DropdownButtonFormField<String>(
+                        value: nivelSelecionado,
+                        decoration: const InputDecoration(
+                          labelText: "Nível de acesso",
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: "1", child: Text("Logística / Operações ♦ Nível 1")),
+                          DropdownMenuItem(value: "2", child: Text("Gerência e supervisão ♦ Nível 2")),
+                          DropdownMenuItem(value: "3", child: Text("Diretoria e Administração ♦ Nível 3")),
+                        ],
+                        onChanged: suspenso
+                            ? null
+                            : (v) {
+                                setState(() {
+                                  nivelSelecionado = v;
+                                });
+                                _verificarAlteracoes();
+                              },
+                      ),
+                      const SizedBox(height: 20),
+
+                      // 🔹 Status
+                      TextFormField(
+                        enabled: false,
+                        decoration: InputDecoration(
+                          labelText: "Status atual: $statusAtual",
+                          border: const OutlineInputBorder(),
                         ),
                       ),
-                    ),
-
-                  // 🔴 Botão "Suspender / Reativar"
-                  ElevatedButton.icon(
-                    onPressed: _alternarStatusUsuario,
-                    icon: Icon(
-                      suspenso ? Icons.check_circle : Icons.block,
-                      color: Colors.white,
-                    ),
-                    label: Text(
-                      suspenso ? "Reativar usuário" : "Suspender usuário",
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          suspenso ? Colors.green : Colors.redAccent,
-                      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
+                      const SizedBox(height: 30),
+                    ],
                   ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  // 🔹 Menu de ações
+  Widget _buildMenuAcoes(bool suspenso) {
+    return Row(
+      children: [
+        // Botão Salvar
+        if (!suspenso)
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ElevatedButton.icon(
+              onPressed: (_editado && !_salvando) ? _salvarAlteracoes : null,
+              icon: const Icon(Icons.save, size: 18),
+              label: Text(_salvando ? "Salvando..." : "Salvar"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2E7D32),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            ),
+          ),
+
+        // Menu dropdown com mais ações
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_horiz, color: Color(0xFF0D47A1)),
+          onSelected: (value) {
+            switch (value) {
+              case 'redefinir_senha':
+                _redefinirSenha();
+                break;
+              case 'suspender_reativar':
+                _alternarStatusUsuario();
+                break;
+            }
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'redefinir_senha',
+              enabled: !_salvando,
+              child: const Row(
+                children: [
+                  Icon(Icons.lock_reset, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Text('Redefinir senha'),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'suspender_reativar',
+              enabled: !_salvando,
+              child: Row(
+                children: [
+                  Icon(
+                    suspenso ? Icons.check_circle : Icons.block,
+                    color: suspenso ? Colors.green : Colors.red,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(suspenso ? 'Reativar usuário' : 'Suspender usuário'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

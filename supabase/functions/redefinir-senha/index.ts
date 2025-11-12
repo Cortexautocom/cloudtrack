@@ -37,7 +37,7 @@ serve(async (req: Request): Promise<Response> => {
     const supabaseUrl = Deno.env.get("PROJECT_URL");
     const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY");
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    const redirectUrl = "https://cloudtrack-app.web.app/redefinir-senha";
+    const redirectUrl = "https://cloudtrack-app.web.app/redefinir-senha#recovery=true";
 
     console.log("🔧 Variáveis carregadas:");
     console.log({
