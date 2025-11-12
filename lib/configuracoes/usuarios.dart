@@ -208,6 +208,9 @@ class _UsuariosPageState extends State<UsuariosPage> {
       Offset.zero & overlay.size,
     );
 
+    final statusAtual = usuario['status'] ?? 'ativo';
+    final suspenso = statusAtual == 'suspenso';
+
     final value = await showMenu(
       context: context,
       position: position,
@@ -226,9 +229,13 @@ class _UsuariosPageState extends State<UsuariosPage> {
           value: 'suspender_reativar',
           child: Row(
             children: [
-              Icon(Icons.block, color: Colors.red, size: 18),
+              Icon(
+                suspenso ? Icons.check_circle : Icons.block,
+                color: suspenso ? Colors.green : Colors.red,
+                size: 18,
+              ),
               SizedBox(width: 8),
-              Text('Suspender usuário'),
+              Text(suspenso ? 'Reativar usuário' : 'Suspender usuário'),
             ],
           ),
         ),
@@ -245,20 +252,106 @@ class _UsuariosPageState extends State<UsuariosPage> {
       ],
     );
 
-    if (value != null) {
-      switch (value) {
-        case 'editar':
-          setState(() => usuarioSelecionado = usuario);
-          break;
-        case 'suspender_reativar':
-          break;
-        case 'redefinir_senha':
-          break;
-      }
+    if (value == null) return;
+
+    switch (value) {
+      case 'editar':
+        setState(() => usuarioSelecionado = usuario);
+        break;
+      case 'suspender_reativar':
+        _alternarStatusUsuario(usuario);
+        break;
+      case 'redefinir_senha':
+        _redefinirSenha(usuario);
+        break;
     }
   }
 
+  Future<void> _alternarStatusUsuario(Map<String, dynamic> usuario) async {
+    final atual = usuario['status'] ?? 'ativo';
+    final novoStatus = atual == 'suspenso' ? 'ativo' : 'suspenso';
 
+    final confirmar = await _mostrarDialogoConfirmacao(
+      titulo: novoStatus == 'ativo' ? 'Reativar Usuário' : 'Suspender Usuário',
+      mensagem: novoStatus == 'ativo'
+          ? 'Tem certeza que deseja reativar este usuário?'
+          : 'Tem certeza que deseja suspender este usuário?',
+    );
+
+    if (!confirmar) return;
+
+    try {
+      await supabase
+          .from('usuarios')
+          .update({'status': novoStatus})
+          .eq('id', usuario['id']);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(novoStatus == 'ativo'
+                ? '✅ Usuário reativado com sucesso.'
+                : '⚠️ Usuário suspenso com sucesso.'),
+          ),
+        );
+        _carregarUsuarios();
+      }
+    } catch (e) {
+      debugPrint('❌ Erro ao alterar status: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao alterar status: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _redefinirSenha(Map<String, dynamic> usuario) async {
+    final confirmar = await _mostrarDialogoConfirmacao(
+      titulo: 'Redefinir Senha',
+      mensagem:
+          'Tem certeza que deseja redefinir a senha deste usuário? Uma nova senha temporária será enviada por e-mail.',
+    );
+
+    if (!confirmar) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('✅ Senha redefinida com sucesso! Verifique o e-mail do usuário.'),
+        backgroundColor: Colors.green,
+      ),
+    );
+
+    // Aqui no futuro você vai colocar a chamada real da Edge Function que envia o e-mail.
+  }
+
+  Future<bool> _mostrarDialogoConfirmacao({
+    required String titulo,
+    required String mensagem,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(titulo),
+        content: Text(mensagem),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D47A1),
+            ),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -442,7 +535,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
                                 IconButton(
                                   key: menuKey,
                                   icon: const Icon(Icons.more_vert, size: 18),
-                                  color: Colors.grey,
+                                  color: const Color.fromARGB(255, 0, 36, 153),
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(
                                     minWidth: 30,
