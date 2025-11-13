@@ -527,6 +527,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
+                                // STATUS
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
@@ -542,6 +543,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
 
                                 const SizedBox(width: 6),
 
+                                // NÍVEL
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
@@ -557,27 +559,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
 
                                 const SizedBox(width: 8),
 
-                                // 👇 AQUI: botão vermelho piscando
-                                if (pedidoSenha) ...[
-                                  TweenAnimationBuilder(
-                                    tween: Tween<double>(begin: 0.7, end: 1.0),
-                                    duration: const Duration(seconds: 1),
-                                    curve: Curves.easeInOut,
-                                    builder: (context, value, child) {
-                                      return Transform.scale(
-                                        scale: value,
-                                        child: IconButton(
-                                          icon: const Icon(Icons.priority_high, color: Colors.red),
-                                          tooltip: "Solicitação de redefinição de senha",
-                                          onPressed: () => _mostrarDialogoSolicitacao(u),
-                                        ),
-                                      );
-                                    },
-                                    onEnd: () => setState(() {}), // 👈 faz a animação repetir sempre
-                                  ),
-                                  const SizedBox(width: 6),
-                                ],
-
+                                // MENU
                                 IconButton(
                                   key: menuKey,
                                   icon: const Icon(Icons.more_vert, size: 18),
@@ -586,8 +568,32 @@ class _UsuariosPageState extends State<UsuariosPage> {
                                   constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
                                   onPressed: () => _mostrarMenuAcoes(context, u, menuKey),
                                 ),
+
+                                const SizedBox(width: 8),
+
+                                // 🔥 ALERTA PISCANTE (AGORA DEPOIS DO MENU)
+                                if (pedidoSenha)
+                                  TweenAnimationBuilder(
+                                    tween: Tween<double>(begin: 0.8, end: 1.0),
+                                    duration: const Duration(seconds: 1),
+                                    onEnd: () => setState(() {}),
+                                    builder: (context, value, child) {
+                                      return Transform.scale(
+                                        scale: value,
+                                        child: IconButton(
+                                          icon: const Icon(
+                                            Icons.notification_important, // 👈 ALTERE O ÍCONE AQUI
+                                            color: Colors.red,
+                                          ),
+                                          tooltip: "Solicitação de redefinição de senha",
+                                          onPressed: () => _mostrarDialogoSolicitacao(u),
+                                        ),
+                                      );
+                                    },
+                                  ),
                               ],
                             ),
+
                             onTap: () {
                               if (u['tabela'] == 'cadastros_pendentes' || u['tabela'] == 'usuarios') {
                                 setState(() {
@@ -609,25 +615,83 @@ class _UsuariosPageState extends State<UsuariosPage> {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("Solicitação de redefinição"),
-        content: Text("O usuário ${usuario['nome']} solicitou redefinição de senha."),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+        contentPadding: const EdgeInsets.fromLTRB(24, 10, 24, 0),
+        actionsPadding: const EdgeInsets.fromLTRB(0, 0, 0, 16),
+
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Linha título + botão X
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                const Spacer(),
+                const Text(
+                  "Solicitação de Redefinição",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context, null),
+                  child: const Icon(Icons.close, size: 22, color: Colors.grey),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 14),
+
+            const Icon(Icons.notifications_active, color: Colors.red, size: 48),
+          ],
+        ),
+
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "O usuário ${usuario['nome']} solicitou redefinição de senha.",
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 15, color: Colors.black87),
+            ),
+
+            const SizedBox(height: 26), // 👈 espaçamento maior
+          ],
+        ),
+
+        actionsAlignment: MainAxisAlignment.center,
         actions: [
           TextButton(
-            child: const Text("Negar"),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 10),
+            ),
             onPressed: () => Navigator.pop(context, false),
+            child: const Text("Negar"),
           ),
+
           ElevatedButton(
-            child: const Text("Redefinir"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              padding: const EdgeInsets.symmetric(horizontal: 34, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
             onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              "Redefinir",
+              style: TextStyle(fontSize: 15),
+            ),
           ),
         ],
       ),
     );
 
-    // Se o usuário fechou o popup sem escolher nada
-    if (confirmar == null) return;
+    if (confirmar == null) return; // X pressionado
 
-    // 👉 NEGAR SOLICITAÇÃO
     if (confirmar == false) {
       await supabase
           .from('usuarios')
@@ -642,10 +706,8 @@ class _UsuariosPageState extends State<UsuariosPage> {
       return;
     }
 
-    // 👉 APROVAR SOLICITAÇÃO (CHAMAR EDGE DEFINITIVA)
     await _redefinirSenha(usuario);
 
-    // 👉 Depois de redefinir a senha, limpar a flag
     await supabase
         .from('usuarios')
         .update({'redefinicao_senha': false})
@@ -653,6 +715,5 @@ class _UsuariosPageState extends State<UsuariosPage> {
 
     _carregarUsuarios();
   }
-
 
 }
