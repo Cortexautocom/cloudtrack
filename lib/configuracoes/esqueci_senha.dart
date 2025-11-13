@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class EsqueciSenhaPage extends StatefulWidget {
   const EsqueciSenhaPage({super.key});
@@ -15,62 +14,46 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
   bool _isLoading = false;
   bool _emailSent = false;
 
-  // ======= Função de recuperação de senha =======
   Future<void> _recuperarSenha() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
+
     final email = _emailController.text.trim();
+    final supabase = Supabase.instance.client;
 
     try {
-      // 🔹 URL correta da Edge Function
-      final url = Uri.parse(
-        'https://ikaxzlpaihdkqyjqrxyw.supabase.co/functions/v1/redefinir-senha',
-      );
-
-      debugPrint('🚀 Enviando requisição para Edge Function...');
-      debugPrint('🌐 URL: $url');
-      debugPrint('📧 E-mail: $email');
-
-      // 🔹 Requisição HTTP com autorização correta
-      final response = await http.post(
-        url,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization":
-              "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrYXh6bHBhaWhka3F5anFyeHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1MjkxNzAsImV4cCI6MjA3NzEwNTE3MH0.s9bx_3YDw3M9SozXCBRu22vZe8DJoXR9p-dyVeEH5K4"
+      // 1️⃣ Chamar a Edge Function ÚNICA que faz tudo (buscar usuário + marcar flag + avisar admins)
+      final resposta = await supabase.functions.invoke(
+        'solicitar-redefinicao',
+        body: {
+          'email': email,
         },
-        body: jsonEncode({"email": email}),
       );
 
-      debugPrint('📡 Status HTTP: ${response.statusCode}');
-      debugPrint('📦 Corpo da resposta: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['success'] == true) {
-          setState(() => _emailSent = true);
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('✅ Link de recuperação enviado para $email'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        } else {
-          throw Exception(data['error'] ?? 'Falha ao enviar o e-mail.');
-        }
-      } else {
-        final body = jsonDecode(response.body);
-        throw Exception(body['error'] ?? 'Falha ao enviar o e-mail.');
+      if (resposta.status != 200) {
+        throw Exception("Erro ao processar solicitação.");
       }
+
+      // 2️⃣ Sucesso
+      setState(() => _emailSent = true);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Solicitação enviada com sucesso!"),
+          backgroundColor: Colors.green,
+        ),
+      );
+
     } catch (error, stack) {
-      debugPrint('💥 Erro ao enviar link: $error');
-      debugPrint('🧩 Stack trace: $stack');
+      debugPrint("Erro: $error");
+      debugPrint("Stack: $stack");
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erro: $error'),
+          content: Text("Erro: $error"),
           backgroundColor: Colors.red,
         ),
       );
@@ -144,7 +127,7 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
                   const SizedBox(height: 20),
 
                   Text(
-                    _emailSent ? 'Email Enviado!' : 'Recuperar Senha',
+                    _emailSent ? 'Solicitação Enviada' : 'Recuperar Senha',
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -156,8 +139,8 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
 
                   Text(
                     _emailSent
-                        ? 'Enviamos um link de recuperação para seu email. Verifique sua caixa de entrada e pasta de spam.'
-                        : 'Digite seu email para receber um link de recuperação de senha',
+                        ? 'O administrador recebeu seu pedido e analisará em breve.'
+                        : 'Digite seu email para solicitar redefinição de senha.',
                     style: const TextStyle(
                       fontSize: 14,
                       color: Colors.grey,
@@ -168,7 +151,6 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
                   const SizedBox(height: 30),
 
                   if (!_emailSent) ...[
-                    // ===== Campo e botão =====
                     Form(
                       key: _formKey,
                       child: TextFormField(
@@ -219,9 +201,11 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
                                 ),
                               )
                             : const Text(
-                                'Enviar Link de Recuperação',
+                                'Solicitar redefinição de senha',
                                 style: TextStyle(
-                                    fontSize: 16, color: Colors.white),
+                                  fontSize: 16,
+                                  color: Colors.white,
+                                ),
                               ),
                       ),
                     ),
@@ -240,43 +224,15 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
                         child: const Text(
                           'Voltar para Login',
                           style: TextStyle(
-                              fontSize: 16, color: Colors.white),
+                            fontSize: 16,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 15),
-                    TextButton(
-                      onPressed: _isLoading ? null : _recuperarSenha,
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text(
-                              'Reenviar link',
-                              style: TextStyle(
-                                color: Color(0xFF0A4B78),
-                                fontSize: 14,
-                              ),
-                            ),
                     ),
                   ],
 
                   const SizedBox(height: 10),
-
-                  if (!_emailSent)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16.0),
-                      child: Text(
-                        'Após clicar no link do email, você será redirecionado para redefinir sua senha.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
                 ],
               ),
             ),

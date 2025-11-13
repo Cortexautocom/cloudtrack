@@ -1,8 +1,17 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// Função para gerar senha aleatória
+function gerarSenhaAleatoria(tamanho = 10) {
+  const caracteres = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%&*";
+  let senha = "";
+  for (let i = 0; i < tamanho; i++) {
+    senha += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+  }
+  return senha;
+}
+
 serve(async (req: Request): Promise<Response> => {
-  // ===== CORS =====
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers":
@@ -10,21 +19,19 @@ serve(async (req: Request): Promise<Response> => {
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   };
 
-  // ===== OPTIONS =====
   if (req.method === "OPTIONS") {
-    console.log("🟢 Pré-flight OPTIONS recebido.");
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
     console.log("🚀 Iniciando redefinir-senha (reset + e-mail + flag)...");
 
-    // === 1️⃣ Corpo da requisição ===
+    // 1️⃣ Pegar o email enviado pelo Flutter
     const { email } = await req.json();
     console.log("📩 E-mail recebido:", email || "(vazio)");
     if (!email) throw new Error("E-mail é obrigatório.");
 
-    // === 2️⃣ Variáveis de ambiente ===
+    // 2️⃣ Variáveis de ambiente
     const supabaseUrl = Deno.env.get("PROJECT_URL");
     const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY");
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
@@ -33,10 +40,9 @@ serve(async (req: Request): Promise<Response> => {
       throw new Error("Variáveis de ambiente ausentes. Verifique Supabase Config.");
     }
 
-    // === 3️⃣ Cria cliente Supabase com service role ===
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // === 4️⃣ Busca usuário e redefine senha ===
+    // 3️⃣ Buscar usuário no auth
     console.log("👤 Buscando usuário...");
     const { data: users, error: listError } = await supabase.auth.admin.listUsers();
     if (listError) throw listError;
@@ -44,14 +50,18 @@ serve(async (req: Request): Promise<Response> => {
     const user = users.users.find((u: any) => u.email === email);
     if (!user) throw new Error("Usuário não encontrado.");
 
-    console.log("🔐 Redefinindo senha...");
+    // 4️⃣ Gerar nova senha aleatória
+    const novaSenha = gerarSenhaAleatoria(10);
+    console.log("🔐 Nova senha gerada:", novaSenha);
+
+    // 5️⃣ Atualizar senha no auth
     const { error: resetError } = await supabase.auth.admin.updateUserById(user.id, {
-      password: "123456",
+      password: novaSenha,
     });
     if (resetError) throw resetError;
 
-    // === 5️⃣ Atualiza flag 'senha_temporaria' na tabela 'usuarios' ===
-    console.log("🧾 Marcando senha_temporaria = TRUE no banco...");
+    // 6️⃣ Atualizar flag no banco
+    console.log("🧾 Atualizando senha_temporaria = TRUE...");
     const { error: updateError } = await supabase
       .from("usuarios")
       .update({ senha_temporaria: true })
@@ -59,13 +69,15 @@ serve(async (req: Request): Promise<Response> => {
 
     if (updateError) throw new Error("Erro ao atualizar flag no banco: " + updateError.message);
 
-    // === 6️⃣ Monta o e-mail com botão de acesso ===
+    // 7️⃣ Montar e enviar email com a senha nova
     const html = `
-      <h2>🔑 Senha redefinida</h2>
+      <h2>🔑 Sua senha foi redefinida</h2>
       <p>Olá,</p>
-      <p>Sua senha no <strong>CloudTrack</strong> foi redefinida pelo administrador.</p>
-      <p>Nova senha temporária: <b>123456</b></p>
-      <p>Você fará a alteração assim que acessar o app.</p>
+      <p>Sua senha do <strong>CloudTrack</strong> foi redefinida pelo administrador.</p>
+      <p>Nova senha temporária:</p>
+      <p style="font-size:18px;"><b>${novaSenha}</b></p>
+      <p>Você deverá alterá-la assim que acessar o sistema.</p>
+
       <p style="margin: 24px 0;">
         <a href="https://cloudtrack-app.web.app/"
            style="background-color:#0A4B78;
@@ -77,13 +89,13 @@ serve(async (req: Request): Promise<Response> => {
           Acessar o CloudTrack
         </a>
       </p>
+
       <hr>
       <p style="font-size:12px;color:#888;">
         © 2025 CloudTrack • Powered by AwaySoftwares LLC
       </p>
     `;
 
-    // === 7️⃣ Envia o e-mail via Resend ===
     const resendPayload = {
       from: "CloudTrack Suporte <suporte@cortexac.com.br>",
       to: [email],
@@ -91,7 +103,7 @@ serve(async (req: Request): Promise<Response> => {
       html,
     };
 
-    console.log("📦 Enviando e-mail via Resend...");
+    console.log("📩 Enviando e-mail via Resend...");
     const resendResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -102,27 +114,28 @@ serve(async (req: Request): Promise<Response> => {
     });
 
     const resendText = await resendResponse.text();
-    console.log("📊 Status HTTP Resend:", resendResponse.status);
-    console.log("📩 Corpo da resposta Resend:", resendText || "(sem resposta)");
+    console.log("📊 Resend Status:", resendResponse.status);
+    console.log("📨 Resend Resposta:", resendText || "(vazio)");
 
     if (!resendResponse.ok) {
-      throw new Error(`Erro ao enviar e-mail via Resend: ${resendText}`);
+      throw new Error(`Erro ao enviar e-mail: ${resendText}`);
     }
 
-    console.log("✅ Senha redefinida, flag atualizada e e-mail enviado com sucesso!");
+    // 8️⃣ Final
     return new Response(
       JSON.stringify({
         success: true,
-        message: "Senha redefinida, flag atualizada e e-mail enviado.",
+        message: "Senha redefinida com sucesso e enviada por e-mail.",
       }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       },
     );
+
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error("❌ ERRO DETECTADO:", message);
+    console.error("❌ ERRO:", message);
 
     return new Response(
       JSON.stringify({ success: false, error: message }),

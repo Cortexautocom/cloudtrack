@@ -117,6 +117,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
             'tabela': 'usuarios',
             'filial_nome': nomeFilial,
             'dados': u,
+            'redefinicao_senha': u['redefinicao_senha'] ?? false,
           };
         }),
       );
@@ -304,12 +305,12 @@ class _UsuariosPageState extends State<UsuariosPage> {
       );
     }
   }
-
+  
   Future<void> _redefinirSenha(Map<String, dynamic> usuario) async {
     final confirmar = await _mostrarDialogoConfirmacao(
       titulo: 'Redefinir Senha',
       mensagem:
-      'Tem certeza que deseja redefinir a senha deste usuário?\n\nUma nova senha temporária (123456) será definida e o usuário será notificado por e-mail.',
+      'Tem certeza que deseja redefinir a senha deste usuário?\n\nUma nova senha temporária aleatória será gerada e enviada para o e-mail do usuário.',
     );
 
     if (!confirmar) return;
@@ -482,6 +483,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
                       separatorBuilder: (_, __) => const Divider(height: 1),
                       itemBuilder: (context, index) {
                         final u = usuariosFiltrados[index];
+                        final bool pedidoSenha = u['redefinicao_senha'] == true;
                         final corStatus = _corStatus(u['status'] ?? '');
                         final textoStatus = _textoStatus(u['status'] ?? '', u['tabela'] ?? '');
                         final nivel = int.tryParse(u['nivel'].toString()) ?? 1;
@@ -537,7 +539,9 @@ class _UsuariosPageState extends State<UsuariosPage> {
                                     style: TextStyle(color: corStatus, fontSize: 10),
                                   ),
                                 ),
+
                                 const SizedBox(width: 6),
+
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
@@ -550,7 +554,30 @@ class _UsuariosPageState extends State<UsuariosPage> {
                                     style: TextStyle(color: corNivel, fontSize: 10),
                                   ),
                                 ),
+
                                 const SizedBox(width: 8),
+
+                                // 👇 AQUI: botão vermelho piscando
+                                if (pedidoSenha) ...[
+                                  TweenAnimationBuilder(
+                                    tween: Tween<double>(begin: 0.7, end: 1.0),
+                                    duration: const Duration(seconds: 1),
+                                    curve: Curves.easeInOut,
+                                    builder: (context, value, child) {
+                                      return Transform.scale(
+                                        scale: value,
+                                        child: IconButton(
+                                          icon: const Icon(Icons.priority_high, color: Colors.red),
+                                          tooltip: "Solicitação de redefinição de senha",
+                                          onPressed: () => _mostrarDialogoSolicitacao(u),
+                                        ),
+                                      );
+                                    },
+                                    onEnd: () => setState(() {}), // 👈 faz a animação repetir sempre
+                                  ),
+                                  const SizedBox(width: 6),
+                                ],
+
                                 IconButton(
                                   key: menuKey,
                                   icon: const Icon(Icons.more_vert, size: 18),
@@ -578,4 +605,54 @@ class _UsuariosPageState extends State<UsuariosPage> {
       ),
     );
   }
+  Future<void> _mostrarDialogoSolicitacao(Map<String, dynamic> usuario) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Solicitação de redefinição"),
+        content: Text("O usuário ${usuario['nome']} solicitou redefinição de senha."),
+        actions: [
+          TextButton(
+            child: const Text("Negar"),
+            onPressed: () => Navigator.pop(context, false),
+          ),
+          ElevatedButton(
+            child: const Text("Redefinir"),
+            onPressed: () => Navigator.pop(context, true),
+          ),
+        ],
+      ),
+    );
+
+    // Se o usuário fechou o popup sem escolher nada
+    if (confirmar == null) return;
+
+    // 👉 NEGAR SOLICITAÇÃO
+    if (confirmar == false) {
+      await supabase
+          .from('usuarios')
+          .update({'redefinicao_senha': false})
+          .eq('id', usuario['id']);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Redefinição negada.")),
+      );
+
+      _carregarUsuarios();
+      return;
+    }
+
+    // 👉 APROVAR SOLICITAÇÃO (CHAMAR EDGE DEFINITIVA)
+    await _redefinirSenha(usuario);
+
+    // 👉 Depois de redefinir a senha, limpar a flag
+    await supabase
+        .from('usuarios')
+        .update({'redefinicao_senha': false})
+        .eq('id', usuario['id']);
+
+    _carregarUsuarios();
+  }
+
+
 }
