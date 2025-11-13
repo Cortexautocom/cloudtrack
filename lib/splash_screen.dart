@@ -72,7 +72,7 @@ class _SplashScreenState extends State<SplashScreen> {
     final usuario = await supabase
         .from('usuarios')
         .select('senha_temporaria')
-        .eq('id', session.user.id)
+        .eq('email', session.user.email ?? '')
         .maybeSingle();
 
     if (usuario != null && usuario['senha_temporaria'] == true) {

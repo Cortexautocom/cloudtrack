@@ -10,95 +10,84 @@ serve(async (req: Request): Promise<Response> => {
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   };
 
-  // ===== OPTIONS (pré-flight) =====
+  // ===== OPTIONS =====
   if (req.method === "OPTIONS") {
     console.log("🟢 Pré-flight OPTIONS recebido.");
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    console.log("🚀 Iniciando função redefinir-senha...");
+    console.log("🚀 Iniciando redefinir-senha (reset + e-mail + flag)...");
 
-    // === 1️⃣ Valida o corpo ===
+    // === 1️⃣ Corpo da requisição ===
     const { email } = await req.json();
     console.log("📩 E-mail recebido:", email || "(vazio)");
     if (!email) throw new Error("E-mail é obrigatório.");
 
-    // === 2️⃣ Valida autorização do Flutter ===
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader) throw new Error("Requisição sem token de autorização.");
-    const anonKey = Deno.env.get("PUBLIC_ANON_KEY");
-    if (!anonKey) throw new Error("Chave pública (anon) não configurada.");
-    if (authHeader !== `Bearer ${anonKey}`) {
-      throw new Error("Token de autorização inválido ou não reconhecido.");
-    }
-
-    // === 3️⃣ Variáveis de ambiente ===
+    // === 2️⃣ Variáveis de ambiente ===
     const supabaseUrl = Deno.env.get("PROJECT_URL");
     const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY");
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    const redirectUrl = "https://cloudtrack-app.web.app/redefinir-senha#recovery=true";
-
-    console.log("🔧 Variáveis carregadas:");
-    console.log({
-      hasProjectUrl: !!supabaseUrl,
-      hasServiceRoleKey: !!serviceRoleKey,
-      hasResendApiKey: !!resendApiKey,
-    });
 
     if (!supabaseUrl || !serviceRoleKey || !resendApiKey) {
-      throw new Error("❌ Variáveis de ambiente ausentes ou incorretas.");
+      throw new Error("Variáveis de ambiente ausentes. Verifique Supabase Config.");
     }
 
-    // === 4️⃣ Criação do cliente Supabase ===
-    console.log("⚙️ Criando cliente Supabase...");
+    // === 3️⃣ Cria cliente Supabase com service role ===
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // === 5️⃣ Gerar link de redefinição ===
-    console.log("🧩 Gerando link de redefinição...");
-    const { data, error } = await supabase.auth.admin.generateLink({
-      type: "recovery",
-      email,
-      options: { redirectTo: redirectUrl },
+    // === 4️⃣ Busca usuário e redefine senha ===
+    console.log("👤 Buscando usuário...");
+    const { data: users, error: listError } = await supabase.auth.admin.listUsers();
+    if (listError) throw listError;
+
+    const user = users.users.find((u: any) => u.email === email);
+    if (!user) throw new Error("Usuário não encontrado.");
+
+    console.log("🔐 Redefinindo senha...");
+    const { error: resetError } = await supabase.auth.admin.updateUserById(user.id, {
+      password: "123456",
     });
+    if (resetError) throw resetError;
 
-    if (error) {
-      console.error("❌ Erro Supabase.generateLink:", error);
-      throw new Error("Erro ao gerar link de redefinição: " + error.message);
-    }
+    // === 5️⃣ Atualiza flag 'senha_temporaria' na tabela 'usuarios' ===
+    console.log("🧾 Marcando senha_temporaria = TRUE no banco...");
+    const { error: updateError } = await supabase
+      .from("usuarios")
+      .update({ senha_temporaria: true })
+      .eq("email", email);
 
-    const recoveryLink = data?.properties?.action_link || data?.action_link;
-    console.log("🔗 Link de redefinição gerado:", recoveryLink || "(nenhum)");
-    if (!recoveryLink) {
-      throw new Error("Não foi possível gerar o link de redefinição.");
-    }
+    if (updateError) throw new Error("Erro ao atualizar flag no banco: " + updateError.message);
 
-    // === 6️⃣ Montagem do e-mail ===
+    // === 6️⃣ Monta o e-mail com botão de acesso ===
     const html = `
-      <h2>🔑 Redefinição de senha</h2>
+      <h2>🔑 Senha redefinida</h2>
       <p>Olá,</p>
-      <p>Você solicitou redefinir sua senha no <strong>CloudTrack</strong>.</p>
-      <p>Clique no botão abaixo para criar uma nova senha:</p>
+      <p>Sua senha no <strong>CloudTrack</strong> foi redefinida pelo administrador.</p>
+      <p>Nova senha temporária: <b>123456</b></p>
+      <p>Você fará a alteração assim que acessar o app.</p>
       <p style="margin: 24px 0;">
-        <a href="${recoveryLink}"
-          style="background-color:#0A4B78;color:#fff;padding:12px 20px;
-                 border-radius:8px;text-decoration:none;font-weight:bold;">
-          Redefinir senha
+        <a href="https://cloudtrack-app.web.app/"
+           style="background-color:#0A4B78;
+                  color:#fff;
+                  padding:12px 20px;
+                  border-radius:8px;
+                  text-decoration:none;
+                  font-weight:bold;">
+          Acessar o CloudTrack
         </a>
       </p>
-      <p>Se você não fez esta solicitação, basta ignorar este e-mail.</p>
       <hr>
       <p style="font-size:12px;color:#888;">
         © 2025 CloudTrack • Powered by AwaySoftwares LLC
       </p>
     `;
-    console.log("🧱 HTML do e-mail montado com sucesso.");
 
-    // === 7️⃣ Envio via Resend ===
+    // === 7️⃣ Envia o e-mail via Resend ===
     const resendPayload = {
       from: "CloudTrack Suporte <suporte@cortexac.com.br>",
       to: [email],
-      subject: "Redefinição de senha - CloudTrack",
+      subject: "🔐 Sua senha foi redefinida - CloudTrack",
       html,
     };
 
@@ -120,9 +109,12 @@ serve(async (req: Request): Promise<Response> => {
       throw new Error(`Erro ao enviar e-mail via Resend: ${resendText}`);
     }
 
-    console.log("✅ E-mail enviado com sucesso!");
+    console.log("✅ Senha redefinida, flag atualizada e e-mail enviado com sucesso!");
     return new Response(
-      JSON.stringify({ success: true, message: "E-mail enviado com sucesso!" }),
+      JSON.stringify({
+        success: true,
+        message: "Senha redefinida, flag atualizada e e-mail enviado.",
+      }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
