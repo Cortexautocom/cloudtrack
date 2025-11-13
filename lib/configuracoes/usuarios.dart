@@ -164,7 +164,6 @@ class _UsuariosPageState extends State<UsuariosPage> {
     return status[0].toUpperCase() + status.substring(1).toLowerCase();
   }
 
-  /// 🔹 Cor da tag de nível
   Color _corNivel(int nivel) {
     switch (nivel) {
       case 1:
@@ -178,7 +177,6 @@ class _UsuariosPageState extends State<UsuariosPage> {
     }
   }
 
-  /// 🔹 Texto exibido na tag de nível
   String _textoNivel(int nivel) {
     switch (nivel) {
       case 1:
@@ -193,10 +191,10 @@ class _UsuariosPageState extends State<UsuariosPage> {
   }
 
   void _mostrarMenuAcoes(
-    BuildContext context,
-    Map<String, dynamic> usuario,
-    GlobalKey key,
-  ) async {
+      BuildContext context,
+      Map<String, dynamic> usuario,
+      GlobalKey key,
+      ) async {
     final RenderBox button = key.currentContext!.findRenderObject() as RenderBox;
     final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
 
@@ -311,46 +309,85 @@ class _UsuariosPageState extends State<UsuariosPage> {
     final confirmar = await _mostrarDialogoConfirmacao(
       titulo: 'Redefinir Senha',
       mensagem:
-          'Tem certeza que deseja redefinir a senha deste usuário? Uma nova senha temporária será enviada por e-mail.',
+      'Tem certeza que deseja redefinir a senha deste usuário?\n\nUma nova senha temporária (123456) será definida e o usuário será notificado por e-mail.',
     );
 
     if (!confirmar) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('✅ Senha redefinida com sucesso! Verifique o e-mail do usuário.'),
-        backgroundColor: Colors.green,
-      ),
-    );
+    try {
+      final response = await supabase.functions.invoke(
+        'redefinir-senha',
+        body: {'email': usuario['email']},
+      );
 
-    // Aqui no futuro você vai colocar a chamada real da Edge Function que envia o e-mail.
+      if (response.status != 200) {
+        throw Exception(response.data['error'] ?? 'Erro desconhecido');
+      }
+
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Senha redefinida com sucesso! O usuário foi notificado por e-mail.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      debugPrint('❌ Erro ao redefinir senha: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao redefinir senha: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<bool> _mostrarDialogoConfirmacao({
     required String titulo,
     required String mensagem,
   }) async {
-    final result = await showDialog<bool>(
+    return (await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(titulo),
-        content: Text(mensagem),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.lock_reset, color: Color(0xFF0D47A1)),
+            SizedBox(width: 8),
+            Text("Redefinir Senha"),
+          ],
+        ),
+        content: Text(
+          mensagem,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 14, color: Colors.black87),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
             child: const Text('Cancelar'),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0D47A1),
+          ElevatedButton.icon(
+            icon: const Padding(
+              padding: EdgeInsets.all(0.8),
+              child: Icon(Icons.check, size: 18),
             ),
-            child: const Text('Confirmar'),
+            label: const Text('Confirmar'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color.fromARGB(255, 88, 153, 69),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8), // 👈 aumenta só nas laterais
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
           ),
         ],
       ),
-    );
-    return result ?? false;
+    )) ??
+        false;
   }
 
   @override
@@ -413,7 +450,6 @@ class _UsuariosPageState extends State<UsuariosPage> {
           ),
           const Divider(),
           const SizedBox(height: 16),
-
           Container(
             width: 700,
             height: 40,
@@ -426,12 +462,10 @@ class _UsuariosPageState extends State<UsuariosPage> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
             ),
           ),
-
           Expanded(
             child: Container(
               width: 700,
@@ -449,47 +483,38 @@ class _UsuariosPageState extends State<UsuariosPage> {
                       itemBuilder: (context, index) {
                         final u = usuariosFiltrados[index];
                         final corStatus = _corStatus(u['status'] ?? '');
-                        final textoStatus =
-                            _textoStatus(u['status'] ?? '', u['tabela'] ?? '');
+                        final textoStatus = _textoStatus(u['status'] ?? '', u['tabela'] ?? '');
                         final nivel = int.tryParse(u['nivel'].toString()) ?? 1;
                         final corNivel = _corNivel(nivel);
                         final textoNivel = _textoNivel(nivel);
                         final menuKey = GlobalKey();
 
-
                         return SizedBox(
                           height: 60,
                           child: ListTile(
                             dense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 4),
-                            leading: Icon(Icons.person_outline,
-                                color: corStatus, size: 20),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            leading: Icon(Icons.person_outline, color: corStatus, size: 20),
                             title: Text(
                               u['nome'] ?? 'Sem nome',
-                              style: const TextStyle(
-                                  fontSize: 14, fontWeight: FontWeight.w500),
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                               overflow: TextOverflow.ellipsis,
                             ),
                             subtitle: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                if (u['filial_nome'] != null &&
-                                    u['filial_nome'] != 'N/A')
+                                if (u['filial_nome'] != null && u['filial_nome'] != 'N/A')
                                   Text(
                                     u['filial_nome']!,
-                                    style: const TextStyle(
-                                        fontSize: 12, color: Colors.grey),
+                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                if (u['filial_nome'] != null &&
-                                    u['filial_nome'] != 'N/A')
+                                if (u['filial_nome'] != null && u['filial_nome'] != 'N/A')
                                   const Text("  |  ",
                                       style: TextStyle(
                                           fontSize: 12,
-                                          color: Color.fromARGB(
-                                              255, 133, 133, 133))),
+                                          color: Color.fromARGB(255, 133, 133, 133))),
                                 Text(
                                   u['email'] ?? '',
                                   style: const TextStyle(fontSize: 12),
@@ -497,14 +522,11 @@ class _UsuariosPageState extends State<UsuariosPage> {
                                 ),
                               ],
                             ),
-
-                            // 🔹 TAGS de status + nível + menu de ações
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: corStatus.withOpacity(0.1),
                                     border: Border.all(color: corStatus),
@@ -512,14 +534,12 @@ class _UsuariosPageState extends State<UsuariosPage> {
                                   ),
                                   child: Text(
                                     textoStatus,
-                                    style: TextStyle(
-                                        color: corStatus, fontSize: 10),
+                                    style: TextStyle(color: corStatus, fontSize: 10),
                                   ),
                                 ),
                                 const SizedBox(width: 6),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: corNivel.withOpacity(0.1),
                                     border: Border.all(color: corNivel),
@@ -527,8 +547,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
                                   ),
                                   child: Text(
                                     textoNivel,
-                                    style: TextStyle(
-                                        color: corNivel, fontSize: 10),
+                                    style: TextStyle(color: corNivel, fontSize: 10),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -537,18 +556,13 @@ class _UsuariosPageState extends State<UsuariosPage> {
                                   icon: const Icon(Icons.more_vert, size: 18),
                                   color: const Color.fromARGB(255, 0, 36, 153),
                                   padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(
-                                    minWidth: 30,
-                                    minHeight: 30,
-                                  ),
+                                  constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
                                   onPressed: () => _mostrarMenuAcoes(context, u, menuKey),
                                 ),
                               ],
                             ),
-
                             onTap: () {
-                              if (u['tabela'] == 'cadastros_pendentes' ||
-                                  u['tabela'] == 'usuarios') {
+                              if (u['tabela'] == 'cadastros_pendentes' || u['tabela'] == 'usuarios') {
                                 setState(() {
                                   usuarioSelecionado = u;
                                 });
