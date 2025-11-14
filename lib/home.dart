@@ -4,6 +4,7 @@ import 'sessoes/tabelasdeconversao.dart';
 import 'configuracoes/controle_acesso_usuarios.dart';
 import 'login_page.dart';
 import 'configuracoes/usuarios.dart';
+import 'perfil.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -200,6 +201,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           size: 30,
                         ),
                         onSelected: (value) async {
+                          if (value == 'Perfil') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const PerfilPage()),
+                            );
+                          }
+
                           if (value == 'Sair') {
                             await Supabase.instance.client.auth.signOut();
                             UsuarioAtual.instance = null;
