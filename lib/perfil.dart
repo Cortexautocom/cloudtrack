@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'login_page.dart';
+import 'alterar_senha.dart';
 
 class PerfilPage extends StatefulWidget {
   const PerfilPage({super.key});
@@ -168,6 +169,30 @@ class _PerfilPageState extends State<PerfilPage> {
                             style: TextStyle(color: Colors.white)),
                       ),
                     ),
+
+                    const SizedBox(height: 15),
+
+                    SizedBox(
+                      width: 240,
+                      height: 45,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => AlterarSenhaPage()),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFF0D47A1)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text("Alterar senha",
+                            style: TextStyle(color: Color(0xFF0D47A1))),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -199,7 +224,7 @@ class _PerfilPageState extends State<PerfilPage> {
 }
 
 // ---------------------------------------------------------------------------
-//                    🌟 TELA DE EDITAR PERFIL (NOVA!)
+//                    🌟 TELA DE EDITAR PERFIL
 // ---------------------------------------------------------------------------
 
 class EditarPerfilPage extends StatefulWidget {
@@ -452,5 +477,4 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
       onChanged: (v) => setState(() => filialSelecionada = v),
     );
   }
-
 }
