@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'sessoes/tabelasdeconversao.dart';
+import 'sessoes/tabelas_de_conversao/tabelasdeconversao.dart';
 import 'configuracoes/controle_acesso_usuarios.dart';
 import 'login_page.dart';
 import 'configuracoes/usuarios.dart';
 import 'perfil.dart';
+import 'sessoes/CALC/cacl.dart';
+import 'sessoes/CALC/form_calc.dart'; // IMPORTANTE: Adicione este import
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -29,6 +31,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool showConfigList = false;
   bool carregandoSessoes = false;
   bool showUsuarios = false;
+  bool _mostrarFormCalc = false; // ✅ NOVO FLAG
+  bool _mostrarCalcGerado = false; // ✅ NOVO FLAG
+  
 
   List<Map<String, dynamic>> sessoes = [];
 
@@ -140,6 +145,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       showControleAcesso = false;
       showConfigList = false;
       showUsuarios = false;
+      _mostrarFormCalc = false; // ✅ RESETA O FLAG DO FORM
+      _mostrarCalcGerado = false; // ✅ RESETA O FLAG DO CALC GERADO
     });
   }
 
@@ -260,6 +267,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   showControleAcesso = false;
                                   showConfigList = false;
                                   showUsuarios = false;
+                                  _mostrarFormCalc = false; // ✅ RESETA AO MUDAR DE MENU
+                                  _mostrarCalcGerado = false; // ✅ RESETA AO MUDAR DE MENU
                                 });
 
                                 // 🔹 Se o menu clicado for "Sessões", verifica permissões antes de carregar
@@ -389,14 +398,29 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       padding: const EdgeInsets.all(30),
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 400),
-        child: showConversaoList
-            ? TabelasDeConversao(
-                key: const ValueKey('tabelas'),
-                onVoltar: () {
-                  setState(() => showConversaoList = false);
+        transitionBuilder: (child, animation) =>
+            FadeTransition(opacity: animation, child: child),
+
+        // ✅ FLUXO ALTERADO CONFORME ORIENTAÇÕES
+        child: _mostrarFormCalc
+            ? FormCalcPage(
+                onGerar: (dados) {
+                  setState(() {
+                    _mostrarFormCalc = false;
+                    _mostrarCalcGerado = true;
+                  });
                 },
               )
-            : _buildGridWithSearch(sessoes),
+            : _mostrarCalcGerado
+                ? const CalcPage() // futuramente podemos passar os dados
+                : showConversaoList
+                    ? TabelasDeConversao(
+                        key: const ValueKey('tabelas'),
+                        onVoltar: () {
+                          setState(() => showConversaoList = false);
+                        },
+                      )
+                    : _buildGridWithSearch(sessoes),
       ),
     );
   }
@@ -563,9 +587,24 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       clipBehavior: Clip.hardEdge,
       child: InkWell(
         onTap: () {
-          if (sessao['label'] == 'Tabelas de conversão') {
+          final nome = sessao['label'];
+
+          if (nome == 'Tabelas de conversão') {
             setState(() => showConversaoList = true);
+            return;
           }
+
+          // ✅ ALTERAÇÃO CONFORME ORIENTAÇÕES - ABRE FORM CALC
+          if (nome == 'CALC') {
+            setState(() {
+              showConversaoList = false;
+              showControleAcesso = false;
+              showUsuarios = false;
+              _mostrarFormCalc = true; // <<< NOVO FLAG
+            });
+            return;
+          }
+
         },
         hoverColor: const Color(0xFFE8F5E9),
         child: Container(
@@ -602,6 +641,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     if (lower.contains('abaste')) return Icons.local_gas_station;
     if (lower.contains('document')) return Icons.description;
     if (lower.contains('dep')) return Icons.warehouse;
+    if (lower.contains('calc')) return Icons.receipt_long;
     return Icons.apps;
   }
 
