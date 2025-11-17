@@ -410,7 +410,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     _mostrarCalcGerado = true;
                   });
                 },
-              )
+                onVoltar: () {
+                  setState(() {
+                    _mostrarFormCalc = false;
+                    _mostrarCalcGerado = false;
+                  });
+                },
+              )              
             : _mostrarCalcGerado
                 ? const CalcPage() // futuramente podemos passar os dados
                 : showConversaoList
