@@ -424,7 +424,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     onVoltar: () {
                       setState(() {
                         _mostrarCalcGerado = false;
-                        _mostrarFormCalc = false;
+                        _mostrarFormCalc = true;
                       });
                     },
                     dadosFormulario: _dadosCalcGerado ?? {}, // Passa os dados do formulário
