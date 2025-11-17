@@ -33,6 +33,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool showUsuarios = false;
   bool _mostrarFormCalc = false; // ✅ NOVO FLAG
   bool _mostrarCalcGerado = false; // ✅ NOVO FLAG
+  Map<String, dynamic>? _dadosCalcGerado;
   
 
   List<Map<String, dynamic>> sessoes = [];
@@ -401,13 +402,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         transitionBuilder: (child, animation) =>
             FadeTransition(opacity: animation, child: child),
 
-        // ✅ FLUXO ALTERADO CONFORME ORIENTAÇÕES
+        //
         child: _mostrarFormCalc
             ? FormCalcPage(
                 onGerar: (dados) {
                   setState(() {
                     _mostrarFormCalc = false;
                     _mostrarCalcGerado = true;
+                    _dadosCalcGerado = dados; // Armazena os dados para passar ao CALC
                   });
                 },
                 onVoltar: () {
@@ -418,7 +420,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 },
               )              
             : _mostrarCalcGerado
-                ? const CalcPage() // futuramente podemos passar os dados
+                ? CalcPage(
+                    onVoltar: () {
+                      setState(() {
+                        _mostrarCalcGerado = false;
+                        _mostrarFormCalc = false;
+                      });
+                    },
+                    dadosFormulario: _dadosCalcGerado ?? {}, // Passa os dados do formulário
+                  )
                 : showConversaoList
                     ? TabelasDeConversao(
                         key: const ValueKey('tabelas'),
