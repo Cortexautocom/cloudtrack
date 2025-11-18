@@ -6,7 +6,7 @@ import 'login_page.dart';
 import 'configuracoes/usuarios.dart';
 import 'perfil.dart';
 import 'sessoes/CALC/cacl.dart';
-import 'sessoes/CALC/form_calc.dart'; // IMPORTANTE: Adicione este import
+import 'sessoes/CALC/form_calc.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -31,8 +31,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool showConfigList = false;
   bool carregandoSessoes = false;
   bool showUsuarios = false;
-  bool _mostrarFormCalc = false; // ✅ NOVO FLAG
-  bool _mostrarCalcGerado = false; // ✅ NOVO FLAG
+  bool _mostrarFormCalc = false;
+  bool _mostrarCalcGerado = false;
   Map<String, dynamic>? _dadosCalcGerado;
   
 
@@ -79,7 +79,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   /// 🔹 Verifica permissões do usuário ao clicar em "Sessões"
-  /// 🔹 Sempre verifica as permissões do usuário ao clicar em "Sessões"
   Future<void> _verificarPermissoesUsuario() async {
     final usuario = UsuarioAtual.instance;
     if (usuario == null) return;
@@ -94,8 +93,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           nome: usuario.nome,
           nivel: usuario.nivel,
           filialId: usuario.filialId,
-          sessoesPermitidas: [], // não precisa checar permissões
-          senhaTemporaria: usuario.senhaTemporaria, // ✅ ADICIONAR ESTA LINHA
+          sessoesPermitidas: [],
+          senhaTemporaria: usuario.senhaTemporaria,
         );
         await _carregarSessoesDoBanco();
         return;
@@ -109,11 +108,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
       final sessoesPermitidas = List<String>.from(
         permissoes
-            .where((p) => p['permitido'] == true || p['permitido'] == null)
+            .where((p) => p['permitido'] == true)
             .map((p) => p['id_sessao'].toString()),
       );
 
-      // 🔹 Atualiza as permissões no objeto global (sem cache permanente)
+      // 🔹 Atualiza as permissões no objeto global
       UsuarioAtual.instance = UsuarioAtual(
         id: usuario.id,
         nome: usuario.nome,
@@ -141,13 +140,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   /// 🔹 Navega para a página Início
   void _navegarParaInicio() {
     setState(() {
-      selectedIndex = -1; // -1 indica que está na página Início
+      selectedIndex = -1;
       showConversaoList = false;
       showControleAcesso = false;
       showConfigList = false;
       showUsuarios = false;
-      _mostrarFormCalc = false; // ✅ RESETA O FLAG DO FORM
-      _mostrarCalcGerado = false; // ✅ RESETA O FLAG DO CALC GERADO
+      _mostrarFormCalc = false;
+      _mostrarCalcGerado = false;
     });
   }
 
@@ -268,16 +267,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   showControleAcesso = false;
                                   showConfigList = false;
                                   showUsuarios = false;
-                                  _mostrarFormCalc = false; // ✅ RESETA AO MUDAR DE MENU
-                                  _mostrarCalcGerado = false; // ✅ RESETA AO MUDAR DE MENU
+                                  _mostrarFormCalc = false;
+                                  _mostrarCalcGerado = false;
                                 });
 
-                                // 🔹 Se o menu clicado for "Sessões", verifica permissões antes de carregar
                                 if (menuItems[index] == 'Sessões') {
                                   await _verificarPermissoesUsuario();
                                 }
 
-                                // 🔹 Se sair da aba Configurações, garantir retorno aos cards
                                 if (menuItems[index] != 'Configurações') {
                                   setState(() {
                                     showControleAcesso = false;
@@ -354,7 +351,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   // ===== Decide o que mostrar =====
   Widget _buildPageContent(UsuarioAtual? usuario) {
-    // 🔹 Se selectedIndex = -1, mostra a página Início
     if (selectedIndex == -1) {
       return _buildInicioPage(usuario);
     }
@@ -402,16 +398,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         transitionBuilder: (child, animation) =>
             FadeTransition(opacity: animation, child: child),
 
-        //
         child: _mostrarFormCalc
             ? FormCalcPage(
-                onGerar: (dados) {
-                  setState(() {
-                    _mostrarFormCalc = false;
-                    _mostrarCalcGerado = true;
-                    _dadosCalcGerado = dados; // Armazena os dados para passar ao CALC
-                  });
-                },
                 onVoltar: () {
                   setState(() {
                     _mostrarFormCalc = false;
@@ -421,13 +409,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               )              
             : _mostrarCalcGerado
                 ? CalcPage(
-                    onVoltar: () {
-                      setState(() {
-                        _mostrarCalcGerado = false;
-                        _mostrarFormCalc = true;
-                      });
-                    },
-                    dadosFormulario: _dadosCalcGerado ?? {}, // Passa os dados do formulário
+                    dadosFormulario: _dadosCalcGerado ?? {},
                   )
                 : showConversaoList
                     ? TabelasDeConversao(
@@ -543,7 +525,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   Widget _buildGridWithSearch(List<Map<String, dynamic>> sessoes) {
     final termoBusca = searchController.text.toLowerCase();
 
-    // 🔹 Garante que a lista está segura e não nula
     final sessoesFiltradas = sessoes.where((s) {
       final label = (s['label'] ?? '').toString().toLowerCase();
       return label.contains(termoBusca);
@@ -571,7 +552,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         ),
         const SizedBox(height: 25),
 
-        // 🔹 Se não houver sessões
         if (sessoesFiltradas.isEmpty)
           const Center(
             child: Text(
@@ -610,13 +590,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             return;
           }
 
-          // ✅ ALTERAÇÃO CONFORME ORIENTAÇÕES - ABRE FORM CALC
           if (nome == 'CALC') {
             setState(() {
               showConversaoList = false;
               showControleAcesso = false;
               showUsuarios = false;
-              _mostrarFormCalc = true; // <<< NOVO FLAG
+              _mostrarFormCalc = true;
             });
             return;
           }
@@ -700,7 +679,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           Container(
             padding: EdgeInsets.symmetric(horizontal: 40),
             child: Text(
-              'Seu ambiente moderno de gestão de estoques e logística totalmente na nuvem,\ncom rotinas e fluxos planejados e implementados por inteligência artificial,\nbuscando máxima eficiência e redução de custos operacionais.',
+              'Seu ambiente moderno de gestão de estoques e logística totalmente na nuvem,\ncom rotinas e fluxos planejados e implementedos por inteligência artificial,\nbuscando máxima eficiência e redução de custos operacionais.',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey[700],

@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../login_page.dart'; // ajuste se necessário
+import '../../../login_page.dart';
+import 'cacl.dart';
 
 class FormCalcPage extends StatefulWidget {
-  final void Function(Map<String, dynamic>) onGerar;
   final VoidCallback? onVoltar;
 
   const FormCalcPage({
     super.key,
-    required this.onGerar,
     this.onVoltar,
   });
 
@@ -39,9 +38,6 @@ class _FormCalcPageState extends State<FormCalcPage> {
     _preencherDataHora();
   }
 
-  // ============================================================
-  // 🔹 DATA E HORA AUTOMÁTICA
-  // ============================================================
   void _preencherDataHora() {
     final agora = DateTime.now();
 
@@ -52,9 +48,6 @@ class _FormCalcPageState extends State<FormCalcPage> {
         "${agora.hour.toString().padLeft(2, '0')}:${agora.minute.toString().padLeft(2, '0')}";
   }
 
-  // ============================================================
-  // 🔹 CARREGAR BASE DO USUÁRIO
-  // ============================================================
   Future<void> _carregarBaseDoUsuario() async {
     final supabase = Supabase.instance.client;
 
@@ -81,9 +74,6 @@ class _FormCalcPageState extends State<FormCalcPage> {
     setState(() => carregandoBase = false);
   }
 
-  // ============================================================
-  // 🔹 CARREGAR PRODUTOS
-  // ============================================================
   Future<void> _carregarProdutos() async {
     final supabase = Supabase.instance.client;
 
@@ -106,22 +96,24 @@ class _FormCalcPageState extends State<FormCalcPage> {
     setState(() => carregandoProdutos = false);
   }
 
-  // ============================================================
-  // 🔹 BUILD
-  // ============================================================
+  void _abrirCalcPageComDados(Map<String, dynamic> dados) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => CalcPage(dadosFormulario: dados),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Container(
         width: 800,
-        padding: const EdgeInsets.all(1), // reduzido
+        padding: const EdgeInsets.all(1),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
 
-            // ============================================================
-            // 🔹 SETA + TÍTULO (FUNCIONAL)
-            // ============================================================
             Row(
               children: [
                 IconButton(
@@ -141,11 +133,8 @@ class _FormCalcPageState extends State<FormCalcPage> {
             ),
 
             const Divider(height: 1),
-            const SizedBox(height: 10), // espaço menor
+            const SizedBox(height: 10),
 
-            // ============================================================
-            // 🔹 LINHA 1 — BASE + PRODUTO
-            // ============================================================
             Row(
               children: [
                 _campoBase(),
@@ -156,9 +145,6 @@ class _FormCalcPageState extends State<FormCalcPage> {
 
             const SizedBox(height: 20),
 
-            // ============================================================
-            // 🔹 LINHA 2 — TANQUE + DATA + HORA
-            // ============================================================
             Row(
               children: [
                 _campo("Tanque nº", tanqueController),
@@ -171,18 +157,12 @@ class _FormCalcPageState extends State<FormCalcPage> {
 
             const SizedBox(height: 20),
 
-            // ============================================================
-            // 🔹 RESPONSÁVEL
-            // ============================================================
             _campo("Responsável pela medição", responsavelController),
 
             const SizedBox(height: 40),
 
-            // ============================================================
-            // 🔹 BOTÃO GERAR
-            // ============================================================
             SizedBox(
-              width: 180,
+              width: 200,
               height: 45,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -193,17 +173,19 @@ class _FormCalcPageState extends State<FormCalcPage> {
                   ),
                 ),
                 onPressed: () {
-                  widget.onGerar({
+                  final dados = {
                     "base": baseController.text,
                     "produto": produtoSelecionado ?? "",
                     "tanque": tanqueController.text,
                     "data": dataController.text,
                     "hora": horaController.text,
                     "responsavel": responsavelController.text,
-                  });
+                  };
+                  
+                  _abrirCalcPageComDados(dados);
                 },
                 child: const Text(
-                  "Gerar",
+                  "Abrir Certificado",
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -217,11 +199,6 @@ class _FormCalcPageState extends State<FormCalcPage> {
     );
   }
 
-  // ============================================================
-  // 🔹 COMPONENTES INDIVIDUAIS
-  // ============================================================
-
-  // BASE
   Widget _campoBase() {
     return Expanded(
       child: Column(
@@ -249,7 +226,6 @@ class _FormCalcPageState extends State<FormCalcPage> {
     );
   }
 
-  // PRODUTO
   Widget _campoProduto() {
     return Expanded(
       child: Column(
@@ -296,7 +272,6 @@ class _FormCalcPageState extends State<FormCalcPage> {
     );
   }
 
-  // CAMPOS NORMAIS
   Widget _campo(String label, TextEditingController controller) {
     return Expanded(
       child: Column(
@@ -322,7 +297,6 @@ class _FormCalcPageState extends State<FormCalcPage> {
     );
   }
 
-  // CAMPOS SOMENTE LEITURA (DATA / HORA)
   Widget _campoSomenteLeitura(String label, TextEditingController controller) {
     return Expanded(
       child: Column(
