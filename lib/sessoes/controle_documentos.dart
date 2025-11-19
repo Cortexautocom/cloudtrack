@@ -11,17 +11,16 @@ class ControleDocumentosPage extends StatefulWidget {
 class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
   final List<Map<String, dynamic>> _veiculos = [];
   
-  // Documentos que existem na sua tabela
   final List<String> _documentos = [
     'CIPP',
     'CIV',
-    'AFERIÇÃO',
-    'TACOGRÁFO',
-    'AET FEDERAL',
-    'AET BAHIA',
-    'AET GOIÁS',
-    'AET ALAGOAS',
-    'AET MINAS G'
+    'Afericao',
+    'Tacografo',
+    'AET Federal',
+    'AET Bahia',
+    'AET Goias',
+    'AET Alagoas',
+    'AET Minas G'
   ];
   
   final TextEditingController _placaController = TextEditingController();
@@ -44,7 +43,7 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
       final response = await supabase
           .from('documentos_equipamentos')
           .select('*')
-          .order('ID');
+          .order('placa');
 
       setState(() {
         _veiculos.clear();
@@ -52,8 +51,7 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
       });
       
     } catch (e) {
-      debugPrint('❌ Erro ao carregar veículos: $e');
-      _mostrarErro('Erro ao carregar dados do banco');
+      _mostrarErro('Erro ao carregar dados do banco: $e');
     } finally {
       setState(() => _carregando = false);
     }
@@ -63,22 +61,15 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
     final placa = _placaController.text.trim().toUpperCase();
     if (placa.isEmpty) return;
 
-    // Verifica se placa já existe localmente
-    if (_veiculos.any((v) => v['PLACA'] == placa)) {
-      _mostrarErro('Veículo com esta placa já existe!');
-      return;
-    }
-
     try {
       final supabase = Supabase.instance.client;
       await supabase.from('documentos_equipamentos').insert({
-        'PLACA': placa,
-        // Outros campos ficam null por padrão
+        'placa': placa,
       });
 
       _placaController.clear();
       setState(() => _mostrarFormulario = false);
-      await _carregarVeiculosDoBanco(); // Recarrega do banco
+      await _carregarVeiculosDoBanco();
       
       _mostrarSucesso('Veículo $placa adicionado com sucesso!');
     } catch (e) {
@@ -89,16 +80,17 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
   Future<void> _atualizarDocumento(String placa, String documento, DateTime? data) async {
     try {
       final supabase = Supabase.instance.client;
-      
-      // Converte para o formato do banco (nome da coluna)
       final colunaBanco = _converterParaNomeColuna(documento);
       
+      final dataFormatada = data != null ? _formatDate(data) : null;
+      final updateData = {colunaBanco: dataFormatada};
+
       await supabase
           .from('documentos_equipamentos')
-          .update({colunaBanco: data?.toIso8601String()})
-          .eq('PLACA', placa);
+          .update(updateData)
+          .eq('placa', placa);
 
-      await _carregarVeiculosDoBanco(); // Recarrega do banco
+      await _carregarVeiculosDoBanco();
       _mostrarSucesso('$documento do veículo $placa atualizado!');
     } catch (e) {
       _mostrarErro('Erro ao atualizar documento: $e');
@@ -130,9 +122,9 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
         await supabase
             .from('documentos_equipamentos')
             .delete()
-            .eq('PLACA', placa);
+            .eq('placa', placa);
 
-        await _carregarVeiculosDoBanco(); // Recarrega do banco
+        await _carregarVeiculosDoBanco();
         _mostrarSucesso('Veículo $placa excluído com sucesso!');
       } catch (e) {
         _mostrarErro('Erro ao excluir veículo: $e');
@@ -140,20 +132,20 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
     }
   }
 
-  // Converte o nome amigável para o nome da coluna no banco
   String _converterParaNomeColuna(String documento) {
-    switch (documento) {
-      case 'CIPP': return 'CIPP';
-      case 'CIV': return 'CIV';
-      case 'AFERIÇÃO': return 'AFERIÇÃO';
-      case 'TACOGRÁFO': return 'TACOGRÁFO';
-      case 'AET FEDERAL': return 'AET FEDERAL';
-      case 'AET BAHIA': return 'AET BAHIA';
-      case 'AET GOIÁS': return 'AET GOIÁS';
-      case 'AET ALAGOAS': return 'AET ALAGOAS';
-      case 'AET MINAS G': return 'AET MINAS G';
-      default: return documento;
-    }
+    final mapping = {
+      'CIPP': 'cipp',
+      'CIV': 'civ',
+      'Afericao': 'afericao',
+      'Tacografo': 'tacografo',
+      'AET Federal': 'aet_federal',
+      'AET Bahia': 'aet_bahia',
+      'AET Goias': 'aet_goias',
+      'AET Alagoas': 'aet_alagoas',
+      'AET Minas G': 'aet_minas_g',
+    };
+    
+    return mapping[documento] ?? documento.toLowerCase();
   }
 
   void _mostrarErro(String mensagem) {
@@ -175,9 +167,29 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
   }
 
   DateTime? _parseDate(String? dateString) {
-    if (dateString == null) return null;
+    if (dateString == null || dateString.isEmpty) {
+      return null;
+    }
+    
     try {
-      return DateTime.parse(dateString);
+      final cleanDate = dateString.trim();
+      
+      if (cleanDate.contains('-') && cleanDate.length >= 10) {
+        return DateTime.parse(cleanDate);
+      }
+      
+      if (cleanDate.contains('/')) {
+        final parts = cleanDate.split('/');
+        if (parts.length == 3) {
+          final day = int.parse(parts[0].padLeft(2, '0'));
+          final month = int.parse(parts[1].padLeft(2, '0'));
+          final year = int.parse(parts[2]);
+          final fullYear = year < 100 ? 2000 + year : year;
+          return DateTime(fullYear, month, day);
+        }
+      }
+      
+      return null;
     } catch (e) {
       return null;
     }
@@ -189,14 +201,14 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
   }
 
   int _diasParaVencimento(DateTime? data) {
-    if (data == null) return -999; // Não preenchido
+    if (data == null) return -999;
     final hoje = DateTime.now();
     final diferenca = data.difference(hoje).inDays;
     return diferenca;
   }
 
   Color _getVencimentoColor(int dias) {
-    if (dias == -999) return Colors.grey; // Não preenchido
+    if (dias == -999) return Colors.grey;
     if (dias < 0) return Colors.red;
     if (dias <= 30) return Colors.orange;
     if (dias <= 90) return Colors.yellow[700]!;
@@ -204,9 +216,15 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
   }
 
   Widget _buildDataCell(String placa, String documento) {
-    final veiculo = _veiculos.firstWhere((v) => v['PLACA'] == placa);
+    final veiculoIndex = _veiculos.indexWhere((v) => v['placa'] == placa);
+    if (veiculoIndex == -1) {
+      return Container(child: Text('Erro'));
+    }
+    
+    final veiculo = _veiculos[veiculoIndex];
     final colunaBanco = _converterParaNomeColuna(documento);
-    final data = _parseDate(veiculo[colunaBanco]);
+    final dataString = veiculo[colunaBanco];
+    final data = _parseDate(dataString);
     final dias = _diasParaVencimento(data);
     final statusColor = _getVencimentoColor(dias);
     
@@ -224,7 +242,7 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
         }
       },
       child: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(3),
         margin: const EdgeInsets.all(1),
         decoration: BoxDecoration(
           border: Border.all(color: Colors.grey.shade300),
@@ -289,6 +307,7 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
     int totalVencidos = 0;
     int totalUrgentes = 0;
     int totalAtencao = 0;
+    int totalDocumentos = 0;
 
     for (var veiculo in _veiculos) {
       for (var documento in _documentos) {
@@ -296,9 +315,12 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
         final data = _parseDate(veiculo[colunaBanco]);
         final dias = _diasParaVencimento(data);
         
-        if (dias < 0) totalVencidos++;
-        else if (dias <= 30) totalUrgentes++;
-        else if (dias <= 90) totalAtencao++;
+        if (data != null) {
+          totalDocumentos++;
+          if (dias < 0) totalVencidos++;
+          else if (dias <= 30) totalUrgentes++;
+          else if (dias <= 90) totalAtencao++;
+        }
       }
     }
 
@@ -309,7 +331,8 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _buildResumoItem('Total Veículos', _veiculos.length.toString(), Colors.blue),
-            _buildResumoItem('Documentos Vencidos', totalVencidos.toString(), Colors.red),
+            _buildResumoItem('Total Documentos', totalDocumentos.toString(), Colors.purple),
+            _buildResumoItem('Vencidos', totalVencidos.toString(), Colors.red),
             _buildResumoItem('Urgentes (≤30 dias)', totalUrgentes.toString(), Colors.orange),
             _buildResumoItem('Atenção (≤90 dias)', totalAtencao.toString(), Colors.yellow[700]!),
           ],
@@ -324,7 +347,7 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
         Text(
           valor,
           style: TextStyle(
-            fontSize: 24,
+            fontSize: 20,
             fontWeight: FontWeight.bold,
             color: cor,
           ),
@@ -333,9 +356,10 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
         Text(
           titulo,
           style: const TextStyle(
-            fontSize: 12,
+            fontSize: 10,
             color: Colors.grey,
           ),
+          textAlign: TextAlign.center,
         ),
       ],
     );
@@ -344,7 +368,7 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
   @override
   Widget build(BuildContext context) {
     final veiculosFiltrados = _veiculos.where((veiculo) {
-      final placa = veiculo['PLACA']?.toString().toLowerCase() ?? '';
+      final placa = veiculo['placa']?.toString().toLowerCase() ?? '';
       final termo = _searchController.text.toLowerCase();
       return placa.contains(termo);
     }).toList();
@@ -356,7 +380,6 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cabeçalho
             Row(
               children: [
                 IconButton(
@@ -401,13 +424,9 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
             ),
 
             const SizedBox(height: 20),
-
-            // Resumo de vencimentos
             _buildResumoVencimentos(),
-
             const SizedBox(height: 20),
 
-            // Formulário para adicionar veículo
             if (_mostrarFormulario)
               Card(
                 elevation: 3,
@@ -449,7 +468,6 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
 
             if (_mostrarFormulario) const SizedBox(height: 20),
 
-            // Tabela de documentos
             Expanded(
               child: _carregando
                   ? const Center(child: CircularProgressIndicator())
@@ -464,10 +482,6 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
                                 'Nenhum veículo encontrado',
                                 style: TextStyle(fontSize: 16, color: Colors.grey),
                               ),
-                              Text(
-                                'Clique em "Adicionar Veículo" para começar',
-                                style: TextStyle(fontSize: 14, color: Colors.grey),
-                              ),
                             ],
                           ),
                         )
@@ -475,9 +489,8 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
                           elevation: 3,
                           child: Column(
                             children: [
-                              // Cabeçalho da tabela
                               Container(
-                                padding: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.all(12),
                                 decoration: const BoxDecoration(
                                   color: Color(0xFF0D47A1),
                                   borderRadius: BorderRadius.only(
@@ -494,7 +507,7 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 14,
+                                          fontSize: 12,
                                         ),
                                       ),
                                     ),
@@ -504,23 +517,22 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
                                             style: const TextStyle(
                                               color: Colors.white,
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 10,
+                                              fontSize: 9,
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
                                         )),
-                                    const SizedBox(width: 60),
+                                    const SizedBox(width: 40),
                                   ],
                                 ),
                               ),
 
-                              // Corpo da tabela
                               Expanded(
                                 child: ListView.builder(
                                   itemCount: veiculosFiltrados.length,
                                   itemBuilder: (context, index) {
                                     final veiculo = veiculosFiltrados[index];
-                                    final placa = veiculo['PLACA'] ?? '';
+                                    final placa = veiculo['placa'] ?? '';
 
                                     return Container(
                                       decoration: BoxDecoration(
@@ -533,15 +545,14 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
                                       ),
                                       child: Row(
                                         children: [
-                                          // Coluna Placa
                                           SizedBox(
                                             width: 120,
                                             child: Padding(
-                                              padding: const EdgeInsets.all(12),
+                                              padding: const EdgeInsets.all(8),
                                               child: Row(
                                                 children: [
                                                   Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                                     decoration: BoxDecoration(
                                                       color: const Color(0xFF0D47A1),
                                                       borderRadius: BorderRadius.circular(4),
@@ -551,13 +562,13 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
                                                       style: const TextStyle(
                                                         color: Colors.white,
                                                         fontWeight: FontWeight.bold,
-                                                        fontSize: 12,
+                                                        fontSize: 11,
                                                       ),
                                                     ),
                                                   ),
                                                   const Spacer(),
                                                   PopupMenuButton<String>(
-                                                    icon: const Icon(Icons.more_vert, size: 16, color: Colors.grey),
+                                                    icon: const Icon(Icons.more_vert, size: 14, color: Colors.grey),
                                                     onSelected: (value) {
                                                       if (value == 'excluir') {
                                                         _excluirVeiculo(placa);
@@ -568,8 +579,8 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
                                                         value: 'excluir',
                                                         child: Row(
                                                           children: [
-                                                            Icon(Icons.delete, color: Colors.red, size: 18),
-                                                            SizedBox(width: 8),
+                                                            Icon(Icons.delete, color: Colors.red, size: 16),
+                                                            SizedBox(width: 6),
                                                             Text('Excluir Veículo'),
                                                           ],
                                                         ),
@@ -581,12 +592,11 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
                                             ),
                                           ),
 
-                                          // Colunas de documentos
                                           ..._documentos.map((documento) => 
                                             Expanded(child: _buildDataCell(placa, documento))
                                           ),
 
-                                          const SizedBox(width: 60),
+                                          const SizedBox(width: 40),
                                         ],
                                       ),
                                     );
@@ -598,11 +608,10 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
                         ),
             ),
 
-            // Legenda
             Card(
               elevation: 2,
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -611,14 +620,14 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.grey,
-                        fontSize: 12,
+                        fontSize: 11,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    const SizedBox(height: 6),
+                    Wrap(
+                      alignment: WrapAlignment.spaceAround,
                       children: [
-                        _buildLegendaItem(Colors.green, 'OK (mais de 90 dias)'),
+                        _buildLegendaItem(Colors.green, 'OK (>90 dias)'),
                         _buildLegendaItem(Colors.yellow[700]!, 'ATENÇÃO (31-90 dias)'),
                         _buildLegendaItem(Colors.orange, 'URGENTE (1-30 dias)'),
                         _buildLegendaItem(Colors.red, 'VENCIDO'),
@@ -636,22 +645,26 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
   }
 
   Widget _buildLegendaItem(Color color, String texto) {
-    return Row(
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(2),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          texto,
-          style: const TextStyle(fontSize: 11, color: Colors.grey),
-        ),
-      ],
+          const SizedBox(width: 4),
+          Text(
+            texto,
+            style: const TextStyle(fontSize: 10, color: Colors.grey),
+          ),
+        ],
+      ),
     );
   }
 }
