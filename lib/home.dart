@@ -5,9 +5,9 @@ import 'configuracoes/controle_acesso_usuarios.dart';
 import 'login_page.dart';
 import 'configuracoes/usuarios.dart';
 import 'perfil.dart';
-import 'sessoes/CALC/cacl.dart';
-import 'sessoes/CALC/form_calc.dart';
-import 'sessoes/controle_documentos.dart';
+import 'sessoes/CACL/cacl.dart';
+import 'sessoes/CACL/form_calc.dart';
+import 'sessoes/logistica/controle_documentos.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -591,7 +591,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             return;
           }
 
-          if (nome == 'CALC') {
+          if (nome == 'Apuração') {
             setState(() {
               showConversaoList = false;
               showControleAcesso = false;
@@ -600,7 +600,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             });
             return;
           }
-          if (nome == 'Controle 1') {
+          if (nome == 'Logística') {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ControleDocumentosPage()),
@@ -643,7 +643,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     if (lower.contains('abaste')) return Icons.local_gas_station;
     if (lower.contains('document')) return Icons.description;
     if (lower.contains('dep')) return Icons.warehouse;
-    if (lower.contains('calc')) return Icons.receipt_long;
+    if (lower.contains('cacl')) return Icons.receipt_long;
     if (lower.contains('controle')) return Icons.car_repair;
     return Icons.apps;
   }

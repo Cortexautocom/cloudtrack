@@ -20,7 +20,7 @@ class CalcPage extends StatelessWidget {
           children: [
             // ===== CONTEÚDO ALINHADO À ESQUERDA =====
             Container(
-              width: 670, // Largura compacta para impressão
+              width: 670,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
