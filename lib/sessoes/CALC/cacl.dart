@@ -12,236 +12,214 @@ class CalcPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      // ===== REMOVIDA A APP BAR =====
-      body: Column(
-        children: [
-          // ===== BARRA SUPERIOR PERSONALIZADA (com largura controlada) =====
-          Container(
-            color: Colors.blueGrey[700],
-            child: Center(
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 750), // Mesma largura do conteúdo
-                padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 12),
-                child: Row(
-                  children: [
-                    // Botão Voltar
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () => Navigator.of(context).pop(),
+      // ===== SEM APP BAR - USA APENAS O BOTÃO VOLTAR DO NAVEGADOR =====
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ===== CONTEÚDO ALINHADO À ESQUERDA =====
+            Container(
+              width: 670, // Largura compacta para impressão
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ===== CABEÇALHO DO DOCUMENTO =====
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE0E0E0),
+                      border: Border.all(color: Colors.black, width: 1.5),
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                    const SizedBox(width: 10),
-                    // Título
-                    const Expanded(
+                    child: const Center(
                       child: Text(
-                        'Certificado de Arqueação',
+                        "CERTIFICADO DE ARQUEAÇÃO DE CARGAS LÍQUIDAS",
                         style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                          letterSpacing: 0.5,
                         ),
                       ),
                     ),
-                    // Botões de Ação
-                    IconButton(
-                      icon: const Icon(Icons.print, color: Colors.white),
-                      onPressed: () => _imprimir(context),
-                      tooltip: 'Imprimir',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.download, color: Colors.white),
-                      onPressed: () => _fazerDownload(context),
-                      tooltip: 'Download PDF',
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          
-          // ===== CONTEÚDO PRINCIPAL =====
-          Expanded(
-            child: Center(
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 750),
-                margin: const EdgeInsets.symmetric(vertical: 20),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(25),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // ===== CABEÇALHO DO DOCUMENTO =====
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE0E0E0),
-                          border: Border.all(color: Colors.black, width: 1),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ===== INFORMAÇÕES EM LINHA (4 CAMPOS) =====
+                  SizedBox(
+                    width: double.infinity,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // DATA
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _secaoTitulo("DATA:"),
+                              _linhaValor(dadosFormulario['data'] ?? "10/2025"),
+                            ],
+                          ),
                         ),
-                        child: const Center(
+                        const SizedBox(width: 10),
+                        
+                        // BASE
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _secaoTitulo("BASE:"),
+                              _linhaValor(dadosFormulario['base'] ?? "POLO DE COMBUSTÍVEL DE CANDEIAS"),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        
+                        // PRODUTO
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _secaoTitulo("PRODUTO:"),
+                              _linhaValor(dadosFormulario['produto'] ?? "DIESEL S10 A"),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        
+                        // TANQUE
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _secaoTitulo("TANQUE Nº:"),
+                              _linhaValor(dadosFormulario['tanque']?.toString() ?? "05"),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 25),
+
+                  // ===== TABELA COM MEDIÇÕES =====
+                  _subtitulo("CARGA RECEBIDA NOS TANQUES DE TERRA E CANALIZAÇÃO RESPECTIVA"),
+                  const SizedBox(height: 12),
+
+                  _tabela([
+                    ["Altura média do líquido (1ª medição)", "783,4"],
+                    ["Altura média do líquido (2ª medição)", "780,3"],
+                    ["Temperatura média no tanque", "28 °C   /   27,5 °C"],
+                    ["Volume (altura verificada)", "679.020 L   /   676.337 L"],
+                    ["Densidade observada", "0,823 g/ml"],
+                    ["Temperatura da amostra", "24,5 °C"],
+                    ["Densidade a 20 °C", "0,9940"],
+                    ["Volume convertido a 20 °C", "674.699 L   /   672.300 L"],
+                  ]),
+
+                  const SizedBox(height: 25),
+
+                  // ===== RESULTADOS =====
+                  _subtitulo("COMPARAÇÃO DOS RESULTADOS"),
+                  const SizedBox(height: 8),
+
+                  _tabela([
+                    ["Litros a Ambiente", "2.683"],
+                    ["Litros a 20 °C", "2.399"],
+                  ]),
+
+                  const SizedBox(height: 25),
+
+                  // ===== MANIFESTAÇÃO =====
+                  _subtitulo("MANIFESTAÇÃO"),
+                  const SizedBox(height: 8),
+
+                  _tabela([
+                    ["Recebido", ""],
+                    ["Diferença", ""],
+                    ["Percentual", ""],
+                  ]),
+
+                  const SizedBox(height: 25),
+
+                  // ===== ABERTURA / SALDO =====
+                  _subtitulo("ABERTURA / ENTRADA / SAÍDA / SALDO"),
+                  const SizedBox(height: 8),
+
+                  _tabela([
+                    ["Abertura", "674.699 L"],
+                    ["Entrada", "0 L"],
+                    ["Saída", "0 L"],
+                    ["Saldo Final", "674.699 L"],
+                  ]),
+
+                  // ===== RESPONSÁVEL =====
+                  if (dadosFormulario['responsavel'] != null && dadosFormulario['responsavel']!.isNotEmpty)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 25),
+                        _subtitulo("RESPONSÁVEL PELA MEDIÇÃO"),
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.black38),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                           child: Text(
-                            "CERTIFICADO DE ARQUEAÇÃO DE CARGAS LÍQUIDAS",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
+                            dadosFormulario['responsavel']!,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
-                      ),
+                      ],
+                    ),
 
-                      const SizedBox(height: 15),
+                  const SizedBox(height: 30),
 
-                      // ===== INFORMAÇÕES EM LINHA (4 CAMPOS) =====
-                      SizedBox(
-                        width: double.infinity,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // DATA
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _secaoTitulo("DATA:"),
-                                  _linhaValor(dadosFormulario['data'] ?? "10/2025"),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 15),
-                            
-                            // BASE
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _secaoTitulo("BASE:"),
-                                  _linhaValor(dadosFormulario['base'] ?? "POLO DE COMBUSTÍVEL DE CANDEIAS"),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 15),
-                            
-                            // PRODUTO
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _secaoTitulo("Produto:"),
-                                  _linhaValor(dadosFormulario['produto'] ?? "DIESEL S10 A"),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            
-                            // TANQUE
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _secaoTitulo("Tanque Nº:"),
-                                  _linhaValor(dadosFormulario['tanque']?.toString() ?? "05"),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 25),
-
-                      // ===== TABELA COM MEDIÇÕES =====
-                      _subtitulo("CARGA RECEBIDA NOS TANQUES DE TERRA E CANALIZAÇÃO RESPECTIVA"),
-                      const SizedBox(height: 15),
-
-                      _tabela([
-                        ["Altura média do líquido (1ª medição)", "783,4"],
-                        ["Altura média do líquido (2ª medição)", "780,3"],
-                        ["Temperatura média no tanque", "28 °C   /   27,5 °C"],
-                        ["Volume (altura verificada)", "679.020 L   /   676.337 L"],
-                        ["Densidade observada", "0,823 g/ml"],
-                        ["Temperatura da amostra", "24,5 °C"],
-                        ["Densidade a 20 °C", "0,9940"],
-                        ["Volume convertido a 20 °C", "674.699 L   /   672.300 L"],
-                      ]),
-
-                      const SizedBox(height: 30),
-
-                      // ===== RESULTADOS =====
-                      _subtitulo("COMPARAÇÃO DOS RESULTADOS"),
-                      const SizedBox(height: 8),
-
-                      _tabela([
-                        ["Litros a Ambiente", "2.683"],
-                        ["Litros a 20 °C", "2.399"],
-                      ]),
-
-                      const SizedBox(height: 35),
-
-                      // ===== MANIFESTAÇÃO =====
-                      _subtitulo("MANIFESTAÇÃO"),
-                      const SizedBox(height: 8),
-
-                      _tabela([
-                        ["Recebido", ""],
-                        ["Diferença", ""],
-                        ["Percentual", ""],
-                      ]),
-
-                      const SizedBox(height: 35),
-
-                      // ===== ABERTURA / SALDO =====
-                      _subtitulo("ABERTURA / ENTRADA / SAÍDA / SALDO"),
-                      const SizedBox(height: 8),
-
-                      _tabela([
-                        ["Abertura", "674.699 L"],
-                        ["Entrada", "0 L"],
-                        ["Saída", "0 L"],
-                        ["Saldo Final", "674.699 L"],
-                      ]),
-
-                      // ===== RESPONSÁVEL =====
-                      if (dadosFormulario['responsavel'] != null)
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 35),
-                            _subtitulo("RESPONSÁVEL PELA MEDIÇÃO"),
-                            const SizedBox(height: 8),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.black26),
-                              ),
-                              child: Text(
-                                dadosFormulario['responsavel']!,
-                                style: const TextStyle(fontSize: 13),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                      const SizedBox(height: 40),
-
-                      Center(
-                        child: Text(
+                  // ===== RODAPÉ INFORMATIVO =====
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
                           "Página demonstrativa — valores ilustrativos",
                           style: TextStyle(
                             color: Colors.grey.shade600,
                             fontStyle: FontStyle.italic,
-                            fontSize: 12,
+                            fontSize: 11,
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 25),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(
+                          "Use Ctrl+P para imprimir • Botão Voltar do navegador para retornar",
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 9,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 10),
+                ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -265,7 +243,7 @@ class CalcPage extends StatelessWidget {
     return Text(
       texto,
       style: const TextStyle(
-        fontSize: 15,
+        fontSize: 14,
         fontWeight: FontWeight.bold,
         color: Colors.black87,
       ),
@@ -275,9 +253,10 @@ class CalcPage extends StatelessWidget {
   Widget _linhaValor(String valor) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(7),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.black26),
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         valor,
@@ -288,63 +267,35 @@ class CalcPage extends StatelessWidget {
 
   Widget _tabela(List<List<String>> linhas) {
     return Table(
-      border: TableBorder.all(color: Colors.black54),
+      border: TableBorder.all(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(4),
+      ),
       columnWidths: const {
-        0: FlexColumnWidth(3),
-        1: FlexColumnWidth(2),
+        0: FlexColumnWidth(2.5),
+        1: FlexColumnWidth(1.5),
       },
       children: linhas.map((l) {
         return TableRow(
           children: [
             Padding(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
               child: Text(
                 l[0], 
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(fontSize: 11),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
               child: Text(
                 l[1], 
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(fontSize: 11),
+                textAlign: TextAlign.center,
               ),
             ),
           ],
         );
       }).toList(),
-    );
-  }
-
-  void _imprimir(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Imprimir Documento'),
-        content: const Text('Use Ctrl+P para imprimir esta página ou clique no botão de impressão do seu navegador.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _fazerDownload(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Download PDF'),
-        content: const Text('Para gerar PDF, use a função de imprimir do navegador e selecione "Salvar como PDF" como destino.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
     );
   }
 }
