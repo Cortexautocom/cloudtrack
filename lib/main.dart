@@ -10,8 +10,7 @@ import 'splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Remove o # das URLs no Flutter Web
+  
   setPathUrlStrategy();
 
   const String supabaseUrl = 'https://ikaxzlpaihdkqyjqrxyw.supabase.co';
@@ -39,37 +38,29 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    _setupAuthListener(); // Ativa o monitor de eventos do Supabase
+    _setupAuthListener();
   }
 
-  // Ouve eventos de autenticação (login, logout, recuperação, etc.)
   void _setupAuthListener() {
     Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       final event = data.event;
       final session = data.session;
       
-      print('🔐 Evento de autenticação detectado: $event');
-
       if (event == AuthChangeEvent.passwordRecovery) {
-        print('🟡 Link de recuperação detectado — indo para redefinição de senha');
         _redirectToResetPassword();
       } else if (event == AuthChangeEvent.signedIn && session != null) {
         final fragment = Uri.base.fragment;
         if (fragment.contains('type=recovery')) {
-          print('🔵 Sessão de recuperação ativa — indo para tela de redefinição.');
           _redirectToResetPassword();
         } else {
-          print('🟢 Login normal — verificando senha temporária...');
           await _verificarSenhaTemporaria(session.user.id);
         }
       } else if (event == AuthChangeEvent.signedOut) {
-        print('🚪 Usuário deslogado — voltando para login.');
         _redirectToLogin();
       }
     });
   }
 
-  // Verifica se o usuário precisa trocar uma senha temporária
   Future<void> _verificarSenhaTemporaria(String userId) async {
     final supabase = Supabase.instance.client;
     final dados = await supabase
@@ -79,10 +70,8 @@ class _MyAppState extends State<MyApp> {
         .maybeSingle();
 
     if (dados != null && dados['senha_temporaria'] == true) {
-      print('🔐 Usuário com senha temporária — redirecionando.');
       _redirectToEscolherSenha();
     } else {
-      print('✅ Senha definitiva — indo para Home.');
       _redirectToHome();
     }
   }
@@ -115,12 +104,8 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    // 🔍 Verifica se é uma URL de recovery
     final isRecoveryLink = Uri.base.toString().contains('type=recovery');
     
-    print('🔗 URL atual: ${Uri.base.toString()}');
-    print('🟡 É recovery link? $isRecoveryLink');
-
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'CloudTrack',
@@ -146,8 +131,6 @@ class _MyAppState extends State<MyApp> {
           ),
         ),
       ),
-      // ⚡ **MUDANÇA PRINCIPAL AQUI** ⚡
-      // Se for recovery, vai direto para redefinição, senão usa Splash normal
       home: isRecoveryLink ? const RedefinirSenhaPage() : const SplashScreen(),
       routes: {
         '/home': (context) => const HomePage(),

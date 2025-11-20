@@ -34,17 +34,35 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool showUsuarios = false;
   bool _mostrarFormCalc = false;
   bool _mostrarCalcGerado = false;
+  bool _mostrarApuracaoFilhos = false;
+  bool _veioDaApuracao = false; // NOVO: Controla se veio da Apuração
   Map<String, dynamic>? _dadosCalcGerado;
   
 
   List<Map<String, dynamic>> sessoes = [];
+  List<Map<String, dynamic>> apuracaoFilhos = [];
 
   @override
   void initState() {
     super.initState();
+    _inicializarApuracaoFilhos();
   }
 
-  /// 🔹 Carrega todas as sessões do banco e aplica filtro de permissões
+  void _inicializarApuracaoFilhos() {
+    apuracaoFilhos = [
+      {
+        'icon': Icons.analytics,
+        'label': 'Medição',
+        'descricao': 'Sistema de medição e apuração',
+      },
+      {
+        'icon': Icons.calculate,
+        'label': 'CACL',
+        'descricao': 'Cálculos e apurações contábeis',
+      },
+    ];
+  }
+
   Future<void> _carregarSessoesDoBanco() async {
     setState(() => carregandoSessoes = true);
     final supabase = Supabase.instance.client;
@@ -53,7 +71,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     try {
       final dados = await supabase.from('sessoes').select('id, nome');
 
-      // Aplica filtro conforme nível
       List<Map<String, dynamic>> filtradas = [];
       for (var s in dados) {
         final idSessao = s['id'].toString();
@@ -73,13 +90,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         sessoes = filtradas;
       });
     } catch (e) {
-      // Manter o catch é uma boa prática
     } finally {
       setState(() => carregandoSessoes = false);
     }
   }
 
-  /// 🔹 Verifica permissões do usuário ao clicar em "Sessões"
   Future<void> _verificarPermissoesUsuario() async {
     final usuario = UsuarioAtual.instance;
     if (usuario == null) return;
@@ -87,7 +102,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     try {
       final supabase = Supabase.instance.client;
 
-      // 🔹 Nível 2+ tem acesso total
       if (usuario.nivel >= 2) {
         UsuarioAtual.instance = UsuarioAtual(
           id: usuario.id,
@@ -101,7 +115,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         return;
       }
 
-      // 🔹 Busca permissões atualizadas da tabela
       final permissoes = await supabase
           .from('permissoes')
           .select('id_sessao, permitido')
@@ -113,7 +126,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             .map((p) => p['id_sessao'].toString()),
       );
 
-      // 🔹 Atualiza as permissões no objeto global
       UsuarioAtual.instance = UsuarioAtual(
         id: usuario.id,
         nome: usuario.nome,
@@ -123,7 +135,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         senhaTemporaria: usuario.senhaTemporaria,
       );
 
-      // 🔹 Atualiza a exibição das sessões
       await _carregarSessoesDoBanco();
     } catch (e) {
       debugPrint("❌ Erro ao carregar permissões: $e");
@@ -138,7 +149,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
-  /// 🔹 Navega para a página Início
   void _navegarParaInicio() {
     setState(() {
       selectedIndex = -1;
@@ -148,6 +158,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       showUsuarios = false;
       _mostrarFormCalc = false;
       _mostrarCalcGerado = false;
+      _mostrarApuracaoFilhos = false;
+      _veioDaApuracao = false; // Resetar também este estado
+    });
+  }
+
+  void _voltarParaCardsPai() {
+    setState(() {
+      _mostrarApuracaoFilhos = false;
     });
   }
 
@@ -159,7 +177,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // ===== Barra superior =====
           Container(
             height: 60,
             decoration: const BoxDecoration(
@@ -175,7 +192,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // 🔹 LOGO CLICÁVEL - LEVA PARA INÍCIO
                 Padding(
                   padding: const EdgeInsets.only(left: 10),
                   child: InkWell(
@@ -244,11 +260,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             ),
           ),
 
-          // ===== Corpo principal =====
           Expanded(
             child: Row(
               children: [
-                // ===== Menu lateral =====
                 Container(
                   width: 180,
                   color: const Color(0xFFF5F5F5),
@@ -270,6 +284,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   showUsuarios = false;
                                   _mostrarFormCalc = false;
                                   _mostrarCalcGerado = false;
+                                  _mostrarApuracaoFilhos = false;
+                                  _veioDaApuracao = false; // Resetar ao mudar de menu
                                 });
 
                                 if (menuItems[index] == 'Sessões') {
@@ -333,7 +349,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   ),
                 ),
 
-                // ===== Conteúdo principal =====
                 Expanded(
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 400),
@@ -350,7 +365,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  // ===== Decide o que mostrar =====
   Widget _buildPageContent(UsuarioAtual? usuario) {
     if (selectedIndex == -1) {
       return _buildInicioPage(usuario);
@@ -375,7 +389,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
-  // ===== Página de Sessões =====
   Widget _buildSessoesPage(UsuarioAtual? usuario) {
     if (carregandoSessoes) {
       return const Center(
@@ -399,32 +412,158 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         transitionBuilder: (child, animation) =>
             FadeTransition(opacity: animation, child: child),
 
-        child: _mostrarFormCalc
-            ? FormCalcPage(
-                onVoltar: () {
-                  setState(() {
-                    _mostrarFormCalc = false;
-                    _mostrarCalcGerado = false;
-                  });
-                },
-              )              
-            : _mostrarCalcGerado
-                ? CalcPage(
-                    dadosFormulario: _dadosCalcGerado ?? {},
-                  )
-                : showConversaoList
-                    ? TabelasDeConversao(
-                        key: const ValueKey('tabelas'),
-                        onVoltar: () {
-                          setState(() => showConversaoList = false);
-                        },
+        child: _mostrarApuracaoFilhos
+            ? _buildApuracaoFilhosPage()
+            : _mostrarFormCalc
+                ? FormCalcPage(
+                    onVoltar: () {
+                      setState(() {
+                        _mostrarFormCalc = false;
+                        _mostrarCalcGerado = false;
+                        
+                        // CORREÇÃO: Lógica inteligente de voltar
+                        if (_veioDaApuracao) {
+                          _mostrarApuracaoFilhos = true; // Volta para os cards filhos da Apuração
+                          _veioDaApuracao = false; // Resetar o estado
+                        }
+                      });
+                    },
+                  )              
+                : _mostrarCalcGerado
+                    ? CalcPage(
+                        dadosFormulario: _dadosCalcGerado ?? {},
                       )
-                    : _buildGridWithSearch(sessoes),
+                    : showConversaoList
+                        ? TabelasDeConversao(
+                            key: const ValueKey('tabelas'),
+                            onVoltar: () {
+                              setState(() => showConversaoList = false);
+                            },
+                          )
+                        : _buildGridWithSearch(sessoes),
       ),
     );
   }
 
-  // ===== Página de Configurações =====
+  Widget _buildApuracaoFilhosPage() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
+              onPressed: _voltarParaCardsPai,
+              tooltip: 'Voltar para sessões',
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Apuração',
+              style: TextStyle(
+                fontSize: 24,
+                color: Color(0xFF0D47A1),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        const Divider(color: Colors.grey),
+        const SizedBox(height: 20),
+
+        Expanded(
+          child: _buildGridApuracaoFilhos(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGridApuracaoFilhos() {
+    return GridView.count(
+      shrinkWrap: true,
+      crossAxisCount: 7,
+      crossAxisSpacing: 15,
+      mainAxisSpacing: 15,
+      childAspectRatio: 1,
+      children: apuracaoFilhos.map((card) => _buildCardApuracaoFilho(card)).toList(),
+    );
+  }
+
+  Widget _buildCardApuracaoFilho(Map<String, dynamic> card) {
+    return Material(
+      elevation: 2,
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.hardEdge,
+      child: InkWell(
+        onTap: () {
+          _navegarParaCardFilho(card['label']);
+        },
+        hoverColor: const Color(0xFFE8F5E9),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                card['icon'],
+                color: const Color.fromARGB(255, 48, 153, 35),
+                size: 50,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                card['label'],
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF0D47A1),
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  card['descricao'],
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _navegarParaCardFilho(String nomeCard) {
+    switch (nomeCard) {
+      case 'Medição':
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Abrindo: $nomeCard'),
+            duration: const Duration(milliseconds: 800),
+          ),
+        );
+        break;
+      case 'CACL':
+        setState(() {
+          _veioDaApuracao = true; // MARCADOR: Veio da Apuração
+          _mostrarApuracaoFilhos = false;
+          _mostrarFormCalc = true;
+        });
+        break;
+    }
+  }
+
   Widget _buildConfiguracoesPage(UsuarioAtual? usuario) {
     if (showUsuarios) {
       return UsuariosPage(
@@ -461,7 +600,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  // ===== Grade de Configurações =====
   Widget _buildGridConfiguracoes(List<Map<String, dynamic>> configCards) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -522,7 +660,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  // ===== Grade de Sessões com busca =====
   Widget _buildGridWithSearch(List<Map<String, dynamic>> sessoes) {
     final termoBusca = searchController.text.toLowerCase();
 
@@ -575,7 +712,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  // ===== Cada card =====
   Widget _buildSessaoCard(Map<String, dynamic> sessao) {
     return Material(
       elevation: 1,
@@ -596,10 +732,22 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               showConversaoList = false;
               showControleAcesso = false;
               showUsuarios = false;
+              _mostrarApuracaoFilhos = true;
+            });
+            return;
+          }
+          
+          if (nome == 'CACL') {
+            setState(() {
+              _veioDaApuracao = false; // Veio direto do card principal, não da Apuração
+              showConversaoList = false;
+              showControleAcesso = false;
+              showUsuarios = false;
               _mostrarFormCalc = true;
             });
             return;
           }
+          
           if (nome == 'Logística') {
             Navigator.push(
               context,
@@ -634,7 +782,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  // ===== Ícone automático conforme nome =====
   IconData _definirIcone(String nome) {
     final lower = nome.toLowerCase();
     if (lower.contains('tabela')) return Icons.view_list;
@@ -645,6 +792,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     if (lower.contains('dep')) return Icons.warehouse;
     if (lower.contains('cacl')) return Icons.receipt_long;
     if (lower.contains('controle')) return Icons.car_repair;
+    if (lower.contains('apura')) return Icons.analytics;
     return Icons.apps;
   }
 
@@ -663,7 +811,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
-  // ===== Página Início =====
   Widget _buildInicioPage(UsuarioAtual? usuario) {
     return Center(
       child: Column(
