@@ -20,6 +20,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
   final TextEditingController _dataController = TextEditingController(
     text: '${DateTime.now().day.toString().padLeft(2,'0')}/${DateTime.now().month.toString().padLeft(2,'0')}/${DateTime.now().year}'
   );
+  
+  int _tanqueSelecionadoIndex = 0;
 
   @override
   void initState() {
@@ -46,54 +48,125 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA), // opcional: fundo igual ao cabeçalho
-      body: Center(                              // ← centraliza na tela
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 850),
-          child: Column(
-            children: [
-              // === CABEÇALHO (permanece igual) ===
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF8F9FA),
-                  border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
-                ),
-                child: Row(children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
-                    onPressed: widget.onVoltar,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text('Medição de tanques',
-                      style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Colors.black87)),
-                  const SizedBox(width: 20),
-                  const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
-                  const SizedBox(width: 6),
-                  Text(_dataController.text, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                  const SizedBox(width: 20),
-                  const Icon(Icons.person, size: 16, color: Colors.grey),
-                  const SizedBox(width: 6),
-                  const Text('João Silva', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                  const Spacer(),
-                ]),
+      backgroundColor: const Color(0xFFF8F9FA),
+      body: Column(
+        children: [
+          // === CABEÇALHO ===
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8F9FA),
+              border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
+            ),
+            child: Row(children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
+                onPressed: widget.onVoltar,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
               ),
-
-              // === CONTEÚDO COM ROLAGEM ===
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: Column(
-                    children: tanques.asMap().entries.map((e) => _buildTanqueCard(e.value, e.key)).toList(),
-                  ),
-                ),
-              ),
-            ],
+              const SizedBox(width: 8),
+              const Text('Medição de tanques',
+                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Colors.black87)),
+              const SizedBox(width: 20),
+              const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
+              const SizedBox(width: 6),
+              Text(_dataController.text, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(width: 20),
+              const Icon(Icons.person, size: 16, color: Colors.grey),
+              const SizedBox(width: 6),
+              const Text('João Silva', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const Spacer(),
+            ]),
           ),
-        ),
+
+          // === MENU DE NAVEGAÇÃO DOS TANQUES - NOVO LAYOUT ===
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                bottom: BorderSide(color: Colors.grey.shade300, width: 1),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.shade200,
+                  blurRadius: 2,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: tanques.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final tanque = entry.value;
+                  final isSelected = index == _tanqueSelecionadoIndex;
+                  
+                  return Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          _tanqueSelecionadoIndex = index;
+                        });
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isSelected ? const Color(0xFF0D47A1) : Colors.white,
+                        foregroundColor: isSelected ? Colors.white : const Color(0xFF0D47A1),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(
+                            color: isSelected ? const Color(0xFF0D47A1) : Colors.grey.shade300,
+                            width: 1,
+                          ),
+                        ),
+                        elevation: isSelected ? 2 : 0,
+                        shadowColor: Colors.grey.shade300,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            tanque['numero'],
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: isSelected ? Colors.white : const Color(0xFF0D47A1),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            tanque['produto'],
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: isSelected ? Colors.white70 : Colors.grey.shade600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+
+          // === CONTEÚDO PRINCIPAL ===
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              child: _buildTanqueCard(tanques[_tanqueSelecionadoIndex], _tanqueSelecionadoIndex),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -101,108 +174,258 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
   Widget _buildTanqueCard(Map<String, dynamic> tanque, int index) {
     final ctrls = _controllers[index];
 
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.only(bottom: 20),
-      color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Column(children: [
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-          decoration: const BoxDecoration(color: Color(0xFF0D47A1), borderRadius: BorderRadius.only(topLeft: Radius.circular(10), topRight: Radius.circular(10))),
-          child: Row(children: [
-            Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)), child: Text(tanque['numero'], style: const TextStyle(color: Color(0xFF0D47A1), fontWeight: FontWeight.bold, fontSize: 14))),
-            const SizedBox(width: 12),
-            Text(tanque['produto'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-            const Spacer(),
-            Text(tanque['capacidade'], style: const TextStyle(color: Colors.white70, fontSize: 12)),
-          ]),
-        ),
+    return SingleChildScrollView(
+      child: Card(
+        elevation: 3,
+        margin: EdgeInsets.zero,
+        color: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Column(
+          children: [
+            // Cabeçalho do card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+              decoration: const BoxDecoration(
+                color: Color(0xFF0D47A1),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      tanque['numero'],
+                      style: const TextStyle(
+                        color: Color(0xFF0D47A1),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      tanque['produto'],
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    tanque['capacidade'],
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
-        Padding(
-          padding: const EdgeInsets.all(10),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(child: _buildSection('MANHÃ', '06:00h', Colors.blue[50]!, Colors.blue, ctrls.sublist(0, 6))),
-            const SizedBox(width: 8),
-            Expanded(child: _buildSection('TARDE', '18:00h', Colors.green[50]!, Colors.green, ctrls.sublist(6, 12))),
-          ]),
+            // Conteúdo do card
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth > 700;
+                  
+                  return isWide
+                      ? _buildWideLayout(ctrls)
+                      : _buildNarrowLayout(ctrls);
+                },
+              ),
+            ),
+          ],
         ),
-      ]),
+      ),
+    );
+  }
+
+  Widget _buildWideLayout(List<TextEditingController> ctrls) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: _buildSection(
+            'MANHÃ',
+            '06:00h',
+            Colors.blue[50]!,
+            Colors.blue,
+            ctrls.sublist(0, 6),
+          ),
+        ),
+        const SizedBox(width: 20),
+        Expanded(
+          child: _buildSection(
+            'TARDE',
+            '18:00h',
+            Colors.green[50]!,
+            Colors.green,
+            ctrls.sublist(6, 12),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNarrowLayout(List<TextEditingController> ctrls) {
+    return Column(
+      children: [
+        _buildSection(
+          'MANHÃ',
+          '06:00h',
+          Colors.blue[50]!,
+          Colors.blue,
+          ctrls.sublist(0, 6),
+        ),
+        const SizedBox(height: 16),
+        _buildSection(
+          'TARDE',
+          '18:00h',
+          Colors.green[50]!,
+          Colors.green,
+          ctrls.sublist(6, 12),
+        ),
+      ],
     );
   }
 
   Widget _buildSection(String periodo, String hora, Color bg, Color accent, List<TextEditingController> c) {
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10), border: Border.all(color: accent.withOpacity(0.3))),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Icon(Icons.access_time, size: 15, color: accent),
-          const SizedBox(width: 6),
-          Text('$periodo - $hora', style: TextStyle(fontWeight: FontWeight.bold, color: accent, fontSize: 13)),
-        ]),
-        const SizedBox(height: 14),
-
-        // 1ª linha – cm e mm CENTRALIZADOS (com legendas à esquerda)
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _fieldLarge('cm', c[0], '735'),
-            _fieldLarge('mm', c[1], '35'),
-          ],
-        ),
-        const SizedBox(height: 14),
-
-        // 2ª linha – 3 campos centralizados
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _fieldLarge('Temp. Tanque', c[2], '28.5', decimal: true),
-            _fieldLarge('Densidade', c[3], '0.745', decimal: true),
-            _fieldLarge('Temp. Amostra', c[4], '28.0', decimal: true),
-          ],
-        ),
-        const SizedBox(height: 14),
-
-        // 3ª linha – Observações
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Padding(padding: EdgeInsets.only(top: 12, right: 10), child: Text('Obs:', style: TextStyle(fontSize: 11.5, color: Colors.grey))),
-          Expanded(
-            child: TextFormField(
-              controller: c[5],
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: 'Observações...',
-                isDense: true,
-                contentPadding: const EdgeInsets.all(10),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: accent.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Cabeçalho da seção
+          Row(
+            children: [
+              Icon(Icons.access_time, size: 16, color: accent),
+              const SizedBox(width: 8),
+              Text(
+                '$periodo - $hora',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: accent,
+                  fontSize: 14,
+                ),
               ),
-            ),
+            ],
           ),
-        ]),
-      ]),
+          const SizedBox(height: 16),
+
+          // Linha 1 - cm e mm
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildField('cm', c[0], '735', width: 120),
+              _buildField('mm', c[1], '35', width: 120),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Linha 2 - 3 campos
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildField('Temp. Tanque', c[2], '28.5', width: 110, decimal: true),
+              _buildField('Densidade', c[3], '0.745', width: 110, decimal: true),
+              _buildField('Temp. Amostra', c[4], '28.0', width: 110, decimal: true),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Observações
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Observações:',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: c[5],
+                maxLines: 2,
+                decoration: InputDecoration(
+                  hintText: 'Digite suas observações...',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.all(12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: Colors.grey.shade400),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: accent, width: 1.5),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  // Campo único usado em todas as linhas – legenda à esquerda, campo centralizado
-  Widget _fieldLarge(String label, TextEditingController ctrl, String hint, {bool decimal = false}) {
-    return Column(children: [
-      Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-      const SizedBox(height: 3), // reduzi um pouco aqui também
-      SizedBox(
-        width: 100,
-        child: TextFormField(
-          controller: ctrl,
-          textAlign: TextAlign.center,
-          keyboardType: TextInputType.numberWithOptions(decimal: decimal),
-          decoration: InputDecoration(
-            hintText: hint,
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+  Widget _buildField(String label, TextEditingController ctrl, String hint, {double width = 100, bool decimal = false}) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w500,
           ),
         ),
-      ),
-    ]);
+        const SizedBox(height: 6),
+        Container(
+          width: width,
+          height: 40,
+          child: TextFormField(
+            controller: ctrl,
+            textAlign: TextAlign.center,
+            keyboardType: TextInputType.numberWithOptions(decimal: decimal),
+            style: const TextStyle(fontSize: 14),
+            decoration: InputDecoration(
+              hintText: hint,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(color: Colors.grey.shade400),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.5),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
