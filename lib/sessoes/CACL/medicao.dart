@@ -85,19 +85,18 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: Container(
-        constraints: const BoxConstraints(maxWidth: 670),
-        padding: const EdgeInsets.all(20),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Cabeçalho
             _buildHeader(),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             
-            // Data
-            _buildDateField(),
-            const SizedBox(height: 30),
+            // Data e informações do dia
+            _buildInfoDia(),
+            const SizedBox(height: 32),
             
             // Lista de tanques
             Expanded(
@@ -106,6 +105,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                   children: [
                     for (int i = 0; i < tanques.length; i++)
                       _buildTanqueCard(tanques[i], i),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
@@ -132,22 +132,23 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                 Text(
                   'CONTROLE DE MEDIÇÃO DIÁRIA',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: Colors.grey[800],
                   ),
                 ),
+                const SizedBox(height: 4),
                 Text(
                   'Sistema de Apuração - Base de Combustíveis',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 16,
                     color: Colors.grey[600],
                   ),
                 ),
               ],
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: const Color(0xFF0D47A1),
                 borderRadius: BorderRadius.circular(20),
@@ -155,7 +156,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               child: const Text(
                 'MEDIÇÃO',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 14,
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
@@ -163,27 +164,100 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        const Divider(thickness: 1, color: Colors.grey),
+        const SizedBox(height: 16),
+        Container(
+          height: 2,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xFF0D47A1),
+                Colors.grey[300]!,
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildDateField() {
-    return Container(
-      width: 200,
-      child: TextFormField(
-        controller: _dataController,
-        decoration: InputDecoration(
-          labelText: 'Data da Medição',
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          prefixIcon: const Icon(Icons.calendar_today, size: 20),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+  Widget _buildInfoDia() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Data da Medição',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 200,
+                    child: TextFormField(
+                      controller: _dataController,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        prefixIcon: const Icon(Icons.calendar_today),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                      readOnly: true,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 1,
+              height: 60,
+              color: Colors.grey[300],
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Operador',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[400]!),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'João Silva',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        readOnly: true,
-        style: const TextStyle(fontSize: 14),
       ),
     );
   }
@@ -191,51 +265,43 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
   Widget _buildTanqueCard(Map<String, dynamic> tanque, int tankIndex) {
     final controllers = _controllers[tankIndex];
     
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(color: Colors.grey[200]!),
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
       ),
+      margin: const EdgeInsets.only(bottom: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Cabeçalho do tanque
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.grey[50],
+              color: const Color(0xFF0D47A1),
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
               ),
             ),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0D47A1),
-                    borderRadius: BorderRadius.circular(6),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     tanque['numero'],
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: Color(0xFF0D47A1),
                       fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                      fontSize: 16,
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,15 +310,16 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                         tanque['produto'],
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: Colors.black87,
+                          fontSize: 18,
+                          color: Colors.white,
                         ),
                       ),
+                      const SizedBox(height: 4),
                       Text(
                         'Capacidade: ${tanque['capacidade']}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.white70,
                         ),
                       ),
                     ],
@@ -264,7 +331,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           
           // Conteúdo - Abertura e Fechamento
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(24),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -272,35 +339,36 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                 Expanded(
                   child: _buildMedicaoSection(
                     titulo: 'MEDIÇÃO DA MANHÃ',
-                    subtitulo: 'Abertura do Dia',
+                    subtitulo: 'Abertura do Dia - 06:00h',
                     cor: Colors.blue[50]!,
                     corBorda: Colors.blue,
-                    controllers: controllers.sublist(0, 6), // Primeiros 6 controllers
+                    controllers: controllers.sublist(0, 6),
                   ),
                 ),
                 
-                const SizedBox(width: 20),
+                const SizedBox(width: 32),
                 
                 // Divisória visual
                 Container(
                   width: 1,
-                  height: 400,
+                  height: 420,
                   color: Colors.grey[300],
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
                           color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey[400]!),
                         ),
                         child: Text(
-                          'VS',
+                          'COMPARAÇÃO',
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: Colors.grey[600],
+                            color: Colors.grey[700],
                           ),
                         ),
                       ),
@@ -308,16 +376,16 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                   ),
                 ),
                 
-                const SizedBox(width: 20),
+                const SizedBox(width: 32),
                 
                 // Medição da Tarde (Fechamento)
                 Expanded(
                   child: _buildMedicaoSection(
-                    titulo: 'MEDIÇÃO DA TARDE',
-                    subtitulo: 'Fechamento do Dia',
+                    titulo: 'MEDIÇÃO DA TARDE', 
+                    subtitulo: 'Fechamento do Dia - 18:00h',
                     cor: Colors.green[50]!,
                     corBorda: Colors.green,
-                    controllers: controllers.sublist(6, 12), // Últimos 6 controllers
+                    controllers: controllers.sublist(6, 12),
                   ),
                 ),
               ],
@@ -335,17 +403,10 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     required Color corBorda,
     required List<TextEditingController> controllers,
   }) {
-    // controllers[0] = altura_cm
-    // controllers[1] = altura_mm  
-    // controllers[2] = temp_tanque
-    // controllers[3] = densidade
-    // controllers[4] = temp_amostra
-    // controllers[5] = observacoes
-    
     return Container(
       decoration: BoxDecoration(
         color: cor,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: corBorda.withOpacity(0.3)),
       ),
       child: Column(
@@ -353,30 +414,45 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         children: [
           // Cabeçalho da seção
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: corBorda.withOpacity(0.1),
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(8),
-                topRight: Radius.circular(8),
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+              border: Border(
+                bottom: BorderSide(color: corBorda.withOpacity(0.2)),
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Text(
-                  titulo,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: corBorda,
-                  ),
+                Icon(
+                  Icons.access_time,
+                  color: corBorda,
+                  size: 20,
                 ),
-                Text(
-                  subtitulo,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: corBorda.withOpacity(0.8),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        titulo,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: corBorda,
+                        ),
+                      ),
+                      Text(
+                        subtitulo,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: corBorda.withOpacity(0.8),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -385,7 +461,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           
           // Campos de entrada
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(20),
             child: Column(
               children: [
                 // Altura do líquido
@@ -395,18 +471,20 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                     Row(
                       children: [
                         Expanded(
+                          flex: 2,
                           child: _buildNumberInput(
-                            controller: controllers[0], // altura_cm
+                            controller: controllers[0],
                             label: 'Centímetros (cm)',
-                            hintText: 'Ex: 735',
+                            hintText: '735',
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 12),
                         Expanded(
+                          flex: 1,
                           child: _buildNumberInput(
-                            controller: controllers[1], // altura_mm
+                            controller: controllers[1],
                             label: 'Milímetros (mm)',
-                            hintText: 'Ex: 35',
+                            hintText: '35',
                           ),
                         ),
                       ],
@@ -414,55 +492,69 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                   ],
                 ),
                 
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 
                 // Temperatura e Densidade
                 Row(
                   children: [
                     Expanded(
                       child: _buildNumberInput(
-                        controller: controllers[2], // temp_tanque
+                        controller: controllers[2],
                         label: 'TEMP. TANQUE (°C)',
-                        hintText: 'Ex: 28.5',
+                        hintText: '28.5',
                         decimal: true,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: _buildNumberInput(
-                        controller: controllers[3], // densidade
+                        controller: controllers[3],
                         label: 'DENSIDADE',
-                        hintText: 'Ex: 0.745',
+                        hintText: '0.745',
                         decimal: true,
                       ),
                     ),
                   ],
                 ),
                 
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 
                 // Temperatura da amostra
                 _buildNumberInput(
-                  controller: controllers[4], // temp_amostra
+                  controller: controllers[4],
                   label: 'TEMP. AMOSTRA (°C)',
-                  hintText: 'Ex: 28.0',
+                  hintText: '28.0',
                   decimal: true,
                 ),
                 
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 
                 // Observações
-                TextFormField(
-                  controller: controllers[5], // observacoes
-                  decoration: InputDecoration(
-                    labelText: 'OBSERVAÇÕES',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'OBSERVAÇÕES',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
+                      ),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                  maxLines: 2,
-                  style: const TextStyle(fontSize: 14),
+                    const SizedBox(height: 4),
+                    TextFormField(
+                      controller: controllers[5],
+                      decoration: InputDecoration(
+                        hintText: 'Informações relevantes...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                      maxLines: 2,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -487,7 +579,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
             color: Colors.grey[700],
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         ...children,
       ],
     );
@@ -499,28 +591,47 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     required String hintText,
     bool decimal = false,
   }) {
-    return TextFormField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hintText,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
+          ),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      ),
-      keyboardType: TextInputType.numberWithOptions(decimal: decimal),
-      style: const TextStyle(fontSize: 14),
+        const SizedBox(height: 4),
+        TextFormField(
+          controller: controller,
+          decoration: InputDecoration(
+            hintText: hintText,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          ),
+          keyboardType: TextInputType.numberWithOptions(decimal: decimal),
+          style: const TextStyle(fontSize: 16),
+        ),
+      ],
     );
   }
 
   Widget _buildActionButtons() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: const EdgeInsets.symmetric(vertical: 20),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: Colors.grey[200]!),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -529,38 +640,55 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
             onPressed: _salvarMedicoes,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF2E7D32),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
+              elevation: 2,
             ),
-            icon: const Icon(Icons.save, color: Colors.white, size: 18),
+            icon: const Icon(Icons.save, color: Colors.white, size: 20),
             label: const Text(
               'SALVAR MEDIÇÕES',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
-                fontSize: 14,
+                fontSize: 16,
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 20),
           OutlinedButton.icon(
             onPressed: _imprimirRelatorio,
             style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
-              side: const BorderSide(color: Color(0xFF0D47A1)),
+              side: const BorderSide(color: Color(0xFF0D47A1), width: 2),
             ),
-            icon: const Icon(Icons.print, size: 18, color: Color(0xFF0D47A1)),
+            icon: const Icon(Icons.print, size: 20, color: Color(0xFF0D47A1)),
             label: const Text(
               'IMPRIMIR RELATÓRIO',
               style: TextStyle(
                 color: Color(0xFF0D47A1),
                 fontWeight: FontWeight.bold,
-                fontSize: 14,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          const SizedBox(width: 20),
+          TextButton.icon(
+            onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            ),
+            icon: const Icon(Icons.arrow_back, color: Colors.grey),
+            label: const Text(
+              'VOLTAR',
+              style: TextStyle(
+                color: Colors.grey,
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
               ),
             ),
           ),
@@ -570,27 +698,36 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
   }
 
   void _salvarMedicoes() {
-    // Simulação de salvamento
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Salvar Medições'),
-        content: const Text('Todas as medições serão salvas no sistema.'),
+        title: const Row(
+          children: [
+            Icon(Icons.save, color: Color(0xFF2E7D32)),
+            SizedBox(width: 8),
+            Text('Salvar Medições'),
+          ],
+        ),
+        content: const Text('Todas as medições serão salvas no sistema. Deseja continuar?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancelar'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Medições salvas com sucesso!'),
-                  backgroundColor: Colors.green,
+                SnackBar(
+                  content: const Text('Medições salvas com sucesso!'),
+                  backgroundColor: Colors.green[700],
+                  behavior: SnackBarBehavior.floating,
                 ),
               );
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2E7D32),
+            ),
             child: const Text('Salvar'),
           ),
         ],
@@ -599,27 +736,36 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
   }
 
   void _imprimirRelatorio() {
-    // Simulação de impressão
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Imprimir Relatório'),
+        title: const Row(
+          children: [
+            Icon(Icons.print, color: Color(0xFF0D47A1)),
+            SizedBox(width: 8),
+            Text('Imprimir Relatório'),
+          ],
+        ),
         content: const Text('O relatório de medições será gerado para impressão.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancelar'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Relatório enviado para impressão!'),
-                  backgroundColor: Colors.blue,
+                SnackBar(
+                  content: const Text('Relatório enviado para impressão!'),
+                  backgroundColor: const Color(0xFF0D47A1),
+                  behavior: SnackBarBehavior.floating,
                 ),
               );
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D47A1),
+            ),
             child: const Text('Imprimir'),
           ),
         ],
