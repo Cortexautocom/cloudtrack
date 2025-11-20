@@ -5,10 +5,10 @@ import 'configuracoes/controle_acesso_usuarios.dart';
 import 'login_page.dart';
 import 'configuracoes/usuarios.dart';
 import 'perfil.dart';
-import 'sessoes/CACL/cacl.dart';
-import 'sessoes/CACL/form_calc.dart';
+import 'sessoes/apuracao/cacl.dart';
+import 'sessoes/apuracao/form_calc.dart';
 import 'sessoes/logistica/controle_documentos.dart';
-import 'sessoes/CACL/medicao.dart';
+import 'sessoes/apuracao/medicao.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -36,7 +36,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarFormCalc = false;
   bool _mostrarCalcGerado = false;
   bool _mostrarApuracaoFilhos = false;
-  bool _veioDaApuracao = false; // NOVO: Controla se veio da Apuração
+  bool _veioDaApuracao = false;
+  bool _mostrarMedicaoTanques = false; // VARIÁVEL QUE FALTAVA
   Map<String, dynamic>? _dadosCalcGerado;
   
 
@@ -160,7 +161,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarFormCalc = false;
       _mostrarCalcGerado = false;
       _mostrarApuracaoFilhos = false;
-      _veioDaApuracao = false; // Resetar também este estado
+      _mostrarMedicaoTanques = false; // RESETAR TAMBÉM
+      _veioDaApuracao = false;
     });
   }
 
@@ -286,7 +288,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   _mostrarFormCalc = false;
                                   _mostrarCalcGerado = false;
                                   _mostrarApuracaoFilhos = false;
-                                  _veioDaApuracao = false; // Resetar ao mudar de menu
+                                  _mostrarMedicaoTanques = false; // RESETAR AO MUDAR MENU
+                                  _veioDaApuracao = false;
                                 });
 
                                 if (menuItems[index] == 'Sessões') {
@@ -413,35 +416,46 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         transitionBuilder: (child, animation) =>
             FadeTransition(opacity: animation, child: child),
 
-        child: _mostrarApuracaoFilhos
-            ? _buildApuracaoFilhosPage()
-            : _mostrarFormCalc
-                ? FormCalcPage(
-                    onVoltar: () {
-                      setState(() {
-                        _mostrarFormCalc = false;
-                        _mostrarCalcGerado = false;
-                        
-                        // CORREÇÃO: Lógica inteligente de voltar
-                        if (_veioDaApuracao) {
-                          _mostrarApuracaoFilhos = true; // Volta para os cards filhos da Apuração
-                          _veioDaApuracao = false; // Resetar o estado
-                        }
-                      });
-                    },
-                  )              
-                : _mostrarCalcGerado
-                    ? CalcPage(
-                        dadosFormulario: _dadosCalcGerado ?? {},
-                      )
-                    : showConversaoList
-                        ? TabelasDeConversao(
-                            key: const ValueKey('tabelas'),
-                            onVoltar: () {
-                              setState(() => showConversaoList = false);
-                            },
+        child: _mostrarMedicaoTanques
+            ? MedicaoTanquesPage(
+                onVoltar: () {
+                  setState(() {
+                    _mostrarMedicaoTanques = false;
+                    // Volta para o local correto baseado de onde veio
+                    if (_veioDaApuracao) {
+                      _mostrarApuracaoFilhos = true;
+                    }
+                    _veioDaApuracao = false;
+                  });
+                },
+              )
+            : _mostrarApuracaoFilhos
+                ? _buildApuracaoFilhosPage()
+                : _mostrarFormCalc
+                    ? FormCalcPage(
+                        onVoltar: () {
+                          setState(() {
+                            _mostrarFormCalc = false;
+                            _mostrarCalcGerado = false;
+                            if (_veioDaApuracao) {
+                              _mostrarApuracaoFilhos = true;
+                              _veioDaApuracao = false;
+                            }
+                          });
+                        },
+                      )              
+                    : _mostrarCalcGerado
+                        ? CalcPage(
+                            dadosFormulario: _dadosCalcGerado ?? {},
                           )
-                        : _buildGridWithSearch(sessoes),
+                        : showConversaoList
+                            ? TabelasDeConversao(
+                                key: const ValueKey('tabelas'),
+                                onVoltar: () {
+                                  setState(() => showConversaoList = false);
+                                },
+                              )
+                            : _buildGridWithSearch(sessoes),
       ),
     );
   }
@@ -546,22 +560,23 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   void _navegarParaCardFilho(String nomeCard) {
-  switch (nomeCard) {
-    case 'Medição':
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const MedicaoTanquesPage()),
-      );
-      break;
-    case 'CACL':
-      setState(() {
-        _veioDaApuracao = true;
-        _mostrarApuracaoFilhos = false;
-        _mostrarFormCalc = true;
-      });
-      break;
+    switch (nomeCard) {
+      case 'Medição':
+        setState(() {
+          _veioDaApuracao = true;
+          _mostrarApuracaoFilhos = false;
+          _mostrarMedicaoTanques = true;
+        });
+        break;
+      case 'CACL':
+        setState(() {
+          _veioDaApuracao = true;
+          _mostrarApuracaoFilhos = false;
+          _mostrarFormCalc = true;
+        });
+        break;
+    }
   }
-}
 
   Widget _buildConfiguracoesPage(UsuarioAtual? usuario) {
     if (showUsuarios) {
@@ -738,11 +753,22 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           
           if (nome == 'CACL') {
             setState(() {
-              _veioDaApuracao = false; // Veio direto do card principal, não da Apuração
+              _veioDaApuracao = false;
               showConversaoList = false;
               showControleAcesso = false;
               showUsuarios = false;
               _mostrarFormCalc = true;
+            });
+            return;
+          }
+
+          if (nome == 'Medição') {
+            setState(() {
+              _veioDaApuracao = false;
+              showConversaoList = false;
+              showControleAcesso = false;
+              showUsuarios = false;
+              _mostrarMedicaoTanques = true;
             });
             return;
           }
@@ -792,6 +818,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     if (lower.contains('cacl')) return Icons.receipt_long;
     if (lower.contains('controle')) return Icons.car_repair;
     if (lower.contains('apura')) return Icons.analytics;
+    if (lower.contains('medic')) return Icons.analytics; // NOVO: Ícone para Medição
     return Icons.apps;
   }
 

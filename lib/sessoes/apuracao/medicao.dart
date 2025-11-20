@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 
 class MedicaoTanquesPage extends StatefulWidget {
-  const MedicaoTanquesPage({super.key});
+  final VoidCallback onVoltar;
+  
+  const MedicaoTanquesPage({
+    super.key,
+    required this.onVoltar,
+  });
 
   @override
   State<MedicaoTanquesPage> createState() => _MedicaoTanquesPageState();
@@ -74,48 +79,38 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text('Medição de Tanques'),
-        backgroundColor: const Color(0xFF0D47A1),
-        foregroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Cabeçalho
-            _buildHeader(),
-            const SizedBox(height: 24),
-            
-            // Data e informações do dia
-            _buildInfoDia(),
-            const SizedBox(height: 32),
-            
-            // Lista de tanques
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header com botão voltar
+        _buildHeader(),
+        const SizedBox(height: 20),
+        
+        // Conteúdo principal
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                // Data e informações do dia
+                _buildInfoDia(),
+                const SizedBox(height: 32),
+                
+                // Lista de tanques
+                Column(
                   children: [
                     for (int i = 0; i < tanques.length; i++)
                       _buildTanqueCard(tanques[i], i),
                     const SizedBox(height: 20),
                   ],
                 ),
-              ),
+              ],
             ),
-            
-            // Botões de ação
-            _buildActionButtons(),
-          ],
+          ),
         ),
-      ),
+        
+        // Botões de ação
+        _buildActionButtons(),
+      ],
     );
   }
 
@@ -124,28 +119,34 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'CONTROLE DE MEDIÇÃO DIÁRIA',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey[800],
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
+              onPressed: widget.onVoltar,
+              tooltip: 'Voltar para Apuração',
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'CONTROLE DE MEDIÇÃO DIÁRIA',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[800],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Sistema de Apuração - Base de Combustíveis',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
+                  Text(
+                    'Sistema de Apuração - Base de Combustíveis',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -156,7 +157,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               child: const Text(
                 'MEDIÇÃO',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 12,
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
@@ -165,17 +166,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           ],
         ),
         const SizedBox(height: 16),
-        Container(
-          height: 2,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                const Color(0xFF0D47A1),
-                Colors.grey[300]!,
-              ],
-            ),
-          ),
-        ),
+        const Divider(color: Colors.grey),
       ],
     );
   }
@@ -672,22 +663,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               style: TextStyle(
                 color: Color(0xFF0D47A1),
                 fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-          ),
-          const SizedBox(width: 20),
-          TextButton.icon(
-            onPressed: () => Navigator.of(context).pop(),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            ),
-            icon: const Icon(Icons.arrow_back, color: Colors.grey),
-            label: const Text(
-              'VOLTAR',
-              style: TextStyle(
-                color: Colors.grey,
-                fontWeight: FontWeight.w600,
                 fontSize: 16,
               ),
             ),
