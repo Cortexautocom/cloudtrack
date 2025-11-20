@@ -9,6 +9,7 @@ import 'sessoes/apuracao/cacl.dart';
 import 'sessoes/apuracao/form_calc.dart';
 import 'sessoes/logistica/controle_documentos.dart';
 import 'sessoes/apuracao/medicao.dart';
+import 'sessoes/apuracao/tanques.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -37,7 +38,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarCalcGerado = false;
   bool _mostrarApuracaoFilhos = false;
   bool _veioDaApuracao = false;
-  bool _mostrarMedicaoTanques = false; // VARIÁVEL QUE FALTAVA
+  bool _mostrarMedicaoTanques = false;
+  bool _mostrarTanques = false;
   Map<String, dynamic>? _dadosCalcGerado;
   
 
@@ -61,6 +63,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'icon': Icons.calculate,
         'label': 'CACL',
         'descricao': 'Cálculos e apurações contábeis',
+      },
+      // ADICIONE ESTE NOVO ITEM:
+      {
+        'icon': Icons.storage,
+        'label': 'Tanques',
+        'descricao': 'Gerenciamento de tanques de combustível',
       },
     ];
   }
@@ -163,6 +171,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarApuracaoFilhos = false;
       _mostrarMedicaoTanques = false; // RESETAR TAMBÉM
       _veioDaApuracao = false;
+      _mostrarTanques = false;
     });
   }
 
@@ -290,6 +299,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   _mostrarApuracaoFilhos = false;
                                   _mostrarMedicaoTanques = false; // RESETAR AO MUDAR MENU
                                   _veioDaApuracao = false;
+                                  _mostrarTanques = false;
                                 });
 
                                 if (menuItems[index] == 'Sessões') {
@@ -421,6 +431,19 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 onVoltar: () {
                   setState(() {
                     _mostrarMedicaoTanques = false;
+                    // Volta para o local correto baseado de onde veio
+                    if (_veioDaApuracao) {
+                      _mostrarApuracaoFilhos = true;
+                    }
+                    _veioDaApuracao = false;
+                  });
+                },
+              )
+            : _mostrarTanques // NOVA CONDIÇÃO PARA MÓDULO TANQUES
+            ? TanquesPage(
+                onVoltar: () {
+                  setState(() {
+                    _mostrarTanques = false;
                     // Volta para o local correto baseado de onde veio
                     if (_veioDaApuracao) {
                       _mostrarApuracaoFilhos = true;
@@ -573,6 +596,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _veioDaApuracao = true;
           _mostrarApuracaoFilhos = false;
           _mostrarFormCalc = true;
+        });
+        break;
+      // ADICIONE ESTE NOVO CASO:
+      case 'Tanques':
+        setState(() {
+          _veioDaApuracao = true;
+          _mostrarApuracaoFilhos = false;
+          _mostrarTanques = true;
         });
         break;
     }
