@@ -8,6 +8,7 @@ import 'perfil.dart';
 import 'sessoes/CACL/cacl.dart';
 import 'sessoes/CACL/form_calc.dart';
 import 'sessoes/logistica/controle_documentos.dart';
+import 'sessoes/CACL/medicao.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -545,24 +546,22 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   void _navegarParaCardFilho(String nomeCard) {
-    switch (nomeCard) {
-      case 'Medição':
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Abrindo: $nomeCard'),
-            duration: const Duration(milliseconds: 800),
-          ),
-        );
-        break;
-      case 'CACL':
-        setState(() {
-          _veioDaApuracao = true; // MARCADOR: Veio da Apuração
-          _mostrarApuracaoFilhos = false;
-          _mostrarFormCalc = true;
-        });
-        break;
-    }
+  switch (nomeCard) {
+    case 'Medição':
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const MedicaoTanquesPage()),
+      );
+      break;
+    case 'CACL':
+      setState(() {
+        _veioDaApuracao = true;
+        _mostrarApuracaoFilhos = false;
+        _mostrarFormCalc = true;
+      });
+      break;
   }
+}
 
   Widget _buildConfiguracoesPage(UsuarioAtual? usuario) {
     if (showUsuarios) {
