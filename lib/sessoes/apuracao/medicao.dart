@@ -28,9 +28,11 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     super.initState();
     for (int i = 0; i < tanques.length; i++) {
       _controllers.add([
+        TextEditingController(text: '06:00'), // NOVO: Horário da medição MANHÃ
         TextEditingController(text: '735'), TextEditingController(text: '35'),
         TextEditingController(text: '28.5'), TextEditingController(text: '0.745'),
         TextEditingController(text: '28.0'), TextEditingController(),
+        TextEditingController(text: '18:00'), // NOVO: Horário da medição TARDE
         TextEditingController(text: '685'), TextEditingController(text: '20'),
         TextEditingController(text: '29.0'), TextEditingController(text: '0.745'),
         TextEditingController(text: '28.5'), TextEditingController(),
@@ -260,21 +262,21 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       children: [
         Expanded(
           child: _buildSection(
-            'MANHÃ',
-            '06:00h',
+            '1ª Medição',
+            'Manhã',
             Colors.blue[50]!,
             Colors.blue,
-            ctrls.sublist(0, 6),
+            ctrls.sublist(0, 7), // ATUALIZADO: agora 7 campos
           ),
         ),
         const SizedBox(width: 20),
         Expanded(
           child: _buildSection(
-            'TARDE',
-            '18:00h',
+            '2ª Medição',
+            ' Tarde',
             Colors.green[50]!,
             Colors.green,
-            ctrls.sublist(6, 12),
+            ctrls.sublist(7, 14), // ATUALIZADO: agora 7 campos
           ),
         ),
       ],
@@ -289,7 +291,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           '06:00h',
           Colors.blue[50]!,
           Colors.blue,
-          ctrls.sublist(0, 6),
+          ctrls.sublist(0, 7), // ATUALIZADO: agora 7 campos
         ),
         const SizedBox(height: 16),
         _buildSection(
@@ -297,7 +299,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           '18:00h',
           Colors.green[50]!,
           Colors.green,
-          ctrls.sublist(6, 12),
+          ctrls.sublist(7, 14), // ATUALIZADO: agora 7 campos
         ),
       ],
     );
@@ -332,12 +334,13 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           ),
           const SizedBox(height: 16),
 
-          // Linha 1 - cm e mm
+          // Linha 1 - Horário da medição, cm e mm
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildField('cm', c[0], '735', width: 120),
-              _buildField('mm', c[1], '35', width: 120),
+              _buildTimeField('Horário Medição', c[0], '06:00', width: 120),
+              _buildField('cm', c[1], '735', width: 100),
+              _buildField('mm', c[2], '35', width: 100),
             ],
           ),
           const SizedBox(height: 16),
@@ -346,9 +349,9 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildField('Temp. Tanque', c[2], '28.5', width: 110, decimal: true),
-              _buildField('Densidade', c[3], '0.745', width: 110, decimal: true),
-              _buildField('Temp. Amostra', c[4], '28.0', width: 110, decimal: true),
+              _buildField('Temp. Tanque', c[3], '28.5', width: 110, decimal: true),
+              _buildField('Densidade', c[4], '0.745', width: 110, decimal: true),
+              _buildField('Temp. Amostra', c[5], '28.0', width: 110, decimal: true),
             ],
           ),
           const SizedBox(height: 16),
@@ -367,7 +370,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               ),
               const SizedBox(height: 8),
               TextFormField(
-                controller: c[5],
+                controller: c[6],
                 maxLines: 2,
                 decoration: InputDecoration(
                   hintText: 'Digite suas observações...',
@@ -409,6 +412,46 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
             controller: ctrl,
             textAlign: TextAlign.center,
             keyboardType: TextInputType.numberWithOptions(decimal: decimal),
+            style: const TextStyle(fontSize: 14),
+            decoration: InputDecoration(
+              hintText: hint,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(color: Colors.grey.shade400),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.5),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // NOVO MÉTODO: Campo para horário da medição
+  Widget _buildTimeField(String label, TextEditingController ctrl, String hint, {double width = 100}) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          width: width,
+          height: 40,
+          child: TextFormField(
+            controller: ctrl,
+            textAlign: TextAlign.center,
+            keyboardType: TextInputType.datetime,
             style: const TextStyle(fontSize: 14),
             decoration: InputDecoration(
               hintText: hint,
