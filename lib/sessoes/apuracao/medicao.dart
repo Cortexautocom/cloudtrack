@@ -31,23 +31,19 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       final supabase = Supabase.instance.client;
       final usuario = UsuarioAtual.instance!;
       
-      // SE USUÁRIO É NÍVEL 3 (ADMIN), BUSCA TODOS OS TANQUES
-      // SE NÃO, USA O FILTRO POR FILIAL
       final PostgrestTransformBuilder<dynamic> query;
       
       if (usuario.nivel == 3) {
-        // Admin - busca todos os tanques sem filtrar por filial
         query = supabase
             .from('tanques')
             .select('''
               referencia,
               capacidade,
               id_produto,
-              produtos (produto)
+              produtos (nome)
             ''')
             .order('referencia');
       } else {
-        // Usuário normal - filtra pela filial
         final idFilial = usuario.filialId;
         if (idFilial == null) {
           print('Erro: ID da filial não encontrado para usuário não-admin');
@@ -63,23 +59,23 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               referencia,
               capacidade,
               id_produto,
-              produtos (produto)
+              produtos (nome)
             ''')
             .eq('id_filial', idFilial)
             .order('referencia');
       }
 
-      // Executa a query
       final tanquesResponse = await query;
 
-      // Transforma a resposta no formato que precisamos
+      print('Tanques encontrados: ${tanquesResponse.length}');
+
       final List<Map<String, dynamic>> tanquesFormatados = [];
       
       for (final tanque in tanquesResponse) {
         tanquesFormatados.add({
-          'referencia': tanque['referencia'],
-          'produto_nome': tanque['produtos']?['produto'] ?? 'PRODUTO NÃO INFORMADO',
-          'capacidade': '${tanque['capacidade']} L',
+          'numero': tanque['referencia']?.toString() ?? 'SEM REFERÊNCIA',
+          'produto': tanque['produtos']?['nome']?.toString() ?? 'PRODUTO NÃO INFORMADO',
+          'capacidade': '${tanque['capacidade']?.toString() ?? '0'} L',
         });
       }
 
@@ -88,7 +84,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         _carregando = false;
       });
 
-      // Inicializa os controllers para cada tanque
       for (int i = 0; i < tanques.length; i++) {
         _controllers.add([
           TextEditingController(text: '06:00'),
@@ -122,7 +117,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       backgroundColor: const Color(0xFFF8F9FA),
       body: Column(
         children: [
-          // === CABEÇALHO ===
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -152,7 +146,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
             ]),
           ),
 
-          // === MENU DE NAVEGAÇÃO DOS TANQUES ===
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -207,7 +200,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      tanque['referencia'],
+                                      tanque['numero']?.toString() ?? 'N/A',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 14,
@@ -216,7 +209,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      tanque['produto_nome'],
+                                      tanque['produto']?.toString() ?? 'N/A',
                                       style: TextStyle(
                                         fontSize: 10,
                                         color: isSelected ? Colors.white70 : Colors.grey.shade600,
@@ -233,7 +226,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                       ),
           ),
 
-          // === CONTEÚDO PRINCIPAL ===
           Expanded(
             child: Container(
               width: double.infinity,
@@ -333,7 +325,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Column(
           children: [
-            // Cabeçalho do card
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
@@ -353,7 +344,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      tanque['referencia'],
+                      tanque['numero']?.toString() ?? 'N/A',
                       style: const TextStyle(
                         color: Color(0xFF0D47A1),
                         fontWeight: FontWeight.bold,
@@ -364,7 +355,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: Text(
-                      tanque['produto_nome'],
+                      tanque['produto']?.toString() ?? 'N/A',
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -375,7 +366,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                   ),
                   const SizedBox(width: 16),
                   Text(
-                    tanque['capacidade'],
+                    tanque['capacidade']?.toString() ?? 'N/A',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 14,
@@ -386,7 +377,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               ),
             ),
 
-            // Conteúdo do card
             Padding(
               padding: const EdgeInsets.all(20),
               child: LayoutBuilder(
@@ -466,7 +456,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cabeçalho da seção
           Row(
             children: [
               Icon(Icons.access_time, size: 16, color: accent),
@@ -483,7 +472,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           ),
           const SizedBox(height: 16),
 
-          // Linha 1 - Horário da medição, cm e mm
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -494,7 +482,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           ),
           const SizedBox(height: 16),
 
-          // Linha 2 - 3 campos
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -505,7 +492,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           ),
           const SizedBox(height: 16),
 
-          // Observações
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
