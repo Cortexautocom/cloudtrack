@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class TanquesPage extends StatefulWidget {
+class GerenciamentoTanquesPage extends StatefulWidget {
   final VoidCallback onVoltar;
-  const TanquesPage({super.key, required this.onVoltar});
+  const GerenciamentoTanquesPage({super.key, required this.onVoltar});
 
   @override
-  State<TanquesPage> createState() => _TanquesPageState();
+  State<GerenciamentoTanquesPage> createState() => _GerenciamentoTanquesPageState();
 }
 
-class _TanquesPageState extends State<TanquesPage> {
-  final SupabaseClient _supabase = Supabase.instance.client;
-  List<Map<String, dynamic>> _tanques = [];
+class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
+  List<Map<String, dynamic>> tanques = [];
+  final List<List<TextEditingController>> _controllers = [];
+  final TextEditingController _dataController = TextEditingController(
+    text: '${DateTime.now().day.toString().padLeft(2,'0')}/${DateTime.now().month.toString().padLeft(2,'0')}/${DateTime.now().year}'
+  );
+  
+  int _tanqueSelecionadoIndex = 0;
   bool _carregando = true;
-  bool _erro = false;
+  String? _erro;
 
   @override
   void initState() {
@@ -23,278 +28,205 @@ class _TanquesPageState extends State<TanquesPage> {
 
   Future<void> _carregarTanques() async {
     try {
-      if (!mounted) return;
+      final supabase = Supabase.instance.client;
       
-      setState(() {
-        _carregando = true;
-        _erro = false;
-      });
-
-      // 1. Pega o usuário logado
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) {
-        if (!mounted) return;
-        setState(() {
-          _carregando = false;
-          _erro = true;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Usuário não autenticado')),
-        );
-        return;
-      }
-
-      // 2. Busca o nível e filial do usuário
-      final userResponse = await Supabase.instance.client
+      // Busca o ID da filial do usuário logado
+      final usuarioResponse = await supabase
           .from('usuarios')
-          .select('id_filial, nivel')
-          .eq('id', userId)
+          .select('id_filial')
+          .eq('id', supabase.auth.currentUser!.id)
           .single();
 
-      // CORREÇÃO: Trata o caso onde id_filial pode ser null
-      final idFilialUsuario = userResponse['id_filial']?.toString();
-      final nivelUsuario = userResponse['nivel'] as int;
+      final idFilial = usuarioResponse['id_filial'];
 
-      // 3. Se usuário for nível 3, carrega TODOS os tanques
-      if (nivelUsuario == 3) {
-        final response = await Supabase.instance.client
-            .from('tanques')
-            .select('*')
-            .order('referencia');
+      // Busca os tanques com JOIN para pegar o nome do produto
+      final tanquesResponse = await supabase
+          .from('tanques')
+          .select('''
+            referencia,
+            capacidade,
+            id_produto,
+            produtos (nome)
+          ''')
+          .eq('id_filial', idFilial)
+          .order('referencia');
 
-        if (!mounted) return;
-        setState(() {
-          _tanques = List<Map<String, dynamic>>.from(response);
-          _carregando = false;
-        });
-      } else {
-        // 4. Se não for nível 3 E tiver id_filial, carrega APENAS os tanques da filial
-        if (idFilialUsuario == null) {
-          if (!mounted) return;
-          setState(() {
-            _carregando = false;
-            _erro = true;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Usuário não possui filial definida')),
-          );
-          return;
-        }
-
-        final response = await Supabase.instance.client
-            .from('tanques')
-            .select('*')
-            .eq('id_filial', idFilialUsuario)
-            .order('referencia');
-
-        if (!mounted) return;
-        setState(() {
-          _tanques = List<Map<String, dynamic>>.from(response);
-          _carregando = false;
+      // Transforma a resposta no formato que precisamos
+      final List<Map<String, dynamic>> tanquesFormatados = [];
+      
+      for (final tanque in tanquesResponse) {
+        tanquesFormatados.add({
+          'referencia': tanque['referencia'],
+          'produto_nome': tanque['produtos']?['nome'] ?? 'PRODUTO NÃO INFORMADO',
+          'capacidade': '${tanque['capacidade']} L', // Adiciona "L" para litros
         });
       }
-    } catch (e) {
-      if (!mounted) return;
+
       setState(() {
+        tanques = tanquesFormatados;
         _carregando = false;
-        _erro = true;
       });
-      debugPrint('Erro ao carregar tanques: $e');
-      
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao carregar tanques: ${e.toString()}')),
-      );
+
+      // Inicializa os controllers para cada tanque
+      for (int i = 0; i < tanques.length; i++) {
+        _controllers.add([
+          TextEditingController(text: '06:00'),
+          TextEditingController(text: '735'), TextEditingController(text: '35'),
+          TextEditingController(text: '28.5'), TextEditingController(text: '0.745'),
+          TextEditingController(text: '28.0'), TextEditingController(),
+          TextEditingController(text: '18:00'),
+          TextEditingController(text: '685'), TextEditingController(text: '20'),
+          TextEditingController(text: '29.0'), TextEditingController(text: '0.745'),
+          TextEditingController(text: '28.5'), TextEditingController(),
+        ]);
+      }
+    } catch (e) {
+      setState(() {
+        _erro = 'Erro ao carregar tanques: $e';
+        _carregando = false;
+      });
+      print('Erro ao carregar tanques: $e');
     }
+  }
+
+  @override
+  void dispose() {
+    _dataController.dispose();
+    for (var list in _controllers) { for (var c in list) c.dispose(); }
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1000),
-          child: Column(
-            children: [
-              // Cabeçalho
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF8F9FA),
-                  border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
-                ),
-                child: Row(children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
-                    onPressed: widget.onVoltar,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 8),
-                  const Text('Gerenciar Tanques',
-                      style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Colors.black87)),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.refresh, color: Color(0xFF0D47A1)),
-                    onPressed: _carregarTanques,
-                    tooltip: 'Atualizar lista',
-                  ),
-                ]),
+      body: Column(
+        children: [
+          // === CABEÇALHO ===
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8F9FA),
+              border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
+            ),
+            child: Row(children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
+                onPressed: widget.onVoltar,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
               ),
+              const SizedBox(width: 8),
+              const Text('Medição de tanques',
+                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Colors.black87)),
+              const SizedBox(width: 20),
+              const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
+              const SizedBox(width: 6),
+              Text(_dataController.text, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(width: 20),
+              const Icon(Icons.person, size: 16, color: Colors.grey),
+              const SizedBox(width: 6),
+              const Text('João Silva', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const Spacer(),
+            ]),
+          ),
 
-              // Conteúdo
-              Expanded(
-                child: _carregando
-                    ? _buildCarregando()
-                    : _erro
-                        ? _buildErro()
-                        : _tanques.isEmpty
-                            ? _buildListaVazia()
-                            : _buildListaTanques(),
+          // === MENU DE NAVEGAÇÃO DOS TANQUES ===
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                bottom: BorderSide(color: Colors.grey.shade300, width: 1),
               ),
-            ],
-          ),
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _mostrarFormularioAdicionar,
-        backgroundColor: const Color(0xFF0D47A1),
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
-    );
-  }
-
-  Widget _buildCarregando() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(color: Color(0xFF0D47A1)),
-          SizedBox(height: 16),
-          Text(
-            'Carregando tanques...',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErro() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.error_outline,
-            size: 64,
-            color: Colors.red,
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Erro ao carregar tanques',
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.red,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Verifique sua conexão e tente novamente.',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _carregarTanques,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0D47A1),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-            child: const Text('Tentar Novamente'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildListaVazia() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.storage,
-            size: 80,
-            color: Colors.grey[400],
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Nenhum tanque cadastrado',
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.grey,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Clique no botão + para adicionar o primeiro tanque.',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildListaTanques() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Cabeçalho da lista
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Row(
-              children: [
-                const Icon(Icons.list, color: Color(0xFF0D47A1), size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  'Tanques Cadastrados (${_tanques.length})',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: Color(0xFF0D47A1),
-                    fontWeight: FontWeight.bold,
-                  ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.shade200,
+                  blurRadius: 2,
+                  offset: const Offset(0, 1),
                 ),
               ],
             ),
+            child: _carregando 
+                ? _buildLoadingIndicator()
+                : _erro != null
+                    ? _buildErrorIndicator()
+                    : tanques.isEmpty
+                        ? _buildEmptyIndicator()
+                        : SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: tanques.asMap().entries.map((entry) {
+                                final index = entry.key;
+                                final tanque = entry.value;
+                                final isSelected = index == _tanqueSelecionadoIndex;
+                                
+                                return Container(
+                                  margin: const EdgeInsets.only(right: 8),
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _tanqueSelecionadoIndex = index;
+                                      });
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: isSelected ? const Color(0xFF0D47A1) : Colors.white,
+                                      foregroundColor: isSelected ? Colors.white : const Color(0xFF0D47A1),
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        side: BorderSide(
+                                          color: isSelected ? const Color(0xFF0D47A1) : Colors.grey.shade300,
+                                          width: 1,
+                                        ),
+                                      ),
+                                      elevation: isSelected ? 2 : 0,
+                                      shadowColor: Colors.grey.shade300,
+                                    ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          tanque['referencia'], // Usa referencia do banco
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color: isSelected ? Colors.white : const Color(0xFF0D47A1),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          tanque['produto_nome'], // Usa produto_nome do JOIN
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: isSelected ? Colors.white70 : Colors.grey.shade600,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
           ),
 
-          // Lista de tanques
+          // === CONTEÚDO PRINCIPAL ===
           Expanded(
-            child: ListView.separated(
-              itemCount: _tanques.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final tanque = _tanques[index];
-                return _buildCardTanque(tanque);
-              },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              child: _carregando 
+                  ? _buildLoadingCard()
+                  : _erro != null
+                      ? _buildErrorCard()
+                      : tanques.isEmpty
+                          ? _buildEmptyCard()
+                          : _buildTanqueCard(tanques[_tanqueSelecionadoIndex], _tanqueSelecionadoIndex),
             ),
           ),
         ],
@@ -302,228 +234,430 @@ class _TanquesPageState extends State<TanquesPage> {
     );
   }
 
-  Widget _buildCardTanque(Map<String, dynamic> tanque) {
-    return Card(
-      elevation: 2,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade200),
-          borderRadius: BorderRadius.circular(12),
+  Widget _buildLoadingIndicator() {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: SizedBox(
+          height: 20,
+          width: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              // Ícone do tanque
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0D47A1).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(25),
-                ),
-                child: const Icon(
-                  Icons.storage,
-                  color: Color(0xFF0D47A1),
-                  size: 24,
+      ),
+    );
+  }
+
+  Widget _buildErrorIndicator() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 16, color: Colors.red.shade600),
+            const SizedBox(width: 8),
+            Text(
+              _erro!,
+              style: TextStyle(fontSize: 12, color: Colors.red.shade600),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyIndicator() {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Text(
+          'Nenhum tanque encontrado',
+          style: TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingCard() {
+    return Card(
+      elevation: 3,
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(height: 20),
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Carregando tanques...', style: TextStyle(fontSize: 16)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorCard() {
+    return Card(
+      elevation: 3,
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
+            const SizedBox(height: 16),
+            Text(
+              'Erro ao carregar',
+              style: TextStyle(fontSize: 16, color: Colors.red.shade600),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                _erro!,
+                style: TextStyle(fontSize: 14, color: Colors.red.shade500),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _carregarTanques,
+              child: const Text('Tentar Novamente'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyCard() {
+    return Card(
+      elevation: 3,
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              'Nenhum tanque encontrado',
+              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Não há tanques cadastrados para esta filial',
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTanqueCard(Map<String, dynamic> tanque, int index) {
+    final ctrls = _controllers[index];
+
+    return SingleChildScrollView(
+      child: Card(
+        elevation: 3,
+        margin: EdgeInsets.zero,
+        color: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Column(
+          children: [
+            // Cabeçalho do card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+              decoration: const BoxDecoration(
+                color: Color(0xFF0D47A1),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
                 ),
               ),
-              const SizedBox(width: 16),
-
-              // Informações principais
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0D47A1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            tanque['referencia'] ?? '',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            tanque['produto'] ?? 'PRODUTO NÃO INFORMADO',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        _buildInfoItem(
-                          Icons.science,
-                          'Capacidade',
-                          tanque['capacidade'] ?? '',
-                        ),
-                        const SizedBox(width: 20),
-                        _buildInfoItem(
-                          Icons.business,
-                          'Filial',
-                          _formatarFilial(tanque['id_filial']),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              // Ações
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert, color: Colors.grey),
-                onSelected: (value) {
-                  _executarAcao(value, tanque);
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'editar',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit, size: 18, color: Colors.blue),
-                        SizedBox(width: 8),
-                        Text('Editar'),
-                      ],
+                    child: Text(
+                      tanque['referencia'], // Usa referencia do banco
+                      style: const TextStyle(
+                        color: Color(0xFF0D47A1),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
-                  const PopupMenuItem(
-                    value: 'excluir',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete, size: 18, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('Excluir'),
-                      ],
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      tanque['produto_nome'], // Usa produto_nome do JOIN
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    tanque['capacidade'],
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+
+            // Conteúdo do card
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth > 700;
+                  
+                  return isWide
+                      ? _buildWideLayout(ctrls)
+                      : _buildNarrowLayout(ctrls);
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildInfoItem(IconData icon, String label, String value) {
+  Widget _buildWideLayout(List<TextEditingController> ctrls) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 14, color: Colors.grey[600]),
-        const SizedBox(width: 4),
-        Text(
-          '$label: ',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-            fontWeight: FontWeight.w500,
+        Expanded(
+          child: _buildSection(
+            '1ª Medição',
+            'Manhã',
+            Colors.blue[50]!,
+            Colors.blue,
+            ctrls.sublist(0, 7),
           ),
         ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.black87,
-            fontWeight: FontWeight.w600,
+        const SizedBox(width: 20),
+        Expanded(
+          child: _buildSection(
+            '2ª Medição',
+            ' Tarde',
+            Colors.green[50]!,
+            Colors.green,
+            ctrls.sublist(7, 14),
           ),
         ),
       ],
     );
   }
 
-  String _formatarFilial(dynamic idFilial) {
-    if (idFilial == null) return 'Não informada';
-    final String id = idFilial.toString();
-    return '${id.substring(0, 8)}...';
-  }
-
-  void _executarAcao(String acao, Map<String, dynamic> tanque) {
-    switch (acao) {
-      case 'editar':
-        _mostrarFormularioEditar(tanque);
-        break;
-      case 'excluir':
-        _confirmarExclusao(tanque);
-        break;
-    }
-  }
-
-  void _mostrarFormularioAdicionar() {
-    // TODO: Implementar formulário de adição
-    _mostrarSnackBar('Funcionalidade em desenvolvimento - Adicionar Tanque');
-  }
-
-  void _mostrarFormularioEditar(Map<String, dynamic> tanque) {
-    // TODO: Implementar formulário de edição
-    _mostrarSnackBar('Funcionalidade em desenvolvimento - Editar ${tanque['referencia']}');
-  }
-
-  void _confirmarExclusao(Map<String, dynamic> tanque) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmar Exclusão'),
-        content: Text(
-          'Tem certeza que deseja excluir o tanque ${tanque['referencia']}?',
+  Widget _buildNarrowLayout(List<TextEditingController> ctrls) {
+    return Column(
+      children: [
+        _buildSection(
+          'MANHÃ',
+          '06:00h',
+          Colors.blue[50]!,
+          Colors.blue,
+          ctrls.sublist(0, 7),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+        const SizedBox(height: 16),
+        _buildSection(
+          'TARDE',
+          '18:00h',
+          Colors.green[50]!,
+          Colors.green,
+          ctrls.sublist(7, 14),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSection(String periodo, String hora, Color bg, Color accent, List<TextEditingController> c) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: accent.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Cabeçalho da seção
+          Row(
+            children: [
+              Icon(Icons.access_time, size: 16, color: accent),
+              const SizedBox(width: 8),
+              Text(
+                '$periodo - $hora',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: accent,
+                  fontSize: 14,
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _excluirTanque(tanque);
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Excluir'),
+          const SizedBox(height: 16),
+
+          // Linha 1 - Horário da medição, cm e mm
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildTimeField('Horário Medição', c[0], '06:00', width: 120),
+              _buildField('cm', c[1], '735', width: 100),
+              _buildField('mm', c[2], '35', width: 100),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Linha 2 - 3 campos
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildField('Temp. Tanque', c[3], '28.5', width: 110, decimal: true),
+              _buildField('Densidade', c[4], '0.745', width: 110, decimal: true),
+              _buildField('Temp. Amostra', c[5], '28.0', width: 110, decimal: true),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Observações
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Observações:',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: c[6],
+                maxLines: 2,
+                decoration: InputDecoration(
+                  hintText: 'Digite suas observações...',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.all(12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: Colors.grey.shade400),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: accent, width: 1.5),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Future<void> _excluirTanque(Map<String, dynamic> tanque) async {
-    try {
-      await _supabase
-          .from('tanques')
-          .delete()
-          .eq('id', tanque['id']);
-
-      _mostrarSnackBar('Tanque ${tanque['referencia']} excluído com sucesso!');
-      _carregarTanques();
-    } catch (e) {
-      _mostrarSnackBar('Erro ao excluir tanque: $e', isError: true);
-    }
+  Widget _buildField(String label, TextEditingController ctrl, String hint, {double width = 100, bool decimal = false}) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          width: width,
+          height: 40,
+          child: TextFormField(
+            controller: ctrl,
+            textAlign: TextAlign.center,
+            keyboardType: TextInputType.numberWithOptions(decimal: decimal),
+            style: const TextStyle(fontSize: 14),
+            decoration: InputDecoration(
+              hintText: hint,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(color: Colors.grey.shade400),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.5),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
-  void _mostrarSnackBar(String mensagem, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(mensagem),
-        backgroundColor: isError ? Colors.red : const Color(0xFF0D47A1),
-        behavior: SnackBarBehavior.floating,
-      ),
+  Widget _buildTimeField(String label, TextEditingController ctrl, String hint, {double width = 100}) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          width: width,
+          height: 40,
+          child: TextFormField(
+            controller: ctrl,
+            textAlign: TextAlign.center,
+            keyboardType: TextInputType.datetime,
+            style: const TextStyle(fontSize: 14),
+            decoration: InputDecoration(
+              hintText: hint,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: BorderSide(color: Colors.grey.shade400),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+                borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.5),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../login_page.dart';
 
 class MedicaoTanquesPage extends StatefulWidget {
   final VoidCallback onVoltar;
@@ -9,34 +11,101 @@ class MedicaoTanquesPage extends StatefulWidget {
 }
 
 class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
-  final List<Map<String, dynamic>> tanques = [
-    {'numero': 'TQ-001', 'produto': 'GASOLINA COMUM', 'capacidade': '50.000 L'},
-    {'numero': 'TQ-002', 'produto': 'ÓLEO DIESEL S10', 'capacidade': '75.000 L'},
-    {'numero': 'TQ-003', 'produto': 'ETANOL HIDRATADO', 'capacidade': '30.000 L'},
-    {'numero': 'TQ-004', 'produto': 'GASOLINA PREMIUM', 'capacidade': '25.000 L'},
-  ];
-
+  List<Map<String, dynamic>> tanques = [];
   final List<List<TextEditingController>> _controllers = [];
   final TextEditingController _dataController = TextEditingController(
     text: '${DateTime.now().day.toString().padLeft(2,'0')}/${DateTime.now().month.toString().padLeft(2,'0')}/${DateTime.now().year}'
   );
   
   int _tanqueSelecionadoIndex = 0;
+  bool _carregando = true;
 
   @override
   void initState() {
     super.initState();
-    for (int i = 0; i < tanques.length; i++) {
-      _controllers.add([
-        TextEditingController(text: '06:00'), // NOVO: Horário da medição MANHÃ
-        TextEditingController(text: '735'), TextEditingController(text: '35'),
-        TextEditingController(text: '28.5'), TextEditingController(text: '0.745'),
-        TextEditingController(text: '28.0'), TextEditingController(),
-        TextEditingController(text: '18:00'), // NOVO: Horário da medição TARDE
-        TextEditingController(text: '685'), TextEditingController(text: '20'),
-        TextEditingController(text: '29.0'), TextEditingController(text: '0.745'),
-        TextEditingController(text: '28.5'), TextEditingController(),
-      ]);
+    _carregarTanques();
+  }
+
+  Future<void> _carregarTanques() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final usuario = UsuarioAtual.instance!;
+      
+      // SE USUÁRIO É NÍVEL 3 (ADMIN), BUSCA TODOS OS TANQUES
+      // SE NÃO, USA O FILTRO POR FILIAL
+      final PostgrestTransformBuilder<dynamic> query;
+      
+      if (usuario.nivel == 3) {
+        // Admin - busca todos os tanques sem filtrar por filial
+        query = supabase
+            .from('tanques')
+            .select('''
+              referencia,
+              capacidade,
+              id_produto,
+              produtos (produto)
+            ''')
+            .order('referencia');
+      } else {
+        // Usuário normal - filtra pela filial
+        final idFilial = usuario.filialId;
+        if (idFilial == null) {
+          print('Erro: ID da filial não encontrado para usuário não-admin');
+          setState(() {
+            _carregando = false;
+          });
+          return;
+        }
+        
+        query = supabase
+            .from('tanques')
+            .select('''
+              referencia,
+              capacidade,
+              id_produto,
+              produtos (produto)
+            ''')
+            .eq('id_filial', idFilial)
+            .order('referencia');
+      }
+
+      // Executa a query
+      final tanquesResponse = await query;
+
+      // Transforma a resposta no formato que precisamos
+      final List<Map<String, dynamic>> tanquesFormatados = [];
+      
+      for (final tanque in tanquesResponse) {
+        tanquesFormatados.add({
+          'referencia': tanque['referencia'],
+          'produto_nome': tanque['produtos']?['produto'] ?? 'PRODUTO NÃO INFORMADO',
+          'capacidade': '${tanque['capacidade']} L',
+        });
+      }
+
+      setState(() {
+        tanques = tanquesFormatados;
+        _carregando = false;
+      });
+
+      // Inicializa os controllers para cada tanque
+      for (int i = 0; i < tanques.length; i++) {
+        _controllers.add([
+          TextEditingController(text: '06:00'),
+          TextEditingController(text: '735'), TextEditingController(text: '35'),
+          TextEditingController(text: '28.5'), TextEditingController(text: '0.745'),
+          TextEditingController(text: '28.0'), TextEditingController(),
+          TextEditingController(text: '18:00'),
+          TextEditingController(text: '685'), TextEditingController(text: '20'),
+          TextEditingController(text: '29.0'), TextEditingController(text: '0.745'),
+          TextEditingController(text: '28.5'), TextEditingController(),
+        ]);
+      }
+    } catch (e) {
+      setState(() {
+        _carregando = false;
+      });
+      print('Erro ao carregar tanques: $e');
     }
   }
 
@@ -78,12 +147,12 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               const SizedBox(width: 20),
               const Icon(Icons.person, size: 16, color: Colors.grey),
               const SizedBox(width: 6),
-              const Text('João Silva', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              Text(UsuarioAtual.instance?.nome ?? 'Usuário', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
               const Spacer(),
             ]),
           ),
 
-          // === MENU DE NAVEGAÇÃO DOS TANQUES - NOVO LAYOUT ===
+          // === MENU DE NAVEGAÇÃO DOS TANQUES ===
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -100,64 +169,68 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                 ),
               ],
             ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: tanques.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final tanque = entry.value;
-                  final isSelected = index == _tanqueSelecionadoIndex;
-                  
-                  return Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    child: ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          _tanqueSelecionadoIndex = index;
-                        });
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isSelected ? const Color(0xFF0D47A1) : Colors.white,
-                        foregroundColor: isSelected ? Colors.white : const Color(0xFF0D47A1),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          side: BorderSide(
-                            color: isSelected ? const Color(0xFF0D47A1) : Colors.grey.shade300,
-                            width: 1,
-                          ),
+            child: _carregando 
+                ? _buildLoadingIndicator()
+                : tanques.isEmpty
+                    ? _buildEmptyIndicator()
+                    : SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: tanques.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final tanque = entry.value;
+                            final isSelected = index == _tanqueSelecionadoIndex;
+                            
+                            return Container(
+                              margin: const EdgeInsets.only(right: 8),
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _tanqueSelecionadoIndex = index;
+                                  });
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: isSelected ? const Color(0xFF0D47A1) : Colors.white,
+                                  foregroundColor: isSelected ? Colors.white : const Color(0xFF0D47A1),
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    side: BorderSide(
+                                      color: isSelected ? const Color(0xFF0D47A1) : Colors.grey.shade300,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  elevation: isSelected ? 2 : 0,
+                                  shadowColor: Colors.grey.shade300,
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      tanque['referencia'],
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: isSelected ? Colors.white : const Color(0xFF0D47A1),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      tanque['produto_nome'],
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: isSelected ? Colors.white70 : Colors.grey.shade600,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
                         ),
-                        elevation: isSelected ? 2 : 0,
-                        shadowColor: Colors.grey.shade300,
                       ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            tanque['numero'],
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                              color: isSelected ? Colors.white : const Color(0xFF0D47A1),
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            tanque['produto'],
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: isSelected ? Colors.white70 : Colors.grey.shade600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
           ),
 
           // === CONTEÚDO PRINCIPAL ===
@@ -165,10 +238,86 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
-              child: _buildTanqueCard(tanques[_tanqueSelecionadoIndex], _tanqueSelecionadoIndex),
+              child: _carregando 
+                  ? _buildLoadingCard()
+                  : tanques.isEmpty
+                      ? _buildEmptyCard()
+                      : _buildTanqueCard(tanques[_tanqueSelecionadoIndex], _tanqueSelecionadoIndex),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingIndicator() {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: SizedBox(
+          height: 20,
+          width: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyIndicator() {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Text(
+          'Nenhum tanque encontrado',
+          style: TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingCard() {
+    return Card(
+      elevation: 3,
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(height: 20),
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Carregando tanques...', style: TextStyle(fontSize: 16)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyCard() {
+    return Card(
+      elevation: 3,
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              'Nenhum tanque encontrado',
+              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Não há tanques cadastrados para esta filial',
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -204,7 +353,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      tanque['numero'],
+                      tanque['referencia'],
                       style: const TextStyle(
                         color: Color(0xFF0D47A1),
                         fontWeight: FontWeight.bold,
@@ -215,7 +364,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: Text(
-                      tanque['produto'],
+                      tanque['produto_nome'],
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -266,7 +415,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
             'Manhã',
             Colors.blue[50]!,
             Colors.blue,
-            ctrls.sublist(0, 7), // ATUALIZADO: agora 7 campos
+            ctrls.sublist(0, 7),
           ),
         ),
         const SizedBox(width: 20),
@@ -276,7 +425,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
             ' Tarde',
             Colors.green[50]!,
             Colors.green,
-            ctrls.sublist(7, 14), // ATUALIZADO: agora 7 campos
+            ctrls.sublist(7, 14),
           ),
         ),
       ],
@@ -291,7 +440,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           '06:00h',
           Colors.blue[50]!,
           Colors.blue,
-          ctrls.sublist(0, 7), // ATUALIZADO: agora 7 campos
+          ctrls.sublist(0, 7),
         ),
         const SizedBox(height: 16),
         _buildSection(
@@ -299,7 +448,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           '18:00h',
           Colors.green[50]!,
           Colors.green,
-          ctrls.sublist(7, 14), // ATUALIZADO: agora 7 campos
+          ctrls.sublist(7, 14),
         ),
       ],
     );
@@ -432,7 +581,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     );
   }
 
-  // NOVO MÉTODO: Campo para horário da medição
   Widget _buildTimeField(String label, TextEditingController ctrl, String hint, {double width = 100}) {
     return Column(
       children: [

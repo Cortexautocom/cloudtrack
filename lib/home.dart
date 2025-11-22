@@ -440,7 +440,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 },
               )
             : _mostrarTanques // NOVA CONDIÇÃO PARA MÓDULO TANQUES
-            ? TanquesPage(
+            ? GerenciamentoTanquesPage(
                 onVoltar: () {
                   setState(() {
                     _mostrarTanques = false;
@@ -588,7 +588,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         setState(() {
           _veioDaApuracao = true;
           _mostrarApuracaoFilhos = false;
-          _mostrarMedicaoTanques = true;
+          _mostrarMedicaoTanques = true; // ← Abre MEDIÇÃO diária
         });
         break;
       case 'CACL':
@@ -598,12 +598,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _mostrarFormCalc = true;
         });
         break;
-      // ADICIONE ESTE NOVO CASO:
       case 'Tanques':
         setState(() {
           _veioDaApuracao = true;
           _mostrarApuracaoFilhos = false;
-          _mostrarTanques = true;
+          _mostrarTanques = true; // ← Abre GERENCIAMENTO de tanques
         });
         break;
     }
