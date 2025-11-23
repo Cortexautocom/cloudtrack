@@ -273,22 +273,23 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Card de estatísticas
+          // Card de estatísticas COMPACTO
           Card(
             elevation: 2,
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildEstatistica('Total', tanques.length.toString(), Icons.storage),
-                  const SizedBox(width: 20),
-                  _buildEstatistica(
+                  _buildEstatisticaCompacta('Total', tanques.length.toString(), Icons.storage),
+                  Container(height: 30, width: 1, color: Colors.grey.shade300),
+                  _buildEstatisticaCompacta(
                     'Em operação', 
                     tanques.where((t) => t['status'] == 'Em operação').length.toString(), 
                     Icons.check_circle
                   ),
-                  const SizedBox(width: 20),
-                  _buildEstatistica(
+                  Container(height: 30, width: 1, color: Colors.grey.shade300),
+                  _buildEstatisticaCompacta(
                     'Suspensos', 
                     tanques.where((t) => t['status'] == 'Operação suspensa').length.toString(), 
                     Icons.pause_circle
@@ -311,6 +312,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                   margin: const EdgeInsets.only(bottom: 8),
                   elevation: 1,
                   child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     leading: Container(
                       width: 40,
                       height: 40,
@@ -321,56 +323,75 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                       child: Icon(
                         isOperando ? Icons.storage : Icons.pause_circle,
                         color: isOperando ? Colors.green : Colors.orange,
-                        size: 24,
+                        size: 20,
                       ),
                     ),
-                    title: Text(
-                      tanque['referencia'],
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    title: Row(
                       children: [
-                        Text(
-                          tanque['produto'],
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                tanque['referencia'],
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                tanque['produto'],
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Capacidade: ${tanque['capacidade']}',
-                          style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
+                        const SizedBox(width: 8),
+                        // Tag de Capacidade
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: isOperando ? Colors.green.shade100 : Colors.orange.shade100,
+                            color: Colors.blue.shade50,
                             borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.blue.shade200),
                           ),
                           child: Text(
-                            tanque['status'],
+                            '${tanque['capacidade']}L',
                             style: TextStyle(
-                              color: isOperando ? Colors.green.shade800 : Colors.orange.shade800,
-                              fontSize: 10,
+                              color: Colors.blue.shade800,
+                              fontSize: 11,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
+                        // Tag de Status
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isOperando ? Colors.green.shade50 : Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isOperando ? Colors.green.shade200 : Colors.orange.shade200,
+                            ),
+                          ),
+                          child: Text(
+                            tanque['status'],
+                            style: TextStyle(
+                              color: isOperando ? Colors.green.shade800 : Colors.orange.shade800,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Botão de edição
                         IconButton(
-                          icon: const Icon(Icons.edit, size: 20),
+                          icon: const Icon(Icons.edit, size: 18),
                           onPressed: () => _editarTanque(tanque),
                           color: const Color(0xFF0D47A1),
                           padding: EdgeInsets.zero,
@@ -389,29 +410,34 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
     );
   }
 
-  Widget _buildEstatistica(String titulo, String valor, IconData icone) {
-    return Expanded(
-      child: Column(
-        children: [
-          Icon(icone, size: 24, color: const Color(0xFF0D47A1)),
-          const SizedBox(height: 4),
-          Text(
-            valor,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF0D47A1),
+  Widget _buildEstatisticaCompacta(String titulo, String valor, IconData icone) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icone, size: 16, color: const Color(0xFF0D47A1)),
+            const SizedBox(width: 4),
+            Text(
+              valor,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0D47A1),
+              ),
             ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          titulo,
+          style: const TextStyle(
+            fontSize: 11,
+            color: Colors.grey,
           ),
-          Text(
-            titulo,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.grey,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
