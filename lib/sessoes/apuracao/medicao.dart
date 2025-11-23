@@ -402,7 +402,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         Expanded(
           child: _buildSection(
             '1ª Medição',
-            'Manhã',
+            'Abertura',
             Colors.blue[50]!,
             Colors.blue,
             ctrls.sublist(0, 7),
@@ -412,7 +412,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         Expanded(
           child: _buildSection(
             '2ª Medição',
-            ' Tarde',
+            ' Fechamento',
             Colors.green[50]!,
             Colors.green,
             ctrls.sublist(7, 14),
