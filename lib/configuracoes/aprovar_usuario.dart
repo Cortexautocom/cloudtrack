@@ -77,7 +77,7 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
 
       final int nivel =
           nivelSelecionado == "Gerência e supervisão ♦ Nível 2" ||
-                  nivelSelecionado == "Diretoria e Administração ♦ Nível 2"
+                  nivelSelecionado == "Diretoria e Administração ♦ Nível 3"
               ? 2
               : 1;
 
@@ -212,8 +212,8 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
                   child: Text("Gerência e supervisão ♦ Nível 2"),
                 ),
                 DropdownMenuItem(
-                  value: "Diretoria e Administração ♦ Nível 2",
-                  child: Text("Diretoria e Administração ♦ Nível 2"),
+                  value: "Diretoria e Administração ♦ Nível 3",
+                  child: Text("Diretoria e Administração ♦ Nível 3"),
                 ),
               ],
               onChanged: (v) => setState(() => nivelSelecionado = v),

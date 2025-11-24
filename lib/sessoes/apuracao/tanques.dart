@@ -117,7 +117,21 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       _editando = true;
       _tanqueEditando = tanque;
       _referenciaController.text = tanque['referencia'];
-      _capacidadeController.text = tanque['capacidade'];
+      
+      // Formata a capacidade existente para o novo padrão
+      final capacidade = tanque['capacidade'];
+      if (capacidade != null && capacidade.isNotEmpty) {
+        final valorNumerico = int.tryParse(capacidade.replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
+        if (valorNumerico >= 1000) {
+          final parteMilhar = (valorNumerico ~/ 1000).toString();
+          _capacidadeController.text = '${parteMilhar}.000';
+        } else {
+          _capacidadeController.text = '1.000'; // Valor mínimo
+        }
+      } else {
+        _capacidadeController.text = '1.000'; // Valor padrão
+      }
+      
       _produtoSelecionado = tanque['id_produto']?.toString();
       _statusSelecionado = tanque['status'];
     });
@@ -134,13 +148,71 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
     });
   }
 
+  // Função para aplicar máscara no campo capacidade
+  // Função para aplicar máscara no campo capacidade
+  void _aplicarMascaraCapacidade(String valor) {
+    // Se o texto já está formatado corretamente, não faz nada
+    if (valor.endsWith('.000') && valor.length > 4) {
+      return;
+    }
+
+    // Remove todos os caracteres não numéricos
+    String digitsOnly = valor.replaceAll(RegExp(r'[^\d]'), '');
+    
+    // Se estiver vazio, define como 1.000
+    if (digitsOnly.isEmpty) {
+      _capacidadeController.text = '1.000';
+      _capacidadeController.selection = TextSelection.fromPosition(
+        TextPosition(offset: 1),
+      );
+      return;
+    }
+    
+    // Remove zeros à esquerda, mas garante pelo menos 1
+    int valorNumerico = int.parse(digitsOnly);
+    if (valorNumerico < 1) {
+      valorNumerico = 1;
+    }
+    
+    // Formata como X.000
+    final parteMilhar = valorNumerico.toString();
+    final novoTexto = '${parteMilhar}.000';
+    
+    // Só atualiza se for diferente do texto atual
+    if (_capacidadeController.text != novoTexto) {
+      _capacidadeController.text = novoTexto;
+      
+      // Posiciona o cursor antes do ponto
+      final cursorPosition = parteMilhar.length;
+      _capacidadeController.selection = TextSelection.fromPosition(
+        TextPosition(offset: cursorPosition),
+      );
+    }
+  }
+
   Future<void> _salvarTanque() async {
+    // Validação do valor mínimo
+    final capacidadeTexto = _capacidadeController.text.trim();
+    final valorNumerico = int.tryParse(capacidadeTexto.replaceAll('.', '')) ?? 0;
+    
+    if (valorNumerico < 1000) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('A capacidade deve ser de no mínimo 1.000 litros'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
     try {
       final supabase = Supabase.instance.client;
       
       final Map<String, dynamic> dadosAtualizados = {
         'referencia': _referenciaController.text.trim(),
-        'capacidade': _capacidadeController.text.trim(),
+        'capacidade': capacidadeTexto,
         'status': _statusSelecionado,
         'id_produto': _produtoSelecionado,
       };
@@ -360,7 +432,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                             border: Border.all(color: Colors.blue.shade200),
                           ),
                           child: Text(
-                            '${tanque['capacidade']}L',
+                            '${tanque['capacidade']} Litros',
                             style: TextStyle(
                               color: Colors.blue.shade800,
                               fontSize: 11,
@@ -444,136 +516,145 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
   Widget _buildFormularioEdicao() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Informações do Tanque',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0D47A1),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Referência
-                  TextFormField(
-                    controller: _referenciaController,
-                    decoration: const InputDecoration(
-                      labelText: 'Referência *',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.tag),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Capacidade
-                  TextFormField(
-                    controller: _capacidadeController,
-                    decoration: const InputDecoration(
-                      labelText: 'Capacidade *',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.analytics),
-                      suffixText: 'L',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Produto
-                  DropdownButtonFormField<String>(
-                    value: _produtoSelecionado,
-                    decoration: const InputDecoration(
-                      labelText: 'Produto *',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.local_gas_station),
-                    ),
-                    items: [
-                      const DropdownMenuItem(
-                        value: null,
-                        child: Text('Selecione um produto'),
-                      ),
-                      ...produtos.map((produto) {
-                        return DropdownMenuItem(
-                          value: produto['id']?.toString(),
-                          child: Text(produto['nome']?.toString() ?? ''),
-                        );
-                      }).toList(),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _produtoSelecionado = value;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Status
-                  DropdownButtonFormField<String>(
-                    value: _statusSelecionado,
-                    decoration: const InputDecoration(
-                      labelText: 'Status *',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.info),
-                    ),
-                    items: _statusOptions.map((status) {
-                      return DropdownMenuItem(
-                        value: status,
-                        child: Text(status),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _statusSelecionado = value;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Botões
-                  Row(
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Card(
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: _cancelarEdicao,
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            side: const BorderSide(color: Color(0xFF0D47A1)),
-                          ),
-                          child: const Text(
-                            'Cancelar',
-                            style: TextStyle(color: Color(0xFF0D47A1)),
-                          ),
+                      const Text(
+                        'Informações do Tanque',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0D47A1),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _salvarTanque,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0D47A1),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          child: const Text(
-                            'Salvar',
-                            style: TextStyle(color: Colors.white),
-                          ),
+                      const SizedBox(height: 20),
+
+                      // Referência
+                      TextFormField(
+                        controller: _referenciaController,
+                        decoration: const InputDecoration(
+                          labelText: 'Referência *',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.tag),
                         ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Capacidade com máscara
+                      TextFormField(
+                        controller: _capacidadeController,
+                        decoration: const InputDecoration(
+                          labelText: 'Capacidade *',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.analytics),
+                          suffixText: 'Litros',
+                          hintText: '1.000',
+                        ),
+                        keyboardType: TextInputType.number,
+                        onChanged: _aplicarMascaraCapacidade,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Produto
+                      DropdownButtonFormField<String>(
+                        value: _produtoSelecionado,
+                        decoration: const InputDecoration(
+                          labelText: 'Produto *',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.local_gas_station),
+                        ),
+                        items: [
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('Selecione um produto'),
+                          ),
+                          ...produtos.map((produto) {
+                            return DropdownMenuItem(
+                              value: produto['id']?.toString(),
+                              child: Text(produto['nome']?.toString() ?? ''),
+                            );
+                          }).toList(),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            _produtoSelecionado = value;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Status
+                      DropdownButtonFormField<String>(
+                        value: _statusSelecionado,
+                        decoration: const InputDecoration(
+                          labelText: 'Status *',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.info),
+                        ),
+                        items: _statusOptions.map((status) {
+                          return DropdownMenuItem(
+                            value: status,
+                            child: Text(status),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _statusSelecionado = value;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Botões
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _cancelarEdicao,
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                side: const BorderSide(color: Color(0xFF0D47A1)),
+                              ),
+                              child: const Text(
+                                'Cancelar',
+                                style: TextStyle(color: Color(0xFF0D47A1)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _salvarTanque,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0D47A1),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              child: const Text(
+                                'Salvar',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
