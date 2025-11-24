@@ -879,7 +879,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
           SizedBox(height: 20),
           Text(
-            'Bem-vindo ao CloudTrack!',
+            usuario != null 
+              ? 'Olá, ${usuario.nome}! Bem-vindo ao CloudTrack!'
+              : 'Bem-vindo ao CloudTrack!',
             style: TextStyle(
               fontSize: 24,
               color: Color(0xFF0D47A1),

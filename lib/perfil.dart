@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'login_page.dart';
-import 'alterar_senha.dart';
+import 'configuracoes/alterar_senha.dart';
 
 class PerfilPage extends StatefulWidget {
   const PerfilPage({super.key});

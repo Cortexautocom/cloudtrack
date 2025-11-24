@@ -310,7 +310,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
     final confirmar = await _mostrarDialogoConfirmacao(
       titulo: 'Redefinir Senha',
       mensagem:
-      'Tem certeza que deseja redefinir a senha deste usuário?\n\nUma nova senha temporária aleatória será gerada e enviada para o e-mail do usuário.',
+      'Tem certeza que deseja redefinir a senha deste usuário?\n\nUma senha temporária será gerada e enviada para o e-mail do usuário.',
     );
 
     if (!confirmar) return;
@@ -325,6 +325,11 @@ class _UsuariosPageState extends State<UsuariosPage> {
         throw Exception(response.data['error'] ?? 'Erro desconhecido');
       }
 
+      // Atualiza o campo redefinicao_senha para FALSE após redefinir com sucesso
+      await supabase
+          .from('usuarios')
+          .update({'redefinicao_senha': false})
+          .eq('id', usuario['id']);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -332,6 +337,8 @@ class _UsuariosPageState extends State<UsuariosPage> {
           backgroundColor: Colors.green,
         ),
       );
+      
+      _carregarUsuarios();
     } catch (e) {
       debugPrint('❌ Erro ao redefinir senha: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -381,7 +388,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8), // 👈 aumenta só nas laterais
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             ),
             onPressed: () => Navigator.of(context).pop(true),
           ),
@@ -582,7 +589,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
                                         scale: value,
                                         child: IconButton(
                                           icon: const Icon(
-                                            Icons.notification_important, // 👈 ALTERE O ÍCONE AQUI
+                                            Icons.notification_important,
                                             color: Colors.red,
                                           ),
                                           tooltip: "Solicitação de redefinição de senha",
@@ -611,6 +618,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
       ),
     );
   }
+
   Future<void> _mostrarDialogoSolicitacao(Map<String, dynamic> usuario) async {
     final confirmar = await showDialog<bool>(
       context: context,
@@ -658,7 +666,7 @@ class _UsuariosPageState extends State<UsuariosPage> {
               style: const TextStyle(fontSize: 15, color: Colors.black87),
             ),
 
-            const SizedBox(height: 26), // 👈 espaçamento maior
+            const SizedBox(height: 26),
           ],
         ),
 
@@ -690,30 +698,35 @@ class _UsuariosPageState extends State<UsuariosPage> {
       ),
     );
 
-    if (confirmar == null) return; // X pressionado
+    if (confirmar == null) return; // X pressionado - NÃO faz alteração no banco
 
     if (confirmar == false) {
-      await supabase
-          .from('usuarios')
-          .update({'redefinicao_senha': false})
-          .eq('id', usuario['id']);
+      // Clique em "Negar" - marca redefinicao_senha como FALSE
+      try {
+        await supabase
+            .from('usuarios')
+            .update({'redefinicao_senha': false})
+            .eq('id', usuario['id']);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Redefinição negada.")),
-      );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Solicitação de redefinição negada.")),
+        );
 
-      _carregarUsuarios();
+        _carregarUsuarios();
+      } catch (e) {
+        debugPrint('❌ Erro ao negar solicitação: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao negar solicitação: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
       return;
     }
 
+    // Clique em "Redefinir" - NÃO faz alteração no banco, apenas abre o segundo diálogo
+    // A alteração no banco só acontece quando clica em "Confirmar" no segundo diálogo
     await _redefinirSenha(usuario);
-
-    await supabase
-        .from('usuarios')
-        .update({'redefinicao_senha': false})
-        .eq('id', usuario['id']);
-
-    _carregarUsuarios();
   }
-
 }

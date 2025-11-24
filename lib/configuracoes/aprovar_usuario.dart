@@ -21,22 +21,16 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
   final supabase = Supabase.instance.client;
   final _formKey = GlobalKey<FormState>();
   bool _salvando = false;
+
+  String? filialSelecionada;
   String? nivelSelecionado;
+
   List<Map<String, dynamic>> _filiais = [];
 
-  // Controladores dos campos
   final nomeController = TextEditingController();
   final emailController = TextEditingController();
   final celularController = TextEditingController();
   final funcaoController = TextEditingController();
-  
-  // 🔹 NOVOS CONTROLADORES PARA SENHA
-  final senhaInicialController = TextEditingController();
-  final confirmarSenhaController = TextEditingController();
-  
-  String? filialSelecionada;
-  bool _obscureSenha1 = true;
-  bool _obscureSenha2 = true;
 
   @override
   void initState() {
@@ -51,115 +45,92 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
     emailController.text = u['email'] ?? '';
     celularController.text = u['celular'] ?? '';
     funcaoController.text = u['funcao'] ?? '';
+
+    // UUID vem como string
     filialSelecionada = u['id_filial']?.toString();
   }
 
   Future<void> _carregarFiliais() async {
     try {
       final res = await supabase.from('filiais').select('id, nome');
+
       setState(() {
         _filiais = List<Map<String, dynamic>>.from(res);
       });
     } catch (e) {
-      debugPrint('❌ Erro ao carregar filiais: $e');
+      debugPrint("Erro ao carregar filiais: $e");
     }
   }
 
-  // 🔹 VALIDAÇÃO DA SENHA
-  String? _validarSenha(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Digite a senha inicial';
-    }
-    if (value.length < 6) {
-      return 'A senha deve ter pelo menos 6 caracteres';
-    }
-    return null;
-  }
-
-  String? _validarConfirmacaoSenha(String? value) {
-    if (value != senhaInicialController.text) {
-      return 'As senhas não coincidem';
-    }
-    return null;
-  }
-
-  // 🔹 Aprova o usuário (AGORA COM SENHA)
   Future<void> _aprovarUsuario() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (!mounted) return;
-      setState(() => _salvando = true);
+    setState(() => _salvando = true);
 
     try {
       final nome = nomeController.text.trim();
       final email = emailController.text.trim();
       final celular = celularController.text.trim();
       final funcao = funcaoController.text.trim();
-      final filialId = filialSelecionada;
-      final senhaInicial = senhaInicialController.text.trim();
 
-      final int nivel = nivelSelecionado == "Gerência e coordenação" ? 2 : 1;
+      final uuidFilial = filialSelecionada;
 
-      // 🌐 URL da função no Supabase
-      final url = "https://ikaxzlpaihdkqyjqrxyw.functions.supabase.co/aprovar-usuario";
+      final int nivel =
+          nivelSelecionado == "Gerência e supervisão ♦ Nível 2" ||
+                  nivelSelecionado == "Diretoria e Administração ♦ Nível 2"
+              ? 2
+              : 1;
 
-      // 🔹 Envia os dados via POST para a função (AGORA COM SENHA)
+      const url =
+          "https://ikaxzlpaihdkqyjqrxyw.functions.supabase.co/aprovar-usuario";
+
       final response = await http.post(
         Uri.parse(url),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          'nome': nome,
-          'email': email,
-          'celular': celular,
-          'funcao': funcao,
-          'id_filial': filialId,
-          'nivel': nivel,
-          'senha_inicial': senhaInicial, // ✅ NOVO CAMPO
+          "nome": nome,
+          "email": email,
+          "celular": celular,
+          "funcao": funcao,
+          "id_filial": uuidFilial,
+          "nivel": nivel,
         }),
       );
 
-      final result = jsonDecode(response.body);
-      if (result['success'] == true) {
-        // ✅ Atualiza o cadastro pendente
-        await supabase
-            .from('cadastros_pendentes')
-            .update({
-              'status': 'aprovado',
-              'nivel': nivel,
-              'nome': nome,
-              'celular': celular,
-              'funcao': funcao,
-              'id_filial': filialId
-            })
-            .eq('email', email);
+      if (response.statusCode != 200) {
+        throw Exception(
+            "Erro HTTP ${response.statusCode}: ${response.body}");
+      }
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("✅ Usuário aprovado! Senha definida e notificação enviada para $email."),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 3),
+      final result = jsonDecode(response.body);
+
+      if (result['success'] == true) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Usuário aprovado com sucesso!\nA senha temporária foi enviada para: $email",
+              textAlign: TextAlign.center,
             ),
-          );
-          
-          // ✅ SOLUÇÃO DEFINITIVA: Usar PostFrameCallback + Delay
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            Future.delayed(const Duration(milliseconds: 1500), () {
-              if (mounted) {
-                widget.onVoltar();
-              }
-            });
-          });
-        }
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted) widget.onVoltar();
+        });
       } else {
-        throw Exception(result['error'] ?? 'Erro desconhecido.');
+        throw Exception(result['error'] ?? "Erro ao aprovar usuário");
       }
     } catch (e) {
-      debugPrint("❌ Erro ao aprovar usuário: $e");
+      debugPrint("Erro ao aprovar usuário: $e");
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Erro ao aprovar: $e"),
+            content: Text("Erro ao aprovar usuário:\n$e"),
             backgroundColor: Colors.red,
           ),
         );
@@ -178,7 +149,6 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
         key: _formKey,
         child: ListView(
           children: [
-            // 🔹 Cabeçalho
             Row(
               children: [
                 IconButton(
@@ -195,10 +165,10 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
                 ),
               ],
             ),
+
             const Divider(),
             const SizedBox(height: 20),
 
-            // 🔹 Campos editáveis
             _campoEditavel("Nome completo", nomeController),
             _campoEditavel("E-mail", emailController,
                 tipo: TextInputType.emailAddress),
@@ -206,7 +176,7 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
                 tipo: TextInputType.phone),
             _campoEditavel("Função / Cargo", funcaoController),
 
-            // 🔹 Campo Filial
+            // 🔥 APENAS UM DROPDOWN – CORRETO E FUNCIONAL
             DropdownButtonFormField<String>(
               value: filialSelecionada,
               decoration: const InputDecoration(
@@ -214,54 +184,18 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
                 border: OutlineInputBorder(),
               ),
               items: _filiais
-                  .map((f) => DropdownMenuItem(
+                  .map((f) => DropdownMenuItem<String>(
                         value: f['id'].toString(),
                         child: Text(f['nome']),
                       ))
                   .toList(),
               onChanged: (v) => setState(() => filialSelecionada = v),
-              validator: (v) => v == null ? "Selecione uma filial" : null,
+              validator: (v) =>
+                  v == null ? "Selecione uma filial" : null,
             ),
+
             const SizedBox(height: 20),
 
-            // 🔹 NOVO: Campo Senha Inicial
-            TextFormField(
-              controller: senhaInicialController,
-              obscureText: _obscureSenha1,
-              decoration: InputDecoration(
-                labelText: "Senha inicial",
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  icon: Icon(_obscureSenha1 
-                      ? Icons.visibility_off_outlined 
-                      : Icons.visibility_outlined),
-                  onPressed: () => setState(() => _obscureSenha1 = !_obscureSenha1),
-                ),
-                helperText: "Mínimo 6 caracteres",
-              ),
-              validator: _validarSenha,
-            ),
-            const SizedBox(height: 16),
-
-            // 🔹 NOVO: Campo Confirmar Senha
-            TextFormField(
-              controller: confirmarSenhaController,
-              obscureText: _obscureSenha2,
-              decoration: InputDecoration(
-                labelText: "Confirmar senha inicial",
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  icon: Icon(_obscureSenha2 
-                      ? Icons.visibility_off_outlined 
-                      : Icons.visibility_outlined),
-                  onPressed: () => setState(() => _obscureSenha2 = !_obscureSenha2),
-                ),
-              ),
-              validator: _validarConfirmacaoSenha,
-            ),
-            const SizedBox(height: 20),
-
-            // 🔹 Selecionar nível
             DropdownButtonFormField<String>(
               value: nivelSelecionado,
               decoration: const InputDecoration(
@@ -285,36 +219,13 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
               onChanged: (v) => setState(() => nivelSelecionado = v),
               validator: (v) => v == null ? "Selecione o nível de acesso" : null,
             ),
+
             const SizedBox(height: 30),
 
-            // 🔹 Informação importante
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue[200]!),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      "O usuário receberá um email de notificação e poderá fazer login "
-                      "com esta senha. Na primeira vez, será solicitado que crie uma nova senha.",
-                      style: TextStyle(
-                        color: Colors.blue[800],
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
+            _mensagemSenha(),
 
-            // 🔹 Botão de aprovação
+            const SizedBox(height: 30),
+
             Center(
               child: ElevatedButton.icon(
                 onPressed: _salvando ? null : _aprovarUsuario,
@@ -327,29 +238,30 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Icon(Icons.check, color: Colors.white),
-                label: Text(
-                  _salvando ? "Aprovando..." : "Aprovar usuário",
-                ),
+                    : const Icon(Icons.check_circle, color: Colors.white),
+                label: Text(_salvando ? "Aprovando..." : "Aprovar Usuário"),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2E7D32),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 40, vertical: 14),
+                      horizontal: 50, vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                   ),
+                  elevation: 3,
                 ),
               ),
-            )
+            ),
           ],
         ),
       ),
     );
   }
 
-  // 🔹 Campo genérico editável
-  Widget _campoEditavel(String label, TextEditingController controller,
-      {TextInputType tipo = TextInputType.text}) {
+  Widget _campoEditavel(
+    String label,
+    TextEditingController controller, {
+    TextInputType tipo = TextInputType.text,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: TextFormField(
@@ -364,15 +276,40 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
     );
   }
 
+  Widget _mensagemSenha() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.green[50],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.green.shade300),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.vpn_key, color: Colors.green[700]),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              "Uma senha temporária será gerada automaticamente e enviada por e-mail ao usuário.\n"
+              "Ele deverá alterá-la no primeiro acesso.",
+              style: TextStyle(
+                color: Colors.green[800],
+                fontWeight: FontWeight.w500,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
-    // 🔹 Limpa os controladores
     nomeController.dispose();
     emailController.dispose();
     celularController.dispose();
     funcaoController.dispose();
-    senhaInicialController.dispose();
-    confirmarSenhaController.dispose();
     super.dispose();
   }
 }

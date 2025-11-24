@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'login_page.dart';
+import '../login_page.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 
 class CadastroNovoUsuarioPage extends StatefulWidget {
@@ -15,11 +15,12 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
   final _formKey = GlobalKey<FormState>();
   final supabase = Supabase.instance.client;
 
-  // Controladores dos campos
-  final nomeController = TextEditingController();
-  final emailController = TextEditingController();
-  final celularController = TextEditingController();
-  final funcaoController = TextEditingController();
+  // Controladores dos campos - INICIALIZADOS DIRETAMENTE
+  final TextEditingController nomeController = TextEditingController();
+  final TextEditingController nomeApelidoController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController celularController = TextEditingController();
+  final TextEditingController funcaoController = TextEditingController();
 
   // Filiais
   List<Map<String, dynamic>> filiais = [];
@@ -40,13 +41,23 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
     _carregarFiliais();
   }
 
+  @override
+  void dispose() {
+    // 🔹 IMPORTANTE: Limpar todos os controladores
+    nomeController.dispose();
+    nomeApelidoController.dispose();
+    emailController.dispose();
+    celularController.dispose();
+    funcaoController.dispose();
+    super.dispose();
+  }
+
   // 🔹 Carrega filiais do Supabase
   Future<void> _carregarFiliais() async {
     try {
       final response =
           await supabase.from('filiais').select('id, nome').order('nome');
 
-      // ✅ Garante que é uma lista de mapas
       setState(() {
         filiais = List<Map<String, dynamic>>.from(response);
       });
@@ -65,17 +76,27 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
     }
   }
 
-  // 🔹 Envia a solicitação de cadastro
+  // 🔹 Envia a solicitação de cadastro - CÓDIGO CORRIGIDO
   Future<void> _enviarCadastro() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _salvando = true);
 
     try {
+      // 🔹 CAPTURA OS VALORES DE FORMA SEGURA
       final nome = nomeController.text.trim();
+      final nomeApelido = nomeApelidoController.text.trim();
       final email = emailController.text.trim();
       final celular = celularController.text.trim();
       final funcao = funcaoController.text.trim();
+
+      debugPrint("📝 Dados capturados:");
+      debugPrint("Nome: $nome");
+      debugPrint("Nome Apelido: $nomeApelido");
+      debugPrint("Email: $email");
+      debugPrint("Celular: $celular");
+      debugPrint("Função: $funcao");
+      debugPrint("Filial ID: $filialSelecionadaId");
 
       // 1️⃣ Verifica se já existe um cadastro pendente
       final existe = await supabase
@@ -89,15 +110,23 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
             "Já existe uma solicitação de cadastro pendente para este e-mail.");
       }
 
-      // 2️⃣ Insere o novo cadastro
-      await supabase.from('cadastros_pendentes').insert({
+      // 2️⃣ Prepara os dados para inserção
+      final dadosCadastro = {
         'nome': nome,
         'email': email,
         'celular': celular,
         'funcao': funcao,
         'id_filial': filialSelecionadaId,
         'status': 'pendente',
-      });
+      };
+
+      // ✅ Adiciona nome_apelido apenas se não estiver vazio
+      if (nomeApelido.isNotEmpty) {
+        dadosCadastro['nome_apelido'] = nomeApelido;
+      }
+
+      // 3️⃣ Insere o novo cadastro
+      await supabase.from('cadastros_pendentes').insert(dadosCadastro);
 
       if (mounted) {
         showDialog(
@@ -156,11 +185,19 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
             ),
           ),
 
-          // ===== Logo (mesma posição que na página de login) =====
+          // ===== Logo =====
           Positioned(
             top: 80,
             left: 80,
-            child: Image.asset('assets/logo_top_login.png'),
+            child: InkWell(
+              onTap: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginPage()),
+                );
+              },
+              child: Image.asset('assets/logo_top_login.png'),
+            ),
           ),
 
           // ===== Conteúdo principal =====
@@ -205,7 +242,14 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
                             ? "Informe seu nome completo"
                             : null,
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
+
+                      // Como gostaria de ser chamado? (NOVO CAMPO)
+                      TextFormField(
+                        controller: nomeApelidoController,
+                        decoration: _inputDecoration("Como gostaria de ser chamado?")                            
+                      ),
+                      const SizedBox(height: 16),
 
                       // E-mail
                       TextFormField(
@@ -226,7 +270,7 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
 
                       // Celular
                       TextFormField(
@@ -235,14 +279,14 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
                         inputFormatters: [maskTelefone],
                         decoration: _inputDecoration("Celular (com WhatsApp)"),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
 
                       // Função / Cargo
                       TextFormField(
                         controller: funcaoController,
                         decoration: _inputDecoration("Função / Cargo"),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
 
                       // Filial (lista real)
                       if (carregandoFiliais)
@@ -269,7 +313,7 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
                             });
                           },
                         ),
-                      const SizedBox(height: 30),
+                      const SizedBox(height: 25),
 
                       // Botão enviar
                       SizedBox(
@@ -296,7 +340,7 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
                                 ),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
 
                       // Voltar para login
                       Center(
@@ -321,7 +365,7 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
             ),
           ),
 
-          // ===== Rodapé (mesmo que na página de login) =====
+          // ===== Rodapé =====
           Positioned(
             bottom: 30,
             left: 0,

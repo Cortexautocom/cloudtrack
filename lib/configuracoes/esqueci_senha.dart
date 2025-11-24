@@ -39,13 +39,39 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
       setState(() => _emailSent = true);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Solicitação enviada com sucesso!"),
-          backgroundColor: Colors.green,
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          contentPadding: const EdgeInsets.all(24),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.check_circle, color: Colors.green, size: 56),
+              SizedBox(height: 16),
+              Text(
+                "Pedido de redefinição enviado com sucesso!",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 12),
+              Text(
+                "Por segurança, um administrador irá validar o pedido e você receberá um link por email. Aguarde alguns instantes.",
+                style: TextStyle(fontSize: 14, color: Color.fromARGB(255, 97, 97, 97)),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+          actions: [
+            Center(
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text("OK", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
         ),
       );
-
     } catch (error, stack) {
       debugPrint("Erro: $error");
       debugPrint("Stack: $stack");
@@ -143,7 +169,7 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
                         : 'Digite seu email para solicitar redefinição de senha.',
                     style: const TextStyle(
                       fontSize: 14,
-                      color: Colors.grey,
+                      color: Color.fromARGB(255, 97, 97, 97),
                     ),
                     textAlign: TextAlign.center,
                   ),

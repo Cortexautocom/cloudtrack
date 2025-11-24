@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'home.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'cadastro_novo_usuario.dart';
+import 'configuracoes/cadastro_novo_usuario.dart';
 import 'configuracoes/esqueci_senha.dart';
 import 'configuracoes/escolher_senha.dart'; // ✅ IMPORT ADICIONADO
 
@@ -69,7 +69,7 @@ class _LoginPageState extends State<LoginPage> {
       // 🔹 2. Busca dados do usuário (AGORA COM senha_temporaria)
       final usuarioData = await supabase
           .from('usuarios')
-          .select('id, nome, nivel, id_filial, senha_temporaria') // ✅ ADICIONADO
+          .select('id, nome, nivel, id_filial, senha_temporaria, Nome_apelido') // ✅ ADICIONADO
           .eq('id', userId)
           .maybeSingle();
 
@@ -83,11 +83,11 @@ class _LoginPageState extends State<LoginPage> {
       // 🔹 4. Cria objeto global do usuário (AGORA COM senhaTemporaria)
       UsuarioAtual.instance = UsuarioAtual(
         id: usuarioData['id'],
-        nome: usuarioData['nome'],
+        nome: usuarioData['Nome_apelido'] ?? usuarioData['nome'],
         nivel: usuarioData['nivel'],
         filialId: usuarioData['id_filial']?.toString(),
         sessoesPermitidas: sessoesPermitidas,
-        senhaTemporaria: usuarioData['senha_temporaria'] ?? true, // ✅ NOVO
+        senhaTemporaria: usuarioData['senha_temporaria'] ?? true,
       );
 
       // 🔹 5. VERIFICA SE PRECISA REDIRECIONAR PARA TROCA DE SENHA
