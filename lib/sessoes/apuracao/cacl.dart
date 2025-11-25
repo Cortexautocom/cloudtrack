@@ -60,7 +60,7 @@ class CalcPage extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _secaoTitulo("DATA:"),
-                              _linhaValor(dadosFormulario['data'] ?? "10/2025"),
+                              _linhaValor(dadosFormulario['data']?.toString() ?? "10/2025"),
                             ],
                           ),
                         ),
@@ -72,7 +72,7 @@ class CalcPage extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _secaoTitulo("BASE:"),
-                              _linhaValor(dadosFormulario['base'] ?? "POLO DE COMBUSTÍVEL DE CANDEIAS"),
+                              _linhaValor(dadosFormulario['base']?.toString() ?? "POLO DE COMBUSTÍVEL DE CANDEIAS"),
                             ],
                           ),
                         ),
@@ -84,7 +84,7 @@ class CalcPage extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _secaoTitulo("PRODUTO:"),
-                              _linhaValor(dadosFormulario['produto'] ?? "DIESEL S10 A"),
+                              _linhaValor(dadosFormulario['produto']?.toString() ?? "DIESEL S10 A"),
                             ],
                           ),
                         ),
