@@ -607,19 +607,18 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildTimeField('Horário Medição', c[0], '06:00 h', width: 110),
-              _buildNumberField('cm', c[1], '735', width: 90, maxLength: 3),
-              _buildNumberField('mm', c[2], '35', width: 90, maxLength: 1),
+              _buildTimeField('Horário Medição', c[0], '', width: 100),    // ← Alterado para 100
+              _buildNumberField('cm', c[1], '', width: 100, maxLength: 3), // ← Alterado para 100
+              _buildNumberField('mm', c[2], '', width: 100, maxLength: 1), // ← Alterado para 100
             ],
           ),
-          const SizedBox(height: 12),
 
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildTemperatureField('Temp. Tanque', c[3], '28,5', width: 100),
-              _buildDensityField('Densidade', c[4], '0,745', width: 100),
-              _buildTemperatureField('Temp. Amostra', c[5], '28,0', width: 100),
+              _buildTemperatureField('Temp. Tanque', c[3], '', width: 100), // ← Mantém 100
+              _buildDensityField('Densidade', c[4], '', width: 100),        // ← Mantém 100
+              _buildTemperatureField('Temp. Amostra', c[5], '', width: 100), // ← Mantém 100
             ],
           ),
           const SizedBox(height: 12),
