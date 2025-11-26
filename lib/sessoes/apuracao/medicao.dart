@@ -5,7 +5,13 @@ import 'cacl.dart';
 
 class MedicaoTanquesPage extends StatefulWidget {
   final VoidCallback onVoltar;
-  const MedicaoTanquesPage({super.key, required this.onVoltar});
+  final String? filialSelecionadaId; // ★ ADICIONADO
+
+  const MedicaoTanquesPage({
+    super.key,
+    required this.onVoltar,
+    this.filialSelecionadaId,       // ★ ADICIONADO
+  });
 
   @override
   State<MedicaoTanquesPage> createState() => _MedicaoTanquesPageState();
@@ -33,8 +39,17 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       final usuario = UsuarioAtual.instance!;
       
       final PostgrestTransformBuilder<dynamic> query;
-      
+
+      // ---------------------------
+      //   ADMINISTRADOR (NÍVEL 3)
+      // ---------------------------
       if (usuario.nivel == 3) {
+        if (widget.filialSelecionadaId == null) {
+          print("ERRO: Admin não escolheu filial.");
+          setState(() => _carregando = false);
+          return;
+        }
+
         query = supabase
             .from('tanques')
             .select('''
@@ -43,17 +58,22 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               id_produto,
               produtos (nome)
             ''')
+            .eq('id_filial', widget.filialSelecionadaId!)
             .order('referencia');
-      } else {
+      } 
+      
+      // ---------------------------
+      //   USUÁRIO NÍVEL 2
+      // ---------------------------
+      else {
         final idFilial = usuario.filialId;
+
         if (idFilial == null) {
           print('Erro: ID da filial não encontrado para usuário não-admin');
-          setState(() {
-            _carregando = false;
-          });
+          setState(() => _carregando = false);
           return;
         }
-        
+
         query = supabase
             .from('tanques')
             .select('''
@@ -66,12 +86,15 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
             .order('referencia');
       }
 
+      // ---------------------------
+      //      EXECUTA CONSULTA
+      // ---------------------------
       final tanquesResponse = await query;
 
       print('Tanques encontrados: ${tanquesResponse.length}');
 
       final List<Map<String, dynamic>> tanquesFormatados = [];
-      
+
       for (final tanque in tanquesResponse) {
         tanquesFormatados.add({
           'numero': tanque['referencia']?.toString() ?? 'SEM REFERÊNCIA',
@@ -85,32 +108,34 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         _carregando = false;
       });
 
-      // Inicializa os controllers com campos em branco
+      // ---------------------------
+      //    INICIALIZA CONTROLLERS
+      // ---------------------------
       for (int i = 0; i < tanques.length; i++) {
         _controllers.add([
           TextEditingController(), // Horário Medição (06:00)
-          TextEditingController(), // cm (735)
-          TextEditingController(), // mm (35)
-          TextEditingController(), // Temp. Tanque (28.5)
-          TextEditingController(), // Densidade (0.745)
-          TextEditingController(), // Temp. Amostra (28.0)
+          TextEditingController(), // cm
+          TextEditingController(), // mm
+          TextEditingController(), // Temp. Tanque
+          TextEditingController(), // Densidade
+          TextEditingController(), // Temp. Amostra
           TextEditingController(), // Observações
-          TextEditingController(), // Horário Medição (18:00)
-          TextEditingController(), // cm (685)
-          TextEditingController(), // mm (20)
-          TextEditingController(), // Temp. Tanque (29.0)
-          TextEditingController(), // Densidade (0.745)
-          TextEditingController(), // Temp. Amostra (28.5)
+          TextEditingController(), // Horário (18:00)
+          TextEditingController(), // cm
+          TextEditingController(), // mm
+          TextEditingController(), // Temp. Tanque
+          TextEditingController(), // Densidade
+          TextEditingController(), // Temp. Amostra
           TextEditingController(), // Observações
         ]);
       }
+
     } catch (e) {
-      setState(() {
-        _carregando = false;
-      });
+      setState(() => _carregando = false);
       print('Erro ao carregar tanques: $e');
     }
   }
+
 
   // Máscara para horário no formato "12:34 h"
   String _aplicarMascaraHorario(String texto) {

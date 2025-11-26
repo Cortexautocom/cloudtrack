@@ -9,6 +9,7 @@ import 'sessoes/apuracao/cacl.dart';
 import 'sessoes/logistica/controle_documentos.dart';
 import 'sessoes/apuracao/medicao.dart';
 import 'sessoes/apuracao/tanques.dart';
+import 'sessoes/apuracao/escolherfilialmedicao.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -39,6 +40,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarMedicaoTanques = false;
   bool _mostrarTanques = false;
   Map<String, dynamic>? _dadosCalcGerado;
+  bool _mostrarEscolherFilialMedicao = false;
+  String? _filialSelecionadaId;
   
 
   List<Map<String, dynamic>> sessoes = [];
@@ -422,46 +425,79 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         transitionBuilder: (child, animation) =>
             FadeTransition(opacity: animation, child: child),
 
-        child: _mostrarMedicaoTanques
-            ? MedicaoTanquesPage(
+        child: _mostrarEscolherFilialMedicao
+            ? EscolherFilialMedicaoPage(
                 onVoltar: () {
                   setState(() {
-                    _mostrarMedicaoTanques = false;
-                    // Volta para o local correto baseado de onde veio
-                    if (_veioDaApuracao) {
-                      _mostrarApuracaoFilhos = true;
-                    }
-                    _veioDaApuracao = false;
+                    _mostrarEscolherFilialMedicao = false;
+                    _mostrarApuracaoFilhos = true;
+                  });
+                },
+                onSelecionarFilial: (idFilial) {
+                  setState(() {
+                    _filialSelecionadaId = idFilial;
+                    _mostrarEscolherFilialMedicao = false;
+                    _mostrarMedicaoTanques = true;
                   });
                 },
               )
-            : _mostrarTanques // NOVA CONDIÇÃO PARA MÓDULO TANQUES
-            ? GerenciamentoTanquesPage(
-                onVoltar: () {
-                  setState(() {
-                    _mostrarTanques = false;
-                    // Volta para o local correto baseado de onde veio
-                    if (_veioDaApuracao) {
-                      _mostrarApuracaoFilhos = true;
-                    }
-                    _veioDaApuracao = false;
-                  });
-                },
-              )
+
+            : _mostrarMedicaoTanques
+                ? MedicaoTanquesPage(
+                    filialSelecionadaId: _filialSelecionadaId,   // ★ IMPORTANTE
+                    onVoltar: () {
+                      final usuario = UsuarioAtual.instance;
+
+                      setState(() {
+                        _mostrarMedicaoTanques = false;
+
+                        if (usuario!.nivel == 3) {
+                          // ADMIN VOLTA PARA A PÁGINA INTERMEDIÁRIA
+                          _mostrarEscolherFilialMedicao = true;
+                        } else {
+                          // NÍVEL 2 VOLTA PARA APURAÇÃO NORMAL
+                          if (_veioDaApuracao) {
+                            _mostrarApuracaoFilhos = true;
+                          }
+                        }
+
+                        _veioDaApuracao = false;
+                      });
+                    },
+                  )
+
+            : _mostrarTanques
+                ? GerenciamentoTanquesPage(
+                    onVoltar: () {
+                      setState(() {
+                        _mostrarTanques = false;
+
+                        if (_veioDaApuracao) {
+                          _mostrarApuracaoFilhos = true;
+                        }
+
+                        _veioDaApuracao = false;
+                      });
+                    },
+                  )
+
             : _mostrarApuracaoFilhos
                 ? _buildApuracaoFilhosPage()
-                : _mostrarCalcGerado
-                    ? CalcPage(
-                        dadosFormulario: _dadosCalcGerado ?? {},
-                      )
-                    : showConversaoList
-                        ? TabelasDeConversao(
-                            key: const ValueKey('tabelas'),
-                            onVoltar: () {
-                              setState(() => showConversaoList = false);
-                            },
-                          )
-                        : _buildGridWithSearch(sessoes),
+
+            : _mostrarCalcGerado
+                ? CalcPage(
+                    dadosFormulario: _dadosCalcGerado ?? {},
+                  )
+
+            : showConversaoList
+                ? TabelasDeConversao(
+                    key: const ValueKey('tabelas'),
+                    onVoltar: () {
+                      setState(() => showConversaoList = false);
+                    },
+                  )
+
+            : _buildGridWithSearch(sessoes),
       ),
     );
   }
@@ -568,12 +604,20 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   void _navegarParaCardFilho(String nomeCard) {
     switch (nomeCard) {
       case 'Medição':
+        final usuario = UsuarioAtual.instance;
+
         setState(() {
           _veioDaApuracao = true;
           _mostrarApuracaoFilhos = false;
-          _mostrarMedicaoTanques = true; // ← Abre MEDIÇÃO diária
+
+          if (usuario!.nivel == 3) {
+            _mostrarEscolherFilialMedicao = true;
+          } else {
+            _mostrarMedicaoTanques = true;
+          }
         });
         break;
+
       case 'CACL':
         setState(() {
           _veioDaApuracao = true;
@@ -776,12 +820,19 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           }
 
           if (nome == 'Medição') {
+            final usuario = UsuarioAtual.instance;
+
             setState(() {
               _veioDaApuracao = false;
               showConversaoList = false;
               showControleAcesso = false;
               showUsuarios = false;
-              _mostrarMedicaoTanques = true;
+
+              if (usuario!.nivel == 3) {
+                _mostrarEscolherFilialMedicao = true;
+              } else {
+                _mostrarMedicaoTanques = true;
+              }
             });
             return;
           }
