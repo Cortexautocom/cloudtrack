@@ -5,12 +5,12 @@ import 'cacl.dart';
 
 class MedicaoTanquesPage extends StatefulWidget {
   final VoidCallback onVoltar;
-  final String? filialSelecionadaId; // ★ ADICIONADO
+  final String? filialSelecionadaId;
 
   const MedicaoTanquesPage({
     super.key,
     required this.onVoltar,
-    this.filialSelecionadaId,       // ★ ADICIONADO
+    this.filialSelecionadaId,
   });
 
   @override
@@ -26,6 +26,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
   
   int _tanqueSelecionadoIndex = 0;
   bool _carregando = true;
+  String? _nomeFilial;
 
   @override
   void initState() {
@@ -39,6 +40,30 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       final usuario = UsuarioAtual.instance!;
       
       final PostgrestTransformBuilder<dynamic> query;
+
+      // ---------------------------
+      //   BUSCAR NOME DA FILIAL
+      // ---------------------------
+      String? nomeFilial;
+      if (usuario.nivel == 3 && widget.filialSelecionadaId != null) {
+        final filialData = await supabase
+            .from('filiais')
+            .select('nome')
+            .eq('id', widget.filialSelecionadaId!)
+            .single();
+        nomeFilial = filialData['nome'];
+      } else if (usuario.filialId != null) {
+        final filialData = await supabase
+            .from('filiais')
+            .select('nome')
+            .eq('id', usuario.filialId!)
+            .single();
+        nomeFilial = filialData['nome'];
+      }
+
+      setState(() {
+        _nomeFilial = nomeFilial;
+      });
 
       // ---------------------------
       //   ADMINISTRADOR (NÍVEL 3)
@@ -136,7 +161,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     }
   }
 
-
   // Máscara para horário no formato "12:34 h"
   String _aplicarMascaraHorario(String texto) {
     String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
@@ -209,12 +233,26 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     if (tanques.isEmpty) return;
     
     final tanqueAtual = tanques[_tanqueSelecionadoIndex];
+    final controllers = _controllers[_tanqueSelecionadoIndex];
+    
+    // Coletar dados das medições
+    final dadosMedicoes = {
+      // Medição da manhã (06:00)
+      'horarioManha': controllers[0].text,
+      'cmManha': controllers[1].text,
+      // ... outros campos
+    };
+
+    // CONCATENAR DATA + HORÁRIO DA MEDIÇÃO
+    final dataComHorario = '${_dataController.text}, ${controllers[0].text}';
+
     final dadosFormulario = {
-      'data': _dataController.text,
-      'base': 'POLO DE COMBUSTÍVEL',
+      'data': dataComHorario, // ← Agora com data + horário
+      'base': _nomeFilial ?? 'POLO DE COMBUSTÍVEL',
       'produto': tanqueAtual['produto'],
       'tanque': tanqueAtual['numero'],
       'responsavel': UsuarioAtual.instance?.nome ?? 'Usuário',
+      'medicoes': dadosMedicoes,
     };
 
     Navigator.of(context).push(
@@ -263,6 +301,12 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               const Icon(Icons.person, size: 14, color: Colors.grey),
               const SizedBox(width: 4),
               Text(UsuarioAtual.instance?.nome ?? 'Usuário', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              if (_nomeFilial != null) ...[
+                const SizedBox(width: 12),
+                const Icon(Icons.business, size: 14, color: Colors.grey),
+                const SizedBox(width: 4),
+                Text(_nomeFilial!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.green)),
+              ],
               const Spacer(),
             ]),
           ),
@@ -307,7 +351,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: isSelected ? const Color(0xFF0D47A1) : Colors.white,
                                   foregroundColor: isSelected ? Colors.white : const Color(0xFF0D47A1),
-                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), // TAMANHO ORIGINAL
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8),
                                     side: BorderSide(
@@ -325,7 +369,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                       tanque['numero']?.toString() ?? 'N/A',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 14, // TAMANHO ORIGINAL
+                                        fontSize: 14,
                                         color: isSelected ? Colors.white : const Color(0xFF0D47A1),
                                       ),
                                     ),
@@ -333,7 +377,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                     Text(
                                       tanque['produto']?.toString() ?? 'N/A',
                                       style: TextStyle(
-                                        fontSize: 10, // TAMANHO ORIGINAL
+                                        fontSize: 10,
                                         color: isSelected ? Colors.white70 : Colors.grey.shade600,
                                       ),
                                       maxLines: 1,
@@ -348,7 +392,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                       ),
           ),
 
-          // Card principal compacto (mantido do anterior)
+          // Card principal compacto
           Expanded(
             child: Container(
               width: double.infinity,
