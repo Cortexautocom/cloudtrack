@@ -106,10 +106,52 @@ class CalcPage extends StatelessWidget {
 
                   const SizedBox(height: 25),
 
-                  // ===== TABELA COM MEDIÇÕES - PREENCHIDA COM DADOS REAIS =====
+                  // ===== MEDIÇÕES COM DUAS COLUNAS =====
                   _subtitulo("CARGA RECEBIDA NOS TANQUES DE TERRA E CANALIZAÇÃO RESPECTIVA"),
                   const SizedBox(height: 12),
 
+                  _tabelaMedicoes([
+                    _linhaMedicao("Altura total de líquido no tanque", 
+                        _obterValorMedicao(medicoes['alturaTotalManha']), 
+                        _obterValorMedicao(medicoes['alturaTotalTarde'])),
+                    _linhaMedicao("Altura da água aferida no tanque", 
+                        _obterValorMedicao(medicoes['alturaAguaManha']), 
+                        _obterValorMedicao(medicoes['alturaAguaTarde'])),
+                    _linhaMedicao("Altura do produto aferido no tanque", 
+                        _obterValorMedicao(medicoes['alturaProdutoManha']), 
+                        _obterValorMedicao(medicoes['alturaProdutoTarde'])),
+                    _linhaMedicao("Volume em litros, correspondente à altura total do produto", 
+                        _obterValorMedicao(medicoes['volumeProdutoManha']), 
+                        _obterValorMedicao(medicoes['volumeProdutoTarde'])),
+                    _linhaMedicao("Volume em litros, correspondente à altura total da água", 
+                        _obterValorMedicao(medicoes['volumeAguaManha']), 
+                        _obterValorMedicao(medicoes['volumeAguaTarde'])),
+                    _linhaMedicao("Volume em litros do produto eventualmente existente na canalização", 
+                        _obterValorMedicao(medicoes['volumeCanalizacaoManha']), 
+                        _obterValorMedicao(medicoes['volumeCanalizacaoTarde'])),
+                    _linhaMedicao("Volume total em litros do produto no tanque e na canalização", 
+                        _obterValorMedicao(medicoes['volumeTotalManha']), 
+                        _obterValorMedicao(medicoes['volumeTotalTarde'])),
+                    _linhaMedicao("Densidade observada na amostra", 
+                        _obterValorMedicao(medicoes['densidadeManha']), 
+                        _obterValorMedicao(medicoes['densidadeTarde'])),
+                    _linhaMedicao("Temperatura da amostra (ºC)", 
+                        _obterValorMedicao(medicoes['tempAmostraManha']), 
+                        _obterValorMedicao(medicoes['tempAmostraTarde'])),
+                    _linhaMedicao("Fator de correção de volume do produto (FCV)", 
+                        _obterValorMedicao(medicoes['fatorCorrecaoManha']), 
+                        _obterValorMedicao(medicoes['fatorCorrecaoTarde'])),
+                    _linhaMedicao("Volume total do produto, considerada a temperatura padrão (20 ºC)", 
+                        _obterValorMedicao(medicoes['volume20Manha']), 
+                        _obterValorMedicao(medicoes['volume20Tarde'])),
+                    _linhaMedicao("Densidade da amostra, considerada a temperatura padrão (20 ºC)", 
+                        _obterValorMedicao(medicoes['densidade20Manha']), 
+                        _obterValorMedicao(medicoes['densidade20Tarde'])),
+                  ]),
+
+                  const SizedBox(height: 25),
+
+                  // ===== TABELA COM MEDIÇÕES - PREENCHIDA COM DADOS REAIS =====
                   _tabela([
                     ["Altura média do líquido (1ª medição)", _calcularAlturaMedia(medicoes['cmManha'], medicoes['mmManha'])],
                     ["Altura média do líquido (2ª medição)", _calcularAlturaMedia(medicoes['cmTarde'], medicoes['mmTarde'])],
@@ -297,6 +339,148 @@ class CalcPage extends StatelessWidget {
         );
       }).toList(),
     );
+  }
+
+  // ===========================================
+  // WIDGETS PARA TABELA DE MEDIÇÕES
+  // ===========================================
+
+  Widget _tabelaMedicoes(List<TableRow> linhas) {
+    return Table(
+      border: TableBorder.all(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      columnWidths: const {
+        0: FlexColumnWidth(2.5),
+        1: FlexColumnWidth(1.0),
+        2: FlexColumnWidth(1.0),
+      },
+      children: [
+        // CABEÇALHO DA TABELA DE MEDIÇÕES
+        TableRow(
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+          ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              child: Text(
+                "DESCRIÇÃO",
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              child: Text(
+                "1ª MEDIÇÃO,  07:45 h",  // Alterado aqui
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue[700],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              child: Text(
+                "2ª MEDIÇÃO,  17:30 h",  // Alterado aqui
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue[700],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+        // LINHA DE DATA/HORA
+        TableRow(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+              child: Text(
+                "Data e Hora",
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+              child: Text(
+                _obterValorMedicao(dadosFormulario['dataHoraManha']),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+              child: Text(
+                _obterValorMedicao(dadosFormulario['dataHoraTarde']),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+        ...linhas,
+      ],
+    );
+  }
+
+  TableRow _linhaMedicao(String descricao, String valorManha, String valorTarde) {
+    return TableRow(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+          child: Text(
+            descricao,
+            style: const TextStyle(fontSize: 11),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+          child: Text(
+            valorManha,
+            style: const TextStyle(fontSize: 11),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+          child: Text(
+            valorTarde,
+            style: const TextStyle(fontSize: 11),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ===========================================
+  // FUNÇÕES AUXILIARES
+  // ===========================================
+
+  String _obterValorMedicao(dynamic valor) {
+    if (valor == null) return "-";
+    if (valor is String && valor.isEmpty) return "-";
+    return valor.toString();
   }
 
   // ===========================================
