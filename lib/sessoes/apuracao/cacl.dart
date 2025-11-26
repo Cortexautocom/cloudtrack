@@ -59,8 +59,8 @@ class CalcPage extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _secaoTitulo("DATA / HORA:"),
-                              _linhaValor(dadosFormulario['data']?.toString() ?? ""),
+                              _secaoTitulo("DATA:"),
+                              _linhaValor(_obterApenasData(dadosFormulario['data']?.toString() ?? "")),
                             ],
                           ),
                         ),
@@ -112,14 +112,14 @@ class CalcPage extends StatelessWidget {
 
                   _tabelaMedicoes([
                     _linhaMedicao("Altura total de líquido no tanque", 
-                        _obterValorMedicao(medicoes['alturaTotalManha']), 
-                        _obterValorMedicao(medicoes['alturaTotalTarde'])),
+                        _formatarAlturaTotal(medicoes['cmManha'], medicoes['mmManha']), 
+                        _formatarAlturaTotal(medicoes['cmTarde'], medicoes['mmTarde'])),
                     _linhaMedicao("Altura da água aferida no tanque", 
                         _obterValorMedicao(medicoes['alturaAguaManha']), 
                         _obterValorMedicao(medicoes['alturaAguaTarde'])),
                     _linhaMedicao("Altura do produto aferido no tanque", 
-                        _obterValorMedicao(medicoes['alturaProdutoManha']), 
-                        _obterValorMedicao(medicoes['alturaProdutoTarde'])),
+                        _calcularAlturaProduto(medicoes['cmManha'], medicoes['mmManha'], medicoes['alturaAguaManha']), 
+                        _calcularAlturaProduto(medicoes['cmTarde'], medicoes['mmTarde'], medicoes['alturaAguaTarde'])),
                     _linhaMedicao("Volume em litros, correspondente à altura total do produto", 
                         _obterValorMedicao(medicoes['volumeProdutoManha']), 
                         _obterValorMedicao(medicoes['volumeProdutoTarde'])),
@@ -132,6 +132,9 @@ class CalcPage extends StatelessWidget {
                     _linhaMedicao("Volume total em litros do produto no tanque e na canalização", 
                         _obterValorMedicao(medicoes['volumeTotalManha']), 
                         _obterValorMedicao(medicoes['volumeTotalTarde'])),
+                    _linhaMedicao("Temperatura do produto no tanque (ºC)", 
+                        _obterValorMedicao(medicoes['tempTanqueManha']), 
+                        _obterValorMedicao(medicoes['tempTanqueTarde'])),
                     _linhaMedicao("Densidade observada na amostra", 
                         _obterValorMedicao(medicoes['densidadeManha']), 
                         _obterValorMedicao(medicoes['densidadeTarde'])),
@@ -140,27 +143,13 @@ class CalcPage extends StatelessWidget {
                         _obterValorMedicao(medicoes['tempAmostraTarde'])),
                     _linhaMedicao("Fator de correção de volume do produto (FCV)", 
                         _obterValorMedicao(medicoes['fatorCorrecaoManha']), 
-                        _obterValorMedicao(medicoes['fatorCorrecaoTarde'])),
-                    _linhaMedicao("Volume total do produto, considerada a temperatura padrão (20 ºC)", 
-                        _obterValorMedicao(medicoes['volume20Manha']), 
-                        _obterValorMedicao(medicoes['volume20Tarde'])),
+                        _obterValorMedicao(medicoes['fatorCorrecaoTarde'])),                    
                     _linhaMedicao("Densidade da amostra, considerada a temperatura padrão (20 ºC)", 
                         _obterValorMedicao(medicoes['densidade20Manha']), 
                         _obterValorMedicao(medicoes['densidade20Tarde'])),
-                  ]),
-
-                  const SizedBox(height: 25),
-
-                  // ===== TABELA COM MEDIÇÕES - PREENCHIDA COM DADOS REAIS =====
-                  _tabela([
-                    ["Altura média do líquido (1ª medição)", _calcularAlturaMedia(medicoes['cmManha'], medicoes['mmManha'])],
-                    ["Altura média do líquido (2ª medição)", _calcularAlturaMedia(medicoes['cmTarde'], medicoes['mmTarde'])],
-                    ["Temperatura média no tanque", _calcularTemperaturaMedia(medicoes['tempTanqueManha'], medicoes['tempTanqueTarde'])],
-                    ["Volume (altura verificada)", _calcularVolume(medicoes['cmManha'], medicoes['mmManha'])],
-                    ["Densidade observada", _calcularDensidadeMedia(medicoes['densidadeManha'], medicoes['densidadeTarde'])],
-                    ["Temperatura da amostra", _calcularTemperaturaMedia(medicoes['tempAmostraManha'], medicoes['tempAmostraTarde'])],
-                    ["Densidade a 20 °C", _calcularDensidadeA20(medicoes['densidadeManha'], medicoes['tempAmostraManha'])],
-                    ["Volume convertido a 20 °C", _calcularVolumeA20(medicoes['cmManha'], medicoes['mmManha'], medicoes['densidadeManha'], medicoes['tempTanqueManha'])],
+                    _linhaMedicao("Volume total do produto, considerada a temperatura padrão (20 ºC)", 
+                        _obterValorMedicao(medicoes['volume20Manha']), 
+                        _obterValorMedicao(medicoes['volume20Tarde'])),
                   ]),
 
                   const SizedBox(height: 25),
@@ -377,7 +366,7 @@ class CalcPage extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
               child: Text(
-                "1ª MEDIÇÃO,  07:45 h",  // Alterado aqui
+                "1ª MEDIÇÃO, 07:45 h",
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
@@ -389,49 +378,11 @@ class CalcPage extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
               child: Text(
-                "2ª MEDIÇÃO,  17:30 h",  // Alterado aqui
+                "2ª MEDIÇÃO, 14:30 h",
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   color: Colors.blue[700],
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ],
-        ),
-        // LINHA DE DATA/HORA
-        TableRow(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-              child: Text(
-                "Data e Hora",
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-              child: Text(
-                _obterValorMedicao(dadosFormulario['dataHoraManha']),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.black87,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-              child: Text(
-                _obterValorMedicao(dadosFormulario['dataHoraTarde']),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.black87,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -483,32 +434,53 @@ class CalcPage extends StatelessWidget {
     return valor.toString();
   }
 
-  // ===========================================
-  // FUNÇÕES DE CÁLCULO
-  // ===========================================
+  String _obterApenasData(String dataCompleta) {
+    // Remove a parte da hora se existir (tudo depois da vírgula)
+    if (dataCompleta.contains(',')) {
+      return dataCompleta.split(',').first.trim();
+    }
+    return dataCompleta;
+  }
 
-  String _calcularAlturaMedia(String? cm, String? mm) {
+  String _formatarAlturaTotal(String? cm, String? mm) {
     if (cm == null || cm.isEmpty) return "-";
-    final cmValue = double.tryParse(cm.replaceAll(',', '.')) ?? 0;
-    final mmValue = double.tryParse(mm?.replaceAll(',', '.') ?? '0') ?? 0;
-    final alturaTotal = cmValue + (mmValue / 10);
-    return '${alturaTotal.toStringAsFixed(1)} cm';
+    final mmValue = (mm == null || mm.isEmpty) ? "0" : mm;
+    return "$cm,$mmValue cm";
   }
 
-  String _calcularTemperaturaMedia(String? temp1, String? temp2) {
-    if (temp1 == null || temp1.isEmpty) return "-";
-    final t1 = double.tryParse(temp1.replaceAll(',', '.')) ?? 0;
-    final t2 = double.tryParse(temp2?.replaceAll(',', '.') ?? '0') ?? t1;
-    final media = (t1 + t2) / 2;
-    return '${media.toStringAsFixed(1)} °C';
+  String _calcularAlturaProduto(String? cmTotal, String? mmTotal, String? alturaAgua) {
+    if (cmTotal == null || cmTotal.isEmpty) return "-";
+    
+    // Converter altura total para centímetros
+    final cmTotalValue = double.tryParse(cmTotal.replaceAll(',', '.')) ?? 0;
+    final mmTotalValue = double.tryParse(mmTotal?.replaceAll(',', '.') ?? '0') ?? 0;
+    final alturaTotal = cmTotalValue + (mmTotalValue / 10);
+    
+    // Converter altura da água para centímetros
+    final alturaAguaValue = double.tryParse(alturaAgua?.replaceAll(',', '.') ?? '0') ?? 0;
+    
+    // Calcular altura do produto (total - água)
+    final alturaProduto = alturaTotal - alturaAguaValue;
+    
+    if (alturaProduto <= 0) return "0,0 cm";
+    
+    // Formatar resultado (parte inteira e decimal)
+    final parteInteira = alturaProduto.floor();
+    final parteDecimal = ((alturaProduto - parteInteira) * 10).round();
+    
+    return "$parteInteira,$parteDecimal cm";
   }
 
-  String _calcularDensidadeMedia(String? dens1, String? dens2) {
-    if (dens1 == null || dens1.isEmpty) return "-";
-    final d1 = double.tryParse(dens1.replaceAll(',', '.')) ?? 0;
-    final d2 = double.tryParse(dens2?.replaceAll(',', '.') ?? '0') ?? d1;
-    final media = (d1 + d2) / 2;
-    return media.toStringAsFixed(3);
+  // ===========================================
+  // FUNÇÕES DE CÁLCULO (MANTIDAS PARA OUTROS BLOCOS)
+  // ===========================================
+
+  String _calcularLitrosAmbiente(String? cm, String? mm) {
+    return _calcularVolume(cm, mm);
+  }
+
+  String _calcularLitros20C(String? cm, String? mm, String? densidade, String? temperatura) {
+    return _calcularVolumeA20(cm, mm, densidade, temperatura);
   }
 
   String _calcularVolume(String? cm, String? mm) {
@@ -521,29 +493,11 @@ class CalcPage extends StatelessWidget {
     return '${volume.toStringAsFixed(0)} L';
   }
 
-  String _calcularDensidadeA20(String? densidade, String? temperatura) {
-    if (densidade == null || densidade.isEmpty) return "-";
-    // Cálculo simplificado de correção de densidade para 20°C
-    final dens = double.tryParse(densidade.replaceAll(',', '.')) ?? 0;
-    final temp = double.tryParse(temperatura?.replaceAll(',', '.') ?? '20') ?? 20;
-    final fatorCorrecao = 0.00065 * (temp - 20); // Coeficiente aproximado para combustíveis
-    final densidade20 = dens * (1 + fatorCorrecao);
-    return densidade20.toStringAsFixed(3);
-  }
-
   String _calcularVolumeA20(String? cm, String? mm, String? densidade, String? temperatura) {
     if (cm == null || cm.isEmpty) return "-";
     final volumeAmbiente = _calcularVolume(cm, mm);    
     // Cálculo simplificado - na prática usaria tabelas de correção
     return volumeAmbiente; // Placeholder
-  }
-
-  String _calcularLitrosAmbiente(String? cm, String? mm) {
-    return _calcularVolume(cm, mm);
-  }
-
-  String _calcularLitros20C(String? cm, String? mm, String? densidade, String? temperatura) {
-    return _calcularVolumeA20(cm, mm, densidade, temperatura);
   }
 
   String _calcularRecebido(String? cm, String? mm) {

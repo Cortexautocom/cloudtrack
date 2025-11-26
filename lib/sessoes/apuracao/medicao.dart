@@ -235,19 +235,48 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     final tanqueAtual = tanques[_tanqueSelecionadoIndex];
     final controllers = _controllers[_tanqueSelecionadoIndex];
     
-    // Coletar dados das medições
+    // Coletar dados das medições COMPLETO
     final dadosMedicoes = {
       // Medição da manhã (06:00)
       'horarioManha': controllers[0].text,
       'cmManha': controllers[1].text,
-      // ... outros campos
+      'mmManha': controllers[2].text,
+      'tempTanqueManha': controllers[3].text,
+      'densidadeManha': controllers[4].text,
+      'tempAmostraManha': controllers[5].text,
+      
+      // Medição da tarde (18:00)  
+      'horarioTarde': controllers[7].text,
+      'cmTarde': controllers[8].text,
+      'mmTarde': controllers[9].text,
+      'tempTanqueTarde': controllers[10].text,
+      'densidadeTarde': controllers[11].text,
+      'tempAmostraTarde': controllers[12].text,
+
+      // Campos adicionais necessários para o cálculo
+      'alturaAguaManha': '0.0', // ← Precisa ser coletado do formulário
+      'alturaAguaTarde': '0.0', // ← Precisa ser coletado do formulário
+      'volumeProdutoManha': '0', // ← Pode ser calculado ou placeholder
+      'volumeProdutoTarde': '0',
+      'volumeAguaManha': '0',
+      'volumeAguaTarde': '0',
+      'volumeCanalizacaoManha': '0',
+      'volumeCanalizacaoTarde': '0',
+      'volumeTotalManha': '0',
+      'volumeTotalTarde': '0',
+      'fatorCorrecaoManha': '1.0',
+      'fatorCorrecaoTarde': '1.0',
+      'volume20Manha': '0',
+      'volume20Tarde': '0',
+      'densidade20Manha': '0.000',
+      'densidade20Tarde': '0.000',
     };
 
-    // CONCATENAR DATA + HORÁRIO DA MEDIÇÃO
-    final dataComHorario = '${_dataController.text}, ${controllers[0].text}';
+    // APENAS DATA (sem hora)
+    final dataApenas = _dataController.text;
 
     final dadosFormulario = {
-      'data': dataComHorario, // ← Agora com data + horário
+      'data': dataApenas, // ← Apenas data, sem hora
       'base': _nomeFilial ?? 'POLO DE COMBUSTÍVEL',
       'produto': tanqueAtual['produto'],
       'tanque': tanqueAtual['numero'],
