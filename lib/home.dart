@@ -6,7 +6,6 @@ import 'login_page.dart';
 import 'configuracoes/usuarios.dart';
 import 'perfil.dart';
 import 'sessoes/apuracao/cacl.dart';
-import 'sessoes/apuracao/form_calc.dart';
 import 'sessoes/logistica/controle_documentos.dart';
 import 'sessoes/apuracao/medicao.dart';
 import 'sessoes/apuracao/tanques.dart';
@@ -34,7 +33,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool showConfigList = false;
   bool carregandoSessoes = false;
   bool showUsuarios = false;
-  bool _mostrarFormCalc = false;
   bool _mostrarCalcGerado = false;
   bool _mostrarApuracaoFilhos = false;
   bool _veioDaApuracao = false;
@@ -166,7 +164,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       showControleAcesso = false;
       showConfigList = false;
       showUsuarios = false;
-      _mostrarFormCalc = false;
       _mostrarCalcGerado = false;
       _mostrarApuracaoFilhos = false;
       _mostrarMedicaoTanques = false; // RESETAR TAMBÉM
@@ -294,7 +291,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   showControleAcesso = false;
                                   showConfigList = false;
                                   showUsuarios = false;
-                                  _mostrarFormCalc = false;
                                   _mostrarCalcGerado = false;
                                   _mostrarApuracaoFilhos = false;
                                   _mostrarMedicaoTanques = false; // RESETAR AO MUDAR MENU
@@ -454,31 +450,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               )
             : _mostrarApuracaoFilhos
                 ? _buildApuracaoFilhosPage()
-                : _mostrarFormCalc
-                    ? FormCalcPage(
-                        onVoltar: () {
-                          setState(() {
-                            _mostrarFormCalc = false;
-                            _mostrarCalcGerado = false;
-                            if (_veioDaApuracao) {
-                              _mostrarApuracaoFilhos = true;
-                              _veioDaApuracao = false;
-                            }
-                          });
-                        },
-                      )              
-                    : _mostrarCalcGerado
-                        ? CalcPage(
-                            dadosFormulario: _dadosCalcGerado ?? {},
+                : _mostrarCalcGerado
+                    ? CalcPage(
+                        dadosFormulario: _dadosCalcGerado ?? {},
+                      )
+                    : showConversaoList
+                        ? TabelasDeConversao(
+                            key: const ValueKey('tabelas'),
+                            onVoltar: () {
+                              setState(() => showConversaoList = false);
+                            },
                           )
-                        : showConversaoList
-                            ? TabelasDeConversao(
-                                key: const ValueKey('tabelas'),
-                                onVoltar: () {
-                                  setState(() => showConversaoList = false);
-                                },
-                              )
-                            : _buildGridWithSearch(sessoes),
+                        : _buildGridWithSearch(sessoes),
       ),
     );
   }
@@ -595,7 +578,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         setState(() {
           _veioDaApuracao = true;
           _mostrarApuracaoFilhos = false;
-          _mostrarFormCalc = true;
+          _mostrarCalcGerado = true;
         });
         break;
       case 'Tanques':
@@ -787,7 +770,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               showConversaoList = false;
               showControleAcesso = false;
               showUsuarios = false;
-              _mostrarFormCalc = true;
+              _mostrarCalcGerado = true;
             });
             return;
           }

@@ -60,7 +60,7 @@ class CalcPage extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _secaoTitulo("DATA:"),
-                              _linhaValor(dadosFormulario['data']?.toString() ?? "10/2025"),
+                              _linhaValor(dadosFormulario['data']?.toString() ?? ""),
                             ],
                           ),
                         ),
@@ -72,7 +72,7 @@ class CalcPage extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _secaoTitulo("BASE:"),
-                              _linhaValor(dadosFormulario['base']?.toString() ?? "POLO DE COMBUSTÍVEL DE CANDEIAS"),
+                              _linhaValor(dadosFormulario['base']?.toString() ?? ""),
                             ],
                           ),
                         ),
@@ -84,7 +84,7 @@ class CalcPage extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _secaoTitulo("PRODUTO:"),
-                              _linhaValor(dadosFormulario['produto']?.toString() ?? "DIESEL S10 A"),
+                              _linhaValor(dadosFormulario['produto']?.toString() ?? ""),
                             ],
                           ),
                         ),
@@ -96,7 +96,7 @@ class CalcPage extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _secaoTitulo("TANQUE Nº:"),
-                              _linhaValor(dadosFormulario['tanque']?.toString() ?? "05"),
+                              _linhaValor(dadosFormulario['tanque']?.toString() ?? ""),
                             ],
                           ),
                         ),
@@ -111,14 +111,14 @@ class CalcPage extends StatelessWidget {
                   const SizedBox(height: 12),
 
                   _tabela([
-                    ["Altura média do líquido (1ª medição)", "783,4"],
-                    ["Altura média do líquido (2ª medição)", "780,3"],
-                    ["Temperatura média no tanque", "28 °C   /   27,5 °C"],
-                    ["Volume (altura verificada)", "679.020 L   /   676.337 L"],
-                    ["Densidade observada", "0,823 g/ml"],
-                    ["Temperatura da amostra", "24,5 °C"],
-                    ["Densidade a 20 °C", "0,9940"],
-                    ["Volume convertido a 20 °C", "674.699 L   /   672.300 L"],
+                    ["Altura média do líquido (1ª medição)", ""],
+                    ["Altura média do líquido (2ª medição)", ""],
+                    ["Temperatura média no tanque", ""],
+                    ["Volume (altura verificada)", ""],
+                    ["Densidade observada", ""],
+                    ["Temperatura da amostra", ""],
+                    ["Densidade a 20 °C", ""],
+                    ["Volume convertido a 20 °C", ""],
                   ]),
 
                   const SizedBox(height: 25),
@@ -128,8 +128,8 @@ class CalcPage extends StatelessWidget {
                   const SizedBox(height: 8),
 
                   _tabela([
-                    ["Litros a Ambiente", "2.683"],
-                    ["Litros a 20 °C", "2.399"],
+                    ["Litros a Ambiente", ""],
+                    ["Litros a 20 °C", ""],
                   ]),
 
                   const SizedBox(height: 25),
@@ -151,10 +151,10 @@ class CalcPage extends StatelessWidget {
                   const SizedBox(height: 8),
 
                   _tabela([
-                    ["Abertura", "674.699 L"],
-                    ["Entrada", "0 L"],
-                    ["Saída", "0 L"],
-                    ["Saldo Final", "674.699 L"],
+                    ["Abertura", ""],
+                    ["Entrada", ""],
+                    ["Saída", ""],
+                    ["Saldo Final", ""],
                   ]),
 
                   // ===== RESPONSÁVEL =====

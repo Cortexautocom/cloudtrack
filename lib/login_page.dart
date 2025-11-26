@@ -200,6 +200,7 @@ class _LoginPageState extends State<LoginPage> {
                   TextField(
                     controller: passwordController,
                     obscureText: _obscureText,
+                    onSubmitted: (_) => _isLoading ? null : loginUser(),
                     decoration: InputDecoration(
                       labelText: 'Senha',
                       prefixIcon: const Icon(Icons.lock_outline),
