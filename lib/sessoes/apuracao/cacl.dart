@@ -1,16 +1,87 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class CalcPage extends StatelessWidget {
+class CalcPage extends StatefulWidget {
   final Map<String, dynamic> dadosFormulario;
+  const CalcPage({super.key, required this.dadosFormulario});
 
-  const CalcPage({
-    super.key,
-    required this.dadosFormulario,
-  });
+  @override
+  State<CalcPage> createState() => _CalcPageState();
+}
+
+class _CalcPageState extends State<CalcPage> {
+  double volumeManha = 0;
+  double volumeTarde = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _calcularVolumesIniciais();
+  }
+
+  Future<void> _calcularVolumesIniciais() async {
+    final medicoes = widget.dadosFormulario['medicoes'];
+
+    final cmManha = medicoes['cmManha'];
+    final mmManha = medicoes['mmManha'];
+
+    final cmTarde = medicoes['cmTarde'];
+    final mmTarde = medicoes['mmTarde'];
+
+    final volManha = await _buscarVolumeReal(cmManha, mmManha);
+    final volTarde = await _buscarVolumeReal(cmTarde, mmTarde);
+
+    setState(() {
+      volumeManha = volManha;
+      volumeTarde = volTarde;
+    });
+  }
+
+  Future<double> _buscarVolumeReal(String? cm, String? mm) async {
+    final supabase = Supabase.instance.client;
+
+    if (cm == null || cm.isEmpty) return 0;
+
+    final intCm = int.tryParse(cm) ?? 0;
+    final intMm = int.tryParse(mm ?? '0') ?? 0;
+
+    final mmFactor = (intMm.clamp(0, 9)) / 10.0;
+
+    final atual = await supabase
+        .from('arqueacao_jequie')
+        .select('tq_01_cm')
+        .eq('altura_cm_mm', intCm)
+        .maybeSingle();
+
+    if (atual == null || atual['tq_01_cm'] == null) {
+      return 0;
+    }
+
+    final volAtual = (atual['tq_01_cm'] as num).toDouble();
+
+    final proximo = await supabase
+        .from('arqueacao_jequie')
+        .select('tq_01_cm')
+        .eq('altura_cm_mm', intCm + 1)
+        .maybeSingle();
+
+    if (proximo == null || proximo['tq_01_cm'] == null) {
+      return volAtual;
+    }
+
+    final volProximo = (proximo['tq_01_cm'] as num).toDouble();
+
+    return volAtual + (volProximo - volAtual) * mmFactor;
+  }
+
+
+
+
+
 
   @override
   Widget build(BuildContext context) {
-    final medicoes = dadosFormulario['medicoes'] ?? {};
+    final medicoes = widget.dadosFormulario['medicoes'] ?? {};
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -25,25 +96,56 @@ class CalcPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // ===== CABEÇALHO DO DOCUMENTO =====
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE0E0E0),
-                      border: Border.all(color: Colors.black, width: 1.5),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        "CERTIFICADO DE ARQUEAÇÃO DE CARGAS LÍQUIDAS",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                          letterSpacing: 0.5,
+                  Stack(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE0E0E0),
+                          border: Border.all(color: Colors.black, width: 1.5),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            "CERTIFICADO DE ARQUEAÇÃO DE CARGAS LÍQUIDAS",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                      // SETA DE VOLTAR COM TOOLTIP
+                      Positioned(
+                        left: 8,
+                        top: 8,
+                        child: Tooltip(
+                          message: 'Voltar para medições',
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.of(context).pop();
+                            },
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: const Color.fromARGB(255, 209, 209, 209),
+                                border: Border.all(color: const Color.fromARGB(255, 202, 202, 202), width: 1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Icon(
+                                Icons.arrow_back,
+                                size: 20,
+                                color: Color.fromARGB(255, 235, 235, 235),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
 
                   const SizedBox(height: 20),
@@ -60,7 +162,7 @@ class CalcPage extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _secaoTitulo("DATA:"),
-                              _linhaValor(_obterApenasData(dadosFormulario['data']?.toString() ?? "")),
+                              _linhaValor(_obterApenasData(widget.dadosFormulario['data']?.toString() ?? "")),
                             ],
                           ),
                         ),
@@ -72,7 +174,7 @@ class CalcPage extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _secaoTitulo("BASE:"),
-                              _linhaValor(dadosFormulario['base']?.toString() ?? "POLO DE COMBUSTÍVEL"),
+                              _linhaValor(widget.dadosFormulario['base']?.toString() ?? "POLO DE COMBUSTÍVEL"),
                             ],
                           ),
                         ),
@@ -84,7 +186,7 @@ class CalcPage extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _secaoTitulo("PRODUTO:"),
-                              _linhaValor(dadosFormulario['produto']?.toString() ?? ""),
+                              _linhaValor(widget.dadosFormulario['produto']?.toString() ?? ""),
                             ],
                           ),
                         ),
@@ -96,7 +198,7 @@ class CalcPage extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _secaoTitulo("TANQUE Nº:"),
-                              _linhaValor(dadosFormulario['tanque']?.toString() ?? ""),
+                              _linhaValor(widget.dadosFormulario['tanque']?.toString() ?? ""),
                             ],
                           ),
                         ),
@@ -120,9 +222,11 @@ class CalcPage extends StatelessWidget {
                     _linhaMedicao("Altura do produto aferido no tanque", 
                         _calcularAlturaProduto(medicoes['cmManha'], medicoes['mmManha'], medicoes['alturaAguaManha']), 
                         _calcularAlturaProduto(medicoes['cmTarde'], medicoes['mmTarde'], medicoes['alturaAguaTarde'])),
-                    _linhaMedicao("Volume em litros, correspondente à altura total do produto", 
-                        _obterValorMedicao(medicoes['volumeProdutoManha']), 
-                        _obterValorMedicao(medicoes['volumeProdutoTarde'])),
+                    _linhaMedicao(
+                      "Volume em litros, correspondente à altura total do produto",
+                      "${volumeManha.toStringAsFixed(3)} L",
+                      "${volumeTarde.toStringAsFixed(3)} L",
+                    ),
                     _linhaMedicao("Volume em litros, correspondente à altura total da água", 
                         _obterValorMedicao(medicoes['volumeAguaManha']), 
                         _obterValorMedicao(medicoes['volumeAguaTarde'])),
@@ -189,7 +293,7 @@ class CalcPage extends StatelessWidget {
                   ]),
 
                   // ===== RESPONSÁVEL =====
-                  if (dadosFormulario['responsavel'] != null && dadosFormulario['responsavel']!.isNotEmpty)
+                  if (widget.dadosFormulario['responsavel'] != null && widget.dadosFormulario['responsavel']!.isNotEmpty)
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -204,7 +308,7 @@ class CalcPage extends StatelessWidget {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            dadosFormulario['responsavel']!,
+                            widget.dadosFormulario['responsavel']!,
                             style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,

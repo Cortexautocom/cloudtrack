@@ -51,6 +51,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   void initState() {
     super.initState();
     _inicializarApuracaoFilhos();
+    selectedIndex = -1;
   }
 
   void _inicializarApuracaoFilhos() {
@@ -379,6 +380,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildPageContent(UsuarioAtual? usuario) {
+    // ✅ MANTENHA ESTA CONDIÇÃO PRIMEIRO - página inicial tem prioridade
     if (selectedIndex == -1) {
       return _buildInicioPage(usuario);
     }
