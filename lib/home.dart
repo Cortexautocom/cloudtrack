@@ -10,6 +10,7 @@ import 'sessoes/logistica/controle_documentos.dart';
 import 'sessoes/apuracao/medicao.dart';
 import 'sessoes/apuracao/tanques.dart';
 import 'sessoes/apuracao/escolherfilialmedicao.dart';
+import 'sessoes/vendas/programacao.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -846,6 +847,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             );
             return;
           }
+          if (nome == 'Vendas') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const VendasPage()),
+            );
+            return;
+          }          
         },
         hoverColor: const Color(0xFFE8F5E9),
         child: Container(
@@ -885,6 +893,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     if (lower.contains('controle')) return Icons.car_repair;
     if (lower.contains('apura')) return Icons.analytics;
     if (lower.contains('medic')) return Icons.analytics; // NOVO: Ícone para Medição
+    if (lower.contains('venda')) return Icons.local_gas_station;
     return Icons.apps;
   }
 
