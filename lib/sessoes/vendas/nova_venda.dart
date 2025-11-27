@@ -625,7 +625,7 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
           focusNode: _quantidadeFocusNode,
           decoration: InputDecoration(
             hintText: '0',
-            prefixIcon: const Icon(Icons.speed),
+            prefixIcon: const Icon(Icons.local_gas_station),
             suffixText: 'Litros',
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -788,7 +788,7 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
                           controller: _obsController,
                           decoration: InputDecoration(
                             labelText: 'Observações (Opcional)',
-                            prefixIcon: const Icon(Icons.note),
+                            prefixIcon: const Icon(Icons.edit_note),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -819,10 +819,10 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
                             child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.check_circle, color: Colors.white),
+                                Icon(Icons.rocket_launch, color: Colors.white),
                                 SizedBox(width: 8),
                                 Text(
-                                  'CONFIRMAR VENDA',
+                                  'CONFIRMAR LANÇAMENTO',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
