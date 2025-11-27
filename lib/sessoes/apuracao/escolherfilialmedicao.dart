@@ -91,71 +91,70 @@ class _EscolherFilialMedicaoPageState extends State<EscolherFilialMedicaoPage> {
                         ),
                       ),
                     )
-                  : GridView.count(
-                      crossAxisCount: 4,
-                      mainAxisSpacing: 20,
-                      crossAxisSpacing: 20,
-                      childAspectRatio: 1.8,
-                      children: filiais.map((filial) {
-                        return _buildFilialCard(
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      itemCount: filiais.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final filial = filiais[index];
+                        return _buildFilialListItem(
                           id: filial['id'],
                           nome: filial['nome'],
                           cidade: filial['cidade'],
                         );
-                      }).toList(),
+                      },
                     ),
         ),
       ],
     );
   }
 
-  Widget _buildFilialCard({
+  Widget _buildFilialListItem({
     required String id,
     required String nome,
     required String cidade,
   }) {
-    return Material(
-      elevation: 3,
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      clipBehavior: Clip.hardEdge,
-      child: InkWell(
+    return Card(
+      elevation: 2,
+      margin: EdgeInsets.zero,
+      child: ListTile(
         onTap: () => widget.onSelecionarFilial(id),
-        hoverColor: const Color(0xFFE8F5E9),
-        child: Container(
+        leading: Container(
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
+            color: const Color(0xFF0D47A1).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
           ),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.business,
-                size: 40,
-                color: Color(0xFF0D47A1),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                nome,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0D47A1),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                cidade,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey.shade700,
-                ),
-              ),
-            ],
+          child: const Icon(
+            Icons.business,
+            color: Color(0xFF0D47A1),
+            size: 24,
           ),
+        ),
+        title: Text(
+          nome,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF0D47A1),
+          ),
+        ),
+        subtitle: Text(
+          cidade,
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey.shade600,
+          ),
+        ),
+        trailing: const Icon(
+          Icons.arrow_forward_ios,
+          size: 16,
+          color: Colors.grey,
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
         ),
       ),
     );
