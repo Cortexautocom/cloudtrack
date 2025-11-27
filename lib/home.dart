@@ -11,6 +11,8 @@ import 'sessoes/apuracao/medicao.dart';
 import 'sessoes/apuracao/tanques.dart';
 import 'sessoes/apuracao/escolherfilialmedicao.dart';
 import 'sessoes/vendas/programacao.dart';
+import 'sessoes/vendas/nova_venda.dart';
+import 'sessoes/vendas/detalhes_lancamento.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -44,6 +46,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarEscolherFilialMedicao = false;
   String? _filialSelecionadaId;
   
+  // NOVAS VARIÁVEIS PARA CONTROLE DE VENDAS
+  bool _mostrarVendas = false;
+  bool _mostrarProgramacao = false;
+  bool _mostrarNovaVenda = false;
+  bool _mostrarDetalhesLancamento = false;
+  Map<String, dynamic>? _vendaSelecionada;
 
   List<Map<String, dynamic>> sessoes = [];
   List<Map<String, dynamic>> apuracaoFilhos = [];
@@ -67,7 +75,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'label': 'CACL',
         'descricao': 'Cálculos e apurações contábeis',
       },
-      // ADICIONE ESTE NOVO ITEM:
       {
         'icon': Icons.storage,
         'label': 'Tanques',
@@ -171,15 +178,36 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       showUsuarios = false;
       _mostrarCalcGerado = false;
       _mostrarApuracaoFilhos = false;
-      _mostrarMedicaoTanques = false; // RESETAR TAMBÉM
+      _mostrarMedicaoTanques = false;
       _veioDaApuracao = false;
       _mostrarTanques = false;
+      // RESETAR VENDAS TAMBÉM
+      _mostrarVendas = false;
+      _mostrarProgramacao = false;
+      _mostrarNovaVenda = false;
+      _mostrarDetalhesLancamento = false;
+      _vendaSelecionada = null;
     });
   }
 
   void _voltarParaCardsPai() {
     setState(() {
       _mostrarApuracaoFilhos = false;
+    });
+  }
+
+  // NOVO MÉTODO PARA VOLTAR NA HIERARQUIA DE VENDAS
+  void _voltarVendas() {
+    setState(() {
+      if (_mostrarDetalhesLancamento || _mostrarNovaVenda) {
+        _mostrarDetalhesLancamento = false;
+        _mostrarNovaVenda = false;
+        _vendaSelecionada = null;
+      } else if (_mostrarProgramacao) {
+        _mostrarProgramacao = false;
+      } else if (_mostrarVendas) {
+        _mostrarVendas = false;
+      }
     });
   }
 
@@ -298,9 +326,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   showUsuarios = false;
                                   _mostrarCalcGerado = false;
                                   _mostrarApuracaoFilhos = false;
-                                  _mostrarMedicaoTanques = false; // RESETAR AO MUDAR MENU
+                                  _mostrarMedicaoTanques = false;
                                   _veioDaApuracao = false;
                                   _mostrarTanques = false;
+                                  // RESETAR VENDAS AO MUDAR MENU
+                                  _mostrarVendas = false;
+                                  _mostrarProgramacao = false;
+                                  _mostrarNovaVenda = false;
+                                  _mostrarDetalhesLancamento = false;
+                                  _vendaSelecionada = null;
                                 });
 
                                 if (menuItems[index] == 'Sessões') {
@@ -381,9 +415,48 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildPageContent(UsuarioAtual? usuario) {
-    // ✅ MANTENHA ESTA CONDIÇÃO PRIMEIRO - página inicial tem prioridade
+    // ✅ PÁGINA INICIAL TEM PRIORIDADE
     if (selectedIndex == -1) {
       return _buildInicioPage(usuario);
+    }
+
+    // ✅ HIERARQUIA DE VENDAS TEM PRIORIDADE SOBRE OUTRAS SESSÕES
+    if (_mostrarDetalhesLancamento && _vendaSelecionada != null) {
+      return DetalhesLancamentoPage(
+        venda: _vendaSelecionada!,
+        onVoltar: _voltarVendas,
+      );
+    }
+
+    if (_mostrarNovaVenda) {
+      return NovaVendaPage(
+        onVoltar: _voltarVendas,
+        onSalvar: (sucesso) {
+          setState(() => _mostrarNovaVenda = false);
+          if (sucesso) {
+            // Opcional: Recarregar dados se necessário
+          }
+        },
+      );
+    }
+
+    if (_mostrarProgramacao) {
+      return ProgramacaoPage(
+        onVoltar: _voltarVendas,
+        onAbrirDetalhes: (venda) {
+          setState(() {
+            _vendaSelecionada = venda;
+            _mostrarDetalhesLancamento = true;
+          });
+        },
+        onNovaVenda: () {
+          setState(() => _mostrarNovaVenda = true);
+        },
+      );
+    }
+
+    if (_mostrarVendas) {
+      return _buildVendasPage();
     }
 
     switch (menuItems[selectedIndex]) {
@@ -403,6 +476,117 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
         );
     }
+  }
+
+  // NOVA PÁGINA DE VENDAS (CARDS)
+  Widget _buildVendasPage() {
+    return Padding(
+      padding: const EdgeInsets.all(30),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
+                onPressed: _voltarVendas,
+                tooltip: 'Voltar para sessões',
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Vendas',
+                style: TextStyle(
+                  fontSize: 24,
+                  color: Color(0xFF0D47A1),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Divider(color: Colors.grey),
+          const SizedBox(height: 20),
+
+          Expanded(
+            child: GridView.count(
+              crossAxisCount: 7,
+              crossAxisSpacing: 15,
+              mainAxisSpacing: 15,
+              childAspectRatio: 1,
+              children: [
+                _buildVendasCard(
+                  icon: Icons.schedule,
+                  label: 'Programação',
+                  descricao: 'Lançamentos e agendamentos de vendas',
+                  onTap: () {
+                    setState(() => _mostrarProgramacao = true);
+                  },
+                ),
+                // Adicione mais cards de vendas aqui se necessário
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVendasCard({
+    required IconData icon,
+    required String label,
+    required String descricao,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      elevation: 2,
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.hardEdge,
+      child: InkWell(
+        onTap: onTap,
+        hoverColor: const Color(0xFFE8F5E9),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: const Color.fromARGB(255, 48, 153, 35),
+                size: 50,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF0D47A1),
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  descricao,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildSessoesPage(UsuarioAtual? usuario) {
@@ -447,7 +631,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
             : _mostrarMedicaoTanques
                 ? MedicaoTanquesPage(
-                    filialSelecionadaId: _filialSelecionadaId,   // ★ IMPORTANTE
+                    filialSelecionadaId: _filialSelecionadaId,
                     onVoltar: () {
                       final usuario = UsuarioAtual.instance;
 
@@ -455,10 +639,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         _mostrarMedicaoTanques = false;
 
                         if (usuario!.nivel == 3) {
-                          // ADMIN VOLTA PARA A PÁGINA INTERMEDIÁRIA
                           _mostrarEscolherFilialMedicao = true;
                         } else {
-                          // NÍVEL 2 VOLTA PARA APURAÇÃO NORMAL
                           if (_veioDaApuracao) {
                             _mostrarApuracaoFilhos = true;
                           }
@@ -632,7 +814,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         setState(() {
           _veioDaApuracao = true;
           _mostrarApuracaoFilhos = false;
-          _mostrarTanques = true; // ← Abre GERENCIAMENTO de tanques
+          _mostrarTanques = true;
         });
         break;
     }
@@ -847,13 +1029,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             );
             return;
           }
+
           if (nome == 'Vendas') {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const VendasPage()),
-            );
+            setState(() => _mostrarVendas = true);
             return;
-          }          
+          }
         },
         hoverColor: const Color(0xFFE8F5E9),
         child: Container(
@@ -892,7 +1072,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     if (lower.contains('cacl')) return Icons.receipt_long;
     if (lower.contains('controle')) return Icons.car_repair;
     if (lower.contains('apura')) return Icons.analytics;
-    if (lower.contains('medic')) return Icons.analytics; // NOVO: Ícone para Medição
+    if (lower.contains('medic')) return Icons.analytics;
     if (lower.contains('venda')) return Icons.local_gas_station;
     return Icons.apps;
   }
