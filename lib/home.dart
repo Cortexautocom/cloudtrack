@@ -1117,7 +1117,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           Container(
             padding: EdgeInsets.symmetric(horizontal: 40),
             child: Text(
-              'Seu ambiente moderno de gestão de estoques e logística totalmente na nuvem,\ncom rotinas e fluxos planejados e implementedos por inteligência artificial,\nbuscando máxima eficiência e redução de custos operacionais.',
+              'Seu ambiente moderno de gestão de estoques e logística totalmente na nuvem,\ncom rotinas e fluxos planejados e implementados por inteligência artificial,\nbuscando máxima eficiência e redução de custos operacionais.',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey[700],

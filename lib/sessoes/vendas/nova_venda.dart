@@ -21,22 +21,20 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
   final TextEditingController _clienteController = TextEditingController();
   final TextEditingController _obsController = TextEditingController();
   final TextEditingController _quantidadeController = TextEditingController();
-  final TextEditingController _produtoSearchController = TextEditingController();
   final TextEditingController _formaPagamentoController = TextEditingController();
 
-  bool _anp = false;
   bool _carregando = false;
-  bool _mostrarListaProdutos = false;
   List<Map<String, dynamic>> _produtos = [];
-  String? _produtoSelecionadoId;
   
   // Lista de controladores para as placas
   final List<TextEditingController> _placasControllers = [
     TextEditingController(),
   ];
+  
+  // Lista de produtos selecionados
+  final List<String?> _produtosSelecionados = [null];
 
   // Focus nodes para controle do teclado
-  final FocusNode _produtoFocusNode = FocusNode();
   final FocusNode _quantidadeFocusNode = FocusNode();
   final FocusNode _formaPagamentoFocusNode = FocusNode();
 
@@ -48,17 +46,7 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
     for (var controller in _placasControllers) {
       controller.addListener(_formatarPlaca);
     }
-    _produtoSearchController.addListener(_buscarProdutoInstantaneo);
     _quantidadeController.addListener(_formatarQuantidade);
-    
-    // Listener para fechar a lista de produtos quando clicar fora
-    _produtoFocusNode.addListener(() {
-      if (!_produtoFocusNode.hasFocus && _mostrarListaProdutos) {
-        setState(() {
-          _mostrarListaProdutos = false;
-        });
-      }
-    });
   }
 
   void _adicionarPlaca() {
@@ -76,6 +64,22 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
       setState(() {
         _placasControllers[index].dispose();
         _placasControllers.removeAt(index);
+      });
+    }
+  }
+
+  void _adicionarProduto() {
+    if (_produtosSelecionados.length < 6) {
+      setState(() {
+        _produtosSelecionados.add(null);
+      });
+    }
+  }
+
+  void _removerProduto(int index) {
+    if (_produtosSelecionados.length > 1) {
+      setState(() {
+        _produtosSelecionados.removeAt(index);
       });
     }
   }
@@ -129,50 +133,6 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
     }
   }
 
-  void _buscarProdutoInstantaneo() {
-    final query = _produtoSearchController.text.trim();
-    
-    if (query.isEmpty) {
-      setState(() {
-        _produtoSelecionadoId = null;
-      });
-      return;
-    }
-
-    // Busca por código (apenas números)
-    if (RegExp(r'^\d+$').hasMatch(query)) {
-      final produto = _produtos.firstWhere(
-        (p) => p['codigo'].toString() == query,
-        orElse: () => {},
-      );
-      
-      if (produto.isNotEmpty) {
-        setState(() {
-          _produtoSelecionadoId = produto['id'];
-          _produtoSearchController.text = '${produto['codigo']} - ${produto['nome']}';
-        });
-        return;
-      }
-    }
-
-    // Busca por nome (primeira ocorrência que contenha o texto)
-    final produtoPorNome = _produtos.firstWhere(
-      (p) => p['nome'].toString().toLowerCase().contains(query.toLowerCase()),
-      orElse: () => {},
-    );
-    
-    if (produtoPorNome.isNotEmpty) {
-      setState(() {
-        _produtoSelecionadoId = produtoPorNome['id'];
-        _produtoSearchController.text = '${produtoPorNome['codigo']} - ${produtoPorNome['nome']}';
-      });
-    } else {
-      setState(() {
-        _produtoSelecionadoId = null;
-      });
-    }
-  }
-
   Future<void> _carregarProdutos() async {
     setState(() => _carregando = true);
     try {
@@ -199,18 +159,7 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
     }
   }
 
-  Future<void> _salvarVenda() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (!_anp) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Confirme a ANP para continuar'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
+  bool _validarFormulario() {
     // Verifica se pelo menos uma placa foi preenchida
     final placasPreenchidas = _placasControllers.where((controller) => 
       controller.text.isNotEmpty
@@ -223,8 +172,62 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
           backgroundColor: Colors.orange,
         ),
       );
-      return;
+      return false;
     }
+
+    // Verifica se pelo menos um produto foi selecionado
+    final produtosSelecionados = _produtosSelecionados.where((produto) => 
+      produto != null
+    ).toList();
+    
+    if (produtosSelecionados.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecione pelo menos um produto'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return false;
+    }
+
+    // Verifica se o cliente foi preenchido
+    if (_clienteController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Informe o nome do cliente'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return false;
+    }
+
+    // Verifica se a quantidade foi preenchida
+    if (_quantidadeController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Informe a quantidade'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return false;
+    }
+
+    // Verifica se a forma de pagamento foi preenchida
+    if (_formaPagamentoController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Informe a forma de pagamento'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  Future<void> _salvarVenda() async {
+    if (!_validarFormulario()) return;
 
     setState(() => _carregando = true);
     try {
@@ -236,14 +239,22 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
       final quantidade = double.tryParse(quantidadeTexto) ?? 0;
 
       // Pega a primeira placa preenchida
-      final placaPrincipal = placasPreenchidas.first.text;
+      final placaPrincipal = _placasControllers.firstWhere(
+        (controller) => controller.text.isNotEmpty,
+        orElse: () => _placasControllers.first,
+      ).text;
+
+      // Pega o primeiro produto selecionado
+      final produtoPrincipal = _produtosSelecionados.firstWhere(
+        (produto) => produto != null,
+        orElse: () => null,
+      );
 
       await supabase.from('vendas').insert({
         'placa': placaPrincipal,
-        'anp': _anp,
         'cliente': _clienteController.text,
         'observacoes': _obsController.text.isEmpty ? null : _obsController.text,
-        'produto_id': _produtoSelecionadoId,
+        'produto_id': produtoPrincipal,
         'quantidade': quantidade,
         'forma_pagamento': _formaPagamentoController.text,
         'usuario_id': usuario?.id,
@@ -279,69 +290,6 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
     }
   }
 
-  Widget _buildANPCard() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: _anp ? Colors.green : Colors.grey.shade300,
-          width: _anp ? 2 : 1,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: _anp ? Colors.green : Colors.transparent,
-                border: Border.all(
-                  color: _anp ? Colors.green : Colors.grey,
-                  width: 2,
-                ),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: _anp
-                  ? const Icon(Icons.check, size: 16, color: Colors.white)
-                  : null,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Declaração ANP',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: _anp ? Colors.green : Colors.grey[700],
-                      fontSize: 16,
-                    ),
-                  ),
-                  Text(
-                    'Confirmo que todas as informações estão corretas e de acordo com a legislação da ANP',
-                    style: TextStyle(
-                      color: _anp ? Colors.green : Colors.grey[600],
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Switch(
-              value: _anp,
-              onChanged: (value) => setState(() => _anp = value),
-              activeColor: Colors.green,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildCampoPlacas() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -356,55 +304,43 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
         ),
         const SizedBox(height: 8),
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: 12,
+          runSpacing: 12,
           children: [
             ..._placasControllers.asMap().entries.map((entry) {
               final index = entry.key;
               final controller = entry.value;
               
               return SizedBox(
-                width: 140,
+                width: 150,
                 child: Row(
                   children: [
                     Expanded(
-                      child: SizedBox(
-                        height: 40, // Altura reduzida
-                        child: TextFormField(
-                          controller: controller,
-                          decoration: InputDecoration(
-                            hintText: '',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey[50],
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      child: TextFormField(
+                        controller: controller,
+                        decoration: InputDecoration(
+                          hintText: 'Placa ${index + 1}',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 1.2,
-                          ),
-                          textCapitalization: TextCapitalization.characters,
-                          maxLength: 8,
-                          validator: (value) {
-                            if (value != null && value.isNotEmpty && value.length != 8) {
-                              return 'Placa incompleta';
-                            }
-                            return null;
-                          },
+                          filled: true,
+                          fillColor: Colors.grey[50],
                         ),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 1.2,
+                        ),
+                        textCapitalization: TextCapitalization.characters,
+                        maxLength: 8,
                       ),
                     ),
                     if (_placasControllers.length > 1) ...[
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 8),
                       IconButton(
                         icon: const Icon(Icons.remove_circle, color: Colors.red),
                         onPressed: () => _removerPlaca(index),
-                        iconSize: 20,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
+                        iconSize: 24,
                       ),
                     ],
                   ],
@@ -418,191 +354,112 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
                   color: _placasControllers.length < 3 
                       ? const Color(0xFF0D47A1) 
                       : Colors.grey[300],
-                  size: 28, // Tamanho reduzido
+                  size: 30,
                 ),
                 onPressed: _placasControllers.length < 3 ? _adicionarPlaca : null,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
               ),
           ],
         ),
         if (_placasControllers.length == 1)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              'Clique no + para adicionar mais placas (máximo 3)',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey[600],
-              ),
-            ),
-          ),
+          const SizedBox(height: 8),
       ],
     );
   }
 
-  Widget _buildCampoProduto() {
+  Widget _buildCampoProdutos() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Produto',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey[700],
-                  fontSize: 14,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Botão de informações dos produtos
-            InkWell(
-              onTap: () {
-                setState(() {
-                  _mostrarListaProdutos = !_mostrarListaProdutos;
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.blue[100]!),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _mostrarListaProdutos ? Icons.visibility_off : Icons.visibility,
-                      size: 14,
-                      color: Colors.blue[600],
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _mostrarListaProdutos ? 'Ocultar' : 'Ver Produtos',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.blue[600],
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+        // Título
+        Text(
+          'Produtos',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
+            fontSize: 14,
+          ),
         ),
-        const SizedBox(height: 6), // Espaço reduzido
-        Stack(
-          children: [
-            TextFormField(
-              controller: _produtoSearchController,
-              focusNode: _produtoFocusNode,
-              decoration: InputDecoration(
-                hintText: 'Código ou nome',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Colors.grey[50],
-                suffixIcon: _produtoSearchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _produtoSearchController.clear();
-                          setState(() {
-                            _produtoSelecionadoId = null;
-                          });
-                        },
-                      )
-                    : null,
-              ),
-              validator: (value) {
-                if (_produtoSelecionadoId == null) {
-                  return 'Selecione um produto';
-                }
-                return null;
-              },
-            ),
-            
-            // Lista de produtos (overlay)
-            if (_mostrarListaProdutos && _produtos.isNotEmpty)
-              Positioned(
-                top: 50,
-                left: 0,
-                right: 0,
-                child: Material(
-                  elevation: 4,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey[300]!),
+        const SizedBox(height: 8),
+        
+        // Lista de produtos com ícone + na mesma linha e alinhado ao centro
+        ..._produtosSelecionados.asMap().entries.map((entry) {
+          final index = entry.key;
+          final produtoSelecionado = entry.value;
+          final isLast = index == _produtosSelecionados.length - 1;
+          
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center, // ← ALINHAMENTO CENTRALIZADO
+              children: [
+                // Campo flexível que ocupa o espaço disponível
+                Expanded(
+                  child: DropdownButtonFormField<String?>(
+                    initialValue: produtoSelecionado,
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.local_gas_station),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
                     ),
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.list_alt, size: 16, color: Colors.blue),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Lista de Produtos (${_produtos.length})',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Divider(height: 1),
-                        Expanded(
-                          child: ListView.builder(
-                            itemCount: _produtos.length,
-                            itemBuilder: (context, index) {
-                              final produto = _produtos[index];
-                              return ListTile(
-                                dense: true,
-                                leading: const Icon(Icons.local_gas_station, size: 18, color: Colors.grey),
-                                title: Text(
-                                  produto['nome'],
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                                trailing: Text(
-                                  'Cód: ${produto['codigo']}',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green,
-                                  ),
-                                ),
-                                onTap: () {
-                                  setState(() {
-                                    _produtoSelecionadoId = produto['id'];
-                                    _produtoSearchController.text = '${produto['codigo']} - ${produto['nome']}';
-                                    _mostrarListaProdutos = false;
-                                  });
-                                  _produtoFocusNode.unfocus();
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('Selecione'),
+                      ),
+                      ..._produtos.map((produto) {
+                        return DropdownMenuItem<String?>(
+                          value: produto['id']?.toString(),
+                          child: Text(produto['nome']),
+                        );
+                      }),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _produtosSelecionados[index] = value;
+                      });
+                    },
                   ),
                 ),
-              ),
-          ],
-        ),
+                
+                // Espaço entre campo e ícones
+                const SizedBox(width: 8),
+                
+                // Ícones de remover e adicionar - CENTRALIZADOS
+                if (_produtosSelecionados.length > 1) 
+                  Container(
+                    height: 48, // ← ALTURA FIXA PARA CENTRALIZAR
+                    alignment: Alignment.center, // ← CENTRALIZA O ÍCONE
+                    child: IconButton(
+                      icon: const Icon(Icons.remove_circle, color: Colors.red),
+                      onPressed: () => _removerProduto(index),
+                      iconSize: 24,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ),
+                
+                if (isLast && _produtosSelecionados.length < 6)
+                  Container(
+                    height: 48, // ← MESMA ALTURA PARA CENTRALIZAR
+                    alignment: Alignment.center, // ← CENTRALIZA O ÍCONE
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.add_circle,
+                        color: const Color(0xFF0D47A1),
+                        size: 32,
+                      ),
+                      onPressed: _adicionarProduto,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        }),
       ],
     );
   }
@@ -625,8 +482,8 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
           focusNode: _quantidadeFocusNode,
           decoration: InputDecoration(
             hintText: '0',
-            prefixIcon: const Icon(Icons.local_gas_station),
-            suffixText: 'Litros',
+            prefixIcon: const Icon(Icons.oil_barrel),
+            suffixText: 'L',
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -634,17 +491,6 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
             fillColor: Colors.grey[50],
           ),
           keyboardType: TextInputType.number,
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Informe a quantidade';
-            }
-            final quantidadeTexto = value.replaceAll('.', '');
-            final quantidade = double.tryParse(quantidadeTexto);
-            if (quantidade == null || quantidade <= 0) {
-              return 'Quantidade deve ser maior que zero';
-            }
-            return null;
-          },
         ),
       ],
     );
@@ -676,16 +522,10 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
             fillColor: Colors.grey[50],
           ),
           maxLength: 25,
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Informe a forma de pagamento';
-            }
-            return null;
-          },
         ),
       ],
     );
-  }
+  }  
 
   @override
   Widget build(BuildContext context) {
@@ -714,31 +554,20 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
             ),
         ],
       ),
-      body: GestureDetector(
-        onTap: () {
-          // Fecha a lista de produtos quando clicar fora
-          if (_mostrarListaProdutos) {
-            setState(() {
-              _mostrarListaProdutos = false;
-            });
-          }
-        },
-        child: _carregando
-            ? const Center(child: CircularProgressIndicator())
-            : Align( // ← ALTERADO: Align em vez de Center
-                alignment: Alignment.topLeft, // ← ALINHADO À ESQUERDA
-                child: Container( // ← ALTERADO: Container com maxWidth
-                  constraints: const BoxConstraints(maxWidth: 700), // ← LARGURA MÁXIMA
+      body: _carregando
+          ? const Center(child: CircularProgressIndicator())
+          : Align(
+                alignment: Alignment.topLeft,
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 700),
                   child: Form(
                     key: _formKey,
                     child: ListView(
                       padding: const EdgeInsets.all(16),
                       children: [
-                        const SizedBox(height: 8),
-                        
                         // Campo Placas
                         _buildCampoPlacas(),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
                         
                         // Campo Cliente
                         Text(
@@ -749,11 +578,11 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
                             fontSize: 14,
                           ),
                         ),
-                        const SizedBox(height: 6), // Espaço reduzido
+                        const SizedBox(height: 8),
                         TextFormField(
                           controller: _clienteController,
                           decoration: InputDecoration(
-                            hintText: 'Nome',
+                            hintText: 'Cliente',
                             prefixIcon: const Icon(Icons.person),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -761,34 +590,35 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
                             filled: true,
                             fillColor: Colors.grey[50],
                           ),
-                          maxLength: 35, // Aumentado para 35 caracteres
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Informe o nome do cliente';
-                            }
-                            return null;
-                          },
+                          maxLength: 35,
                         ),
-                        const SizedBox(height: 12), // Espaço reduzido
+                        const SizedBox(height: 20),
 
-                        // Campo Produto
-                        _buildCampoProduto(),
-                        const SizedBox(height: 16),
+                        // Campo Produtos
+                        _buildCampoProdutos(),
+                        const SizedBox(height: 20),
                         
                         // Campo Quantidade
                         _buildCampoQuantidade(),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
                         
                         // Forma de Pagamento
                         _buildFormaPagamento(),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
 
                         // Campo Observações
+                        Text(
+                          'Observações (Opcional)',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                         TextFormField(
                           controller: _obsController,
                           decoration: InputDecoration(
-                            labelText: 'Observações (Opcional)',
-                            prefixIcon: const Icon(Icons.edit_note),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -796,13 +626,9 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
                             fillColor: Colors.grey[50],
                           ),
                           maxLength: 100,
-                          maxLines: 3,
+                          maxLines: 2,
                         ),
-                        const SizedBox(height: 24),
-
-                        // ANP
-                        _buildANPCard(),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 20),
 
                         // Botão Salvar
                         SizedBox(
@@ -819,10 +645,10 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
                             child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.rocket_launch, color: Colors.white),
+                                Icon(Icons.check_circle, color: Colors.white),
                                 SizedBox(width: 8),
                                 Text(
-                                  'CONFIRMAR LANÇAMENTO',
+                                  'CONFIRMAR VENDA',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
@@ -839,7 +665,6 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
                   ),
                 ),
               ),
-      ),
     );
   }
 
@@ -851,9 +676,7 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
     _clienteController.dispose();
     _obsController.dispose();
     _quantidadeController.dispose();
-    _produtoSearchController.dispose();
     _formaPagamentoController.dispose();
-    _produtoFocusNode.dispose();
     _quantidadeFocusNode.dispose();
     _formaPagamentoFocusNode.dispose();
     super.dispose();
