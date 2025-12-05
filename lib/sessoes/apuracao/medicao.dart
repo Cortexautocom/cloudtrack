@@ -311,6 +311,20 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     // APENAS DATA (sem hora)
     final dataApenas = _dataController.text;
 
+    // Obter o ID da filial atual
+    final usuario = UsuarioAtual.instance!;
+    final String? filialId;
+    
+    if (usuario.nivel == 3 && widget.filialSelecionadaId != null) {
+      // Admin selecionou uma filial específica
+      filialId = widget.filialSelecionadaId;
+    } else {
+      // Usuário normal ou admin sem seleção específica
+      filialId = usuario.filialId;
+    }
+
+    print('DEBUG medicao.dart: Enviando filial_id: $filialId');
+
     final dadosFormulario = {
       'data': dataApenas, // ← Apenas data, sem hora
       'base': _nomeFilial ?? 'POLO DE COMBUSTÍVEL',
@@ -318,7 +332,14 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'tanque': tanqueAtual['numero'],
       'responsavel': UsuarioAtual.instance?.nome ?? 'Usuário',
       'medicoes': dadosMedicoes,
+      'filial_id': filialId, // ← NOVO CAMPO ADICIONADO
     };
+
+    print('DEBUG medicao.dart: Dados enviados para CalcPage:');
+    print('DEBUG medicao.dart: - Filial ID: $filialId');
+    print('DEBUG medicao.dart: - Nome Filial: $_nomeFilial');
+    print('DEBUG medicao.dart: - Tanque: ${tanqueAtual['numero']}');
+    print('DEBUG medicao.dart: - Produto: ${tanqueAtual['produto']}');
 
     Navigator.of(context).push(
       MaterialPageRoute(

@@ -40,44 +40,174 @@ class _CalcPageState extends State<CalcPage> {
   Future<double> _buscarVolumeReal(String? cm, String? mm) async {
     final supabase = Supabase.instance.client;
 
-    if (cm == null || cm.isEmpty) return 0;
+    if (cm == null || cm.isEmpty) {
+      print('DEBUG: cm é nulo ou vazio. cm=$cm');
+      return 0;
+    }
 
     final intCm = int.tryParse(cm) ?? 0;
     final intMm = int.tryParse(mm ?? '0') ?? 0;
 
-    final mmFactor = (intMm.clamp(0, 9)) / 10.0;
+    print('DEBUG: Altura parseada -> cm=$intCm, mm=$intMm');
 
-    final atual = await supabase
-        .from('arqueacao_jequie')
-        .select('tq_01_cm')
-        .eq('altura_cm_mm', intCm)
-        .maybeSingle();
+    // Obter ID da filial do formulário
+    final String? filialId = widget.dadosFormulario['filial_id']?.toString();
+    print('DEBUG: ID da filial recebido: "$filialId"');
 
-    if (atual == null || atual['tq_01_cm'] == null) {
+    // Mapear ID da filial para nome da tabela
+    String nomeTabela;
+    
+    if (filialId != null) {
+      switch (filialId) {
+        case '9d476aa0-11fe-4470-8881-2699cb528690':
+          nomeTabela = 'arqueacao_jequie';
+          print('DEBUG: Filial Jequié detectada -> tabela: $nomeTabela');
+          break;
+        case 'bcc92c8e-bd40-4d26-acb0-87acdd2ce2b7':
+          nomeTabela = 'arqueacao_base_teste';
+          print('DEBUG: Filial Base Teste detectada -> tabela: $nomeTabela');
+          break;
+        default:
+          print('DEBUG: ERRO - ID de filial não mapeado: $filialId');
+          print('DEBUG: Usando tabela padrão arqueacao_base_teste');
+          nomeTabela = 'arqueacao_base_teste';
+      }
+    } else {
+      print('DEBUG: ERRO - ID da filial não fornecido no formulário');
+      print('DEBUG: DadosFormulario keys: ${widget.dadosFormulario.keys}');
+      print('DEBUG: Usando tabela padrão arqueacao_base_teste');
+      nomeTabela = 'arqueacao_base_teste';
+    }
+
+    print('DEBUG: Tabela definida para uso: $nomeTabela');
+
+    // Extrair número do tanque (ex: "TQ-01" → "01" → "01")
+    final String tanqueRef = widget.dadosFormulario['tanque']?.toString() ?? '';
+    String numeroTanque = '01'; // padrão
+    
+    print('DEBUG: Referência do tanque: "$tanqueRef"');
+    
+    if (tanqueRef.isNotEmpty) {
+      // Extrair apenas números da referência
+      final numeros = tanqueRef.replaceAll(RegExp(r'[^0-9]'), '');
+      print('DEBUG: Números extraídos: "$numeros"');
+      
+      if (numeros.isNotEmpty) {
+        // Formatar com 2 dígitos (ex: "1" → "01", "13" → "13")
+        numeroTanque = numeros.padLeft(2, '0');
+      }
+    }
+
+    print('DEBUG: Número do tanque formatado: "$numeroTanque"');
+
+    // Construir nomes das colunas
+    final colunaCm = 'tq_${numeroTanque}_cm';
+    final colunaMm = 'tq_${numeroTanque}_mm';
+
+    print('DEBUG: Colunas a buscar -> cm: $colunaCm, mm: $colunaMm');
+
+    // Função auxiliar para converter qualquer valor para double
+    double _converterParaDouble(dynamic valor) {
+      try {
+        if (valor == null) return 0.0;
+        
+        if (valor is num) {
+          return valor.toDouble();
+        }
+        
+        if (valor is String) {
+          // Remove caracteres não numéricos e converte
+          final apenasNumeros = valor.replaceAll(RegExp(r'[^0-9\.\-]'), '');
+          return double.tryParse(apenasNumeros) ?? 0.0;
+        }
+        
+        print('DEBUG AVISO: Tipo não esperado para conversão: ${valor.runtimeType}');
+        return 0.0;
+      } catch (e) {
+        print('DEBUG ERRO: Falha ao converter $valor para double: $e');
+        return 0.0;
+      }
+    }
+
+    // Buscar volume para centímetros
+    print('DEBUG: Buscando centímetros... tabela=$nomeTabela, altura_cm_mm=$intCm, coluna=$colunaCm');
+    
+    try {
+      final resultadoCm = await supabase
+          .from(nomeTabela)
+          .select(colunaCm)
+          .eq('altura_cm_mm', intCm)
+          .maybeSingle();
+
+      print('DEBUG: Resultado da busca cm: $resultadoCm');
+
+      if (resultadoCm == null) {
+        print('DEBUG: ERRO - Nenhum resultado encontrado para cm (tabela=$nomeTabela, altura_cm_mm=$intCm)');
+        print('DEBUG: Verifique se a tabela $nomeTabela existe e tem a coluna $colunaCm');
+        return 0;
+      }
+
+      if (resultadoCm[colunaCm] == null) {
+        print('DEBUG: ERRO - Coluna $colunaCm não encontrada ou nula');
+        print('DEBUG: Colunas disponíveis no resultado: ${resultadoCm.keys}');
+        return 0;
+      }
+
+      final volumeCm = _converterParaDouble(resultadoCm[colunaCm]);
+      print('DEBUG: Volume cm encontrado: $volumeCm L (tipo original: ${resultadoCm[colunaCm].runtimeType})');
+
+      // Se mm = 0, retornar apenas volume dos centímetros
+      if (intMm == 0) {
+        print('DEBUG: mm = 0, retornando apenas volume cm: $volumeCm L');
+        return volumeCm;
+      }
+
+      // Buscar volume para milímetros
+      print('DEBUG: Buscando milímetros... tabela=$nomeTabela, altura_cm_mm=$intMm, coluna=$colunaMm');
+      
+      final resultadoMm = await supabase
+          .from(nomeTabela)
+          .select(colunaMm)
+          .eq('altura_cm_mm', intMm)
+          .maybeSingle();
+
+      print('DEBUG: Resultado da busca mm: $resultadoMm');
+
+      if (resultadoMm == null) {
+        print('DEBUG: AVISO - Nenhum resultado encontrado para mm (tabela=$nomeTabela, altura_cm_mm=$intMm)');
+        print('DEBUG: Retornando apenas volume cm: $volumeCm L');
+        return volumeCm;
+      }
+
+      if (resultadoMm[colunaMm] == null) {
+        print('DEBUG: AVISO - Coluna $colunaMm não encontrada ou nula');
+        print('DEBUG: Colunas disponíveis no resultado: ${resultadoMm.keys}');
+        print('DEBUG: Retornando apenas volume cm: $volumeCm L');
+        return volumeCm;
+      }
+
+      final volumeMm = _converterParaDouble(resultadoMm[colunaMm]);
+      print('DEBUG: Volume mm encontrado: $volumeMm L (tipo original: ${resultadoMm[colunaMm].runtimeType})');
+
+      // Volume total = volume dos cm + volume dos mm
+      final volumeTotal = volumeCm + volumeMm;
+      print('DEBUG: Volume total calculado: $volumeCm + $volumeMm = $volumeTotal L');
+      print('DEBUG: SUCESSO - Cálculo concluído para altura $intCm,$intMm cm');
+      
+      return volumeTotal;
+      
+    } catch (e) {
+      print('DEBUG: ERRO CRÍTICO na busca: $e');
+      print('DEBUG: Tipo de erro: ${e.runtimeType}');
+      if (e is PostgrestException) {
+        print('DEBUG: Detalhes Postgrest: ${e.message}');
+        print('DEBUG: Código: ${e.code}');
+        print('DEBUG: Detalhes: ${e.details}');
+        print('DEBUG: Hint: ${e.hint}');
+      }
       return 0;
     }
-
-    final volAtual = (atual['tq_01_cm'] as num).toDouble();
-
-    final proximo = await supabase
-        .from('arqueacao_jequie')
-        .select('tq_01_cm')
-        .eq('altura_cm_mm', intCm + 1)
-        .maybeSingle();
-
-    if (proximo == null || proximo['tq_01_cm'] == null) {
-      return volAtual;
-    }
-
-    final volProximo = (proximo['tq_01_cm'] as num).toDouble();
-
-    return volAtual + (volProximo - volAtual) * mmFactor;
   }
-
-
-
-
-
 
   @override
   Widget build(BuildContext context) {
