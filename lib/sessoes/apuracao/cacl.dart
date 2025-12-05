@@ -40,98 +40,42 @@ class _CalcPageState extends State<CalcPage> {
   Future<double> _buscarVolumeReal(String? cm, String? mm) async {
     final supabase = Supabase.instance.client;
 
-    if (cm == null || cm.isEmpty) {
-      print('DEBUG: cm é nulo ou vazio. cm=$cm');
-      return 0;
-    }
+    if (cm == null || cm.isEmpty) return 0;
 
     final intCm = int.tryParse(cm) ?? 0;
     final intMm = int.tryParse(mm ?? '0') ?? 0;
 
-    print('DEBUG: Altura parseada -> cm=$intCm, mm=$intMm');
-
-    // Obter ID da filial do formulário
     final String? filialId = widget.dadosFormulario['filial_id']?.toString();
-    print('DEBUG: ID da filial recebido: "$filialId"');
-
-    // Mapear ID da filial para nome da tabela
     String nomeTabela;
     
     if (filialId != null) {
       switch (filialId) {
         case '9d476aa0-11fe-4470-8881-2699cb528690':
           nomeTabela = 'arqueacao_jequie';
-          print('DEBUG: Filial Jequié detectada -> tabela: $nomeTabela');
           break;
         case 'bcc92c8e-bd40-4d26-acb0-87acdd2ce2b7':
           nomeTabela = 'arqueacao_base_teste';
-          print('DEBUG: Filial Base Teste detectada -> tabela: $nomeTabela');
           break;
         default:
-          print('DEBUG: ERRO - ID de filial não mapeado: $filialId');
-          print('DEBUG: Usando tabela padrão arqueacao_base_teste');
           nomeTabela = 'arqueacao_base_teste';
       }
     } else {
-      print('DEBUG: ERRO - ID da filial não fornecido no formulário');
-      print('DEBUG: DadosFormulario keys: ${widget.dadosFormulario.keys}');
-      print('DEBUG: Usando tabela padrão arqueacao_base_teste');
       nomeTabela = 'arqueacao_base_teste';
     }
 
-    print('DEBUG: Tabela definida para uso: $nomeTabela');
-
-    // Extrair número do tanque (ex: "TQ-01" → "01" → "01")
     final String tanqueRef = widget.dadosFormulario['tanque']?.toString() ?? '';
-    String numeroTanque = '01'; // padrão
-    
-    print('DEBUG: Referência do tanque: "$tanqueRef"');
+    String numeroTanque = '01';
     
     if (tanqueRef.isNotEmpty) {
-      // Extrair apenas números da referência
       final numeros = tanqueRef.replaceAll(RegExp(r'[^0-9]'), '');
-      print('DEBUG: Números extraídos: "$numeros"');
-      
       if (numeros.isNotEmpty) {
-        // Formatar com 2 dígitos (ex: "1" → "01", "13" → "13")
         numeroTanque = numeros.padLeft(2, '0');
       }
     }
 
-    print('DEBUG: Número do tanque formatado: "$numeroTanque"');
-
-    // Construir nomes das colunas
     final colunaCm = 'tq_${numeroTanque}_cm';
     final colunaMm = 'tq_${numeroTanque}_mm';
 
-    print('DEBUG: Colunas a buscar -> cm: $colunaCm, mm: $colunaMm');
-
-    // Função auxiliar para converter qualquer valor para double
-    double _converterParaDouble(dynamic valor) {
-      try {
-        if (valor == null) return 0.0;
-        
-        if (valor is num) {
-          return valor.toDouble();
-        }
-        
-        if (valor is String) {
-          // Remove caracteres não numéricos e converte
-          final apenasNumeros = valor.replaceAll(RegExp(r'[^0-9\.\-]'), '');
-          return double.tryParse(apenasNumeros) ?? 0.0;
-        }
-        
-        print('DEBUG AVISO: Tipo não esperado para conversão: ${valor.runtimeType}');
-        return 0.0;
-      } catch (e) {
-        print('DEBUG ERRO: Falha ao converter $valor para double: $e');
-        return 0.0;
-      }
-    }
-
-    // Buscar volume para centímetros
-    print('DEBUG: Buscando centímetros... tabela=$nomeTabela, altura_cm_mm=$intCm, coluna=$colunaCm');
-    
     try {
       final resultadoCm = await supabase
           .from(nomeTabela)
@@ -139,73 +83,69 @@ class _CalcPageState extends State<CalcPage> {
           .eq('altura_cm_mm', intCm)
           .maybeSingle();
 
-      print('DEBUG: Resultado da busca cm: $resultadoCm');
-
-      if (resultadoCm == null) {
-        print('DEBUG: ERRO - Nenhum resultado encontrado para cm (tabela=$nomeTabela, altura_cm_mm=$intCm)');
-        print('DEBUG: Verifique se a tabela $nomeTabela existe e tem a coluna $colunaCm');
+      if (resultadoCm == null || resultadoCm[colunaCm] == null) {
         return 0;
       }
 
-      if (resultadoCm[colunaCm] == null) {
-        print('DEBUG: ERRO - Coluna $colunaCm não encontrada ou nula');
-        print('DEBUG: Colunas disponíveis no resultado: ${resultadoCm.keys}');
-        return 0;
-      }
+      final volumeCm = _converterVolumeLitros(resultadoCm[colunaCm]);
 
-      final volumeCm = _converterParaDouble(resultadoCm[colunaCm]);
-      print('DEBUG: Volume cm encontrado: $volumeCm L (tipo original: ${resultadoCm[colunaCm].runtimeType})');
-
-      // Se mm = 0, retornar apenas volume dos centímetros
       if (intMm == 0) {
-        print('DEBUG: mm = 0, retornando apenas volume cm: $volumeCm L');
         return volumeCm;
       }
 
-      // Buscar volume para milímetros
-      print('DEBUG: Buscando milímetros... tabela=$nomeTabela, altura_cm_mm=$intMm, coluna=$colunaMm');
-      
       final resultadoMm = await supabase
           .from(nomeTabela)
           .select(colunaMm)
           .eq('altura_cm_mm', intMm)
           .maybeSingle();
 
-      print('DEBUG: Resultado da busca mm: $resultadoMm');
-
-      if (resultadoMm == null) {
-        print('DEBUG: AVISO - Nenhum resultado encontrado para mm (tabela=$nomeTabela, altura_cm_mm=$intMm)');
-        print('DEBUG: Retornando apenas volume cm: $volumeCm L');
+      if (resultadoMm == null || resultadoMm[colunaMm] == null) {
         return volumeCm;
       }
 
-      if (resultadoMm[colunaMm] == null) {
-        print('DEBUG: AVISO - Coluna $colunaMm não encontrada ou nula');
-        print('DEBUG: Colunas disponíveis no resultado: ${resultadoMm.keys}');
-        print('DEBUG: Retornando apenas volume cm: $volumeCm L');
-        return volumeCm;
-      }
-
-      final volumeMm = _converterParaDouble(resultadoMm[colunaMm]);
-      print('DEBUG: Volume mm encontrado: $volumeMm L (tipo original: ${resultadoMm[colunaMm].runtimeType})');
-
-      // Volume total = volume dos cm + volume dos mm
+      final volumeMm = _converterVolumeLitros(resultadoMm[colunaMm]);
       final volumeTotal = volumeCm + volumeMm;
-      print('DEBUG: Volume total calculado: $volumeCm + $volumeMm = $volumeTotal L');
-      print('DEBUG: SUCESSO - Cálculo concluído para altura $intCm,$intMm cm');
       
-      return volumeTotal;
+      return double.parse(volumeTotal.toStringAsFixed(3));
       
     } catch (e) {
-      print('DEBUG: ERRO CRÍTICO na busca: $e');
-      print('DEBUG: Tipo de erro: ${e.runtimeType}');
-      if (e is PostgrestException) {
-        print('DEBUG: Detalhes Postgrest: ${e.message}');
-        print('DEBUG: Código: ${e.code}');
-        print('DEBUG: Detalhes: ${e.details}');
-        print('DEBUG: Hint: ${e.hint}');
-      }
       return 0;
+    }
+  }
+
+  double _converterVolumeLitros(dynamic valor) {
+    try {
+      if (valor == null) return 0.0;
+      
+      if (valor is String) {
+        final str = valor.trim();
+        
+        if (str.contains('.') && str.split('.')[1].length == 3) {
+          final semPonto = str.replaceAll('.', '');
+          return double.tryParse(semPonto) ?? 0.0;
+        }
+        
+        return double.tryParse(str.replaceAll(',', '.')) ?? 0.0;
+      }
+      
+      if (valor is num) {
+        final numVal = valor.toDouble();
+        
+        if (numVal < 1000 && numVal.toString().contains('.')) {
+          final strVal = numVal.toString();
+          final partes = strVal.split('.');
+          
+          if (partes.length == 2 && partes[1].length == 3) {
+            return numVal * 1000;
+          }
+        }
+        
+        return numVal;
+      }
+      
+      return 0.0;
+    } catch (e) {
+      return 0.0;
     }
   }
 
@@ -225,7 +165,6 @@ class _CalcPageState extends State<CalcPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ===== CABEÇALHO DO DOCUMENTO =====
                   Stack(
                     children: [
                       Container(
@@ -248,7 +187,6 @@ class _CalcPageState extends State<CalcPage> {
                           ),
                         ),
                       ),
-                      // SETA DE VOLTAR COM TOOLTIP
                       Positioned(
                         left: 8,
                         top: 8,
@@ -280,13 +218,11 @@ class _CalcPageState extends State<CalcPage> {
 
                   const SizedBox(height: 20),
 
-                  // ===== INFORMAÇÕES EM LINHA (4 CAMPOS) =====
                   SizedBox(
                     width: double.infinity,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // DATA
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -297,8 +233,6 @@ class _CalcPageState extends State<CalcPage> {
                           ),
                         ),
                         const SizedBox(width: 10),
-                        
-                        // BASE
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -309,8 +243,6 @@ class _CalcPageState extends State<CalcPage> {
                           ),
                         ),
                         const SizedBox(width: 10),
-                        
-                        // PRODUTO
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -321,8 +253,6 @@ class _CalcPageState extends State<CalcPage> {
                           ),
                         ),
                         const SizedBox(width: 10),
-                        
-                        // TANQUE
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -338,7 +268,6 @@ class _CalcPageState extends State<CalcPage> {
 
                   const SizedBox(height: 25),
 
-                  // ===== MEDIÇÕES COM DUAS COLUNAS =====
                   _subtitulo("CARGA RECEBIDA NOS TANQUES DE TERRA E CANALIZAÇÃO RESPECTIVA"),
                   const SizedBox(height: 12),
 
@@ -354,8 +283,8 @@ class _CalcPageState extends State<CalcPage> {
                         _calcularAlturaProduto(medicoes['cmTarde'], medicoes['mmTarde'], medicoes['alturaAguaTarde'])),
                     _linhaMedicao(
                       "Volume em litros, correspondente à altura total do produto",
-                      "${volumeManha.toStringAsFixed(3)} L",
-                      "${volumeTarde.toStringAsFixed(3)} L",
+                      "${_formatarVolumeLitros(volumeManha)} L",
+                      "${_formatarVolumeLitros(volumeTarde)} L",
                     ),
                     _linhaMedicao("Volume em litros, correspondente à altura total da água", 
                         _obterValorMedicao(medicoes['volumeAguaManha']), 
@@ -388,7 +317,6 @@ class _CalcPageState extends State<CalcPage> {
 
                   const SizedBox(height: 25),
 
-                  // ===== RESULTADOS =====
                   _subtitulo("COMPARAÇÃO DOS RESULTADOS"),
                   const SizedBox(height: 8),
 
@@ -399,7 +327,6 @@ class _CalcPageState extends State<CalcPage> {
 
                   const SizedBox(height: 25),
 
-                  // ===== MANIFESTAÇÃO =====
                   _subtitulo("MANIFESTAÇÃO"),
                   const SizedBox(height: 8),
 
@@ -411,7 +338,6 @@ class _CalcPageState extends State<CalcPage> {
 
                   const SizedBox(height: 25),
 
-                  // ===== ABERTURA / SALDO =====
                   _subtitulo("ABERTURA / ENTRADA / SAÍDA / SALDO"),
                   const SizedBox(height: 8),
 
@@ -422,7 +348,6 @@ class _CalcPageState extends State<CalcPage> {
                     ["Saldo Final", _calcularSaldoFinal(medicoes['cmManha'], medicoes['mmManha'])],
                   ]),
 
-                  // ===== RESPONSÁVEL =====
                   if (widget.dadosFormulario['responsavel'] != null && widget.dadosFormulario['responsavel']!.isNotEmpty)
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -450,7 +375,6 @@ class _CalcPageState extends State<CalcPage> {
 
                   const SizedBox(height: 30),
 
-                  // ===== RODAPÉ INFORMATIVO =====
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 12),
@@ -488,10 +412,6 @@ class _CalcPageState extends State<CalcPage> {
       ),
     );
   }
-
-  // ===========================================
-  // WIDGETS DE FORMATAÇÃO
-  // ===========================================
 
   Widget _secaoTitulo(String texto) {
     return Text(
@@ -564,10 +484,6 @@ class _CalcPageState extends State<CalcPage> {
     );
   }
 
-  // ===========================================
-  // WIDGETS PARA TABELA DE MEDIÇÕES
-  // ===========================================
-
   Widget _tabelaMedicoes(List<TableRow> linhas) {
     return Table(
       border: TableBorder.all(
@@ -580,7 +496,6 @@ class _CalcPageState extends State<CalcPage> {
         2: FlexColumnWidth(1.0),
       },
       children: [
-        // CABEÇALHO DA TABELA DE MEDIÇÕES
         TableRow(
           decoration: BoxDecoration(
             color: Colors.grey[200],
@@ -658,10 +573,6 @@ class _CalcPageState extends State<CalcPage> {
     );
   }
 
-  // ===========================================
-  // FUNÇÕES AUXILIARES
-  // ===========================================
-
   String _obterValorMedicao(dynamic valor) {
     if (valor == null) return "-";
     if (valor is String && valor.isEmpty) return "-";
@@ -669,7 +580,6 @@ class _CalcPageState extends State<CalcPage> {
   }
 
   String _obterApenasData(String dataCompleta) {
-    // Remove a parte da hora se existir (tudo depois da vírgula)
     if (dataCompleta.contains(',')) {
       return dataCompleta.split(',').first.trim();
     }
@@ -685,29 +595,21 @@ class _CalcPageState extends State<CalcPage> {
   String _calcularAlturaProduto(String? cmTotal, String? mmTotal, String? alturaAgua) {
     if (cmTotal == null || cmTotal.isEmpty) return "-";
     
-    // Converter altura total para centímetros
     final cmTotalValue = double.tryParse(cmTotal.replaceAll(',', '.')) ?? 0;
     final mmTotalValue = double.tryParse(mmTotal?.replaceAll(',', '.') ?? '0') ?? 0;
     final alturaTotal = cmTotalValue + (mmTotalValue / 10);
     
-    // Converter altura da água para centímetros
     final alturaAguaValue = double.tryParse(alturaAgua?.replaceAll(',', '.') ?? '0') ?? 0;
     
-    // Calcular altura do produto (total - água)
     final alturaProduto = alturaTotal - alturaAguaValue;
     
     if (alturaProduto <= 0) return "0,0 cm";
     
-    // Formatar resultado (parte inteira e decimal)
     final parteInteira = alturaProduto.floor();
     final parteDecimal = ((alturaProduto - parteInteira) * 10).round();
     
     return "$parteInteira,$parteDecimal cm";
   }
-
-  // ===========================================
-  // FUNÇÕES DE CÁLCULO (MANTIDAS PARA OUTROS BLOCOS)
-  // ===========================================
 
   String _calcularLitrosAmbiente(String? cm, String? mm) {
     return _calcularVolume(cm, mm);
@@ -722,41 +624,39 @@ class _CalcPageState extends State<CalcPage> {
     final cmValue = double.tryParse(cm.replaceAll(',', '.')) ?? 0;
     final mmValue = double.tryParse(mm?.replaceAll(',', '.') ?? '0') ?? 0;
     final alturaTotal = cmValue + (mmValue / 10);
-    // Cálculo simplificado - volume baseado na altura (ajustar conforme tabela do tanque)
-    final volume = alturaTotal * 100; // Exemplo: 1cm = 100L
+    final volume = alturaTotal * 100;
     return '${volume.toStringAsFixed(0)} L';
   }
 
   String _calcularVolumeA20(String? cm, String? mm, String? densidade, String? temperatura) {
     if (cm == null || cm.isEmpty) return "-";
     final volumeAmbiente = _calcularVolume(cm, mm);    
-    // Cálculo simplificado - na prática usaria tabelas de correção
-    return volumeAmbiente; // Placeholder
+    return volumeAmbiente;
   }
 
   String _calcularRecebido(String? cm, String? mm) {
     if (cm == null || cm.isEmpty) return "-";
     final cmValue = double.tryParse(cm.replaceAll(',', '.')) ?? 0;
-    final volumeRecebido = cmValue * 95; // Exemplo simplificado
+    final volumeRecebido = cmValue * 95;
     return '${volumeRecebido.toStringAsFixed(0)} L';
   }
 
   String _calcularDiferenca(String? cm, String? mm) {
     if (cm == null || cm.isEmpty) return "-";
     final cmValue = double.tryParse(cm.replaceAll(',', '.')) ?? 0;
-    final diferenca = cmValue * 2; // Exemplo simplificado
+    final diferenca = cmValue * 2;
     return '${diferenca.toStringAsFixed(0)} L';
   }
 
   String _calcularPercentual(String? cm, String? mm) {
     if (cm == null || cm.isEmpty) return "-";
     final cmValue = double.tryParse(cm.replaceAll(',', '.')) ?? 0;
-    final percentual = (cmValue * 0.5); // Exemplo simplificado
+    final percentual = (cmValue * 0.5);
     return '${percentual.toStringAsFixed(1)} %';
   }
 
   String _calcularAbertura() {
-    return "1.500 L"; // Placeholder - deveria vir do banco
+    return "1.500 L";
   }
 
   String _calcularEntrada(String? cm, String? mm) {
@@ -764,7 +664,7 @@ class _CalcPageState extends State<CalcPage> {
   }
 
   String _calcularSaida() {
-    return "850 L"; // Placeholder - deveria vir do banco
+    return "850 L";
   }
 
   String _calcularSaldoFinal(String? cm, String? mm) {
@@ -774,5 +674,30 @@ class _CalcPageState extends State<CalcPage> {
     final saida = 850.0;
     final saldo = abertura + entrada - saida;
     return '${saldo.toStringAsFixed(0)} L';
+  }
+
+  String _formatarVolumeLitros(double volume) {
+    final parteInteira = volume.toInt();
+    String inteiroFormatado = parteInteira.toString();
+    
+    if (inteiroFormatado.length > 3) {
+      final buffer = StringBuffer();
+      int contador = 0;
+      
+      for (int i = inteiroFormatado.length - 1; i >= 0; i--) {
+        buffer.write(inteiroFormatado[i]);
+        contador++;
+        
+        if (contador == 3 && i > 0) {
+          buffer.write('.');
+          contador = 0;
+        }
+      }
+      
+      final chars = buffer.toString().split('').reversed.toList();
+      inteiroFormatado = chars.join('');
+    }
+    
+    return inteiroFormatado;
   }
 }

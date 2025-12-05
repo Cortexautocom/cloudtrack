@@ -41,9 +41,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       
       final PostgrestTransformBuilder<dynamic> query;
 
-      // ---------------------------
-      //   BUSCAR NOME DA FILIAL
-      // ---------------------------
       String? nomeFilial;
       if (usuario.nivel == 3 && widget.filialSelecionadaId != null) {
         final filialData = await supabase
@@ -65,12 +62,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         _nomeFilial = nomeFilial;
       });
 
-      // ---------------------------
-      //   ADMINISTRADOR (NÍVEL 3)
-      // ---------------------------
       if (usuario.nivel == 3) {
         if (widget.filialSelecionadaId == null) {
-          print("ERRO: Admin não escolheu filial.");
           setState(() => _carregando = false);
           return;
         }
@@ -85,16 +78,10 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
             ''')
             .eq('id_filial', widget.filialSelecionadaId!)
             .order('referencia');
-      } 
-      
-      // ---------------------------
-      //   USUÁRIO NÍVEL 2
-      // ---------------------------
-      else {
+      } else {
         final idFilial = usuario.filialId;
 
         if (idFilial == null) {
-          print('Erro: ID da filial não encontrado para usuário não-admin');
           setState(() => _carregando = false);
           return;
         }
@@ -111,19 +98,14 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
             .order('referencia');
       }
 
-      // ---------------------------
-      //      EXECUTA CONSULTA
-      // ---------------------------
       final tanquesResponse = await query;
-
-      print('Tanques encontrados: ${tanquesResponse.length}');
 
       final List<Map<String, dynamic>> tanquesFormatados = [];
 
       for (final tanque in tanquesResponse) {
         tanquesFormatados.add({
-          'numero': tanque['referencia']?.toString() ?? 'SEM REFERÊNCIA',
-          'produto': tanque['produtos']?['nome']?.toString() ?? 'PRODUTO NÃO INFORMADO',
+          'numero': tanque['referencia']?.toString() ?? '',
+          'produto': tanque['produtos']?['nome']?.toString() ?? '',
           'capacidade': '${tanque['capacidade']?.toString() ?? '0'} L',
         });
       }
@@ -133,48 +115,36 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         _carregando = false;
       });
 
-      // ---------------------------
-      //    INICIALIZA CONTROLLERS
-      // ---------------------------
       for (int i = 0; i < tanques.length; i++) {
         _controllers.add([
-          // Manhã (06:00) - 7 campos originais
-          TextEditingController(), // [0] Horário Medição
-          TextEditingController(), // [1] cm
-          TextEditingController(), // [2] mm
-          TextEditingController(), // [3] Temp. Tanque
-          TextEditingController(), // [4] Densidade
-          TextEditingController(), // [5] Temp. Amostra
-          TextEditingController(), // [6] Observações
-          
-          // Novos campos para manhã
-          TextEditingController(), // [7] Altura Água cm
-          TextEditingController(), // [8] Altura Água mm
-          TextEditingController(), // [9] Vol. Canalização
-          
-          // Tarde (18:00) - 7 campos originais
-          TextEditingController(), // [10] Horário Medição
-          TextEditingController(), // [11] cm
-          TextEditingController(), // [12] mm
-          TextEditingController(), // [13] Temp. Tanque
-          TextEditingController(), // [14] Densidade
-          TextEditingController(), // [15] Temp. Amostra
-          TextEditingController(), // [16] Observações
-          
-          // Novos campos para tarde
-          TextEditingController(), // [17] Altura Água cm
-          TextEditingController(), // [18] Altura Água mm
-          TextEditingController(), // [19] Vol. Canalização
+          TextEditingController(),
+          TextEditingController(),
+          TextEditingController(),
+          TextEditingController(),
+          TextEditingController(),
+          TextEditingController(),
+          TextEditingController(),
+          TextEditingController(),
+          TextEditingController(),
+          TextEditingController(),
+          TextEditingController(),
+          TextEditingController(),
+          TextEditingController(),
+          TextEditingController(),
+          TextEditingController(),
+          TextEditingController(),
+          TextEditingController(),
+          TextEditingController(),
+          TextEditingController(),
+          TextEditingController(),
         ]);
       }
 
     } catch (e) {
       setState(() => _carregando = false);
-      print('Erro ao carregar tanques: $e');
     }
   }
 
-  // Máscara para horário no formato "12:34 h"
   String _aplicarMascaraHorario(String texto) {
     String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
     
@@ -197,7 +167,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     return resultado;
   }
 
-  // Máscara para temperatura no formato "12,3"
   String _aplicarMascaraTemperatura(String texto) {
     String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
     
@@ -216,7 +185,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     return resultado;
   }
 
-  // Máscara para densidade no formato "0,123"
   String _aplicarMascaraDensidade(String texto) {
     String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
     
@@ -232,7 +200,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       resultado += apenasNumeros[i];
     }
     
-    // Garante que começa com 0 se não tiver dígito antes da vírgula
     if (resultado.isNotEmpty && !resultado.contains(',') && resultado.length < 4) {
       resultado = '0,$resultado';
     } else if (resultado.isNotEmpty && !resultado.contains(',')) {
@@ -242,7 +209,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     return resultado;
   }
 
-  // Máscara para volume no formato "1.234"
   String _aplicarMascaraVolume(String texto) {
     String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
     
@@ -271,29 +237,23 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     final tanqueAtual = tanques[_tanqueSelecionadoIndex];
     final controllers = _controllers[_tanqueSelecionadoIndex];
     
-    // Coletar dados das medições COMPLETO
     final dadosMedicoes = {
-      // Medição da manhã (06:00)
       'horarioManha': controllers[0].text,
       'cmManha': controllers[1].text,
       'mmManha': controllers[2].text,
       'tempTanqueManha': controllers[3].text,
       'densidadeManha': controllers[4].text,
       'tempAmostraManha': controllers[5].text,
-      'alturaAguaManha': '${controllers[7].text}.${controllers[8].text}', // cm.mm
+      'alturaAguaManha': '${controllers[7].text}.${controllers[8].text}',
       'volumeCanalizacaoManha': controllers[9].text.replaceAll(' L', '').replaceAll('.', ''),
-      
-      // Medição da tarde (18:00)  
       'horarioTarde': controllers[10].text,
       'cmTarde': controllers[11].text,
       'mmTarde': controllers[12].text,
       'tempTanqueTarde': controllers[13].text,
       'densidadeTarde': controllers[14].text,
       'tempAmostraTarde': controllers[15].text,
-      'alturaAguaTarde': '${controllers[17].text}.${controllers[18].text}', // cm.mm
+      'alturaAguaTarde': '${controllers[17].text}.${controllers[18].text}',
       'volumeCanalizacaoTarde': controllers[19].text.replaceAll(' L', '').replaceAll('.', ''),
-
-      // Campos que serão calculados na tela de cálculo
       'volumeProdutoManha': '0',
       'volumeProdutoTarde': '0',
       'volumeAguaManha': '0',
@@ -308,38 +268,26 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'densidade20Tarde': '0.000',
     };
 
-    // APENAS DATA (sem hora)
     final dataApenas = _dataController.text;
 
-    // Obter o ID da filial atual
     final usuario = UsuarioAtual.instance!;
     final String? filialId;
     
     if (usuario.nivel == 3 && widget.filialSelecionadaId != null) {
-      // Admin selecionou uma filial específica
       filialId = widget.filialSelecionadaId;
     } else {
-      // Usuário normal ou admin sem seleção específica
       filialId = usuario.filialId;
     }
 
-    print('DEBUG medicao.dart: Enviando filial_id: $filialId');
-
     final dadosFormulario = {
-      'data': dataApenas, // ← Apenas data, sem hora
+      'data': dataApenas,
       'base': _nomeFilial ?? 'POLO DE COMBUSTÍVEL',
       'produto': tanqueAtual['produto'],
       'tanque': tanqueAtual['numero'],
       'responsavel': UsuarioAtual.instance?.nome ?? 'Usuário',
       'medicoes': dadosMedicoes,
-      'filial_id': filialId, // ← NOVO CAMPO ADICIONADO
+      'filial_id': filialId,
     };
-
-    print('DEBUG medicao.dart: Dados enviados para CalcPage:');
-    print('DEBUG medicao.dart: - Filial ID: $filialId');
-    print('DEBUG medicao.dart: - Nome Filial: $_nomeFilial');
-    print('DEBUG medicao.dart: - Tanque: ${tanqueAtual['numero']}');
-    print('DEBUG medicao.dart: - Produto: ${tanqueAtual['produto']}');
 
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -361,7 +309,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       backgroundColor: const Color(0xFFF8F9FA),
       body: Column(
         children: [
-          // Header compacto
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
@@ -397,7 +344,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
             ]),
           ),
 
-          // Seletor de tanques NO TAMANHO ORIGINAL
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -415,9 +361,26 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               ],
             ),
             child: _carregando 
-                ? _buildLoadingIndicator()
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: SizedBox(
+                        height: 16,
+                        width: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  )
                 : tanques.isEmpty
-                    ? _buildEmptyIndicator()
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: Text(
+                            'Nenhum tanque encontrado',
+                            style: TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                        ),
+                      )
                     : SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
@@ -478,20 +441,57 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                       ),
           ),
 
-          // Card principal compacto
           Expanded(
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               child: _carregando 
-                  ? _buildLoadingCard()
+                  ? Card(
+                      elevation: 2,
+                      margin: EdgeInsets.zero,
+                      color: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      child: const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(height: 16),
+                            CircularProgressIndicator(),
+                            SizedBox(height: 12),
+                            Text('Carregando tanques...', style: TextStyle(fontSize: 14)),
+                          ],
+                        ),
+                      ),
+                    )
                   : tanques.isEmpty
-                      ? _buildEmptyCard()
+                      ? Card(
+                          elevation: 2,
+                          margin: EdgeInsets.zero,
+                          color: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Nenhum tanque encontrado',
+                                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Não há tanques cadastrados para esta filial',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
                       : _buildTanqueCard(tanques[_tanqueSelecionadoIndex], _tanqueSelecionadoIndex),
             ),
           ),
 
-          // Botão Gerar CACL compacto
           Container(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: ElevatedButton(
@@ -527,78 +527,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     );
   }
 
-  Widget _buildLoadingIndicator() {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 8),
-        child: SizedBox(
-          height: 16,
-          width: 16,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyIndicator() {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 8),
-        child: Text(
-          'Nenhum tanque encontrado',
-          style: TextStyle(fontSize: 11, color: Colors.grey),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLoadingCard() {
-    return Card(
-      elevation: 2,
-      margin: EdgeInsets.zero,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(height: 16),
-            CircularProgressIndicator(),
-            SizedBox(height: 12),
-            Text('Carregando tanques...', style: TextStyle(fontSize: 14)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyCard() {
-    return Card(
-      elevation: 2,
-      margin: EdgeInsets.zero,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
-            const SizedBox(height: 12),
-            Text(
-              'Nenhum tanque encontrado',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Não há tanques cadastrados para esta filial',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildTanqueCard(Map<String, dynamic> tanque, int index) {
     final ctrls = _controllers[index];
 
@@ -610,7 +538,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         child: Column(
           children: [
-            // Header do card compacto
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -663,7 +590,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               ),
             ),
 
-            // Conteúdo compacto
             Padding(
               padding: const EdgeInsets.all(16),
               child: LayoutBuilder(
@@ -671,63 +597,55 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                   final isWide = constraints.maxWidth > 600;
                   
                   return isWide
-                      ? _buildWideLayout(ctrls)
-                      : _buildNarrowLayout(ctrls);
+                      ? Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: _buildSection(
+                                '1ª Medição',
+                                'Abertura',
+                                Colors.blue[50]!,
+                                Colors.blue,
+                                ctrls.sublist(0, 10),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildSection(
+                                '2ª Medição',
+                                'Fechamento',
+                                Colors.green[50]!,
+                                Colors.green,
+                                ctrls.sublist(10, 20),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          children: [
+                            _buildSection(
+                              'MANHÃ',
+                              '06:00h',
+                              Colors.blue[50]!,
+                              Colors.blue,
+                              ctrls.sublist(0, 10),
+                            ),
+                            const SizedBox(height: 12),
+                            _buildSection(
+                              'TARDE',
+                              '18:00h',
+                              Colors.green[50]!,
+                              Colors.green,
+                              ctrls.sublist(10, 20),
+                            ),
+                          ],
+                        );
                 },
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildWideLayout(List<TextEditingController> ctrls) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: _buildSection(
-            '1ª Medição',
-            'Abertura',
-            Colors.blue[50]!,
-            Colors.blue,
-            ctrls.sublist(0, 10), // Agora 10 controllers para manhã
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildSection(
-            '2ª Medição',
-            'Fechamento',
-            Colors.green[50]!,
-            Colors.green,
-            ctrls.sublist(10, 20), // Agora 10 controllers para tarde
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNarrowLayout(List<TextEditingController> ctrls) {
-    return Column(
-      children: [
-        _buildSection(
-          'MANHÃ',
-          '06:00h',
-          Colors.blue[50]!,
-          Colors.blue,
-          ctrls.sublist(0, 10), // Agora 10 controllers para manhã
-        ),
-        const SizedBox(height: 12),
-        _buildSection(
-          'TARDE',
-          '18:00h',
-          Colors.green[50]!,
-          Colors.green,
-          ctrls.sublist(10, 20), // Agora 10 controllers para tarde
-        ),
-      ],
     );
   }
 
@@ -759,7 +677,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           ),
           const SizedBox(height: 12),
 
-          // LINHA 1: Horário, cm, mm
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -770,7 +687,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           ),
           const SizedBox(height: 12),
 
-          // LINHA 2: Temperatura, Densidade, Temperatura Amostra
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -781,18 +697,16 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           ),
           const SizedBox(height: 12),
 
-          // LINHA 3: NOVOS CAMPOS - Altura da água cm/mm e Volume na canalização
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNumberField('Água cm', c[6], '', width: 100, maxLength: 3),   // ← MUDOU para 100
-              _buildNumberField('Água mm', c[7], '', width: 100, maxLength: 1),   // ← MUDOU para 100
-              _buildVolumeField('Vol. Canalização', c[8], '', width: 100),        // ← MUDOU para 100
+              _buildNumberField('Água cm', c[6], '', width: 100, maxLength: 3),
+              _buildNumberField('Água mm', c[7], '', width: 100, maxLength: 1),
+              _buildVolumeField('Vol. Canalização', c[8], '', width: 100),
             ],
           ),
           const SizedBox(height: 12),
 
-          // Observações
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -806,7 +720,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               ),
               const SizedBox(height: 6),
               TextFormField(
-                controller: c[9], // Observações agora é o 10º controller
+                controller: c[9],
                 maxLines: 2,
                 maxLength: 140,
                 style: const TextStyle(fontSize: 12),
