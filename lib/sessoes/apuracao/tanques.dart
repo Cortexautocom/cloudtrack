@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
+//import 'escolherfilial.dart';
 
 class GerenciamentoTanquesPage extends StatefulWidget {
   final VoidCallback onVoltar;
-  const GerenciamentoTanquesPage({super.key, required this.onVoltar});
+  final String? filialSelecionadaId; // ← NOVO PARÂMETRO
+
+  const GerenciamentoTanquesPage({
+    super.key, 
+    required this.onVoltar,
+    this.filialSelecionadaId, // ← NOVO PARÂMETRO
+  });
 
   @override
   State<GerenciamentoTanquesPage> createState() => _GerenciamentoTanquesPageState();
@@ -16,6 +23,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
   bool _carregando = true;
   bool _editando = false;
   Map<String, dynamic>? _tanqueEditando;
+  String? _nomeFilial; // ← PARA MOSTRAR O NOME DA FILIAL
 
   final List<String> _statusOptions = ['Em operação', 'Operação suspensa'];
   
@@ -46,10 +54,44 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
         produtos = List<Map<String, dynamic>>.from(produtosResponse);
       });
 
+      // ---------------------------
+      //   BUSCAR NOME DA FILIAL (SE FOR ADMIN)
+      // ---------------------------
+      String? nomeFilial;
+      if (usuario.nivel == 3 && widget.filialSelecionadaId != null) {
+        final filialData = await supabase
+            .from('filiais')
+            .select('nome')
+            .eq('id', widget.filialSelecionadaId!)
+            .single();
+        nomeFilial = filialData['nome'];
+      } else if (usuario.filialId != null) {
+        final filialData = await supabase
+            .from('filiais')
+            .select('nome')
+            .eq('id', usuario.filialId!)
+            .single();
+        nomeFilial = filialData['nome'];
+      }
+
       // Carrega tanques
       final PostgrestTransformBuilder<dynamic> query;
       
+      // ---------------------------
+      //   ADMINISTRADOR (NÍVEL 3)
+      // ---------------------------
       if (usuario.nivel == 3) {
+        // Verifica se tem filial selecionada
+        if (widget.filialSelecionadaId == null) {
+          print("ERRO: Admin não escolheu filial para visualizar tanques");
+          setState(() {
+            _carregando = false;
+            tanques = []; // Lista vazia
+            _nomeFilial = null;
+          });
+          return;
+        }
+        
         query = supabase
             .from('tanques')
             .select('''
@@ -58,15 +100,23 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
               capacidade,
               status,
               id_produto,
-              produtos (nome)
+              id_filial,
+              produtos (nome),
+              filiais (nome)
             ''')
+            .eq('id_filial', widget.filialSelecionadaId!) // ← FILTRAR pela filial escolhida
             .order('referencia');
-      } else {
+      } 
+      // ---------------------------
+      //   USUÁRIO NORMAL
+      // ---------------------------
+      else {
         final idFilial = usuario.filialId;
         if (idFilial == null) {
           print('Erro: ID da filial não encontrado para usuário não-admin');
           setState(() {
             _carregando = false;
+            _nomeFilial = null;
           });
           return;
         }
@@ -90,6 +140,17 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       final List<Map<String, dynamic>> tanquesFormatados = [];
       
       for (final tanque in tanquesResponse) {
+        // Corrigir o acesso ao nome da filial
+        String? nomeFilial;
+        if (usuario.nivel == 3) {
+          // Para admin, acessa o objeto aninhado filiais
+          if (tanque['filiais'] != null) {
+            nomeFilial = tanque['filiais'] is Map 
+                ? tanque['filiais']['nome']?.toString()
+                : tanque['filiais']?.toString();
+          }
+        }
+
         tanquesFormatados.add({
           'id': tanque['id'],
           'referencia': tanque['referencia']?.toString() ?? 'SEM REFERÊNCIA',
@@ -97,16 +158,20 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
           'capacidade': tanque['capacidade']?.toString() ?? '0',
           'status': tanque['status']?.toString() ?? 'Em operação',
           'id_produto': tanque['id_produto'],
+          // Adicionar nome da filial se for admin
+          'filial': nomeFilial,
         });
       }
 
       setState(() {
         tanques = tanquesFormatados;
         _carregando = false;
+        _nomeFilial = nomeFilial;
       });
     } catch (e) {
       setState(() {
         _carregando = false;
+        _nomeFilial = null;
       });
       print('Erro ao carregar dados: $e');
     }
@@ -148,7 +213,6 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
     });
   }
 
-  // Função para aplicar máscara no campo capacidade
   // Função para aplicar máscara no campo capacidade
   void _aplicarMascaraCapacidade(String valor) {
     // Se o texto já está formatado corretamente, não faz nada
@@ -209,12 +273,36 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
 
     try {
       final supabase = Supabase.instance.client;
+      final usuario = UsuarioAtual.instance!;
       
+      // Determinar id_filial para o tanque
+      String? idFilial;
+      if (usuario.nivel == 3) {
+        // Admin usa a filial selecionada
+        idFilial = widget.filialSelecionadaId;
+      } else {
+        // Usuário normal usa sua própria filial
+        idFilial = usuario.filialId;
+      }
+
+      if (idFilial == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Erro: Não foi possível determinar a filial'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
       final Map<String, dynamic> dadosAtualizados = {
         'referencia': _referenciaController.text.trim(),
         'capacidade': capacidadeTexto,
         'status': _statusSelecionado,
         'id_produto': _produtoSelecionado,
+        'id_filial': idFilial, // ← Sempre definir a filial
       };
 
       if (_tanqueEditando != null) {
@@ -223,6 +311,9 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
             .from('tanques')
             .update(dadosAtualizados)
             .eq('id', _tanqueEditando!['id']);
+      } else {
+        // Criar novo tanque (se implementar criação futura)
+        // await supabase.from('tanques').insert(dadosAtualizados);
       }
 
       // Recarrega os dados
@@ -261,6 +352,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       body: Column(
@@ -281,11 +373,31 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                 constraints: const BoxConstraints(),
               ),
               const SizedBox(width: 8),
-              Text(
-                _editando ? 'Editar Tanque' : 'Gerenciamento de Tanques',
-                style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Colors.black87),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _editando ? 'Editar Tanque' : 'Gerenciamento de Tanques',
+                      style: const TextStyle(
+                        fontSize: 19, 
+                        fontWeight: FontWeight.bold, 
+                        color: Colors.black87
+                      ),
+                    ),
+                    if (_nomeFilial != null && !_editando)
+                      Text(
+                        'Filial: $_nomeFilial',
+                        style: TextStyle(
+                          fontSize: 12, 
+                          color: Colors.green.shade700, 
+                          fontWeight: FontWeight.w500
+                        ),
+                      ),
+                  ],
+                ),
               ),
-              const Spacer(),
               if (!_editando)
                 IconButton(
                   icon: const Icon(Icons.refresh, color: Color(0xFF0D47A1)),
@@ -333,7 +445,9 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Não há tanques cadastrados para esta filial',
+              widget.filialSelecionadaId != null && UsuarioAtual.instance!.nivel == 3
+                ? 'Não há tanques cadastrados para esta filial'
+                : 'Não há tanques cadastrados',
               style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
             ),
           ],
@@ -419,6 +533,15 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                                   fontSize: 13,
                                 ),
                               ),
+                              // Mostrar filial apenas para admin quando houver múltiplas filiais
+                              if (UsuarioAtual.instance!.nivel == 3 && tanque['filial'] != null)
+                                Text(
+                                  'Filial: ${tanque['filial']}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade500,
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -539,6 +662,32 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                         ),
                       ),
                       const SizedBox(height: 20),
+
+                      // Mostrar filial atual (se aplicável)
+                      if (_nomeFilial != null)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.business, size: 16, color: Colors.green.shade700),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Filial: $_nomeFilial',
+                                style: TextStyle(
+                                  color: Colors.green.shade700,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      
+                      if (_nomeFilial != null) const SizedBox(height: 16),
 
                       // Referência
                       TextFormField(

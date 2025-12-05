@@ -1,22 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class EscolherFilialMedicaoPage extends StatefulWidget {
+class EscolherFilialPage extends StatefulWidget {
   final VoidCallback onVoltar;
   final Function(String idFilial) onSelecionarFilial;
+  final String titulo; // ← ADICIONE ESTE PARÂMETRO
 
-  const EscolherFilialMedicaoPage({
+  const EscolherFilialPage({
     super.key,
     required this.onVoltar,
     required this.onSelecionarFilial,
+    this.titulo = 'Selecionar filial', // ← ADICIONE COM VALOR PADRÃO
   });
 
   @override
-  State<EscolherFilialMedicaoPage> createState() =>
-      _EscolherFilialMedicaoPageState();
+  State<EscolherFilialPage> createState() => _EscolherFilialPageState();
 }
 
-class _EscolherFilialMedicaoPageState extends State<EscolherFilialMedicaoPage> {
+class _EscolherFilialPageState extends State<EscolherFilialPage> {
   bool carregando = true;
   List<Map<String, dynamic>> filiais = [];
 
@@ -57,9 +58,9 @@ class _EscolherFilialMedicaoPageState extends State<EscolherFilialMedicaoPage> {
               onPressed: widget.onVoltar,
             ),
             const SizedBox(width: 10),
-            const Text(
-              'Selecionar filial para medição',
-              style: TextStyle(
+            Text(
+              widget.titulo, // ← USE widget.titulo AQUI
+              style: const TextStyle(
                 fontSize: 22,
                 color: Color(0xFF0D47A1),
                 fontWeight: FontWeight.bold,

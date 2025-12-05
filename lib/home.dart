@@ -9,7 +9,7 @@ import 'sessoes/apuracao/cacl.dart';
 import 'sessoes/logistica/controle_documentos.dart';
 import 'sessoes/apuracao/medicao.dart';
 import 'sessoes/apuracao/tanques.dart';
-import 'sessoes/apuracao/escolherfilialmedicao.dart';
+import 'sessoes/apuracao/escolherfilial.dart';
 import 'sessoes/vendas/programacao.dart';
 import 'sessoes/vendas/nova_venda.dart';
 import 'sessoes/vendas/detalhes_lancamento.dart';
@@ -43,8 +43,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarMedicaoTanques = false;
   bool _mostrarTanques = false;
   Map<String, dynamic>? _dadosCalcGerado;
-  bool _mostrarEscolherFilialMedicao = false;
+  
+  // FLAGS PARA ESCOLHA DE FILIAL
+  bool _mostrarEscolherFilial = false; // ← FLAG ÚNICA PARA AMBAS AS FUNCIONALIDADES
   String? _filialSelecionadaId;
+  String _contextoEscolhaFilial = ''; // ← 'medição' ou 'tanques'
   
   // NOVAS VARIÁVEIS PARA CONTROLE DE VENDAS
   bool _mostrarVendas = false;
@@ -181,6 +184,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarMedicaoTanques = false;
       _veioDaApuracao = false;
       _mostrarTanques = false;
+      _mostrarEscolherFilial = false;
+      _filialSelecionadaId = null;
+      _contextoEscolhaFilial = '';
       // RESETAR VENDAS TAMBÉM
       _mostrarVendas = false;
       _mostrarProgramacao = false;
@@ -329,6 +335,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   _mostrarMedicaoTanques = false;
                                   _veioDaApuracao = false;
                                   _mostrarTanques = false;
+                                  _mostrarEscolherFilial = false;
+                                  _filialSelecionadaId = null;
+                                  _contextoEscolhaFilial = '';
                                   // RESETAR VENDAS AO MUDAR MENU
                                   _mostrarVendas = false;
                                   _mostrarProgramacao = false;
@@ -612,34 +621,53 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         transitionBuilder: (child, animation) =>
             FadeTransition(opacity: animation, child: child),
 
-        child: _mostrarEscolherFilialMedicao
-            ? EscolherFilialMedicaoPage(
+        child: _mostrarEscolherFilial
+            ? EscolherFilialPage(
+                key: ValueKey('escolher-filial-$_contextoEscolhaFilial'),
                 onVoltar: () {
                   setState(() {
-                    _mostrarEscolherFilialMedicao = false;
-                    _mostrarApuracaoFilhos = true;
+                    _mostrarEscolherFilial = false;
+                    if (_contextoEscolhaFilial == 'medição' && _veioDaApuracao) {
+                      _mostrarApuracaoFilhos = true;
+                    } else if (_contextoEscolhaFilial == 'tanques' && _veioDaApuracao) {
+                      _mostrarApuracaoFilhos = true;
+                    }
+                    _contextoEscolhaFilial = '';
                   });
                 },
                 onSelecionarFilial: (idFilial) {
                   setState(() {
                     _filialSelecionadaId = idFilial;
-                    _mostrarEscolherFilialMedicao = false;
-                    _mostrarMedicaoTanques = true;
+                    _mostrarEscolherFilial = false;
+                    
+                    if (_contextoEscolhaFilial == 'medição') {
+                      _mostrarMedicaoTanques = true;
+                    } else if (_contextoEscolhaFilial == 'tanques') {
+                      _mostrarTanques = true;
+                    }
+                    
+                    _contextoEscolhaFilial = '';
                   });
                 },
+                titulo: _contextoEscolhaFilial == 'medição' 
+                  ? 'Selecionar filial para medição'
+                  : 'Selecionar filial para gerenciar tanques',
               )
 
             : _mostrarMedicaoTanques
                 ? MedicaoTanquesPage(
+                    key: const ValueKey('medicao-tanques'),
                     filialSelecionadaId: _filialSelecionadaId,
                     onVoltar: () {
                       final usuario = UsuarioAtual.instance;
 
                       setState(() {
                         _mostrarMedicaoTanques = false;
+                        _filialSelecionadaId = null;
 
                         if (usuario!.nivel == 3) {
-                          _mostrarEscolherFilialMedicao = true;
+                          _mostrarEscolherFilial = true;
+                          _contextoEscolhaFilial = 'medição';
                         } else {
                           if (_veioDaApuracao) {
                             _mostrarApuracaoFilhos = true;
@@ -653,17 +681,27 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
             : _mostrarTanques
                 ? GerenciamentoTanquesPage(
+                    key: const ValueKey('gerenciamento-tanques'),
                     onVoltar: () {
+                      final usuario = UsuarioAtual.instance;
+
                       setState(() {
                         _mostrarTanques = false;
+                        _filialSelecionadaId = null;
 
-                        if (_veioDaApuracao) {
-                          _mostrarApuracaoFilhos = true;
+                        if (usuario!.nivel == 3) {
+                          _mostrarEscolherFilial = true;
+                          _contextoEscolhaFilial = 'tanques';
+                        } else {
+                          if (_veioDaApuracao) {
+                            _mostrarApuracaoFilhos = true;
+                          }
                         }
 
                         _veioDaApuracao = false;
                       });
                     },
+                    filialSelecionadaId: _filialSelecionadaId,
                   )
 
             : _mostrarApuracaoFilhos
@@ -671,6 +709,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
             : _mostrarCalcGerado
                 ? CalcPage(
+                    key: const ValueKey('calc-page'),
                     dadosFormulario: _dadosCalcGerado ?? {},
                   )
 
@@ -787,16 +826,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   void _navegarParaCardFilho(String nomeCard) {
+    final usuario = UsuarioAtual.instance;
+
     switch (nomeCard) {
       case 'Medição':
-        final usuario = UsuarioAtual.instance;
-
         setState(() {
           _veioDaApuracao = true;
           _mostrarApuracaoFilhos = false;
 
           if (usuario!.nivel == 3) {
-            _mostrarEscolherFilialMedicao = true;
+            _mostrarEscolherFilial = true;
+            _contextoEscolhaFilial = 'medição';
           } else {
             _mostrarMedicaoTanques = true;
           }
@@ -810,11 +850,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _mostrarCalcGerado = true;
         });
         break;
+        
       case 'Tanques':
         setState(() {
           _veioDaApuracao = true;
           _mostrarApuracaoFilhos = false;
-          _mostrarTanques = true;
+
+          if (usuario!.nivel == 3) {
+            _mostrarEscolherFilial = true;
+            _contextoEscolhaFilial = 'tanques';
+          } else {
+            _mostrarTanques = true;
+          }
         });
         break;
     }
@@ -977,6 +1024,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       child: InkWell(
         onTap: () {
           final nome = sessao['label'];
+          final usuario = UsuarioAtual.instance;
 
           if (nome == 'Tabelas de conversão') {
             setState(() => showConversaoList = true);
@@ -1005,8 +1053,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           }
 
           if (nome == 'Medição') {
-            final usuario = UsuarioAtual.instance;
-
             setState(() {
               _veioDaApuracao = false;
               showConversaoList = false;
@@ -1014,9 +1060,27 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               showUsuarios = false;
 
               if (usuario!.nivel == 3) {
-                _mostrarEscolherFilialMedicao = true;
+                _mostrarEscolherFilial = true;
+                _contextoEscolhaFilial = 'medição';
               } else {
                 _mostrarMedicaoTanques = true;
+              }
+            });
+            return;
+          }
+          
+          if (nome == 'Tanques') {
+            setState(() {
+              _veioDaApuracao = false;
+              showConversaoList = false;
+              showControleAcesso = false;
+              showUsuarios = false;
+
+              if (usuario!.nivel == 3) {
+                _mostrarEscolherFilial = true;
+                _contextoEscolhaFilial = 'tanques';
+              } else {
+                _mostrarTanques = true;
               }
             });
             return;
@@ -1074,6 +1138,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     if (lower.contains('apura')) return Icons.analytics;
     if (lower.contains('medic')) return Icons.analytics;
     if (lower.contains('venda')) return Icons.local_gas_station;
+    if (lower.contains('tanque')) return Icons.storage;
     return Icons.apps;
   }
 
