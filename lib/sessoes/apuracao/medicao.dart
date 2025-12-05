@@ -138,20 +138,33 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       // ---------------------------
       for (int i = 0; i < tanques.length; i++) {
         _controllers.add([
-          TextEditingController(), // Horário Medição (06:00)
-          TextEditingController(), // cm
-          TextEditingController(), // mm
-          TextEditingController(), // Temp. Tanque
-          TextEditingController(), // Densidade
-          TextEditingController(), // Temp. Amostra
-          TextEditingController(), // Observações
-          TextEditingController(), // Horário (18:00)
-          TextEditingController(), // cm
-          TextEditingController(), // mm
-          TextEditingController(), // Temp. Tanque
-          TextEditingController(), // Densidade
-          TextEditingController(), // Temp. Amostra
-          TextEditingController(), // Observações
+          // Manhã (06:00) - 7 campos originais
+          TextEditingController(), // [0] Horário Medição
+          TextEditingController(), // [1] cm
+          TextEditingController(), // [2] mm
+          TextEditingController(), // [3] Temp. Tanque
+          TextEditingController(), // [4] Densidade
+          TextEditingController(), // [5] Temp. Amostra
+          TextEditingController(), // [6] Observações
+          
+          // Novos campos para manhã
+          TextEditingController(), // [7] Altura Água cm
+          TextEditingController(), // [8] Altura Água mm
+          TextEditingController(), // [9] Vol. Canalização
+          
+          // Tarde (18:00) - 7 campos originais
+          TextEditingController(), // [10] Horário Medição
+          TextEditingController(), // [11] cm
+          TextEditingController(), // [12] mm
+          TextEditingController(), // [13] Temp. Tanque
+          TextEditingController(), // [14] Densidade
+          TextEditingController(), // [15] Temp. Amostra
+          TextEditingController(), // [16] Observações
+          
+          // Novos campos para tarde
+          TextEditingController(), // [17] Altura Água cm
+          TextEditingController(), // [18] Altura Água mm
+          TextEditingController(), // [19] Vol. Canalização
         ]);
       }
 
@@ -229,6 +242,29 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     return resultado;
   }
 
+  // Máscara para volume no formato "1.234"
+  String _aplicarMascaraVolume(String texto) {
+    String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
+    
+    if (apenasNumeros.length > 6) {
+      apenasNumeros = apenasNumeros.substring(0, 6);
+    }
+    
+    String resultado = '';
+    for (int i = 0; i < apenasNumeros.length; i++) {
+      if (i > 0 && (apenasNumeros.length - i) % 3 == 0) {
+        resultado += '.';
+      }
+      resultado += apenasNumeros[i];
+    }
+    
+    if (resultado.isNotEmpty) {
+      resultado += ' L';
+    }
+    
+    return resultado;
+  }
+
   void _gerarCACL() {
     if (tanques.isEmpty) return;
     
@@ -244,24 +280,24 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'tempTanqueManha': controllers[3].text,
       'densidadeManha': controllers[4].text,
       'tempAmostraManha': controllers[5].text,
+      'alturaAguaManha': '${controllers[7].text}.${controllers[8].text}', // cm.mm
+      'volumeCanalizacaoManha': controllers[9].text.replaceAll(' L', '').replaceAll('.', ''),
       
       // Medição da tarde (18:00)  
-      'horarioTarde': controllers[7].text,
-      'cmTarde': controllers[8].text,
-      'mmTarde': controllers[9].text,
-      'tempTanqueTarde': controllers[10].text,
-      'densidadeTarde': controllers[11].text,
-      'tempAmostraTarde': controllers[12].text,
+      'horarioTarde': controllers[10].text,
+      'cmTarde': controllers[11].text,
+      'mmTarde': controllers[12].text,
+      'tempTanqueTarde': controllers[13].text,
+      'densidadeTarde': controllers[14].text,
+      'tempAmostraTarde': controllers[15].text,
+      'alturaAguaTarde': '${controllers[17].text}.${controllers[18].text}', // cm.mm
+      'volumeCanalizacaoTarde': controllers[19].text.replaceAll(' L', '').replaceAll('.', ''),
 
-      // Campos adicionais necessários para o cálculo
-      'alturaAguaManha': '0.0', // ← Precisa ser coletado do formulário
-      'alturaAguaTarde': '0.0', // ← Precisa ser coletado do formulário
-      'volumeProdutoManha': '0', // ← Pode ser calculado ou placeholder
+      // Campos que serão calculados na tela de cálculo
+      'volumeProdutoManha': '0',
       'volumeProdutoTarde': '0',
       'volumeAguaManha': '0',
       'volumeAguaTarde': '0',
-      'volumeCanalizacaoManha': '0',
-      'volumeCanalizacaoTarde': '0',
       'volumeTotalManha': '0',
       'volumeTotalTarde': '0',
       'fatorCorrecaoManha': '1.0',
@@ -635,17 +671,17 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
             'Abertura',
             Colors.blue[50]!,
             Colors.blue,
-            ctrls.sublist(0, 7),
+            ctrls.sublist(0, 10), // Agora 10 controllers para manhã
           ),
         ),
         const SizedBox(width: 16),
         Expanded(
           child: _buildSection(
             '2ª Medição',
-            ' Fechamento',
+            'Fechamento',
             Colors.green[50]!,
             Colors.green,
-            ctrls.sublist(7, 14),
+            ctrls.sublist(10, 20), // Agora 10 controllers para tarde
           ),
         ),
       ],
@@ -660,7 +696,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           '06:00h',
           Colors.blue[50]!,
           Colors.blue,
-          ctrls.sublist(0, 7),
+          ctrls.sublist(0, 10), // Agora 10 controllers para manhã
         ),
         const SizedBox(height: 12),
         _buildSection(
@@ -668,7 +704,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           '18:00h',
           Colors.green[50]!,
           Colors.green,
-          ctrls.sublist(7, 14),
+          ctrls.sublist(10, 20), // Agora 10 controllers para tarde
         ),
       ],
     );
@@ -702,6 +738,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           ),
           const SizedBox(height: 12),
 
+          // LINHA 1: Horário, cm, mm
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -710,7 +747,9 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               _buildNumberField('mm', c[2], '', width: 100, maxLength: 1), 
             ],
           ),
+          const SizedBox(height: 12),
 
+          // LINHA 2: Temperatura, Densidade, Temperatura Amostra
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -721,6 +760,18 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           ),
           const SizedBox(height: 12),
 
+          // LINHA 3: NOVOS CAMPOS - Altura da água cm/mm e Volume na canalização
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNumberField('Água cm', c[6], '', width: 100, maxLength: 3),   // ← MUDOU para 100
+              _buildNumberField('Água mm', c[7], '', width: 100, maxLength: 1),   // ← MUDOU para 100
+              _buildVolumeField('Vol. Canalização', c[8], '', width: 100),        // ← MUDOU para 100
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Observações
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -734,7 +785,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               ),
               const SizedBox(height: 6),
               TextFormField(
-                controller: c[6],
+                controller: c[9], // Observações agora é o 10º controller
                 maxLines: 2,
                 maxLength: 140,
                 style: const TextStyle(fontSize: 12),
@@ -928,6 +979,58 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
             onChanged: (value) {
               final cursorPosition = ctrl.selection.baseOffset;
               final maskedValue = _aplicarMascaraDensidade(value);
+              
+              if (maskedValue != value) {
+                ctrl.value = TextEditingValue(
+                  text: maskedValue,
+                  selection: TextSelection.collapsed(
+                    offset: cursorPosition + (maskedValue.length - value.length),
+                  ),
+                );
+              }
+            },
+            decoration: InputDecoration(
+              hintText: hint,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(5),
+                borderSide: BorderSide(color: Colors.grey.shade400),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(5),
+                borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.5),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVolumeField(String label, TextEditingController ctrl, String hint, {double width = 100}) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          width: width,
+          height: 36,
+          child: TextFormField(
+            controller: ctrl,
+            textAlign: TextAlign.center,
+            keyboardType: TextInputType.number,
+            style: const TextStyle(fontSize: 12),
+            onChanged: (value) {
+              final cursorPosition = ctrl.selection.baseOffset;
+              final maskedValue = _aplicarMascaraVolume(value);
               
               if (maskedValue != value) {
                 ctrl.value = TextEditingValue(
