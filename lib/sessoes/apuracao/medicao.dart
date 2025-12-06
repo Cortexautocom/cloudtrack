@@ -239,6 +239,99 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     final tanqueAtual = tanques[_tanqueSelecionadoIndex];
     final controllers = _controllers[_tanqueSelecionadoIndex];
     
+    // Função auxiliar para calcular altura do produto
+    double calcularAlturaProduto(String cmTotal, String mmTotal, String cmAgua, String mmAgua, String periodo) {
+      try {
+        // DEBUG: Mostrar valores recebidos
+        print('DEBUG $periodo - Valores recebidos:');
+        print('  cmTotal: "$cmTotal" (tipo: ${cmTotal.runtimeType})');
+        print('  mmTotal: "$mmTotal" (tipo: ${mmTotal.runtimeType})');
+        print('  cmAgua: "$cmAgua" (tipo: ${cmAgua.runtimeType})');
+        print('  mmAgua: "$mmAgua" (tipo: ${mmAgua.runtimeType})');
+        
+        // Converte cm e mm para um valor decimal total
+        final totalCm = double.tryParse(cmTotal) ?? 0.0;
+        final totalMm = double.tryParse(mmTotal) ?? 0.0;
+        final aguaCm = double.tryParse(cmAgua) ?? 0.0;
+        final aguaMm = double.tryParse(mmAgua) ?? 0.0;
+        
+        // DEBUG: Mostrar valores convertidos
+        print('DEBUG $periodo - Valores convertidos:');
+        print('  totalCm: $totalCm');
+        print('  totalMm: $totalMm');
+        print('  aguaCm: $aguaCm');
+        print('  aguaMm: $aguaMm');
+        
+        // Converte mm para centésimos de cm (ex: 7 mm = 0,7 cm)
+        final total = totalCm + (totalMm / 10);
+        final agua = aguaCm + (aguaMm / 10);
+        
+        // DEBUG: Mostrar cálculos intermediários
+        print('DEBUG $periodo - Cálculos intermediários:');
+        print('  total (cm + mm/10): $totalCm + (${totalMm}/10) = $total');
+        print('  agua (cm + mm/10): $aguaCm + (${aguaMm}/10) = $agua');
+        
+        // Calcula a altura do produto
+        final produto = total - agua;
+        
+        // DEBUG: Mostrar resultado
+        print('DEBUG $periodo - Resultado cálculo:');
+        print('  produto = total - agua = $total - $agua = $produto');
+        
+        // Retorna arredondado para 1 casa decimal
+        final resultado = double.parse(produto.toStringAsFixed(1));
+        print('DEBUG $periodo - Resultado final arredondado: $resultado cm');
+        
+        return resultado;
+      } catch (e) {
+        print('DEBUG $periodo - ERRO no cálculo: $e');
+        return 0.0;
+      }
+    }
+    
+    // DEBUG: Mostrar todos os controllers
+    print('DEBUG - Índices dos controllers:');
+    for (int i = 0; i < controllers.length; i++) {
+      print('  controllers[$i]: "${controllers[i].text}"');
+    }
+    
+    // Calcula alturas do produto para manhã e tarde
+    final alturaProdutoManha = calcularAlturaProduto(
+      controllers[1].text,  // cm Manhã
+      controllers[2].text,  // mm Manhã
+      controllers[6].text,  // Água cm Manhã
+      controllers[7].text,  // Água mm Manhã
+      'MANHÃ',
+    );
+    
+    final alturaProdutoTarde = calcularAlturaProduto(
+      controllers[11].text, // cm Tarde
+      controllers[12].text, // mm Tarde
+      controllers[16].text, // Água cm Tarde
+      controllers[17].text, // Água mm Tarde
+      'TARDE',
+    );
+    
+    // DEBUG: Mostrar alturas calculadas
+    print('DEBUG - Alturas calculadas:');
+    print('  alturaProdutoManha: $alturaProdutoManha');
+    print('  alturaProdutoTarde: $alturaProdutoTarde');
+    
+    // Calcular altura total formatada (cm,mm)
+    String formatarAlturaTotal(String cm, String mm) {
+      if (cm.isEmpty && mm.isEmpty) return '0,0';
+      if (mm.isEmpty) return '$cm,0';
+      return '$cm,$mm';
+    }
+    
+    final alturaTotalManha = formatarAlturaTotal(controllers[1].text, controllers[2].text);
+    final alturaTotalTarde = formatarAlturaTotal(controllers[11].text, controllers[12].text);
+    
+    // DEBUG: Mostrar alturas totais
+    print('DEBUG - Alturas totais formatadas:');
+    print('  alturaTotalManha: $alturaTotalManha cm');
+    print('  alturaTotalTarde: $alturaTotalTarde cm');
+    
     final dadosMedicoes = {
       'horarioManha': controllers[0].text,
       'cmManha': controllers[1].text,
@@ -246,16 +339,20 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'tempTanqueManha': controllers[3].text,
       'densidadeManha': controllers[4].text,
       'tempAmostraManha': controllers[5].text,
-      'alturaAguaManha': '${controllers[7].text}.${controllers[8].text}',
-      'volumeCanalizacaoManha': controllers[9].text.replaceAll(' L', '').replaceAll('.', ''),
+      'alturaAguaManha': '${controllers[6].text},${controllers[7].text} cm',
+      'alturaProdutoManha': '${alturaProdutoManha.toStringAsFixed(1)} cm',
+      'alturaTotalManha': '$alturaTotalManha cm', // Altura total formatada
+      'volumeCanalizacaoManha': controllers[8].text.replaceAll(' L', '').replaceAll('.', ''),
       'horarioTarde': controllers[10].text,
       'cmTarde': controllers[11].text,
       'mmTarde': controllers[12].text,
       'tempTanqueTarde': controllers[13].text,
       'densidadeTarde': controllers[14].text,
       'tempAmostraTarde': controllers[15].text,
-      'alturaAguaTarde': '${controllers[17].text}.${controllers[18].text}',
-      'volumeCanalizacaoTarde': controllers[19].text.replaceAll(' L', '').replaceAll('.', ''),
+      'alturaAguaTarde': '${controllers[16].text},${controllers[17].text} cm',
+      'alturaProdutoTarde': '${alturaProdutoTarde.toStringAsFixed(1)} cm',
+      'alturaTotalTarde': '$alturaTotalTarde cm', // Altura total formatada
+      'volumeCanalizacaoTarde': controllers[18].text.replaceAll(' L', '').replaceAll('.', ''),
       'volumeProdutoManha': '0',
       'volumeProdutoTarde': '0',
       'volumeAguaManha': '0',
@@ -269,6 +366,15 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'densidade20Manha': '0.000',
       'densidade20Tarde': '0.000',
     };
+
+    // DEBUG: Mostrar dados completos que serão enviados
+    print('DEBUG - Dados que serão enviados para CACL:');
+    print('  alturaTotalManha: ${dadosMedicoes['alturaTotalManha']}');
+    print('  alturaAguaManha: ${dadosMedicoes['alturaAguaManha']}');
+    print('  alturaProdutoManha: ${dadosMedicoes['alturaProdutoManha']}');
+    print('  alturaTotalTarde: ${dadosMedicoes['alturaTotalTarde']}');
+    print('  alturaAguaTarde: ${dadosMedicoes['alturaAguaTarde']}');
+    print('  alturaProdutoTarde: ${dadosMedicoes['alturaProdutoTarde']}');
 
     final dataApenas = _dataController.text;
 

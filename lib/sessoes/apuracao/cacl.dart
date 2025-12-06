@@ -279,8 +279,8 @@ class _CalcPageState extends State<CalcPage> {
                         _obterValorMedicao(medicoes['alturaAguaManha']), 
                         _obterValorMedicao(medicoes['alturaAguaTarde'])),
                     _linhaMedicao("Altura do produto aferido no tanque", 
-                        _calcularAlturaProduto(medicoes['cmManha'], medicoes['mmManha'], medicoes['alturaAguaManha']), 
-                        _calcularAlturaProduto(medicoes['cmTarde'], medicoes['mmTarde'], medicoes['alturaAguaTarde'])),
+                        _obterValorMedicao(medicoes['alturaProdutoManha']), 
+                        _obterValorMedicao(medicoes['alturaProdutoTarde'])),
                     _linhaMedicao(
                       "Volume em litros, correspondente à altura total do produto",
                       "${_formatarVolumeLitros(volumeManha)} L",
@@ -592,25 +592,7 @@ class _CalcPageState extends State<CalcPage> {
     return "$cm,$mmValue cm";
   }
 
-  String _calcularAlturaProduto(String? cmTotal, String? mmTotal, String? alturaAgua) {
-    if (cmTotal == null || cmTotal.isEmpty) return "-";
-    
-    final cmTotalValue = double.tryParse(cmTotal.replaceAll(',', '.')) ?? 0;
-    final mmTotalValue = double.tryParse(mmTotal?.replaceAll(',', '.') ?? '0') ?? 0;
-    final alturaTotal = cmTotalValue + (mmTotalValue / 10);
-    
-    final alturaAguaValue = double.tryParse(alturaAgua?.replaceAll(',', '.') ?? '0') ?? 0;
-    
-    final alturaProduto = alturaTotal - alturaAguaValue;
-    
-    if (alturaProduto <= 0) return "0,0 cm";
-    
-    final parteInteira = alturaProduto.floor();
-    final parteDecimal = ((alturaProduto - parteInteira) * 10).round();
-    
-    return "$parteInteira,$parteDecimal cm";
-  }
-
+  
   String _calcularLitrosAmbiente(String? cm, String? mm) {
     return _calcularVolume(cm, mm);
   }
