@@ -74,10 +74,11 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               referencia,
               capacidade,
               id_produto,
+              numero,
               produtos (nome)
             ''')
             .eq('id_filial', widget.filialSelecionadaId!)
-            .order('referencia');
+            .order('numero', ascending: true);
       } else {
         final idFilial = usuario.filialId;
 
@@ -92,10 +93,11 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               referencia,
               capacidade,
               id_produto,
+              numero,
               produtos (nome)
             ''')
             .eq('id_filial', idFilial)
-            .order('referencia');
+            .order('numero', ascending: true);
       }
 
       final tanquesResponse = await query;
@@ -391,6 +393,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                             
                             return Container(
                               margin: const EdgeInsets.only(right: 8),
+                              width: 120,
+                              constraints: const BoxConstraints(minWidth: 30),
                               child: ElevatedButton(
                                 onPressed: () {
                                   setState(() {
