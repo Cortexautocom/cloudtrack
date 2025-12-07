@@ -239,120 +239,138 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     final tanqueAtual = tanques[_tanqueSelecionadoIndex];
     final controllers = _controllers[_tanqueSelecionadoIndex];
     
-    // Função auxiliar para calcular altura do produto
-    double calcularAlturaProduto(String cmTotal, String mmTotal, String cmAgua, String mmAgua, String periodo) {
-      try {
-        // DEBUG: Mostrar valores recebidos
-        print('DEBUG $periodo - Valores recebidos:');
-        print('  cmTotal: "$cmTotal" (tipo: ${cmTotal.runtimeType})');
-        print('  mmTotal: "$mmTotal" (tipo: ${mmTotal.runtimeType})');
-        print('  cmAgua: "$cmAgua" (tipo: ${cmAgua.runtimeType})');
-        print('  mmAgua: "$mmAgua" (tipo: ${mmAgua.runtimeType})');
-        
-        // Converte cm e mm para um valor decimal total
-        final totalCm = double.tryParse(cmTotal) ?? 0.0;
-        final totalMm = double.tryParse(mmTotal) ?? 0.0;
-        final aguaCm = double.tryParse(cmAgua) ?? 0.0;
-        final aguaMm = double.tryParse(mmAgua) ?? 0.0;
-        
-        // DEBUG: Mostrar valores convertidos
-        print('DEBUG $periodo - Valores convertidos:');
-        print('  totalCm: $totalCm');
-        print('  totalMm: $totalMm');
-        print('  aguaCm: $aguaCm');
-        print('  aguaMm: $aguaMm');
-        
-        // Converte mm para centésimos de cm (ex: 7 mm = 0,7 cm)
-        final total = totalCm + (totalMm / 10);
-        final agua = aguaCm + (aguaMm / 10);
-        
-        // DEBUG: Mostrar cálculos intermediários
-        print('DEBUG $periodo - Cálculos intermediários:');
-        print('  total (cm + mm/10): $totalCm + (${totalMm}/10) = $total');
-        print('  agua (cm + mm/10): $aguaCm + (${aguaMm}/10) = $agua');
-        
-        // Calcula a altura do produto
-        final produto = total - agua;
-        
-        // DEBUG: Mostrar resultado
-        print('DEBUG $periodo - Resultado cálculo:');
-        print('  produto = total - agua = $total - $agua = $produto');
-        
-        // Retorna arredondado para 1 casa decimal
-        final resultado = double.parse(produto.toStringAsFixed(1));
-        print('DEBUG $periodo - Resultado final arredondado: $resultado cm');
-        
-        return resultado;
-      } catch (e) {
-        print('DEBUG $periodo - ERRO no cálculo: $e');
-        return 0.0;
-      }
+    // ====================================================
+    // 📊 DEBUG COMPLETO - CÁLCULOS QUE SERÃO MOSTRADOS NO CACL
+    // ====================================================
+    
+    print('\n🔍🔍🔍 DEBUG DETALHADO PARA CACL 🔍🔍🔍');
+    print('📅 Data: ${_dataController.text}');
+    print('🏭 Base: ${_nomeFilial ?? "POLO DE COMBUSTÍVEL"}');
+    print('🛢️ Tanque: ${tanqueAtual['numero']}');
+    print('⛽ Produto: ${tanqueAtual['produto']}');
+    
+    // ------------------------------------------------------------------
+    // 1️⃣ ALTURA TOTAL DO LÍQUIDO (que aparece na 1ª linha do CACL)
+    // ------------------------------------------------------------------
+    print('\n1️⃣ ALTURA TOTAL DO LÍQUIDO NO TANQUE:');
+    final cmTotalManha = controllers[1].text;
+    final mmTotalManha = controllers[2].text;
+    final cmTotalTarde = controllers[11].text;
+    final mmTotalTarde = controllers[12].text;
+    
+    print('   MANHÃ: cm="$cmTotalManha", mm="$mmTotalManha"');
+    print('   → Formato para CACL: "$cmTotalManha,$mmTotalManha cm"');
+    print('   TARDE: cm="$cmTotalTarde", mm="$mmTotalTarde"');
+    print('   → Formato para CACL: "$cmTotalTarde,$mmTotalTarde cm"');
+    
+    // ------------------------------------------------------------------
+    // 2️⃣ ALTURA DA ÁGUA (que aparece na 2ª linha do CACL)
+    // ------------------------------------------------------------------
+    print('\n2️⃣ ALTURA DA ÁGUA AFERIDA NO TANQUE:');
+    final cmAguaManha = controllers[6].text;
+    final mmAguaManha = controllers[7].text;
+    final cmAguaTarde = controllers[16].text;
+    final mmAguaTarde = controllers[17].text;
+    
+    print('   MANHÃ: cm="$cmAguaManha", mm="$mmAguaManha"');
+    print('   → Formato para CACL: "$cmAguaManha,$mmAguaManha cm"');
+    print('   TARDE: cm="$cmAguaTarde", mm="$mmAguaTarde"');
+    print('   → Formato para CACL: "$cmAguaTarde,$mmAguaTarde cm"');
+    
+    // ------------------------------------------------------------------
+    // 3️⃣ CÁLCULO DA ALTURA DO PRODUTO (3ª linha do CACL)
+    // ------------------------------------------------------------------
+    print('\n3️⃣ CÁLCULO DA ALTURA DO PRODUTO:');
+    print('   FÓRMULA: Altura Produto = Altura Total - Altura Água');
+    
+    // Converter valores para cálculo
+    final totalCmManha = double.tryParse(cmTotalManha) ?? 0.0;
+    final totalMmManha = double.tryParse(mmTotalManha) ?? 0.0;
+    final aguaCmManha = double.tryParse(cmAguaManha) ?? 0.0;
+    final aguaMmManha = double.tryParse(mmAguaManha) ?? 0.0;
+    
+    final totalCmTarde = double.tryParse(cmTotalTarde) ?? 0.0;
+    final totalMmTarde = double.tryParse(mmTotalTarde) ?? 0.0;
+    final aguaCmTarde = double.tryParse(cmAguaTarde) ?? 0.0;
+    final aguaMmTarde = double.tryParse(mmAguaTarde) ?? 0.0;
+    
+    // Calcular alturas em cm (com decimais)
+    final alturaTotalManhaCm = totalCmManha + (totalMmManha / 10);
+    final alturaAguaManhaCm = aguaCmManha + (aguaMmManha / 10);
+    final alturaProdutoManhaCm = alturaTotalManhaCm - alturaAguaManhaCm;
+    
+    final alturaTotalTardeCm = totalCmTarde + (totalMmTarde / 10);
+    final alturaAguaTardeCm = aguaCmTarde + (aguaMmTarde / 10);
+    final alturaProdutoTardeCm = alturaTotalTardeCm - alturaAguaTardeCm;
+    
+    print('\n   📐 MANHÃ:');
+    print('      Altura Total: $totalCmManha cm + ($totalMmManha mm / 10) = ${alturaTotalManhaCm.toStringAsFixed(1)} cm');
+    print('      Altura Água: $aguaCmManha cm + ($aguaMmManha mm / 10) = ${alturaAguaManhaCm.toStringAsFixed(1)} cm');
+    print('      Altura Produto: ${alturaTotalManhaCm.toStringAsFixed(1)} - ${alturaAguaManhaCm.toStringAsFixed(1)} = ${alturaProdutoManhaCm.toStringAsFixed(1)} cm');
+    
+    print('\n   📐 TARDE:');
+    print('      Altura Total: $totalCmTarde cm + ($totalMmTarde mm / 10) = ${alturaTotalTardeCm.toStringAsFixed(1)} cm');
+    print('      Altura Água: $aguaCmTarde cm + ($aguaMmTarde mm / 10) = ${alturaAguaTardeCm.toStringAsFixed(1)} cm');
+    print('      Altura Produto: ${alturaTotalTardeCm.toStringAsFixed(1)} - ${alturaAguaTardeCm.toStringAsFixed(1)} = ${alturaProdutoTardeCm.toStringAsFixed(1)} cm');
+    
+    // Formatar para exibição no CACL (cm,mm)
+    String formatarParaCACL(double alturaCm) {
+      final parteInteira = alturaCm.floor();
+      final parteDecimal = ((alturaCm - parteInteira) * 10).round();
+      return '$parteInteira,$parteDecimal cm';
     }
     
-    // DEBUG: Mostrar todos os controllers
-    print('DEBUG - Índices dos controllers:');
-    for (int i = 0; i < controllers.length; i++) {
-      print('  controllers[$i]: "${controllers[i].text}"');
-    }
+    final alturaProdutoManhaFormatada = formatarParaCACL(alturaProdutoManhaCm);
+    final alturaProdutoTardeFormatada = formatarParaCACL(alturaProdutoTardeCm);
     
-    // Calcula alturas do produto para manhã e tarde
-    final alturaProdutoManha = calcularAlturaProduto(
-      controllers[1].text,  // cm Manhã
-      controllers[2].text,  // mm Manhã
-      controllers[6].text,  // Água cm Manhã
-      controllers[7].text,  // Água mm Manhã
-      'MANHÃ',
-    );
+    print('\n   📝 FORMATADO PARA CACL:');
+    print('      MANHÃ: $alturaProdutoManhaFormatada');
+    print('      TARDE: $alturaProdutoTardeFormatada');
     
-    final alturaProdutoTarde = calcularAlturaProduto(
-      controllers[11].text, // cm Tarde
-      controllers[12].text, // mm Tarde
-      controllers[16].text, // Água cm Tarde
-      controllers[17].text, // Água mm Tarde
-      'TARDE',
-    );
+    // ------------------------------------------------------------------
+    // 4️⃣ OUTROS CAMPOS QUE APARECEM NO CACL
+    // ------------------------------------------------------------------
+    print('\n4️⃣ OUTROS CAMPOS DO CACL:');
+    print('   Temperatura Tanque (Manhã): ${controllers[3].text}°C');
+    print('   Densidade (Manhã): ${controllers[4].text}');
+    print('   Temperatura Amostra (Manhã): ${controllers[5].text}°C');
+    print('   Volume Canalização (Manhã): ${controllers[8].text}');
     
-    // DEBUG: Mostrar alturas calculadas
-    print('DEBUG - Alturas calculadas:');
-    print('  alturaProdutoManha: $alturaProdutoManha');
-    print('  alturaProdutoTarde: $alturaProdutoTarde');
+    // ====================================================
+    // 📦 CONSTRUINDO OS DADOS QUE SERÃO ENVIADOS
+    // ====================================================
     
-    // Calcular altura total formatada (cm,mm)
-    String formatarAlturaTotal(String cm, String mm) {
-      if (cm.isEmpty && mm.isEmpty) return '0,0';
-      if (mm.isEmpty) return '$cm,0';
-      return '$cm,$mm';
-    }
-    
-    final alturaTotalManha = formatarAlturaTotal(controllers[1].text, controllers[2].text);
-    final alturaTotalTarde = formatarAlturaTotal(controllers[11].text, controllers[12].text);
-    
-    // DEBUG: Mostrar alturas totais
-    print('DEBUG - Alturas totais formatadas:');
-    print('  alturaTotalManha: $alturaTotalManha cm');
-    print('  alturaTotalTarde: $alturaTotalTarde cm');
+    print('\n📦 DADOS QUE SERÃO ENVIADOS PARA O CACL:');
     
     final dadosMedicoes = {
+      // Linha 1 do CACL: Altura total
+      'cmManha': cmTotalManha,
+      'mmManha': mmTotalManha,
+      'cmTarde': cmTotalTarde,
+      'mmTarde': mmTotalTarde,
+      
+      // Linha 2 do CACL: Altura da água
+      'alturaAguaManha': '$cmAguaManha,$mmAguaManha cm',
+      'alturaAguaTarde': '$cmAguaTarde,$mmAguaTarde cm',
+      
+      // Linha 3 do CACL: Altura do produto (CÁLCULO FINAL!)
+      'alturaProdutoManha': alturaProdutoManhaFormatada,
+      'alturaProdutoTarde': alturaProdutoTardeFormatada,
+      
+      // Outros campos
       'horarioManha': controllers[0].text,
-      'cmManha': controllers[1].text,
-      'mmManha': controllers[2].text,
       'tempTanqueManha': controllers[3].text,
       'densidadeManha': controllers[4].text,
       'tempAmostraManha': controllers[5].text,
-      'alturaAguaManha': '${controllers[6].text},${controllers[7].text} cm',
-      'alturaProdutoManha': '${alturaProdutoManha.toStringAsFixed(1)} cm',
-      'alturaTotalManha': '$alturaTotalManha cm', // Altura total formatada
       'volumeCanalizacaoManha': controllers[8].text.replaceAll(' L', '').replaceAll('.', ''),
+      
       'horarioTarde': controllers[10].text,
-      'cmTarde': controllers[11].text,
-      'mmTarde': controllers[12].text,
       'tempTanqueTarde': controllers[13].text,
       'densidadeTarde': controllers[14].text,
       'tempAmostraTarde': controllers[15].text,
-      'alturaAguaTarde': '${controllers[16].text},${controllers[17].text} cm',
-      'alturaProdutoTarde': '${alturaProdutoTarde.toStringAsFixed(1)} cm',
-      'alturaTotalTarde': '$alturaTotalTarde cm', // Altura total formatada
       'volumeCanalizacaoTarde': controllers[18].text.replaceAll(' L', '').replaceAll('.', ''),
+      
+      // Campos com valores fixos (para outras partes do CACL)
       'volumeProdutoManha': '0',
       'volumeProdutoTarde': '0',
       'volumeAguaManha': '0',
@@ -366,49 +384,32 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'densidade20Manha': '0.000',
       'densidade20Tarde': '0.000',
     };
-
-    // DEBUG: Mostrar dados completos que serão enviados
-    print('DEBUG - Dados que serão enviados para CACL:');
-    print('  alturaTotalManha: ${dadosMedicoes['alturaTotalManha']}');
-    print('  alturaAguaManha: ${dadosMedicoes['alturaAguaManha']}');
-    print('  alturaProdutoManha: ${dadosMedicoes['alturaProdutoManha']}');
-    print('  alturaTotalTarde: ${dadosMedicoes['alturaTotalTarde']}');
-    print('  alturaAguaTarde: ${dadosMedicoes['alturaAguaTarde']}');
-    print('  alturaProdutoTarde: ${dadosMedicoes['alturaProdutoTarde']}');
-
-    final dataApenas = _dataController.text;
-
-    final usuario = UsuarioAtual.instance!;
-    final String? filialId;
     
-    if (usuario.nivel == 3 && widget.filialSelecionadaId != null) {
-      filialId = widget.filialSelecionadaId;
-    } else {
-      filialId = usuario.filialId;
-    }
-
+    // Mostrar resumo do que vai para o CACL
+    print('\n📋 RESUMO PARA VERIFICAÇÃO:');
+    print('   1ª Linha CACL (Altura total): $cmTotalManha,$mmTotalManha cm / $cmTotalTarde,$mmTotalTarde cm');
+    print('   2ª Linha CACL (Altura água): $cmAguaManha,$mmAguaManha cm / $cmAguaTarde,$mmAguaTarde cm');
+    print('   3ª Linha CACL (Altura produto): $alturaProdutoManhaFormatada / $alturaProdutoTardeFormatada');
+    
+    print('\n✅ CÁLCULOS CONCLUÍDOS - ENVIANDO PARA CACL...');
+    
     final dadosFormulario = {
-      'data': dataApenas,
+      'data': _dataController.text,
       'base': _nomeFilial ?? 'POLO DE COMBUSTÍVEL',
       'produto': tanqueAtual['produto'],
       'tanque': tanqueAtual['numero'],
       'responsavel': UsuarioAtual.instance?.nome ?? 'Usuário',
       'medicoes': dadosMedicoes,
-      'filial_id': filialId,
+      'filial_id': UsuarioAtual.instance!.nivel == 3 && widget.filialSelecionadaId != null 
+          ? widget.filialSelecionadaId 
+          : UsuarioAtual.instance!.filialId,
     };
-
+    
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => CalcPage(dadosFormulario: dadosFormulario),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _dataController.dispose();
-    for (var list in _controllers) { for (var c in list) c.dispose(); }
-    super.dispose();
   }
 
   @override

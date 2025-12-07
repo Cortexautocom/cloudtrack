@@ -22,25 +22,66 @@ class _CalcPageState extends State<CalcPage> {
   Future<void> _calcularVolumesIniciais() async {
     final medicoes = widget.dadosFormulario['medicoes'];
 
-    final cmManha = medicoes['cmManha'];
-    final mmManha = medicoes['mmManha'];
+    final alturaProdutoManha = medicoes['alturaProdutoManha'];
+    final alturaProdutoTarde = medicoes['alturaProdutoTarde'];
+    final alturaAguaManha = medicoes['alturaAguaManha'];
+    final alturaAguaTarde = medicoes['alturaAguaTarde'];
 
-    final cmTarde = medicoes['cmTarde'];
-    final mmTarde = medicoes['mmTarde'];
+    Map<String, String?> extrairCmMm(String? alturaFormatada) {
+      if (alturaFormatada == null || alturaFormatada.isEmpty || alturaFormatada == '-') {
+        return {'cm': null, 'mm': null};
+      }
+      
+      try {
+        final semUnidade = alturaFormatada.replaceAll(' cm', '').trim();
+        final partes = semUnidade.split(',');
+        
+        if (partes.length == 2) {
+          return {'cm': partes[0], 'mm': partes[1]};
+        } else if (partes.length == 1) {
+          return {'cm': partes[0], 'mm': '0'};
+        } else {
+          return {'cm': null, 'mm': null};
+        }
+      } catch (e) {
+        return {'cm': null, 'mm': null};
+      }
+    }
 
-    final volManha = await _buscarVolumeReal(cmManha, mmManha);
-    final volTarde = await _buscarVolumeReal(cmTarde, mmTarde);
+    final produtoCmMmManha = extrairCmMm(alturaProdutoManha);
+    final produtoCmMmTarde = extrairCmMm(alturaProdutoTarde);
+    final aguaCmMmManha = extrairCmMm(alturaAguaManha);
+    final aguaCmMmTarde = extrairCmMm(alturaAguaTarde);
+
+    final volProdutoManha = await _buscarVolumeReal(produtoCmMmManha['cm'], produtoCmMmManha['mm']);
+    final volProdutoTarde = await _buscarVolumeReal(produtoCmMmTarde['cm'], produtoCmMmTarde['mm']);
+    final volAguaManha = await _buscarVolumeReal(aguaCmMmManha['cm'], aguaCmMmManha['mm']);
+    final volAguaTarde = await _buscarVolumeReal(aguaCmMmTarde['cm'], aguaCmMmTarde['mm']);
 
     setState(() {
-      volumeManha = volManha;
-      volumeTarde = volTarde;
+      volumeManha = volProdutoManha;
+      volumeTarde = volProdutoTarde;
     });
+
+    // Formatar volumes com a nova função
+    widget.dadosFormulario['medicoes']['volumeProdutoManha'] = _formatarVolumeLitros(volProdutoManha);
+    widget.dadosFormulario['medicoes']['volumeProdutoTarde'] = _formatarVolumeLitros(volProdutoTarde);
+    widget.dadosFormulario['medicoes']['volumeAguaManha'] = _formatarVolumeLitros(volAguaManha);
+    widget.dadosFormulario['medicoes']['volumeAguaTarde'] = _formatarVolumeLitros(volAguaTarde);
+    
+    final volumeTotalManha = volProdutoManha + volAguaManha;
+    final volumeTotalTarde = volProdutoTarde + volAguaTarde;
+    
+    widget.dadosFormulario['medicoes']['volumeTotalManha'] = _formatarVolumeLitros(volumeTotalManha);
+    widget.dadosFormulario['medicoes']['volumeTotalTarde'] = _formatarVolumeLitros(volumeTotalTarde);
   }
 
   Future<double> _buscarVolumeReal(String? cm, String? mm) async {
     final supabase = Supabase.instance.client;
 
-    if (cm == null || cm.isEmpty) return 0;
+    if (cm == null || cm.isEmpty) {
+      return 0;
+    }
 
     final intCm = int.tryParse(cm) ?? 0;
     final intMm = int.tryParse(mm ?? '0') ?? 0;
@@ -283,8 +324,8 @@ class _CalcPageState extends State<CalcPage> {
                         _obterValorMedicao(medicoes['alturaProdutoTarde'])),
                     _linhaMedicao(
                       "Volume em litros, correspondente à altura total do produto",
-                      "${_formatarVolumeLitros(volumeManha)} L",
-                      "${_formatarVolumeLitros(volumeTarde)} L",
+                      "${_formatarVolumeLitros(volumeManha)} ",
+                      "${_formatarVolumeLitros(volumeTarde)} ",
                     ),
                     _linhaMedicao("Volume em litros, correspondente à altura total da água", 
                         _obterValorMedicao(medicoes['volumeAguaManha']), 
@@ -659,8 +700,11 @@ class _CalcPageState extends State<CalcPage> {
   }
 
   String _formatarVolumeLitros(double volume) {
-    final parteInteira = volume.toInt();
-    String inteiroFormatado = parteInteira.toString();
+    // Arredondar para número inteiro (sem casas decimais)
+    final volumeInteiro = volume.round();
+    
+    // Formatar parte inteira com pontos
+    String inteiroFormatado = volumeInteiro.toString();
     
     if (inteiroFormatado.length > 3) {
       final buffer = StringBuffer();
@@ -680,6 +724,6 @@ class _CalcPageState extends State<CalcPage> {
       inteiroFormatado = chars.join('');
     }
     
-    return inteiroFormatado;
+    return '$inteiroFormatado L';
   }
 }
