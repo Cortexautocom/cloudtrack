@@ -12,6 +12,8 @@ class CalcPage extends StatefulWidget {
 class _CalcPageState extends State<CalcPage> {
   double volumeManha = 0;
   double volumeTarde = 0;
+  double volumeTotalLiquidoManha = 0;
+  double volumeTotalLiquidoTarde = 0;
 
   @override
   void initState() {
@@ -58,9 +60,15 @@ class _CalcPageState extends State<CalcPage> {
     final volAguaManha = await _buscarVolumeReal(aguaCmMmManha['cm'], aguaCmMmManha['mm']);
     final volAguaTarde = await _buscarVolumeReal(aguaCmMmTarde['cm'], aguaCmMmTarde['mm']);
 
+    // Calcular volume total de líquido (produto + água)
+    final volumeTotalLiquidoManha = volProdutoManha + volAguaManha;
+    final volumeTotalLiquidoTarde = volProdutoTarde + volAguaTarde;
+
     setState(() {
-      volumeManha = volProdutoManha;
-      volumeTarde = volProdutoTarde;
+      this.volumeManha = volProdutoManha;
+      this.volumeTarde = volProdutoTarde;
+      this.volumeTotalLiquidoManha = volumeTotalLiquidoManha;
+      this.volumeTotalLiquidoTarde = volumeTotalLiquidoTarde;
     });
 
     // Formatar volumes com a nova função
@@ -74,6 +82,8 @@ class _CalcPageState extends State<CalcPage> {
     
     widget.dadosFormulario['medicoes']['volumeTotalManha'] = _formatarVolumeLitros(volumeTotalManha);
     widget.dadosFormulario['medicoes']['volumeTotalTarde'] = _formatarVolumeLitros(volumeTotalTarde);
+    widget.dadosFormulario['medicoes']['volumeTotalLiquidoManha'] = _formatarVolumeLitros(volumeTotalLiquidoManha);
+    widget.dadosFormulario['medicoes']['volumeTotalLiquidoTarde'] = _formatarVolumeLitros(volumeTotalLiquidoTarde);
   }
 
   Future<double> _buscarVolumeReal(String? cm, String? mm) async {
@@ -313,45 +323,48 @@ class _CalcPageState extends State<CalcPage> {
                   const SizedBox(height: 12),
 
                   _tabelaMedicoes([
-                    _linhaMedicao("Altura total de líquido no tanque", 
+                    _linhaMedicao("Altura total de líquido no tanque:", 
                         _formatarAlturaTotal(medicoes['cmManha'], medicoes['mmManha']), 
                         _formatarAlturaTotal(medicoes['cmTarde'], medicoes['mmTarde'])),
-                    _linhaMedicao("Altura da água aferida no tanque", 
+                    _linhaMedicao("Volume total de líquido no tanque (temp. ambiente):", 
+                        _formatarVolumeLitros(volumeTotalLiquidoManha), 
+                        _formatarVolumeLitros(volumeTotalLiquidoTarde)),
+                    _linhaMedicao("Altura da água aferida no tanque:", 
                         _obterValorMedicao(medicoes['alturaAguaManha']), 
                         _obterValorMedicao(medicoes['alturaAguaTarde'])),
-                    _linhaMedicao("Altura do produto aferido no tanque", 
+                    _linhaMedicao("Altura do produto aferido no tanque:", 
                         _obterValorMedicao(medicoes['alturaProdutoManha']), 
                         _obterValorMedicao(medicoes['alturaProdutoTarde'])),
                     _linhaMedicao(
-                      "Volume em litros, correspondente à altura total do produto",
+                      "Volume correspondente ao produto (temp. ambiente):",
                       _formatarVolumeLitros(volumeManha),
                       _formatarVolumeLitros(volumeTarde),
                     ),
-                    _linhaMedicao("Volume em litros, correspondente à altura total da água", 
+                    _linhaMedicao("Volume correspondente à água:", 
                         _obterValorMedicao(medicoes['volumeAguaManha']), 
                         _obterValorMedicao(medicoes['volumeAguaTarde'])),
-                    _linhaMedicao("Volume em litros do produto eventualmente existente na canalização", 
+                    _linhaMedicao("Volume em litros do produto na tubulação:", 
                         _obterValorMedicao(medicoes['volumeCanalizacaoManha']), 
                         _obterValorMedicao(medicoes['volumeCanalizacaoTarde'])),
-                    _linhaMedicao("Volume total em litros do produto no tanque e na canalização", 
+                    _linhaMedicao("Volume total em litros do produto no tanque e na tubulação:", 
                         _obterValorMedicao(medicoes['volumeTotalManha']), 
                         _obterValorMedicao(medicoes['volumeTotalTarde'])),
-                    _linhaMedicao("Temperatura do produto no tanque (ºC)", 
-                        _obterValorMedicao(medicoes['tempTanqueManha']), 
-                        _obterValorMedicao(medicoes['tempTanqueTarde'])),
-                    _linhaMedicao("Densidade observada na amostra", 
+                    _linhaMedicao("Temperatura do produto no tanque:", 
+                        _formatarTemperatura(medicoes['tempTanqueManha']), 
+                        _formatarTemperatura(medicoes['tempTanqueTarde'])),
+                    _linhaMedicao("Densidade observada na amostra:", 
                         _obterValorMedicao(medicoes['densidadeManha']), 
                         _obterValorMedicao(medicoes['densidadeTarde'])),
-                    _linhaMedicao("Temperatura da amostra (ºC)", 
-                        _obterValorMedicao(medicoes['tempAmostraManha']), 
-                        _obterValorMedicao(medicoes['tempAmostraTarde'])),
-                    _linhaMedicao("Fator de correção de volume do produto (FCV)", 
+                    _linhaMedicao("Temperatura da amostra:", 
+                        _formatarTemperatura(medicoes['tempAmostraManha']), 
+                        _formatarTemperatura(medicoes['tempAmostraTarde'])),
+                    _linhaMedicao("Fator de correção de volume do produto (FCV):", 
                         _obterValorMedicao(medicoes['fatorCorrecaoManha']), 
                         _obterValorMedicao(medicoes['fatorCorrecaoTarde'])),                    
-                    _linhaMedicao("Densidade da amostra, considerada a temperatura padrão (20 ºC)", 
+                    _linhaMedicao("Densidade da amostra, considerada a temperatura padrão (20 ºC):", 
                         _obterValorMedicao(medicoes['densidade20Manha']), 
                         _obterValorMedicao(medicoes['densidade20Tarde'])),
-                    _linhaMedicao("Volume total do produto, considerada a temperatura padrão (20 ºC)", 
+                    _linhaMedicao("Volume total do produto, considerada a temperatura padrão (20 ºC):", 
                         _obterValorMedicao(medicoes['volume20Manha']), 
                         _obterValorMedicao(medicoes['volume20Tarde'])),
                   ], medicoes),
@@ -737,5 +750,23 @@ class _CalcPageState extends State<CalcPage> {
     }
     
     return '$inteiroFormatado L';
-  }  
+  }
+
+  String _formatarTemperatura(dynamic valor) {
+    if (valor == null) return "-";
+    if (valor is String && valor.isEmpty) return "-";
+    
+    final strValor = valor.toString().trim();
+    
+    // Remover ºC se já existir para evitar duplicação
+    final valorSemUnidade = strValor
+        .replaceAll(' ºC', '')
+        .replaceAll('°C', '')
+        .replaceAll('ºC', '')
+        .trim();
+    
+    if (valorSemUnidade.isEmpty) return "-";
+    
+    return '$valorSemUnidade ºC';
+  }
 }
