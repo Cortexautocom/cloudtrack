@@ -309,7 +309,7 @@ class _CalcPageState extends State<CalcPage> {
 
                   const SizedBox(height: 25),
 
-                  _subtitulo("CARGA RECEBIDA NOS TANQUES DE TERRA E CANALIZAÇÃO RESPECTIVA"),
+                  _subtitulo("VOLUME RECEBIDO NOS TANQUES DE TERRA E CANALIZAÇÃO RESPECTIVA"),
                   const SizedBox(height: 12),
 
                   _tabelaMedicoes([
@@ -324,8 +324,8 @@ class _CalcPageState extends State<CalcPage> {
                         _obterValorMedicao(medicoes['alturaProdutoTarde'])),
                     _linhaMedicao(
                       "Volume em litros, correspondente à altura total do produto",
-                      "${_formatarVolumeLitros(volumeManha)} ",
-                      "${_formatarVolumeLitros(volumeTarde)} ",
+                      _formatarVolumeLitros(volumeManha),
+                      _formatarVolumeLitros(volumeTarde),
                     ),
                     _linhaMedicao("Volume em litros, correspondente à altura total da água", 
                         _obterValorMedicao(medicoes['volumeAguaManha']), 
@@ -354,7 +354,7 @@ class _CalcPageState extends State<CalcPage> {
                     _linhaMedicao("Volume total do produto, considerada a temperatura padrão (20 ºC)", 
                         _obterValorMedicao(medicoes['volume20Manha']), 
                         _obterValorMedicao(medicoes['volume20Tarde'])),
-                  ]),
+                  ], medicoes),
 
                   const SizedBox(height: 25),
 
@@ -525,7 +525,7 @@ class _CalcPageState extends State<CalcPage> {
     );
   }
 
-  Widget _tabelaMedicoes(List<TableRow> linhas) {
+  Widget _tabelaMedicoes(List<TableRow> linhas, Map<String, dynamic> medicoes) {
     return Table(
       border: TableBorder.all(
         color: Colors.black54,
@@ -556,7 +556,7 @@ class _CalcPageState extends State<CalcPage> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
               child: Text(
-                "1ª MEDIÇÃO, 07:45 h",
+                "1ª MEDIÇÃO, ${_formatarHorarioCACL(medicoes['horarioManha'])}",
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
@@ -568,7 +568,7 @@ class _CalcPageState extends State<CalcPage> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
               child: Text(
-                "2ª MEDIÇÃO, 14:30 h",
+                "2ª MEDIÇÃO, ${_formatarHorarioCACL(medicoes['horarioTarde'])}",
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
@@ -582,6 +582,18 @@ class _CalcPageState extends State<CalcPage> {
         ...linhas,
       ],
     );
+  }
+
+  String _formatarHorarioCACL(String? horario) {
+    if (horario == null || horario.isEmpty) return '--:-- h';
+    
+    String horarioLimpo = horario.trim();
+    
+    if (horarioLimpo.toLowerCase().endsWith('h')) {
+      return horarioLimpo;
+    }
+    
+    return '$horarioLimpo h';
   }
 
   TableRow _linhaMedicao(String descricao, String valorManha, String valorTarde) {
@@ -725,5 +737,5 @@ class _CalcPageState extends State<CalcPage> {
     }
     
     return '$inteiroFormatado L';
-  }
+  }  
 }
