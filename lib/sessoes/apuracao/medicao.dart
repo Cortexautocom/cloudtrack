@@ -23,6 +23,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
   final TextEditingController _dataController = TextEditingController(
     text: '${DateTime.now().day.toString().padLeft(2,'0')}/${DateTime.now().month.toString().padLeft(2,'0')}/${DateTime.now().year}'
   );
+  final List<List<FocusNode>> _focusNodes = [];
   
   int _tanqueSelecionadoIndex = 0;
   bool _carregando = true;
@@ -139,6 +140,29 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           TextEditingController(),
           TextEditingController(),
           TextEditingController(),
+        ]);
+
+        _focusNodes.add([
+          FocusNode(),
+          FocusNode(),
+          FocusNode(),
+          FocusNode(),
+          FocusNode(),
+          FocusNode(),
+          FocusNode(),
+          FocusNode(),
+          FocusNode(),
+          FocusNode(),
+          FocusNode(),
+          FocusNode(),
+          FocusNode(),
+          FocusNode(),
+          FocusNode(),
+          FocusNode(),
+          FocusNode(),
+          FocusNode(),
+          FocusNode(),
+          FocusNode(),
         ]);
       }
 
@@ -413,6 +437,18 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
   }
 
   @override
+  void dispose() {
+    _dataController.dispose();
+    for (var list in _controllers) { 
+      for (var c in list) c.dispose(); 
+    }
+    for (var list in _focusNodes) { 
+      for (var f in list) f.dispose(); 
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
@@ -640,6 +676,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
 
   Widget _buildTanqueCard(Map<String, dynamic> tanque, int index) {
     final ctrls = _controllers[index];
+    final focusNodes = _focusNodes[index];
 
     return SingleChildScrollView(
       child: Card(
@@ -718,6 +755,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                 Colors.blue[50]!,
                                 Colors.blue,
                                 ctrls.sublist(0, 10),
+                                focusNodes.sublist(0, 10),
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -728,6 +766,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                 Colors.green[50]!,
                                 Colors.green,
                                 ctrls.sublist(10, 20),
+                                focusNodes.sublist(10, 20),
                               ),
                             ),
                           ],
@@ -740,6 +779,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                               Colors.blue[50]!,
                               Colors.blue,
                               ctrls.sublist(0, 10),
+                              focusNodes.sublist(0, 10),
                             ),
                             const SizedBox(height: 12),
                             _buildSection(
@@ -748,6 +788,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                               Colors.green[50]!,
                               Colors.green,
                               ctrls.sublist(10, 20),
+                              focusNodes.sublist(10, 20),
                             ),
                           ],
                         );
@@ -760,104 +801,122 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     );
   }
 
-  Widget _buildSection(String periodo, String hora, Color bg, Color accent, List<TextEditingController> c) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: accent.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.access_time, size: 14, color: accent),
-              const SizedBox(width: 6),
-              Text(
-                '$periodo - $hora',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: accent,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildTimeField('Horário Medição', c[0], '', width: 100),    
-              _buildNumberField('cm', c[1], '', width: 100, maxLength: 4), 
-              _buildNumberField('mm', c[2], '', width: 100, maxLength: 1), 
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildTemperatureField('Temp. Tanque', c[3], '', width: 100), 
-              _buildDensityField('Densidade', c[4], '', width: 100),        
-              _buildTemperatureField('Temp. Amostra', c[5], '', width: 100), 
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNumberField('Água cm', c[6], '', width: 100, maxLength: 3),
-              _buildNumberField('Água mm', c[7], '', width: 100, maxLength: 1),
-              _buildVolumeField('Vol. Canalização', c[8], '', width: 100),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Observações:',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 6),
-              TextFormField(
-                controller: c[9],
-                maxLines: 2,
-                maxLength: 140,
-                style: const TextStyle(fontSize: 12),
-                decoration: InputDecoration(
-                  hintText: 'Digite suas observações...',
-                  isDense: true,
-                  contentPadding: const EdgeInsets.all(10),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    borderSide: BorderSide(color: Colors.grey.shade400),
+  Widget _buildSection(String periodo, String hora, Color bg, Color accent, 
+      List<TextEditingController> c, List<FocusNode> f) {
+    return FocusScope(
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: accent.withOpacity(0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.access_time, size: 14, color: accent),
+                const SizedBox(width: 6),
+                Text(
+                  '$periodo - $hora',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: accent,
+                    fontSize: 12,
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    borderSide: BorderSide(color: accent, width: 1.5),
-                  ),
-                  counterText: '',
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // PRIMEIRA LINHA: Horário, cm, mm
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildTimeField('Horário Medição', c[0], '', 
+                    width: 100, focusNode: f[0], nextFocus: f[1]),
+                _buildNumberField('cm', c[1], '', 
+                    width: 100, maxLength: 4, focusNode: f[1], nextFocus: f[2]),
+                _buildNumberField('mm', c[2], '', 
+                    width: 100, maxLength: 1, focusNode: f[2], nextFocus: f[3]), // ← CONECTA PARA PRÓXIMA LINHA
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // SEGUNDA LINHA: Temp. Tanque, Densidade, Temp. Amostra
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildTemperatureField('Temp. Tanque', c[3], '', 
+                    width: 100, focusNode: f[3], nextFocus: f[4]),
+                _buildDensityField('Densidade', c[4], '', 
+                    width: 100, focusNode: f[4], nextFocus: f[5]),
+                _buildTemperatureField('Temp. Amostra', c[5], '', 
+                    width: 100, focusNode: f[5], nextFocus: f[6]), // ← CONECTA PARA PRÓXIMA LINHA
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // TERCEIRA LINHA: Água cm, Água mm, Vol. Canalização
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNumberField('Água cm', c[6], '', 
+                    width: 100, maxLength: 3, focusNode: f[6], nextFocus: f[7]),
+                _buildNumberField('Água mm', c[7], '', 
+                    width: 100, maxLength: 1, focusNode: f[7], nextFocus: f[8]),
+                _buildVolumeField('Vol. Canalização', c[8], '', 
+                    width: 100, focusNode: f[8], nextFocus: f[9]), // ← CONECTA PARA OBSERVAÇÕES
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Observações:',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: c[9],
+                  focusNode: f[9],
+                  textInputAction: TextInputAction.done,
+                  maxLines: 2,
+                  maxLength: 140,
+                  style: const TextStyle(fontSize: 12),
+                  decoration: InputDecoration(
+                    hintText: 'Digite suas observações...',
+                    isDense: true,
+                    contentPadding: const EdgeInsets.all(10),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: Colors.grey.shade400),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                      borderSide: BorderSide(color: accent, width: 1.5),
+                    ),
+                    counterText: '',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildTimeField(String label, TextEditingController ctrl, String hint, {double width = 100}) {
+  Widget _buildTimeField(String label, TextEditingController ctrl, String hint, 
+      {double width = 100, FocusNode? focusNode, FocusNode? nextFocus}) {
     return Column(
       children: [
         Text(
@@ -874,6 +933,9 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           height: 36,
           child: TextFormField(
             controller: ctrl,
+            focusNode: focusNode,
+            textInputAction: nextFocus != null ? TextInputAction.next : TextInputAction.done,
+            onFieldSubmitted: (_) => nextFocus?.requestFocus(),
             textAlign: TextAlign.center,
             keyboardType: TextInputType.number,
             style: const TextStyle(fontSize: 12),
@@ -909,7 +971,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     );
   }
 
-  Widget _buildNumberField(String label, TextEditingController ctrl, String hint, {double width = 100, int maxLength = 3}) {
+  Widget _buildNumberField(String label, TextEditingController ctrl, String hint, 
+      {double width = 100, int maxLength = 3, FocusNode? focusNode, FocusNode? nextFocus}) {
     return Column(
       children: [
         Text(
@@ -926,6 +989,9 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           height: 36,
           child: TextFormField(
             controller: ctrl,
+            focusNode: focusNode,
+            textInputAction: nextFocus != null ? TextInputAction.next : TextInputAction.done,
+            onFieldSubmitted: (_) => nextFocus?.requestFocus(),
             textAlign: TextAlign.center,
             keyboardType: TextInputType.number,
             style: const TextStyle(fontSize: 12),
@@ -950,7 +1016,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     );
   }
 
-  Widget _buildTemperatureField(String label, TextEditingController ctrl, String hint, {double width = 100}) {
+  Widget _buildTemperatureField(String label, TextEditingController ctrl, String hint, 
+      {double width = 100, FocusNode? focusNode, FocusNode? nextFocus}) {
     return Column(
       children: [
         Text(
@@ -967,6 +1034,9 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           height: 36,
           child: TextFormField(
             controller: ctrl,
+            focusNode: focusNode,
+            textInputAction: nextFocus != null ? TextInputAction.next : TextInputAction.done,
+            onFieldSubmitted: (_) => nextFocus?.requestFocus(),
             textAlign: TextAlign.center,
             keyboardType: TextInputType.number,
             style: const TextStyle(fontSize: 12),
@@ -1002,7 +1072,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     );
   }
 
-  Widget _buildDensityField(String label, TextEditingController ctrl, String hint, {double width = 100}) {
+  Widget _buildDensityField(String label, TextEditingController ctrl, String hint, 
+      {double width = 100, FocusNode? focusNode, FocusNode? nextFocus}) {
     return Column(
       children: [
         Text(
@@ -1019,6 +1090,9 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           height: 36,
           child: TextFormField(
             controller: ctrl,
+            focusNode: focusNode,
+            textInputAction: nextFocus != null ? TextInputAction.next : TextInputAction.done,
+            onFieldSubmitted: (_) => nextFocus?.requestFocus(),
             textAlign: TextAlign.center,
             keyboardType: TextInputType.number,
             style: const TextStyle(fontSize: 12),
@@ -1054,7 +1128,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     );
   }
 
-  Widget _buildVolumeField(String label, TextEditingController ctrl, String hint, {double width = 100}) {
+  Widget _buildVolumeField(String label, TextEditingController ctrl, String hint, 
+      {double width = 100, FocusNode? focusNode, FocusNode? nextFocus}) {
     return Column(
       children: [
         Text(
@@ -1071,6 +1146,9 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           height: 36,
           child: TextFormField(
             controller: ctrl,
+            focusNode: focusNode,
+            textInputAction: nextFocus != null ? TextInputAction.next : TextInputAction.done,
+            onFieldSubmitted: (_) => nextFocus?.requestFocus(),
             textAlign: TextAlign.center,
             keyboardType: TextInputType.number,
             style: const TextStyle(fontSize: 12),
