@@ -84,6 +84,40 @@ class _CalcPageState extends State<CalcPage> {
     widget.dadosFormulario['medicoes']['volumeTotalTarde'] = _formatarVolumeLitros(volumeTotalTarde);
     widget.dadosFormulario['medicoes']['volumeTotalLiquidoManha'] = _formatarVolumeLitros(volumeTotalLiquidoManha);
     widget.dadosFormulario['medicoes']['volumeTotalLiquidoTarde'] = _formatarVolumeLitros(volumeTotalLiquidoTarde);
+
+    // 7. CALCULAR DENSIDADE A 20°C
+    final produtoNome = widget.dadosFormulario['produto']?.toString() ?? '';
+
+    // Buscar densidade 20°C para manhã
+    if (medicoes['tempAmostraManha'] != null && 
+        medicoes['densidadeManha'] != null &&
+        produtoNome.isNotEmpty) {
+      
+      final densidade20Manha = await _buscarDensidade20C(
+        temperaturaAmostra: medicoes['tempAmostraManha'].toString(),
+        densidadeObservada: medicoes['densidadeManha'].toString(),
+        produtoNome: produtoNome,
+      );
+      
+      widget.dadosFormulario['medicoes']['densidade20Manha'] = densidade20Manha;
+    }
+
+    // Buscar densidade 20°C para tarde
+    if (medicoes['tempAmostraTarde'] != null && 
+        medicoes['densidadeTarde'] != null &&
+        produtoNome.isNotEmpty) {
+      
+      final densidade20Tarde = await _buscarDensidade20C(
+        temperaturaAmostra: medicoes['tempAmostraTarde'].toString(),
+        densidadeObservada: medicoes['densidadeTarde'].toString(),
+        produtoNome: produtoNome,
+      );
+      
+      widget.dadosFormulario['medicoes']['densidade20Tarde'] = densidade20Tarde;
+    }
+
+    // Forçar rebuild para mostrar os valores calculados
+    setState(() {});
   }
 
   Future<double> _buscarVolumeReal(String? cm, String? mm) async {
@@ -348,19 +382,16 @@ class _CalcPageState extends State<CalcPage> {
                         _obterValorMedicao(medicoes['volumeCanalizacaoTarde'])),
                     _linhaMedicao("Volume total em litros do produto no tanque e na tubulação:", 
                         _obterValorMedicao(medicoes['volumeTotalManha']), 
-                        _obterValorMedicao(medicoes['volumeTotalTarde'])),
-                    _linhaMedicao("Temperatura do produto no tanque:", 
-                        _formatarTemperatura(medicoes['tempTanqueManha']), 
-                        _formatarTemperatura(medicoes['tempTanqueTarde'])),
+                        _obterValorMedicao(medicoes['volumeTotalTarde'])),                    
                     _linhaMedicao("Densidade observada na amostra:", 
                         _obterValorMedicao(medicoes['densidadeManha']), 
                         _obterValorMedicao(medicoes['densidadeTarde'])),
-                    _linhaMedicao("Densidade da amostra, considerada à temperatura padrão (20 ºC):", 
-                        _obterValorMedicao(medicoes['densidade20Manha']), 
-                        _obterValorMedicao(medicoes['densidade20Tarde'])),
                     _linhaMedicao("Temperatura da amostra:", 
                         _formatarTemperatura(medicoes['tempAmostraManha']), 
                         _formatarTemperatura(medicoes['tempAmostraTarde'])),
+                    _linhaMedicao("Densidade da amostra, considerada à temperatura padrão (20 ºC):", 
+                        _obterValorMedicao(medicoes['densidade20Manha']), 
+                        _obterValorMedicao(medicoes['densidade20Tarde'])),                    
                     _linhaMedicao("Fator de correção de volume do produto (FCV):", 
                         _obterValorMedicao(medicoes['fatorCorrecaoManha']), 
                         _obterValorMedicao(medicoes['fatorCorrecaoTarde'])),                    
@@ -641,9 +672,31 @@ class _CalcPageState extends State<CalcPage> {
 
   String _obterValorMedicao(dynamic valor) {
     if (valor == null) return "-";
-    if (valor is String && valor.isEmpty) return "-";
+
+    if (valor is String) {
+      final v = valor.trim();
+
+      if (v.isEmpty) return "-";
+
+      // Interpreta "cm,mm cm"
+      final semUnidade = v.replaceAll(" cm", "").trim();
+
+      if (semUnidade == "," || semUnidade == "0,0" || semUnidade == "0,00" || semUnidade == "0,000" || semUnidade == "0,0000") {
+        return "-";
+      }
+
+      if (semUnidade == "0,") return "-";
+
+      if (semUnidade.startsWith("0,") && semUnidade.substring(2).replaceAll("0", "").isEmpty) {
+        return "-";
+      }
+
+      return v;
+    }
+
     return valor.toString();
   }
+
 
   String _obterApenasData(String dataCompleta) {
     if (dataCompleta.contains(',')) {
@@ -768,5 +821,90 @@ class _CalcPageState extends State<CalcPage> {
     if (valorSemUnidade.isEmpty) return "-";
     
     return '$valorSemUnidade ºC';
+  }
+
+  Future<String> _buscarDensidade20C({
+    required String temperaturaAmostra,
+    required String densidadeObservada,
+    required String produtoNome,
+  }) async {
+    final supabase = Supabase.instance.client;
+    
+    try {
+      // 1. DETERMINAR QUAL VIEW USAR
+      // Converte para minúsculas para comparação
+      final nomeProdutoLower = produtoNome.toLowerCase().trim();
+      final bool usarViewAnidroHidratado = 
+          nomeProdutoLower.contains('anidro') || 
+          nomeProdutoLower.contains('hidratado');
+      
+      print('📊 Buscando densidade 20°C:');
+      print('   Produto: $produtoNome -> View: ${usarViewAnidroHidratado ? "anidro_hidratado" : "gasolina_diesel"}');
+      print('   Temperatura: $temperaturaAmostra');
+      print('   Densidade: $densidadeObservada');
+      
+      // 2. FORMATAR A TEMPERATURA
+      // Garantir formato "18,5" (remover ºC se existir)
+      String temperaturaFormatada = temperaturaAmostra
+          .replaceAll(' ºC', '')
+          .replaceAll('°C', '')
+          .replaceAll('ºC', '')
+          .trim();
+      
+      // Se não tem vírgula, assume que é inteiro (ex: "18" -> "18,0")
+      if (!temperaturaFormatada.contains(',')) {
+        temperaturaFormatada = '${temperaturaFormatada},0';
+      }
+      
+      print('   Temp formatada: $temperaturaFormatada');
+      
+      // 3. FORMATAR A DENSIDADE PARA NOME DA COLUNA
+      // "0,7715" -> remove vírgula -> "07715" -> coluna "d_07715"
+      String densidadeSemVirgula = densidadeObservada.replaceAll(',', '');
+      
+      // Para garantir 5 dígitos (4 casas decimais)
+      // "7715" -> "07715", "864" -> "08640"
+      String densidadeParaColuna = densidadeSemVirgula.padLeft(5, '0');
+      
+      // Se tem menos de 4 dígitos após a vírgula, completa com zeros
+      if (densidadeParaColuna.length > 5) {
+        densidadeParaColuna = densidadeParaColuna.substring(0, 5);
+      }
+      
+      final nomeColuna = 'd_$densidadeParaColuna';
+      print('   Coluna a buscar: $nomeColuna');
+      
+      // 4. BUSCAR NA VIEW CORRETA
+      final nomeView = usarViewAnidroHidratado 
+          ? 'tcd_anidro_hidratado_vw' 
+          : 'tcd_gasolina_diesel_vw';
+      
+      print('   View: $nomeView');
+      
+      final resultado = await supabase
+          .from(nomeView)
+          .select(nomeColuna)
+          .eq('temperatura_obs', temperaturaFormatada)
+          .maybeSingle();
+      
+      if (resultado == null) {
+        print('   ❌ Nenhum resultado encontrado para temperatura $temperaturaFormatada');
+        return '-';
+      }
+      
+      if (resultado[nomeColuna] == null) {
+        print('   ❌ Coluna $nomeColuna não encontrada na view');
+        return '-';
+      }
+      
+      final densidade20C = resultado[nomeColuna].toString();
+      print('   ✅ Encontrado: $densidade20C');
+      
+      return densidade20C;
+      
+    } catch (e) {
+      print('❌ Erro ao buscar densidade 20°C: $e');
+      return '-';
+    }
   }
 }

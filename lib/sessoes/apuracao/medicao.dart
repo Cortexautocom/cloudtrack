@@ -213,26 +213,22 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
 
   String _aplicarMascaraDensidade(String texto) {
     String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
-    
-    if (apenasNumeros.length > 4) {
-      apenasNumeros = apenasNumeros.substring(0, 4);
+
+    if (apenasNumeros.length > 5) {
+      apenasNumeros = apenasNumeros.substring(0, 5);
     }
-    
-    String resultado = '';
-    for (int i = 0; i < apenasNumeros.length; i++) {
-      if (i == 1) {
-        resultado += ',';
-      }
-      resultado += apenasNumeros[i];
+
+    if (apenasNumeros.isEmpty) return '';
+
+    String parteInteira = apenasNumeros.substring(0, 1);
+    String parteDecimal = '';
+    if (apenasNumeros.length > 1) {
+      parteDecimal = apenasNumeros.substring(1);
     }
-    
-    if (resultado.isNotEmpty && !resultado.contains(',') && resultado.length < 4) {
-      resultado = '0,$resultado';
-    } else if (resultado.isNotEmpty && !resultado.contains(',')) {
-      resultado = '${resultado.substring(0, 1)},${resultado.substring(1)}';
-    }
-    
-    return resultado;
+
+    return parteDecimal.isEmpty
+        ? '$parteInteira,'
+        : '$parteInteira,$parteDecimal';
   }
 
   String _aplicarMascaraVolume(String texto) {
