@@ -115,7 +115,11 @@ class _CalcPageState extends State<CalcPage> {
     final produtoNome = widget.dadosFormulario['produto']?.toString() ?? '';
 
     if (medicoes['tempAmostraManha'] != null && 
+        medicoes['tempAmostraManha'].toString().isNotEmpty &&
+        medicoes['tempAmostraManha'].toString() != '-' &&
         medicoes['densidadeManha'] != null &&
+        medicoes['densidadeManha'].toString().isNotEmpty &&
+        medicoes['densidadeManha'].toString() != '-' &&
         produtoNome.isNotEmpty) {
       
       final densidade20Manha = await _buscarDensidade20C(
@@ -125,10 +129,16 @@ class _CalcPageState extends State<CalcPage> {
       );
       
       widget.dadosFormulario['medicoes']['densidade20Manha'] = densidade20Manha;
+    } else {
+      widget.dadosFormulario['medicoes']['densidade20Manha'] = '-';
     }
 
     if (medicoes['tempAmostraTarde'] != null && 
+        medicoes['tempAmostraTarde'].toString().isNotEmpty &&
+        medicoes['tempAmostraTarde'].toString() != '-' &&
         medicoes['densidadeTarde'] != null &&
+        medicoes['densidadeTarde'].toString().isNotEmpty &&
+        medicoes['densidadeTarde'].toString() != '-' &&
         produtoNome.isNotEmpty) {
       
       final densidade20Tarde = await _buscarDensidade20C(
@@ -138,6 +148,8 @@ class _CalcPageState extends State<CalcPage> {
       );
       
       widget.dadosFormulario['medicoes']['densidade20Tarde'] = densidade20Tarde;
+    } else {
+      widget.dadosFormulario['medicoes']['densidade20Tarde'] = '-';
     }
 
     setState(() {});
@@ -854,75 +866,168 @@ class _CalcPageState extends State<CalcPage> {
     final supabase = Supabase.instance.client;
     
     try {
-      // 1. DETERMINAR QUAL VIEW USAR
+      if (temperaturaAmostra.isEmpty || densidadeObservada.isEmpty) {
+        return '-';
+      }
+      
       final nomeProdutoLower = produtoNome.toLowerCase().trim();
       final bool usarViewAnidroHidratado = 
           nomeProdutoLower.contains('anidro') || 
           nomeProdutoLower.contains('hidratado');
       
-      print('📊 Buscando densidade 20°C:');
-      print('   Produto: $produtoNome -> View: ${usarViewAnidroHidratado ? "anidro_hidratado" : "gasolina_diesel"}');
-      print('   Temperatura: $temperaturaAmostra');
-      print('   Densidade: $densidadeObservada');
-      
-      // 2. FORMATAR A TEMPERATURA
       String temperaturaFormatada = temperaturaAmostra
           .replaceAll(' ºC', '')
           .replaceAll('°C', '')
           .replaceAll('ºC', '')
+          .replaceAll('°', '')
+          .replaceAll('C', '')
           .trim();
       
-      // Se não tem vírgula, assume que é inteiro (ex: "18" -> "18,0")
-      if (!temperaturaFormatada.contains(',')) {
-        temperaturaFormatada = '${temperaturaFormatada},0';
+      temperaturaFormatada = temperaturaFormatada.replaceAll('.', ',');
+      
+      final hasComma = temperaturaFormatada.contains(',');
+      String parteInteira = temperaturaFormatada;
+      String parteDecimal = '0';
+      
+      if (hasComma) {
+        final partes = temperaturaFormatada.split(',');
+        if (partes.length == 2) {
+          parteInteira = partes[0];
+          parteDecimal = partes[1];
+        }
       }
       
-      print('   Temp formatada: $temperaturaFormatada');
-      
-      // 3. FORMATAR A DENSIDADE PARA NOME DA COLUNA
-      String densidadeSemVirgula = densidadeObservada.replaceAll(',', '');
-      
-      // Para garantir 5 dígitos (4 casas decimais)
-      String densidadeParaColuna = densidadeSemVirgula.padLeft(5, '0');
-      
-      // Se tem menos de 4 dígitos após a vírgula, completa com zeros
-      if (densidadeParaColuna.length > 5) {
-        densidadeParaColuna = densidadeParaColuna.substring(0, 5);
+      if (usarViewAnidroHidratado) {
+        parteDecimal = parteDecimal.padRight(2, '0');
+        if (parteDecimal.length > 2) {
+          parteDecimal = parteDecimal.substring(0, 2);
+        }
+        temperaturaFormatada = '$parteInteira,$parteDecimal';
+      } else {
+        if (!hasComma) {
+          temperaturaFormatada = '$parteInteira,0';
+        } else {
+          parteDecimal = parteDecimal.padRight(1, '0');
+          if (parteDecimal.length > 1) {
+            parteDecimal = parteDecimal.substring(0, 1);
+          }
+          temperaturaFormatada = '$parteInteira,$parteDecimal';
+        }
       }
       
-      final nomeColuna = 'd_$densidadeParaColuna';
-      print('   Coluna a buscar: $nomeColuna');
+      String densidadeLimpa = densidadeObservada
+          .replaceAll(' ', '')
+          .replaceAll('°C', '')
+          .replaceAll('ºC', '')
+          .replaceAll('°', '')
+          .trim();
       
-      // 4. BUSCAR NA VIEW CORRETA
+      densidadeLimpa = densidadeLimpa.replaceAll('.', ',');
+      
+      if (!densidadeLimpa.contains(',')) {
+        if (densidadeLimpa.length == 4) {
+          densidadeLimpa = '0,${densidadeLimpa.substring(0, 3)}';
+        } else {
+          densidadeLimpa = '0,$densidadeLimpa';
+        }
+      }
+      
+      String nomeColuna;
+      if (densidadeLimpa.contains(',')) {
+        final partes = densidadeLimpa.split(',');
+        if (partes.length == 2) {
+          String parteInteiraDens = partes[0];
+          String parteDecimalDens = partes[1];
+          
+          parteDecimalDens = parteDecimalDens.padRight(4, '0');
+          
+          if (parteDecimalDens.length > 4) {
+            parteDecimalDens = parteDecimalDens.substring(0, 4);
+          }
+          
+          String densidade5Digitos = '${parteInteiraDens}${parteDecimalDens}'.padLeft(5, '0');
+          
+          if (densidade5Digitos.length > 5) {
+            densidade5Digitos = densidade5Digitos.substring(0, 5);
+          }
+          
+          nomeColuna = 'd_$densidade5Digitos';
+        } else {
+          return '-';
+        }
+      } else {
+        return '-';
+      }
+      
       final nomeView = usarViewAnidroHidratado 
           ? 'tcd_anidro_hidratado_vw' 
           : 'tcd_gasolina_diesel_vw';
       
-      print('   View: $nomeView');
+      try {
+        final resultado = await supabase
+            .from(nomeView)
+            .select(nomeColuna)
+            .eq('temperatura_obs', temperaturaFormatada)
+            .maybeSingle();
+        
+        if (resultado != null && resultado[nomeColuna] != null) {
+          return resultado[nomeColuna].toString();
+        }
+      } catch (e) {}
       
-      final resultado = await supabase
-          .from(nomeView)
-          .select(nomeColuna)
-          .eq('temperatura_obs', temperaturaFormatada)
-          .maybeSingle();
+      final formatosTemperaturaParaTentar = <String>[];
       
-      if (resultado == null) {
-        print('   ❌ Nenhum resultado encontrado para temperatura $temperaturaFormatada');
-        return '-';
+      if (usarViewAnidroHidratado) {
+        if (temperaturaFormatada.contains(',')) {
+          final partes = temperaturaFormatada.split(',');
+          formatosTemperaturaParaTentar.add('${partes[0]},0');
+          formatosTemperaturaParaTentar.add(partes[0]);
+          
+          if (partes[1].length == 2) {
+            formatosTemperaturaParaTentar.add('${partes[0]},${partes[1].substring(0, 1)}');
+          }
+        } else {
+          formatosTemperaturaParaTentar.add('$temperaturaFormatada,00');
+          formatosTemperaturaParaTentar.add('$temperaturaFormatada,0');
+        }
+      } else {
+        if (temperaturaFormatada.contains(',')) {
+          final partes = temperaturaFormatada.split(',');
+          formatosTemperaturaParaTentar.add(partes[0]);
+          formatosTemperaturaParaTentar.add('${partes[0]},00');
+          
+          if (partes[1].length == 1) {
+            formatosTemperaturaParaTentar.add('${partes[0]},${partes[1]}0');
+          }
+        } else {
+          formatosTemperaturaParaTentar.add('$temperaturaFormatada,0');
+          formatosTemperaturaParaTentar.add('$temperaturaFormatada,00');
+        }
       }
       
-      if (resultado[nomeColuna] == null) {
-        print('   ❌ Coluna $nomeColuna não encontrada na view');
-        return '-';
+      final formatosUnicos = formatosTemperaturaParaTentar.toSet().toList();
+      
+      for (final formatoTemp in formatosUnicos) {
+        if (formatoTemp == temperaturaFormatada) continue;
+        
+        try {
+          final resultadoAlt = await supabase
+              .from(nomeView)
+              .select(nomeColuna)
+              .eq('temperatura_obs', formatoTemp)
+              .maybeSingle();
+          
+          if (resultadoAlt != null && resultadoAlt[nomeColuna] != null) {
+            return resultadoAlt[nomeColuna].toString();
+          }
+        } catch (e) {
+          continue;
+        }
       }
       
-      final densidade20C = resultado[nomeColuna].toString();
-      print('   ✅ Encontrado: $densidade20C');
-      
-      return densidade20C;
+      return '-';
       
     } catch (e) {
-      print('❌ Erro ao buscar densidade 20°C: $e');
       return '-';
     }
   }
