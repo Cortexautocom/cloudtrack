@@ -847,7 +847,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               children: [
                 _buildTemperatureField('Temp. Tanque', c[3], '', 
                     width: 100, focusNode: f[3], nextFocus: f[4]),
-                _buildDensityField('Densidade', c[4], '', 
+                _buildDensityField('Densidade Obs.', c[4], '', 
                     width: 100, focusNode: f[4], nextFocus: f[5]),
                 _buildTemperatureField('Temp. Amostra', c[5], '', 
                     width: 100, focusNode: f[5], nextFocus: f[6]), // ← CONECTA PARA PRÓXIMA LINHA

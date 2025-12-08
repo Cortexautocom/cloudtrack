@@ -10,9 +10,6 @@ import 'sessoes/logistica/controle_documentos.dart';
 import 'sessoes/apuracao/medicao.dart';
 import 'sessoes/apuracao/tanques.dart';
 import 'sessoes/apuracao/escolherfilial.dart';
-import 'sessoes/vendas/programacao.dart';
-import 'sessoes/vendas/nova_venda.dart';
-import 'sessoes/vendas/detalhes_lancamento.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -49,13 +46,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   String? _filialSelecionadaId;
   String _contextoEscolhaFilial = ''; // ← 'medição' ou 'tanques'
   
-  // NOVAS VARIÁVEIS PARA CONTROLE DE VENDAS
-  bool _mostrarVendas = false;
-  bool _mostrarProgramacao = false;
-  bool _mostrarNovaVenda = false;
-  bool _mostrarDetalhesLancamento = false;
-  Map<String, dynamic>? _vendaSelecionada;
-
   List<Map<String, dynamic>> sessoes = [];
   List<Map<String, dynamic>> apuracaoFilhos = [];
 
@@ -187,33 +177,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarEscolherFilial = false;
       _filialSelecionadaId = null;
       _contextoEscolhaFilial = '';
-      // RESETAR VENDAS TAMBÉM
-      _mostrarVendas = false;
-      _mostrarProgramacao = false;
-      _mostrarNovaVenda = false;
-      _mostrarDetalhesLancamento = false;
-      _vendaSelecionada = null;
     });
   }
 
   void _voltarParaCardsPai() {
     setState(() {
       _mostrarApuracaoFilhos = false;
-    });
-  }
-
-  // NOVO MÉTODO PARA VOLTAR NA HIERARQUIA DE VENDAS
-  void _voltarVendas() {
-    setState(() {
-      if (_mostrarDetalhesLancamento || _mostrarNovaVenda) {
-        _mostrarDetalhesLancamento = false;
-        _mostrarNovaVenda = false;
-        _vendaSelecionada = null;
-      } else if (_mostrarProgramacao) {
-        _mostrarProgramacao = false;
-      } else if (_mostrarVendas) {
-        _mostrarVendas = false;
-      }
     });
   }
 
@@ -338,12 +307,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   _mostrarEscolherFilial = false;
                                   _filialSelecionadaId = null;
                                   _contextoEscolhaFilial = '';
-                                  // RESETAR VENDAS AO MUDAR MENU
-                                  _mostrarVendas = false;
-                                  _mostrarProgramacao = false;
-                                  _mostrarNovaVenda = false;
-                                  _mostrarDetalhesLancamento = false;
-                                  _vendaSelecionada = null;
                                 });
 
                                 if (menuItems[index] == 'Sessões') {
@@ -429,45 +392,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       return _buildInicioPage(usuario);
     }
 
-    // ✅ HIERARQUIA DE VENDAS TEM PRIORIDADE SOBRE OUTRAS SESSÕES
-    if (_mostrarDetalhesLancamento && _vendaSelecionada != null) {
-      return DetalhesLancamentoPage(
-        venda: _vendaSelecionada!,
-        onVoltar: _voltarVendas,
-      );
-    }
-
-    if (_mostrarNovaVenda) {
-      return NovaVendaPage(
-        onVoltar: _voltarVendas,
-        onSalvar: (sucesso) {
-          setState(() => _mostrarNovaVenda = false);
-          if (sucesso) {
-            // Opcional: Recarregar dados se necessário
-          }
-        },
-      );
-    }
-
-    if (_mostrarProgramacao) {
-      return ProgramacaoPage(
-        onVoltar: _voltarVendas,
-        onAbrirDetalhes: (venda) {
-          setState(() {
-            _vendaSelecionada = venda;
-            _mostrarDetalhesLancamento = true;
-          });
-        },
-        onNovaVenda: () {
-          setState(() => _mostrarNovaVenda = true);
-        },
-      );
-    }
-
-    if (_mostrarVendas) {
-      return _buildVendasPage();
-    }
-
     switch (menuItems[selectedIndex]) {
       case 'Sessões':
         return _buildSessoesPage(usuario);
@@ -485,117 +409,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
         );
     }
-  }
-
-  // NOVA PÁGINA DE VENDAS (CARDS)
-  Widget _buildVendasPage() {
-    return Padding(
-      padding: const EdgeInsets.all(30),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
-                onPressed: _voltarVendas,
-                tooltip: 'Voltar para sessões',
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                'Vendas',
-                style: TextStyle(
-                  fontSize: 24,
-                  color: Color(0xFF0D47A1),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          const Divider(color: Colors.grey),
-          const SizedBox(height: 20),
-
-          Expanded(
-            child: GridView.count(
-              crossAxisCount: 7,
-              crossAxisSpacing: 15,
-              mainAxisSpacing: 15,
-              childAspectRatio: 1,
-              children: [
-                _buildVendasCard(
-                  icon: Icons.schedule,
-                  label: 'Programação',
-                  descricao: 'Lançamentos e agendamentos de vendas',
-                  onTap: () {
-                    setState(() => _mostrarProgramacao = true);
-                  },
-                ),
-                // Adicione mais cards de vendas aqui se necessário
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVendasCard({
-    required IconData icon,
-    required String label,
-    required String descricao,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      elevation: 2,
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      clipBehavior: Clip.hardEdge,
-      child: InkWell(
-        onTap: onTap,
-        hoverColor: const Color(0xFFE8F5E9),
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                color: const Color.fromARGB(255, 48, 153, 35),
-                size: 50,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF0D47A1),
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  descricao,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _buildSessoesPage(UsuarioAtual? usuario) {
@@ -1091,11 +904,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               context,
               MaterialPageRoute(builder: (_) => const ControleDocumentosPage()),
             );
-            return;
-          }
-
-          if (nome == 'Vendas') {
-            setState(() => _mostrarVendas = true);
             return;
           }
         },
