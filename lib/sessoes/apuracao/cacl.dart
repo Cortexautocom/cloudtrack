@@ -60,9 +60,33 @@ class _CalcPageState extends State<CalcPage> {
     final volAguaManha = await _buscarVolumeReal(aguaCmMmManha['cm'], aguaCmMmManha['mm']);
     final volAguaTarde = await _buscarVolumeReal(aguaCmMmTarde['cm'], aguaCmMmTarde['mm']);
 
-    // Calcular volume total de líquido (produto + água)
     final volumeTotalLiquidoManha = volProdutoManha + volAguaManha;
     final volumeTotalLiquidoTarde = volProdutoTarde + volAguaTarde;
+
+    final volumeCanalizacaoManhaStr = medicoes['volumeCanalizacaoManha']?.toString() ?? '0';
+    final volumeCanalizacaoTardeStr = medicoes['volumeCanalizacaoTarde']?.toString() ?? '0';
+    
+    double converterVolumeString(String volumeStr) {
+      if (volumeStr == '-' || volumeStr.isEmpty) {
+        return 0;
+      }
+      
+      try {
+        String limpo = volumeStr.replaceAll(' L', '').trim();
+        limpo = limpo.replaceAll('.', '');
+        limpo = limpo.replaceAll(',', '.');
+        
+        return double.tryParse(limpo) ?? 0;
+      } catch (e) {
+        return 0;
+      }
+    }
+
+    final volumeCanalizacaoManha = converterVolumeString(volumeCanalizacaoManhaStr);
+    final volumeCanalizacaoTarde = converterVolumeString(volumeCanalizacaoTardeStr);
+
+    final volumeTotalManha = volProdutoManha + volumeCanalizacaoManha;
+    final volumeTotalTarde = volProdutoTarde + volumeCanalizacaoTarde;
 
     setState(() {
       this.volumeManha = volProdutoManha;
@@ -71,24 +95,25 @@ class _CalcPageState extends State<CalcPage> {
       this.volumeTotalLiquidoTarde = volumeTotalLiquidoTarde;
     });
 
-    // Formatar volumes com a nova função
-    widget.dadosFormulario['medicoes']['volumeProdutoManha'] = _formatarVolumeLitros(volProdutoManha);
-    widget.dadosFormulario['medicoes']['volumeProdutoTarde'] = _formatarVolumeLitros(volProdutoTarde);
-    widget.dadosFormulario['medicoes']['volumeAguaManha'] = _formatarVolumeLitros(volAguaManha);
-    widget.dadosFormulario['medicoes']['volumeAguaTarde'] = _formatarVolumeLitros(volAguaTarde);
-    
-    final volumeTotalManha = volProdutoManha + volAguaManha;
-    final volumeTotalTarde = volProdutoTarde + volAguaTarde;
-    
-    widget.dadosFormulario['medicoes']['volumeTotalManha'] = _formatarVolumeLitros(volumeTotalManha);
-    widget.dadosFormulario['medicoes']['volumeTotalTarde'] = _formatarVolumeLitros(volumeTotalTarde);
+    final volumeProdutoManhaFormatado = _formatarVolumeLitros(volProdutoManha);
+    final volumeProdutoTardeFormatado = _formatarVolumeLitros(volProdutoTarde);
+    final volumeAguaManhaFormatado = _formatarVolumeLitros(volAguaManha);
+    final volumeAguaTardeFormatado = _formatarVolumeLitros(volAguaTarde);
+    final volumeTotalManhaFormatado = _formatarVolumeLitros(volumeTotalManha);
+    final volumeTotalTardeFormatado = _formatarVolumeLitros(volumeTotalTarde);
+
+    widget.dadosFormulario['medicoes']['volumeProdutoManha'] = volumeProdutoManhaFormatado;
+    widget.dadosFormulario['medicoes']['volumeProdutoTarde'] = volumeProdutoTardeFormatado;
+    widget.dadosFormulario['medicoes']['volumeAguaManha'] = volumeAguaManhaFormatado;
+    widget.dadosFormulario['medicoes']['volumeAguaTarde'] = volumeAguaTardeFormatado;
     widget.dadosFormulario['medicoes']['volumeTotalLiquidoManha'] = _formatarVolumeLitros(volumeTotalLiquidoManha);
     widget.dadosFormulario['medicoes']['volumeTotalLiquidoTarde'] = _formatarVolumeLitros(volumeTotalLiquidoTarde);
+    
+    widget.dadosFormulario['medicoes']['volumeTotalManha'] = volumeTotalManhaFormatado;
+    widget.dadosFormulario['medicoes']['volumeTotalTarde'] = volumeTotalTardeFormatado;
 
-    // 7. CALCULAR DENSIDADE A 20°C
     final produtoNome = widget.dadosFormulario['produto']?.toString() ?? '';
 
-    // Buscar densidade 20°C para manhã
     if (medicoes['tempAmostraManha'] != null && 
         medicoes['densidadeManha'] != null &&
         produtoNome.isNotEmpty) {
@@ -102,7 +127,6 @@ class _CalcPageState extends State<CalcPage> {
       widget.dadosFormulario['medicoes']['densidade20Manha'] = densidade20Manha;
     }
 
-    // Buscar densidade 20°C para tarde
     if (medicoes['tempAmostraTarde'] != null && 
         medicoes['densidadeTarde'] != null &&
         produtoNome.isNotEmpty) {
@@ -116,7 +140,6 @@ class _CalcPageState extends State<CalcPage> {
       widget.dadosFormulario['medicoes']['densidade20Tarde'] = densidade20Tarde;
     }
 
-    // Forçar rebuild para mostrar os valores calculados
     setState(() {});
   }
 
@@ -832,7 +855,6 @@ class _CalcPageState extends State<CalcPage> {
     
     try {
       // 1. DETERMINAR QUAL VIEW USAR
-      // Converte para minúsculas para comparação
       final nomeProdutoLower = produtoNome.toLowerCase().trim();
       final bool usarViewAnidroHidratado = 
           nomeProdutoLower.contains('anidro') || 
@@ -844,7 +866,6 @@ class _CalcPageState extends State<CalcPage> {
       print('   Densidade: $densidadeObservada');
       
       // 2. FORMATAR A TEMPERATURA
-      // Garantir formato "18,5" (remover ºC se existir)
       String temperaturaFormatada = temperaturaAmostra
           .replaceAll(' ºC', '')
           .replaceAll('°C', '')
@@ -859,11 +880,9 @@ class _CalcPageState extends State<CalcPage> {
       print('   Temp formatada: $temperaturaFormatada');
       
       // 3. FORMATAR A DENSIDADE PARA NOME DA COLUNA
-      // "0,7715" -> remove vírgula -> "07715" -> coluna "d_07715"
       String densidadeSemVirgula = densidadeObservada.replaceAll(',', '');
       
       // Para garantir 5 dígitos (4 casas decimais)
-      // "7715" -> "07715", "864" -> "08640"
       String densidadeParaColuna = densidadeSemVirgula.padLeft(5, '0');
       
       // Se tem menos de 4 dígitos após a vírgula, completa com zeros
@@ -907,4 +926,5 @@ class _CalcPageState extends State<CalcPage> {
       return '-';
     }
   }
+
 }
