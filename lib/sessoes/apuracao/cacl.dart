@@ -29,6 +29,11 @@ class _CalcPageState extends State<CalcPage> {
     final alturaAguaManha = medicoes['alturaAguaManha'];
     final alturaAguaTarde = medicoes['alturaAguaTarde'];
 
+    final alturaTotalCmManha = medicoes['cmManha']?.toString() ?? '';
+    final alturaTotalMmManha = medicoes['mmManha']?.toString() ?? '';
+    final alturaTotalCmTarde = medicoes['cmTarde']?.toString() ?? '';
+    final alturaTotalMmTarde = medicoes['mmTarde']?.toString() ?? '';
+
     Map<String, String?> extrairCmMm(String? alturaFormatada) {
       if (alturaFormatada == null || alturaFormatada.isEmpty || alturaFormatada == '-') {
         return {'cm': null, 'mm': null};
@@ -55,13 +60,23 @@ class _CalcPageState extends State<CalcPage> {
     final aguaCmMmManha = extrairCmMm(alturaAguaManha);
     final aguaCmMmTarde = extrairCmMm(alturaAguaTarde);
 
+    final Map<String, String?> totalCmMmManha = {
+      'cm': alturaTotalCmManha.isEmpty ? null : alturaTotalCmManha,
+      'mm': alturaTotalMmManha.isEmpty ? null : alturaTotalMmManha
+    };
+    
+    final Map<String, String?> totalCmMmTarde = {
+      'cm': alturaTotalCmTarde.isEmpty ? null : alturaTotalCmTarde,
+      'mm': alturaTotalMmTarde.isEmpty ? null : alturaTotalMmTarde
+    };
+
     final volProdutoManha = await _buscarVolumeReal(produtoCmMmManha['cm'], produtoCmMmManha['mm']);
     final volProdutoTarde = await _buscarVolumeReal(produtoCmMmTarde['cm'], produtoCmMmTarde['mm']);
     final volAguaManha = await _buscarVolumeReal(aguaCmMmManha['cm'], aguaCmMmManha['mm']);
     final volAguaTarde = await _buscarVolumeReal(aguaCmMmTarde['cm'], aguaCmMmTarde['mm']);
 
-    final volumeTotalLiquidoManha = volProdutoManha + volAguaManha;
-    final volumeTotalLiquidoTarde = volProdutoTarde + volAguaTarde;
+    final volumeTotalLiquidoManha = await _buscarVolumeReal(totalCmMmManha['cm'], totalCmMmManha['mm']);
+    final volumeTotalLiquidoTarde = await _buscarVolumeReal(totalCmMmTarde['cm'], totalCmMmTarde['mm']);
 
     final volumeCanalizacaoManhaStr = medicoes['volumeCanalizacaoManha']?.toString() ?? '0';
     final volumeCanalizacaoTardeStr = medicoes['volumeCanalizacaoTarde']?.toString() ?? '0';
@@ -401,6 +416,9 @@ class _CalcPageState extends State<CalcPage> {
                     _linhaMedicao("Altura da água aferida no tanque:", 
                         _obterValorMedicao(medicoes['alturaAguaManha']), 
                         _obterValorMedicao(medicoes['alturaAguaTarde'])),
+                    _linhaMedicao("Volume correspondente à água:", 
+                        _obterValorMedicao(medicoes['volumeAguaManha']), 
+                        _obterValorMedicao(medicoes['volumeAguaTarde'])),
                     _linhaMedicao("Altura do produto aferido no tanque:", 
                         _obterValorMedicao(medicoes['alturaProdutoManha']), 
                         _obterValorMedicao(medicoes['alturaProdutoTarde'])),
@@ -409,15 +427,9 @@ class _CalcPageState extends State<CalcPage> {
                       _formatarVolumeLitros(volumeManha),
                       _formatarVolumeLitros(volumeTarde),
                     ),
-                    _linhaMedicao("Volume correspondente à água:", 
-                        _obterValorMedicao(medicoes['volumeAguaManha']), 
-                        _obterValorMedicao(medicoes['volumeAguaTarde'])),
-                    _linhaMedicao("Volume em litros do produto na tubulação:", 
-                        _obterValorMedicao(medicoes['volumeCanalizacaoManha']), 
-                        _obterValorMedicao(medicoes['volumeCanalizacaoTarde'])),
-                    _linhaMedicao("Volume total em litros do produto no tanque e na tubulação:", 
-                        _obterValorMedicao(medicoes['volumeTotalManha']), 
-                        _obterValorMedicao(medicoes['volumeTotalTarde'])),                    
+                    _linhaMedicao("Temperatura do produto no tanque:", 
+                        _formatarTemperatura(medicoes['tempTanqueManha']), 
+                        _formatarTemperatura(medicoes['tempTanqueTarde'])), // NOVO CAMPO AQUI
                     _linhaMedicao("Densidade observada na amostra:", 
                         _obterValorMedicao(medicoes['densidadeManha']), 
                         _obterValorMedicao(medicoes['densidadeTarde'])),
@@ -713,7 +725,6 @@ class _CalcPageState extends State<CalcPage> {
 
       if (v.isEmpty) return "-";
 
-      // Interpreta "cm,mm cm"
       final semUnidade = v.replaceAll(" cm", "").trim();
 
       if (semUnidade == "," || semUnidade == "0,0" || semUnidade == "0,00" || semUnidade == "0,000" || semUnidade == "0,0000") {
@@ -732,7 +743,6 @@ class _CalcPageState extends State<CalcPage> {
     return valor.toString();
   }
 
-
   String _obterApenasData(String dataCompleta) {
     if (dataCompleta.contains(',')) {
       return dataCompleta.split(',').first.trim();
@@ -746,7 +756,6 @@ class _CalcPageState extends State<CalcPage> {
     return "$cm,$mmValue cm";
   }
 
-  
   String _calcularLitrosAmbiente(String? cm, String? mm) {
     return _calcularVolume(cm, mm);
   }
@@ -813,10 +822,8 @@ class _CalcPageState extends State<CalcPage> {
   }
 
   String _formatarVolumeLitros(double volume) {
-    // Arredondar para número inteiro (sem casas decimais)
     final volumeInteiro = volume.round();
     
-    // Formatar parte inteira com pontos
     String inteiroFormatado = volumeInteiro.toString();
     
     if (inteiroFormatado.length > 3) {
@@ -846,7 +853,6 @@ class _CalcPageState extends State<CalcPage> {
     
     final strValor = valor.toString().trim();
     
-    // Remover ºC se já existir para evitar duplicação
     final valorSemUnidade = strValor
         .replaceAll(' ºC', '')
         .replaceAll('°C', '')
@@ -866,11 +872,7 @@ class _CalcPageState extends State<CalcPage> {
     final supabase = Supabase.instance.client;
     
     try {
-      print('🚀 INICIANDO BUSCA DENSIDADE 20°C');
-      print('📥 Entrada - Temp: "$temperaturaAmostra", Dens: "$densidadeObservada", Produto: "$produtoNome"');
-      
       if (temperaturaAmostra.isEmpty || densidadeObservada.isEmpty) {
-        print('❌ Dados vazios');
         return '-';
       }
       
@@ -879,9 +881,6 @@ class _CalcPageState extends State<CalcPage> {
           nomeProdutoLower.contains('anidro') || 
           nomeProdutoLower.contains('hidratado');
       
-      print('📊 View selecionada: ${usarViewAnidroHidratado ? "Anidro/Hidratado" : "Gasolina/Diesel"}');
-      
-      // Limpar temperatura (manter formatação original)
       String temperaturaFormatada = temperaturaAmostra
           .replaceAll(' ºC', '')
           .replaceAll('°C', '')
@@ -890,11 +889,8 @@ class _CalcPageState extends State<CalcPage> {
           .replaceAll('C', '')
           .trim();
       
-      // Converte ponto para vírgula para padronizar
       temperaturaFormatada = temperaturaFormatada.replaceAll('.', ',');
-      print('🔧 Temperatura formatada: "$temperaturaFormatada"');
       
-      // Formatar densidade para nome da coluna
       String densidadeFormatada = densidadeObservada
           .replaceAll(' ', '')
           .replaceAll('°C', '')
@@ -903,50 +899,39 @@ class _CalcPageState extends State<CalcPage> {
           .trim();
       
       densidadeFormatada = densidadeFormatada.replaceAll('.', ',');
-      print('🔧 Densidade formatada: "$densidadeFormatada"');
       
-      // Garantir formato com vírgula (ex: "0,7800")
       if (!densidadeFormatada.contains(',')) {
         if (densidadeFormatada.length == 4) {
           densidadeFormatada = '0,${densidadeFormatada.substring(0, 3)}';
         } else {
           densidadeFormatada = '0,$densidadeFormatada';
         }
-        print('🔧 Densidade ajustada: "$densidadeFormatada"');
       }
       
-      // Converter densidade para nome de coluna (5 dígitos)
       String nomeColuna;
       if (densidadeFormatada.contains(',')) {
         final partes = densidadeFormatada.split(',');
         if (partes.length == 2) {
-          String parteInteira = partes[0]; // "0"
-          String parteDecimal = partes[1]; // "7800" ou "8010"
+          String parteInteira = partes[0];
+          String parteDecimal = partes[1];
           
-          // Completa com zeros à direita para ter 4 dígitos decimais
           parteDecimal = parteDecimal.padRight(4, '0');
           
-          // Corta se tiver mais de 4 dígitos
           if (parteDecimal.length > 4) {
             parteDecimal = parteDecimal.substring(0, 4);
           }
           
-          // Junta: "0" + "7800" = "07800"
           String densidade5Digitos = '${parteInteira}${parteDecimal}'.padLeft(5, '0');
           
-          // Garante exatamente 5 dígitos
           if (densidade5Digitos.length > 5) {
             densidade5Digitos = densidade5Digitos.substring(0, 5);
           }
           
           nomeColuna = 'd_$densidade5Digitos';
-          print('🔢 Densidade para coluna: $densidade5Digitos → $nomeColuna');
         } else {
-          print('❌ Formato de densidade inválido');
           return '-';
         }
       } else {
-        print('❌ Densidade sem vírgula');
         return '-';
       }
       
@@ -954,68 +939,41 @@ class _CalcPageState extends State<CalcPage> {
           ? 'tcd_anidro_hidratado_vw' 
           : 'tcd_gasolina_diesel_vw';
       
-      print('🗂️ View: $nomeView');
-      print('🔍 Buscando: temperatura_obs = "$temperaturaFormatada", coluna = "$nomeColuna"');
-      
-      // FUNÇÃO PARA FORMATAR O RESULTADO (completar com zeros até 4 casas)
       String _formatarResultado(String valorBruto) {
-        print('   🔧 Valor bruto da tabela: "$valorBruto"');
-        
-        // Remove espaços
         String valorLimpo = valorBruto.trim();
-        
-        // Converte ponto para vírgula se necessário
         valorLimpo = valorLimpo.replaceAll('.', ',');
         
-        // Se não tem vírgula, adiciona uma
         if (!valorLimpo.contains(',')) {
           valorLimpo = '$valorLimpo,0';
         }
         
-        // Separa parte inteira e decimal
         final partes = valorLimpo.split(',');
         if (partes.length == 2) {
           String parteInteira = partes[0];
           String parteDecimal = partes[1];
           
-          // Completa a parte decimal com zeros até 4 casas
           parteDecimal = parteDecimal.padRight(4, '0');
           
-          // Se tiver mais de 4 dígitos, corta (mantém apenas 4)
           if (parteDecimal.length > 4) {
             parteDecimal = parteDecimal.substring(0, 4);
           }
           
-          String resultado = '$parteInteira,$parteDecimal';
-          print('   🔧 Valor formatado (4 casas): "$resultado"');
-          return resultado;
+          return '$parteInteira,$parteDecimal';
         }
         
         return valorLimpo;
       }
       
-      // PRIMEIRA TENTATIVA: com o formato exato da temperatura
-      try {
-        final resultado = await supabase
-            .from(nomeView)
-            .select(nomeColuna)
-            .eq('temperatura_obs', temperaturaFormatada)
-            .maybeSingle();
-        
-        if (resultado != null && resultado[nomeColuna] != null) {
-          String valorBruto = resultado[nomeColuna].toString();
-          String valorFormatado = _formatarResultado(valorBruto);
-          print('✅ VALOR ENCONTRADO (formato exato): $valorBruto → $valorFormatado');
-          return valorFormatado;
-        } else {
-          print('❌ Nenhum resultado com formato exato');
-        }
-      } catch (e) {
-        print('❌ Erro na busca com formato exato: ${e.toString().split('\n').first}');
-      }
+      final resultado = await supabase
+          .from(nomeView)
+          .select(nomeColuna)
+          .eq('temperatura_obs', temperaturaFormatada)
+          .maybeSingle();
       
-      // SEGUNDA TENTATIVA: diferentes formatos de temperatura
-      print('🔄 Tentando diferentes formatos de temperatura...');
+      if (resultado != null && resultado[nomeColuna] != null) {
+        String valorBruto = resultado[nomeColuna].toString();
+        return _formatarResultado(valorBruto);
+      }
       
       List<String> formatosParaTentar = [];
       
@@ -1026,64 +984,50 @@ class _CalcPageState extends State<CalcPage> {
           String parteDecimal = partes[1];
           
           if (usarViewAnidroHidratado) {
-            // Para Anidro/Hidratado: pode ser "25,5" ou "25,50" ou "25,0" ou "25,00"
             formatosParaTentar.addAll([
-              '$parteInteira,$parteDecimal',           // "25,5"
-              '$parteInteira,${parteDecimal}0',        // "25,50"
-              '$parteInteira,${parteDecimal.padLeft(2, '0')}', // "25,05" se parteDecimal = "5"
-              '$parteInteira,0$parteDecimal',          // "25,05" alternativa
+              '$parteInteira,$parteDecimal',
+              '$parteInteira,${parteDecimal}0',
+              '$parteInteira,${parteDecimal.padLeft(2, '0')}',
+              '$parteInteira,0$parteDecimal',
             ]);
             
-            // Se parteDecimal tem 1 dígito, tentar com 2
             if (parteDecimal.length == 1) {
-              formatosParaTentar.add('$parteInteira,${parteDecimal}0'); // "25,50"
+              formatosParaTentar.add('$parteInteira,${parteDecimal}0');
             }
             
-            // Se parteDecimal tem 2 dígitos, tentar com 1
             if (parteDecimal.length == 2) {
-              formatosParaTentar.add('$parteInteira,${parteDecimal.substring(0, 1)}'); // "25,5"
+              formatosParaTentar.add('$parteInteira,${parteDecimal.substring(0, 1)}');
             }
           } else {
-            // Para Gasolina/Diesel: pode ser "25,5" ou "25,0"
             formatosParaTentar.addAll([
-              '$parteInteira,$parteDecimal',           // "25,5"
-              '$parteInteira,${parteDecimal}0',        // "25,50"
-              '$parteInteira,0',                       // "25,0" (se parteDecimal for "0" ou vazio)
+              '$parteInteira,$parteDecimal',
+              '$parteInteira,${parteDecimal}0',
+              '$parteInteira,0',
             ]);
           }
         }
       } else {
-        // Temperatura sem vírgula (inteira)
         if (usarViewAnidroHidratado) {
           formatosParaTentar.addAll([
-            '$temperaturaFormatada,00',                // "25,00"
-            '$temperaturaFormatada,0',                 // "25,0"
-            temperaturaFormatada,                      // "25"
+            '$temperaturaFormatada,00',
+            '$temperaturaFormatada,0',
+            temperaturaFormatada,
           ]);
         } else {
           formatosParaTentar.addAll([
-            '$temperaturaFormatada,0',                 // "25,0"
-            temperaturaFormatada,                      // "25"
-            '$temperaturaFormatada,00',                // "25,00"
+            '$temperaturaFormatada,0',
+            temperaturaFormatada,
+            '$temperaturaFormatada,00',
           ]);
         }
       }
       
-      // Adicionar formatos com ponto (caso a tabela use ponto)
       final formatosComPonto = formatosParaTentar.map((f) => f.replaceAll(',', '.')).toList();
       formatosParaTentar.addAll(formatosComPonto);
-      
-      // Remover duplicados
       formatosParaTentar = formatosParaTentar.toSet().toList();
-      
-      print('📋 Formatos a tentar:');
-      for (final formato in formatosParaTentar) {
-        print('   - "$formato"');
-      }
       
       for (final formatoTemp in formatosParaTentar) {
         try {
-          print('   🔎 Buscando com formato: "$formatoTemp"');
           final resultado = await supabase
               .from(nomeView)
               .select(nomeColuna)
@@ -1092,40 +1036,17 @@ class _CalcPageState extends State<CalcPage> {
           
           if (resultado != null && resultado[nomeColuna] != null) {
             String valorBruto = resultado[nomeColuna].toString();
-            String valorFormatado = _formatarResultado(valorBruto);
-            print('   ✅ VALOR ENCONTRADO (formato "$formatoTemp"): $valorBruto → $valorFormatado');
-            return valorFormatado;
+            return _formatarResultado(valorBruto);
           }
         } catch (e) {
-          print('   ❌ Erro com formato "$formatoTemp": ${e.toString().split('\n').first}');
+          continue;
         }
       }
       
-      // DEBUG: Verificar que existe na tabela
-      print('🔍 Verificando se a temperatura existe na view...');
-      try {
-        final temperaturas = await supabase
-            .from(nomeView)
-            .select('temperatura_obs')
-            .limit(10);
-        
-        if (temperaturas.isNotEmpty) {
-          print('📋 Temperaturas disponíveis (primeiras 10):');
-          for (final temp in temperaturas) {
-            print('   - "${temp['temperatura_obs']}"');
-          }
-        }
-      } catch (e) {
-        print('   ❌ Não foi possível listar temperaturas');
-      }
-      
-      print('❌ Nenhum valor encontrado na tabela');
       return '-';
       
     } catch (e) {
-      print('💥 ERRO CRÍTICO: $e');
       return '-';
     }
   }
-
 }
