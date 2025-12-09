@@ -866,7 +866,11 @@ class _CalcPageState extends State<CalcPage> {
     final supabase = Supabase.instance.client;
     
     try {
+      print('🚀 INICIANDO BUSCA DENSIDADE 20°C');
+      print('📥 Entrada - Temp: "$temperaturaAmostra", Dens: "$densidadeObservada", Produto: "$produtoNome"');
+      
       if (temperaturaAmostra.isEmpty || densidadeObservada.isEmpty) {
+        print('❌ Dados vazios');
         return '-';
       }
       
@@ -875,6 +879,9 @@ class _CalcPageState extends State<CalcPage> {
           nomeProdutoLower.contains('anidro') || 
           nomeProdutoLower.contains('hidratado');
       
+      print('📊 View selecionada: ${usarViewAnidroHidratado ? "Anidro/Hidratado" : "Gasolina/Diesel"}');
+      
+      // Limpar temperatura (manter formatação original)
       String temperaturaFormatada = temperaturaAmostra
           .replaceAll(' ºC', '')
           .replaceAll('°C', '')
@@ -883,79 +890,63 @@ class _CalcPageState extends State<CalcPage> {
           .replaceAll('C', '')
           .trim();
       
+      // Converte ponto para vírgula para padronizar
       temperaturaFormatada = temperaturaFormatada.replaceAll('.', ',');
+      print('🔧 Temperatura formatada: "$temperaturaFormatada"');
       
-      final hasComma = temperaturaFormatada.contains(',');
-      String parteInteira = temperaturaFormatada;
-      String parteDecimal = '0';
-      
-      if (hasComma) {
-        final partes = temperaturaFormatada.split(',');
-        if (partes.length == 2) {
-          parteInteira = partes[0];
-          parteDecimal = partes[1];
-        }
-      }
-      
-      if (usarViewAnidroHidratado) {
-        parteDecimal = parteDecimal.padRight(2, '0');
-        if (parteDecimal.length > 2) {
-          parteDecimal = parteDecimal.substring(0, 2);
-        }
-        temperaturaFormatada = '$parteInteira,$parteDecimal';
-      } else {
-        if (!hasComma) {
-          temperaturaFormatada = '$parteInteira,0';
-        } else {
-          parteDecimal = parteDecimal.padRight(1, '0');
-          if (parteDecimal.length > 1) {
-            parteDecimal = parteDecimal.substring(0, 1);
-          }
-          temperaturaFormatada = '$parteInteira,$parteDecimal';
-        }
-      }
-      
-      String densidadeLimpa = densidadeObservada
+      // Formatar densidade para nome da coluna
+      String densidadeFormatada = densidadeObservada
           .replaceAll(' ', '')
           .replaceAll('°C', '')
           .replaceAll('ºC', '')
           .replaceAll('°', '')
           .trim();
       
-      densidadeLimpa = densidadeLimpa.replaceAll('.', ',');
+      densidadeFormatada = densidadeFormatada.replaceAll('.', ',');
+      print('🔧 Densidade formatada: "$densidadeFormatada"');
       
-      if (!densidadeLimpa.contains(',')) {
-        if (densidadeLimpa.length == 4) {
-          densidadeLimpa = '0,${densidadeLimpa.substring(0, 3)}';
+      // Garantir formato com vírgula (ex: "0,7800")
+      if (!densidadeFormatada.contains(',')) {
+        if (densidadeFormatada.length == 4) {
+          densidadeFormatada = '0,${densidadeFormatada.substring(0, 3)}';
         } else {
-          densidadeLimpa = '0,$densidadeLimpa';
+          densidadeFormatada = '0,$densidadeFormatada';
         }
+        print('🔧 Densidade ajustada: "$densidadeFormatada"');
       }
       
+      // Converter densidade para nome de coluna (5 dígitos)
       String nomeColuna;
-      if (densidadeLimpa.contains(',')) {
-        final partes = densidadeLimpa.split(',');
+      if (densidadeFormatada.contains(',')) {
+        final partes = densidadeFormatada.split(',');
         if (partes.length == 2) {
-          String parteInteiraDens = partes[0];
-          String parteDecimalDens = partes[1];
+          String parteInteira = partes[0]; // "0"
+          String parteDecimal = partes[1]; // "7800" ou "8010"
           
-          parteDecimalDens = parteDecimalDens.padRight(4, '0');
+          // Completa com zeros à direita para ter 4 dígitos decimais
+          parteDecimal = parteDecimal.padRight(4, '0');
           
-          if (parteDecimalDens.length > 4) {
-            parteDecimalDens = parteDecimalDens.substring(0, 4);
+          // Corta se tiver mais de 4 dígitos
+          if (parteDecimal.length > 4) {
+            parteDecimal = parteDecimal.substring(0, 4);
           }
           
-          String densidade5Digitos = '${parteInteiraDens}${parteDecimalDens}'.padLeft(5, '0');
+          // Junta: "0" + "7800" = "07800"
+          String densidade5Digitos = '${parteInteira}${parteDecimal}'.padLeft(5, '0');
           
+          // Garante exatamente 5 dígitos
           if (densidade5Digitos.length > 5) {
             densidade5Digitos = densidade5Digitos.substring(0, 5);
           }
           
           nomeColuna = 'd_$densidade5Digitos';
+          print('🔢 Densidade para coluna: $densidade5Digitos → $nomeColuna');
         } else {
+          print('❌ Formato de densidade inválido');
           return '-';
         }
       } else {
+        print('❌ Densidade sem vírgula');
         return '-';
       }
       
@@ -963,6 +954,47 @@ class _CalcPageState extends State<CalcPage> {
           ? 'tcd_anidro_hidratado_vw' 
           : 'tcd_gasolina_diesel_vw';
       
+      print('🗂️ View: $nomeView');
+      print('🔍 Buscando: temperatura_obs = "$temperaturaFormatada", coluna = "$nomeColuna"');
+      
+      // FUNÇÃO PARA FORMATAR O RESULTADO (completar com zeros até 4 casas)
+      String _formatarResultado(String valorBruto) {
+        print('   🔧 Valor bruto da tabela: "$valorBruto"');
+        
+        // Remove espaços
+        String valorLimpo = valorBruto.trim();
+        
+        // Converte ponto para vírgula se necessário
+        valorLimpo = valorLimpo.replaceAll('.', ',');
+        
+        // Se não tem vírgula, adiciona uma
+        if (!valorLimpo.contains(',')) {
+          valorLimpo = '$valorLimpo,0';
+        }
+        
+        // Separa parte inteira e decimal
+        final partes = valorLimpo.split(',');
+        if (partes.length == 2) {
+          String parteInteira = partes[0];
+          String parteDecimal = partes[1];
+          
+          // Completa a parte decimal com zeros até 4 casas
+          parteDecimal = parteDecimal.padRight(4, '0');
+          
+          // Se tiver mais de 4 dígitos, corta (mantém apenas 4)
+          if (parteDecimal.length > 4) {
+            parteDecimal = parteDecimal.substring(0, 4);
+          }
+          
+          String resultado = '$parteInteira,$parteDecimal';
+          print('   🔧 Valor formatado (4 casas): "$resultado"');
+          return resultado;
+        }
+        
+        return valorLimpo;
+      }
+      
+      // PRIMEIRA TENTATIVA: com o formato exato da temperatura
       try {
         final resultado = await supabase
             .from(nomeView)
@@ -971,63 +1003,127 @@ class _CalcPageState extends State<CalcPage> {
             .maybeSingle();
         
         if (resultado != null && resultado[nomeColuna] != null) {
-          return resultado[nomeColuna].toString();
-        }
-      } catch (e) {}
-      
-      final formatosTemperaturaParaTentar = <String>[];
-      
-      if (usarViewAnidroHidratado) {
-        if (temperaturaFormatada.contains(',')) {
-          final partes = temperaturaFormatada.split(',');
-          formatosTemperaturaParaTentar.add('${partes[0]},0');
-          formatosTemperaturaParaTentar.add(partes[0]);
-          
-          if (partes[1].length == 2) {
-            formatosTemperaturaParaTentar.add('${partes[0]},${partes[1].substring(0, 1)}');
-          }
+          String valorBruto = resultado[nomeColuna].toString();
+          String valorFormatado = _formatarResultado(valorBruto);
+          print('✅ VALOR ENCONTRADO (formato exato): $valorBruto → $valorFormatado');
+          return valorFormatado;
         } else {
-          formatosTemperaturaParaTentar.add('$temperaturaFormatada,00');
-          formatosTemperaturaParaTentar.add('$temperaturaFormatada,0');
+          print('❌ Nenhum resultado com formato exato');
+        }
+      } catch (e) {
+        print('❌ Erro na busca com formato exato: ${e.toString().split('\n').first}');
+      }
+      
+      // SEGUNDA TENTATIVA: diferentes formatos de temperatura
+      print('🔄 Tentando diferentes formatos de temperatura...');
+      
+      List<String> formatosParaTentar = [];
+      
+      if (temperaturaFormatada.contains(',')) {
+        final partes = temperaturaFormatada.split(',');
+        if (partes.length == 2) {
+          String parteInteira = partes[0];
+          String parteDecimal = partes[1];
+          
+          if (usarViewAnidroHidratado) {
+            // Para Anidro/Hidratado: pode ser "25,5" ou "25,50" ou "25,0" ou "25,00"
+            formatosParaTentar.addAll([
+              '$parteInteira,$parteDecimal',           // "25,5"
+              '$parteInteira,${parteDecimal}0',        // "25,50"
+              '$parteInteira,${parteDecimal.padLeft(2, '0')}', // "25,05" se parteDecimal = "5"
+              '$parteInteira,0$parteDecimal',          // "25,05" alternativa
+            ]);
+            
+            // Se parteDecimal tem 1 dígito, tentar com 2
+            if (parteDecimal.length == 1) {
+              formatosParaTentar.add('$parteInteira,${parteDecimal}0'); // "25,50"
+            }
+            
+            // Se parteDecimal tem 2 dígitos, tentar com 1
+            if (parteDecimal.length == 2) {
+              formatosParaTentar.add('$parteInteira,${parteDecimal.substring(0, 1)}'); // "25,5"
+            }
+          } else {
+            // Para Gasolina/Diesel: pode ser "25,5" ou "25,0"
+            formatosParaTentar.addAll([
+              '$parteInteira,$parteDecimal',           // "25,5"
+              '$parteInteira,${parteDecimal}0',        // "25,50"
+              '$parteInteira,0',                       // "25,0" (se parteDecimal for "0" ou vazio)
+            ]);
+          }
         }
       } else {
-        if (temperaturaFormatada.contains(',')) {
-          final partes = temperaturaFormatada.split(',');
-          formatosTemperaturaParaTentar.add(partes[0]);
-          formatosTemperaturaParaTentar.add('${partes[0]},00');
-          
-          if (partes[1].length == 1) {
-            formatosTemperaturaParaTentar.add('${partes[0]},${partes[1]}0');
-          }
+        // Temperatura sem vírgula (inteira)
+        if (usarViewAnidroHidratado) {
+          formatosParaTentar.addAll([
+            '$temperaturaFormatada,00',                // "25,00"
+            '$temperaturaFormatada,0',                 // "25,0"
+            temperaturaFormatada,                      // "25"
+          ]);
         } else {
-          formatosTemperaturaParaTentar.add('$temperaturaFormatada,0');
-          formatosTemperaturaParaTentar.add('$temperaturaFormatada,00');
+          formatosParaTentar.addAll([
+            '$temperaturaFormatada,0',                 // "25,0"
+            temperaturaFormatada,                      // "25"
+            '$temperaturaFormatada,00',                // "25,00"
+          ]);
         }
       }
       
-      final formatosUnicos = formatosTemperaturaParaTentar.toSet().toList();
+      // Adicionar formatos com ponto (caso a tabela use ponto)
+      final formatosComPonto = formatosParaTentar.map((f) => f.replaceAll(',', '.')).toList();
+      formatosParaTentar.addAll(formatosComPonto);
       
-      for (final formatoTemp in formatosUnicos) {
-        if (formatoTemp == temperaturaFormatada) continue;
-        
+      // Remover duplicados
+      formatosParaTentar = formatosParaTentar.toSet().toList();
+      
+      print('📋 Formatos a tentar:');
+      for (final formato in formatosParaTentar) {
+        print('   - "$formato"');
+      }
+      
+      for (final formatoTemp in formatosParaTentar) {
         try {
-          final resultadoAlt = await supabase
+          print('   🔎 Buscando com formato: "$formatoTemp"');
+          final resultado = await supabase
               .from(nomeView)
               .select(nomeColuna)
               .eq('temperatura_obs', formatoTemp)
               .maybeSingle();
           
-          if (resultadoAlt != null && resultadoAlt[nomeColuna] != null) {
-            return resultadoAlt[nomeColuna].toString();
+          if (resultado != null && resultado[nomeColuna] != null) {
+            String valorBruto = resultado[nomeColuna].toString();
+            String valorFormatado = _formatarResultado(valorBruto);
+            print('   ✅ VALOR ENCONTRADO (formato "$formatoTemp"): $valorBruto → $valorFormatado');
+            return valorFormatado;
           }
         } catch (e) {
-          continue;
+          print('   ❌ Erro com formato "$formatoTemp": ${e.toString().split('\n').first}');
         }
       }
       
+      // DEBUG: Verificar que existe na tabela
+      print('🔍 Verificando se a temperatura existe na view...');
+      try {
+        final temperaturas = await supabase
+            .from(nomeView)
+            .select('temperatura_obs')
+            .limit(10);
+        
+        if (temperaturas.isNotEmpty) {
+          print('📋 Temperaturas disponíveis (primeiras 10):');
+          for (final temp in temperaturas) {
+            print('   - "${temp['temperatura_obs']}"');
+          }
+        }
+      } catch (e) {
+        print('   ❌ Não foi possível listar temperaturas');
+      }
+      
+      print('❌ Nenhum valor encontrado na tabela');
       return '-';
       
     } catch (e) {
+      print('💥 ERRO CRÍTICO: $e');
       return '-';
     }
   }
