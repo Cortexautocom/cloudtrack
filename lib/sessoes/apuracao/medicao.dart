@@ -120,26 +120,24 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
 
       for (int i = 0; i < tanques.length; i++) {
         _controllers.add([
-          TextEditingController(),
-          TextEditingController(),
-          TextEditingController(),
-          TextEditingController(),
-          TextEditingController(),
-          TextEditingController(),
-          TextEditingController(),
-          TextEditingController(),
-          TextEditingController(),
-          TextEditingController(),
-          TextEditingController(),
-          TextEditingController(),
-          TextEditingController(),
-          TextEditingController(),
-          TextEditingController(),
-          TextEditingController(),
-          TextEditingController(),
-          TextEditingController(),
-          TextEditingController(),
-          TextEditingController(),
+          TextEditingController(), // 0 - horário manhã
+          TextEditingController(), // 1 - cm manhã
+          TextEditingController(), // 2 - mm manhã
+          TextEditingController(), // 3 - temp tanque manhã
+          TextEditingController(), // 4 - densidade manhã
+          TextEditingController(), // 5 - temp amostra manhã
+          TextEditingController(), // 6 - água cm manhã
+          TextEditingController(), // 7 - água mm manhã
+          TextEditingController(), // 8 - observações manhã (MOVED UP)
+          TextEditingController(), // 9 - horário tarde
+          TextEditingController(), // 10 - cm tarde
+          TextEditingController(), // 11 - mm tarde
+          TextEditingController(), // 12 - temp tanque tarde
+          TextEditingController(), // 13 - densidade tarde
+          TextEditingController(), // 14 - temp amostra tarde
+          TextEditingController(), // 15 - água cm tarde
+          TextEditingController(), // 16 - água mm tarde
+          TextEditingController(), // 17 - observações tarde (MOVED UP)
         ]);
 
         _focusNodes.add([
@@ -160,9 +158,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           FocusNode(),
           FocusNode(),
           FocusNode(),
-          FocusNode(),
-          FocusNode(),
-          FocusNode(),
+          FocusNode(),          
         ]);
       }
 
@@ -231,79 +227,22 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         : '$parteInteira,$parteDecimal';
   }
 
-  String _aplicarMascaraVolume(String texto) {
-    String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
-    
-    if (apenasNumeros.length > 6) {
-      apenasNumeros = apenasNumeros.substring(0, 6);
-    }
-    
-    String resultado = '';
-    for (int i = 0; i < apenasNumeros.length; i++) {
-      if (i > 0 && (apenasNumeros.length - i) % 3 == 0) {
-        resultado += '.';
-      }
-      resultado += apenasNumeros[i];
-    }
-    
-    if (resultado.isNotEmpty) {
-      resultado += ' L';
-    }
-    
-    return resultado;
-  }
-
   void _gerarCACL() {
     if (tanques.isEmpty) return;
     
     final tanqueAtual = tanques[_tanqueSelecionadoIndex];
     final controllers = _controllers[_tanqueSelecionadoIndex];
     
-    // ====================================================
-    // 📊 DEBUG COMPLETO - CÁLCULOS QUE SERÃO MOSTRADOS NO CACL
-    // ====================================================
-    
-    print('\n🔍🔍🔍 DEBUG DETALHADO PARA CACL 🔍🔍🔍');
-    print('📅 Data: ${_dataController.text}');
-    print('🏭 Base: ${_nomeFilial ?? "POLO DE COMBUSTÍVEL"}');
-    print('🛢️ Tanque: ${tanqueAtual['numero']}');
-    print('⛽ Produto: ${tanqueAtual['produto']}');
-    
-    // ------------------------------------------------------------------
-    // 1️⃣ ALTURA TOTAL DO LÍQUIDO (que aparece na 1ª linha do CACL)
-    // ------------------------------------------------------------------
-    print('\n1️⃣ ALTURA TOTAL DO LÍQUIDO NO TANQUE:');
     final cmTotalManha = controllers[1].text;
     final mmTotalManha = controllers[2].text;
-    final cmTotalTarde = controllers[11].text;
-    final mmTotalTarde = controllers[12].text;
+    final cmTotalTarde = controllers[10].text;
+    final mmTotalTarde = controllers[11].text;
     
-    print('   MANHÃ: cm="$cmTotalManha", mm="$mmTotalManha"');
-    print('   → Formato para CACL: "$cmTotalManha,$mmTotalManha cm"');
-    print('   TARDE: cm="$cmTotalTarde", mm="$mmTotalTarde"');
-    print('   → Formato para CACL: "$cmTotalTarde,$mmTotalTarde cm"');
-    
-    // ------------------------------------------------------------------
-    // 2️⃣ ALTURA DA ÁGUA (que aparece na 2ª linha do CACL)
-    // ------------------------------------------------------------------
-    print('\n2️⃣ ALTURA DA ÁGUA AFERIDA NO TANQUE:');
     final cmAguaManha = controllers[6].text;
     final mmAguaManha = controllers[7].text;
-    final cmAguaTarde = controllers[16].text;
-    final mmAguaTarde = controllers[17].text;
+    final cmAguaTarde = controllers[15].text;
+    final mmAguaTarde = controllers[16].text;
     
-    print('   MANHÃ: cm="$cmAguaManha", mm="$mmAguaManha"');
-    print('   → Formato para CACL: "$cmAguaManha,$mmAguaManha cm"');
-    print('   TARDE: cm="$cmAguaTarde", mm="$mmAguaTarde"');
-    print('   → Formato para CACL: "$cmAguaTarde,$mmAguaTarde cm"');
-    
-    // ------------------------------------------------------------------
-    // 3️⃣ CÁLCULO DA ALTURA DO PRODUTO (3ª linha do CACL)
-    // ------------------------------------------------------------------
-    print('\n3️⃣ CÁLCULO DA ALTURA DO PRODUTO:');
-    print('   FÓRMULA: Altura Produto = Altura Total - Altura Água');
-    
-    // Converter valores para cálculo
     final totalCmManha = double.tryParse(cmTotalManha) ?? 0.0;
     final totalMmManha = double.tryParse(mmTotalManha) ?? 0.0;
     final aguaCmManha = double.tryParse(cmAguaManha) ?? 0.0;
@@ -314,7 +253,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     final aguaCmTarde = double.tryParse(cmAguaTarde) ?? 0.0;
     final aguaMmTarde = double.tryParse(mmAguaTarde) ?? 0.0;
     
-    // Calcular alturas em cm (com decimais)
     final alturaTotalManhaCm = totalCmManha + (totalMmManha / 10);
     final alturaAguaManhaCm = aguaCmManha + (aguaMmManha / 10);
     final alturaProdutoManhaCm = alturaTotalManhaCm - alturaAguaManhaCm;
@@ -323,17 +261,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     final alturaAguaTardeCm = aguaCmTarde + (aguaMmTarde / 10);
     final alturaProdutoTardeCm = alturaTotalTardeCm - alturaAguaTardeCm;
     
-    print('\n   📐 MANHÃ:');
-    print('      Altura Total: $totalCmManha cm + ($totalMmManha mm / 10) = ${alturaTotalManhaCm.toStringAsFixed(1)} cm');
-    print('      Altura Água: $aguaCmManha cm + ($aguaMmManha mm / 10) = ${alturaAguaManhaCm.toStringAsFixed(1)} cm');
-    print('      Altura Produto: ${alturaTotalManhaCm.toStringAsFixed(1)} - ${alturaAguaManhaCm.toStringAsFixed(1)} = ${alturaProdutoManhaCm.toStringAsFixed(1)} cm');
-    
-    print('\n   📐 TARDE:');
-    print('      Altura Total: $totalCmTarde cm + ($totalMmTarde mm / 10) = ${alturaTotalTardeCm.toStringAsFixed(1)} cm');
-    print('      Altura Água: $aguaCmTarde cm + ($aguaMmTarde mm / 10) = ${alturaAguaTardeCm.toStringAsFixed(1)} cm');
-    print('      Altura Produto: ${alturaTotalTardeCm.toStringAsFixed(1)} - ${alturaAguaTardeCm.toStringAsFixed(1)} = ${alturaProdutoTardeCm.toStringAsFixed(1)} cm');
-    
-    // Formatar para exibição no CACL (cm,mm)
     String formatarParaCACL(double alturaCm) {
       final parteInteira = alturaCm.floor();
       final parteDecimal = ((alturaCm - parteInteira) * 10).round();
@@ -343,54 +270,28 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     final alturaProdutoManhaFormatada = formatarParaCACL(alturaProdutoManhaCm);
     final alturaProdutoTardeFormatada = formatarParaCACL(alturaProdutoTardeCm);
     
-    print('\n   📝 FORMATADO PARA CACL:');
-    print('      MANHÃ: $alturaProdutoManhaFormatada');
-    print('      TARDE: $alturaProdutoTardeFormatada');
-    
-    // ------------------------------------------------------------------
-    // 4️⃣ OUTROS CAMPOS QUE APARECEM NO CACL
-    // ------------------------------------------------------------------
-    print('\n4️⃣ OUTROS CAMPOS DO CACL:');
-    print('   Temperatura Tanque (Manhã): ${controllers[3].text}°C');
-    print('   Densidade (Manhã): ${controllers[4].text}');
-    print('   Temperatura Amostra (Manhã): ${controllers[5].text}°C');
-    print('   Volume Canalização (Manhã): ${controllers[8].text}');
-    
-    // ====================================================
-    // 📦 CONSTRUINDO OS DADOS QUE SERÃO ENVIADOS
-    // ====================================================
-    
-    print('\n📦 DADOS QUE SERÃO ENVIADOS PARA O CACL:');
-    
     final dadosMedicoes = {
-      // Linha 1 do CACL: Altura total
       'cmManha': cmTotalManha,
       'mmManha': mmTotalManha,
       'cmTarde': cmTotalTarde,
       'mmTarde': mmTotalTarde,
       
-      // Linha 2 do CACL: Altura da água
       'alturaAguaManha': '$cmAguaManha,$mmAguaManha cm',
       'alturaAguaTarde': '$cmAguaTarde,$mmAguaTarde cm',
       
-      // Linha 3 do CACL: Altura do produto (CÁLCULO FINAL!)
       'alturaProdutoManha': alturaProdutoManhaFormatada,
       'alturaProdutoTarde': alturaProdutoTardeFormatada,
       
-      // Outros campos
       'horarioManha': controllers[0].text,
       'tempTanqueManha': controllers[3].text,
       'densidadeManha': controllers[4].text,
       'tempAmostraManha': controllers[5].text,
-      'volumeCanalizacaoManha': controllers[8].text.replaceAll(' L', '').replaceAll('.', ''),
       
-      'horarioTarde': controllers[10].text,
-      'tempTanqueTarde': controllers[13].text,
-      'densidadeTarde': controllers[14].text,
-      'tempAmostraTarde': controllers[15].text,
-      'volumeCanalizacaoTarde': controllers[18].text.replaceAll(' L', '').replaceAll('.', ''),
+      'horarioTarde': controllers[9].text,
+      'tempTanqueTarde': controllers[12].text,
+      'densidadeTarde': controllers[13].text,
+      'tempAmostraTarde': controllers[14].text,
       
-      // Campos com valores fixos (para outras partes do CACL)
       'volumeProdutoManha': '0',
       'volumeProdutoTarde': '0',
       'volumeAguaManha': '0',
@@ -404,14 +305,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'densidade20Manha': '0.000',
       'densidade20Tarde': '0.000',
     };
-    
-    // Mostrar resumo do que vai para o CACL
-    print('\n📋 RESUMO PARA VERIFICAÇÃO:');
-    print('   1ª Linha CACL (Altura total): $cmTotalManha,$mmTotalManha cm / $cmTotalTarde,$mmTotalTarde cm');
-    print('   2ª Linha CACL (Altura água): $cmAguaManha,$mmAguaManha cm / $cmAguaTarde,$mmAguaTarde cm');
-    print('   3ª Linha CACL (Altura produto): $alturaProdutoManhaFormatada / $alturaProdutoTardeFormatada');
-    
-    print('\n✅ CÁLCULOS CONCLUÍDOS - ENVIANDO PARA CACL...');
     
     final dadosFormulario = {
       'data': _dataController.text,
@@ -836,7 +729,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                 _buildNumberField('cm', c[1], '', 
                     width: 100, maxLength: 4, focusNode: f[1], nextFocus: f[2]),
                 _buildNumberField('mm', c[2], '', 
-                    width: 100, maxLength: 1, focusNode: f[2], nextFocus: f[3]), // ← CONECTA PARA PRÓXIMA LINHA
+                    width: 100, maxLength: 1, focusNode: f[2], nextFocus: f[3]),
               ],
             ),
             const SizedBox(height: 12),
@@ -850,12 +743,12 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                 _buildDensityField('Densidade Obs.', c[4], '', 
                     width: 100, focusNode: f[4], nextFocus: f[5]),
                 _buildTemperatureField('Temp. Amostra', c[5], '', 
-                    width: 100, focusNode: f[5], nextFocus: f[6]), // ← CONECTA PARA PRÓXIMA LINHA
+                    width: 100, focusNode: f[5], nextFocus: f[6]),
               ],
             ),
             const SizedBox(height: 12),
 
-            // TERCEIRA LINHA: Água cm, Água mm, Vol. Canalização
+            // TERCEIRA LINHA: Água cm, Água mm (REMOVIDO: Vol. Canalização)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -863,12 +756,13 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                     width: 100, maxLength: 3, focusNode: f[6], nextFocus: f[7]),
                 _buildNumberField('Água mm', c[7], '', 
                     width: 100, maxLength: 1, focusNode: f[7], nextFocus: f[8]),
-                _buildVolumeField('Vol. Canalização', c[8], '', 
-                    width: 100, focusNode: f[8], nextFocus: f[9]), // ← CONECTA PARA OBSERVAÇÕES
+                _buildGhostField(width: 100),
+                // Campo removido: Vol. Canalização
               ],
             ),
             const SizedBox(height: 12),
 
+            // OBSERVAÇÕES (índice atualizado de 9 para 8)
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -882,8 +776,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                 ),
                 const SizedBox(height: 6),
                 TextFormField(
-                  controller: c[9],
-                  focusNode: f[9],
+                  controller: c[8], // ÍNDICE ATUALIZADO
+                  focusNode: f[8],  // ÍNDICE ATUALIZADO
                   textInputAction: TextInputAction.done,
                   maxLines: 2,
                   maxLength: 140,
@@ -1124,59 +1018,29 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     );
   }
 
-  Widget _buildVolumeField(String label, TextEditingController ctrl, String hint, 
-      {double width = 100, FocusNode? focusNode, FocusNode? nextFocus}) {
+  Widget _buildGhostField({double width = 100}) {
     return Column(
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey.shade600,
-            fontWeight: FontWeight.w500,
+        // Label invisível (mantém o espaço)
+        Opacity(
+          opacity: 0,
+          child: Text(
+            ' ',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
         const SizedBox(height: 4),
+        // Container vazio com mesma altura
         Container(
           width: width,
           height: 36,
-          child: TextFormField(
-            controller: ctrl,
-            focusNode: focusNode,
-            textInputAction: nextFocus != null ? TextInputAction.next : TextInputAction.done,
-            onFieldSubmitted: (_) => nextFocus?.requestFocus(),
-            textAlign: TextAlign.center,
-            keyboardType: TextInputType.number,
-            style: const TextStyle(fontSize: 12),
-            onChanged: (value) {
-              final cursorPosition = ctrl.selection.baseOffset;
-              final maskedValue = _aplicarMascaraVolume(value);
-              
-              if (maskedValue != value) {
-                ctrl.value = TextEditingValue(
-                  text: maskedValue,
-                  selection: TextSelection.collapsed(
-                    offset: cursorPosition + (maskedValue.length - value.length),
-                  ),
-                );
-              }
-            },
-            decoration: InputDecoration(
-              hintText: hint,
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(5),
-                borderSide: BorderSide(color: Colors.grey.shade400),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(5),
-                borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.5),
-              ),
-            ),
-          ),
         ),
       ],
     );
   }
+
 }
