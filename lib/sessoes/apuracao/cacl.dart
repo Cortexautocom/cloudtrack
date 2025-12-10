@@ -22,18 +22,7 @@ class _CalcPageState extends State<CalcPage> {
   }
 
   Future<void> _calcularVolumesIniciais() async {
-    print('==========================================');
-    print('🚀 INICIANDO _calcularVolumesIniciais()');
-    print('==========================================');
-    
     final medicoes = widget.dadosFormulario['medicoes'];
-    
-    print('📊 Dados do formulário:');
-    print('• Data: ${widget.dadosFormulario['data']}');
-    print('• Base: ${widget.dadosFormulario['base']}');
-    print('• Produto: ${widget.dadosFormulario['produto']}');
-    print('• Tanque: ${widget.dadosFormulario['tanque']}');
-    print('• Filial ID: ${widget.dadosFormulario['filial_id']}');
     
     final alturaAguaManha = medicoes['alturaAguaManha'];
     final alturaAguaTarde = medicoes['alturaAguaTarde'];
@@ -43,25 +32,14 @@ class _CalcPageState extends State<CalcPage> {
     final alturaTotalCmTarde = medicoes['cmTarde']?.toString() ?? '';
     final alturaTotalMmTarde = medicoes['mmTarde']?.toString() ?? '';
 
-    print('📐 Alturas totais:');
-    print('• Manhã: $alturaTotalCmManha cm, $alturaTotalMmManha mm');
-    print('• Tarde: $alturaTotalCmTarde cm, $alturaTotalMmTarde mm');
-    print('• Água Manhã: $alturaAguaManha');
-    print('• Água Tarde: $alturaAguaTarde');
-
     Map<String, String?> extrairCmMm(String? alturaFormatada) {
       if (alturaFormatada == null || alturaFormatada.isEmpty || alturaFormatada == '-') {
-        print('   ⚠️ Altura vazia ou inválida: "$alturaFormatada"');
         return {'cm': null, 'mm': null};
       }
       
       try {
         final semUnidade = alturaFormatada.replaceAll(' cm', '').trim();
         final partes = semUnidade.split(',');
-        
-        print('   🔧 Extraindo altura: "$alturaFormatada"');
-        print('   🔧 Sem unidade: "$semUnidade"');
-        print('   🔧 Partes: $partes');
         
         if (partes.length == 2) {
           return {'cm': partes[0], 'mm': partes[1]};
@@ -71,17 +49,12 @@ class _CalcPageState extends State<CalcPage> {
           return {'cm': null, 'mm': null};
         }
       } catch (e) {
-        print('   ❌ Erro ao extrair altura: $e');
         return {'cm': null, 'mm': null};
       }
     }
     
     final aguaCmMmManha = extrairCmMm(alturaAguaManha);
     final aguaCmMmTarde = extrairCmMm(alturaAguaTarde);
-
-    print('📏 Alturas da água extraídas:');
-    print('• Manhã: cm=${aguaCmMmManha['cm']}, mm=${aguaCmMmManha['mm']}');
-    print('• Tarde: cm=${aguaCmMmTarde['cm']}, mm=${aguaCmMmTarde['mm']}');
 
     final Map<String, String?> totalCmMmManha = {
       'cm': alturaTotalCmManha.isEmpty ? null : alturaTotalCmManha,
@@ -93,28 +66,14 @@ class _CalcPageState extends State<CalcPage> {
       'mm': alturaTotalMmTarde.isEmpty ? null : alturaTotalMmTarde
     };
 
-    print('📈 Buscando volumes reais...');
-    
-    // Calcular volumes reais
     final volumeTotalLiquidoManha = await _buscarVolumeReal(totalCmMmManha['cm'], totalCmMmManha['mm']);
     final volumeTotalLiquidoTarde = await _buscarVolumeReal(totalCmMmTarde['cm'], totalCmMmTarde['mm']);
     
     final volAguaManha = await _buscarVolumeReal(aguaCmMmManha['cm'], aguaCmMmManha['mm']);
     final volAguaTarde = await _buscarVolumeReal(aguaCmMmTarde['cm'], aguaCmMmTarde['mm']);
 
-    print('💧 Volumes encontrados:');
-    print('• Volume Total Líquido Manhã: $volumeTotalLiquidoManha L');
-    print('• Volume Total Líquido Tarde: $volumeTotalLiquidoTarde L');
-    print('• Volume Água Manhã: $volAguaManha L');
-    print('• Volume Água Tarde: $volAguaTarde L');
-
-    // Calcular volume do produto como VOLUME TOTAL - VOLUME DA ÁGUA
     final volProdutoManha = volumeTotalLiquidoManha - volAguaManha;
     final volProdutoTarde = volumeTotalLiquidoTarde - volAguaTarde;
-
-    print('🛢️ Volumes do produto:');
-    print('• Produto Manhã: $volProdutoManha L (Total: $volumeTotalLiquidoManha - Água: $volAguaManha)');
-    print('• Produto Tarde: $volProdutoTarde L (Total: $volumeTotalLiquidoTarde - Água: $volAguaTarde)');
 
     final volumeTotalManha = volProdutoManha;
     final volumeTotalTarde = volProdutoTarde;
@@ -133,8 +92,6 @@ class _CalcPageState extends State<CalcPage> {
     final volumeTotalManhaFormatado = _formatarVolumeLitros(volumeTotalManha);
     final volumeTotalTardeFormatado = _formatarVolumeLitros(volumeTotalTarde);
 
-    print('📝 Formatando volumes...');
-
     widget.dadosFormulario['medicoes']['volumeProdutoManha'] = volumeProdutoManhaFormatado;
     widget.dadosFormulario['medicoes']['volumeProdutoTarde'] = volumeProdutoTardeFormatado;
     widget.dadosFormulario['medicoes']['volumeAguaManha'] = volumeAguaManhaFormatado;
@@ -145,16 +102,8 @@ class _CalcPageState extends State<CalcPage> {
     widget.dadosFormulario['medicoes']['volumeTotalManha'] = volumeTotalManhaFormatado;
     widget.dadosFormulario['medicoes']['volumeTotalTarde'] = volumeTotalTardeFormatado;
 
-    print('✅ Volumes formatados e armazenados');
-
     final produtoNome = widget.dadosFormulario['produto']?.toString() ?? '';
-    print('📦 Produto para cálculos: "$produtoNome"');
-
-    print('\n==========================================');
-    print('🌡️ CALCULANDO DENSIDADE A 20°C - MANHÃ');
-    print('==========================================');
-    
-    // Calcular densidade a 20°C para manhã
+      
     if (medicoes['tempAmostraManha'] != null && 
         medicoes['tempAmostraManha'].toString().isNotEmpty &&
         medicoes['tempAmostraManha'].toString() != '-' &&
@@ -163,34 +112,17 @@ class _CalcPageState extends State<CalcPage> {
         medicoes['densidadeManha'].toString() != '-' &&
         produtoNome.isNotEmpty) {
       
-      print('📊 Dados para densidade manhã:');
-      print('• Temp Amostra: ${medicoes['tempAmostraManha']}');
-      print('• Densidade Obs: ${medicoes['densidadeManha']}');
-      print('• Produto: $produtoNome');
-      
       final densidade20Manha = await _buscarDensidade20C(
         temperaturaAmostra: medicoes['tempAmostraManha'].toString(),
         densidadeObservada: medicoes['densidadeManha'].toString(),
         produtoNome: produtoNome,
       );
       
-      print('✅ Densidade 20°C Manhã: $densidade20Manha');
-      
       widget.dadosFormulario['medicoes']['densidade20Manha'] = densidade20Manha;
     } else {
-      print('⚠️ Dados insuficientes para densidade manhã');
-      print('• Temp Amostra: ${medicoes['tempAmostraManha']}');
-      print('• Densidade: ${medicoes['densidadeManha']}');
-      print('• Produto vazio? ${produtoNome.isEmpty}');
-      
       widget.dadosFormulario['medicoes']['densidade20Manha'] = '-';
     }
 
-    print('\n==========================================');
-    print('🌡️ CALCULANDO DENSIDADE A 20°C - TARDE');
-    print('==========================================');
-    
-    // Calcular densidade a 20°C para tarde
     if (medicoes['tempAmostraTarde'] != null && 
         medicoes['tempAmostraTarde'].toString().isNotEmpty &&
         medicoes['tempAmostraTarde'].toString() != '-' &&
@@ -199,34 +131,17 @@ class _CalcPageState extends State<CalcPage> {
         medicoes['densidadeTarde'].toString() != '-' &&
         produtoNome.isNotEmpty) {
       
-      print('📊 Dados para densidade tarde:');
-      print('• Temp Amostra: ${medicoes['tempAmostraTarde']}');
-      print('• Densidade Obs: ${medicoes['densidadeTarde']}');
-      print('• Produto: $produtoNome');
-      
       final densidade20Tarde = await _buscarDensidade20C(
         temperaturaAmostra: medicoes['tempAmostraTarde'].toString(),
         densidadeObservada: medicoes['densidadeTarde'].toString(),
         produtoNome: produtoNome,
       );
       
-      print('✅ Densidade 20°C Tarde: $densidade20Tarde');
-      
       widget.dadosFormulario['medicoes']['densidade20Tarde'] = densidade20Tarde;
     } else {
-      print('⚠️ Dados insuficientes para densidade tarde');
-      print('• Temp Amostra: ${medicoes['tempAmostraTarde']}');
-      print('• Densidade: ${medicoes['densidadeTarde']}');
-      print('• Produto vazio? ${produtoNome.isEmpty}');
-      
       widget.dadosFormulario['medicoes']['densidade20Tarde'] = '-';
     }
 
-    print('\n==========================================');
-    print('🔍 BUSCANDO FCV - MANHÃ');
-    print('==========================================');
-    
-    // BUSCAR FCV PARA MANHÃ
     if (medicoes['tempTanqueManha'] != null &&
         medicoes['tempTanqueManha'].toString().isNotEmpty &&
         medicoes['tempTanqueManha'].toString() != '-' &&
@@ -234,34 +149,17 @@ class _CalcPageState extends State<CalcPage> {
         widget.dadosFormulario['medicoes']['densidade20Manha'].toString().isNotEmpty &&
         widget.dadosFormulario['medicoes']['densidade20Manha'].toString() != '-') {
       
-      print('📊 Dados para FCV manhã:');
-      print('• Temp Tanque: ${medicoes['tempTanqueManha']}');
-      print('• Densidade 20°C: ${widget.dadosFormulario['medicoes']['densidade20Manha']}');
-      print('• Produto: $produtoNome');
-      
       final fcvManha = await _buscarFCV(
         temperaturaTanque: medicoes['tempTanqueManha'].toString(),
         densidade20C: widget.dadosFormulario['medicoes']['densidade20Manha'].toString(),
         produtoNome: produtoNome,
       );
       
-      print('✅ FCV Manhã encontrado: $fcvManha');
-      
       widget.dadosFormulario['medicoes']['fatorCorrecaoManha'] = fcvManha;
     } else {
-      print('⚠️ Condições não atendidas para FCV manhã');
-      print('• Temp Tanque: ${medicoes['tempTanqueManha']}');
-      print('• Densidade 20°C: ${widget.dadosFormulario['medicoes']['densidade20Manha']}');
-      print('• Produto: $produtoNome');
-      
       widget.dadosFormulario['medicoes']['fatorCorrecaoManha'] = '-';
     }
 
-    print('\n==========================================');
-    print('🔍 BUSCANDO FCV - TARDE');
-    print('==========================================');
-    
-    // BUSCAR FCV PARA TARDE
     if (medicoes['tempTanqueTarde'] != null &&
         medicoes['tempTanqueTarde'].toString().isNotEmpty &&
         medicoes['tempTanqueTarde'].toString() != '-' &&
@@ -269,58 +167,31 @@ class _CalcPageState extends State<CalcPage> {
         widget.dadosFormulario['medicoes']['densidade20Tarde'].toString().isNotEmpty &&
         widget.dadosFormulario['medicoes']['densidade20Tarde'].toString() != '-') {
       
-      print('📊 Dados para FCV tarde:');
-      print('• Temp Tanque: ${medicoes['tempTanqueTarde']}');
-      print('• Densidade 20°C: ${widget.dadosFormulario['medicoes']['densidade20Tarde']}');
-      print('• Produto: $produtoNome');
-      
       final fcvTarde = await _buscarFCV(
         temperaturaTanque: medicoes['tempTanqueTarde'].toString(),
         densidade20C: widget.dadosFormulario['medicoes']['densidade20Tarde'].toString(),
         produtoNome: produtoNome,
       );
       
-      print('✅ FCV Tarde encontrado: $fcvTarde');
-      
       widget.dadosFormulario['medicoes']['fatorCorrecaoTarde'] = fcvTarde;
     } else {
-      print('⚠️ Condições não atendidas para FCV tarde');
-      print('• Temp Tanque: ${medicoes['tempTanqueTarde']}');
-      print('• Densidade 20°C: ${widget.dadosFormulario['medicoes']['densidade20Tarde']}');
-      print('• Produto: $produtoNome');
-      
       widget.dadosFormulario['medicoes']['fatorCorrecaoTarde'] = '-';
     }
 
-    print('\n==========================================');
-    print('🧮 CALCULANDO VOLUME A 20°C');
-    print('==========================================');
-    
-    // CALCULAR VOLUME A 20°C
     if (widget.dadosFormulario['medicoes']['fatorCorrecaoManha'] != null &&
         widget.dadosFormulario['medicoes']['fatorCorrecaoManha'].toString().isNotEmpty &&
         widget.dadosFormulario['medicoes']['fatorCorrecaoManha'].toString() != '-') {
-      
-      print('📊 Calculando volume 20°C manhã:');
-      print('• FCV Manhã: ${widget.dadosFormulario['medicoes']['fatorCorrecaoManha']}');
-      print('• Volume Produto Manhã: $volProdutoManha L');
       
       try {
         final fcvManhaStr = widget.dadosFormulario['medicoes']['fatorCorrecaoManha'].toString();
         final fcvManha = double.tryParse(fcvManhaStr.replaceAll(',', '.')) ?? 1.0;
         final volume20Manha = volProdutoManha * fcvManha;
         
-        print('• FCV como número: $fcvManha');
-        print('• Volume 20°C: $volume20Manha L');
-        print('• Formatado: ${_formatarVolumeLitros(volume20Manha)}');
-        
         widget.dadosFormulario['medicoes']['volume20Manha'] = _formatarVolumeLitros(volume20Manha);
       } catch (e) {
-        print('❌ Erro ao calcular volume 20°C manhã: $e');
         widget.dadosFormulario['medicoes']['volume20Manha'] = '-';
       }
     } else {
-      print('⚠️ FCV manhã não disponível para cálculo do volume a 20°C');
       widget.dadosFormulario['medicoes']['volume20Manha'] = '-';
     }
 
@@ -328,45 +199,20 @@ class _CalcPageState extends State<CalcPage> {
         widget.dadosFormulario['medicoes']['fatorCorrecaoTarde'].toString().isNotEmpty &&
         widget.dadosFormulario['medicoes']['fatorCorrecaoTarde'].toString() != '-') {
       
-      print('📊 Calculando volume 20°C tarde:');
-      print('• FCV Tarde: ${widget.dadosFormulario['medicoes']['fatorCorrecaoTarde']}');
-      print('• Volume Produto Tarde: $volProdutoTarde L');
-      
       try {
         final fcvTardeStr = widget.dadosFormulario['medicoes']['fatorCorrecaoTarde'].toString();
         final fcvTarde = double.tryParse(fcvTardeStr.replaceAll(',', '.')) ?? 1.0;
         final volume20Tarde = volProdutoTarde * fcvTarde;
         
-        print('• FCV como número: $fcvTarde');
-        print('• Volume 20°C: $volume20Tarde L');
-        print('• Formatado: ${_formatarVolumeLitros(volume20Tarde)}');
-        
         widget.dadosFormulario['medicoes']['volume20Tarde'] = _formatarVolumeLitros(volume20Tarde);
       } catch (e) {
-        print('❌ Erro ao calcular volume 20°C tarde: $e');
         widget.dadosFormulario['medicoes']['volume20Tarde'] = '-';
       }
     } else {
-      print('⚠️ FCV tarde não disponível para cálculo do volume a 20°C');
       widget.dadosFormulario['medicoes']['volume20Tarde'] = '-';
     }
 
-    print('\n==========================================');
-    print('📊 RESUMO FINAL');
-    print('==========================================');
-    print('• Volume Produto Manhã: ${widget.dadosFormulario['medicoes']['volumeProdutoManha']}');
-    print('• Volume Produto Tarde: ${widget.dadosFormulario['medicoes']['volumeProdutoTarde']}');
-    print('• Densidade 20°C Manhã: ${widget.dadosFormulario['medicoes']['densidade20Manha']}');
-    print('• Densidade 20°C Tarde: ${widget.dadosFormulario['medicoes']['densidade20Tarde']}');
-    print('• FCV Manhã: ${widget.dadosFormulario['medicoes']['fatorCorrecaoManha']}');
-    print('• FCV Tarde: ${widget.dadosFormulario['medicoes']['fatorCorrecaoTarde']}');
-    print('• Volume 20°C Manhã: ${widget.dadosFormulario['medicoes']['volume20Manha']}');
-    print('• Volume 20°C Tarde: ${widget.dadosFormulario['medicoes']['volume20Tarde']}');
-    print('==========================================\n');
-
     setState(() {});
-    
-    print('✅ _calcularVolumesIniciais() finalizado com sucesso!');
   }
 
   Future<double> _buscarVolumeReal(String? cm, String? mm) async {
@@ -1255,42 +1101,25 @@ class _CalcPageState extends State<CalcPage> {
     required String produtoNome,
   }) async {
     final supabase = Supabase.instance.client;
-    
-    print('══════════════════════════════════════════');
-    print('🔍 INICIANDO BUSCA FCV');
-    print('══════════════════════════════════════════');
-    print('📊 Dados recebidos:');
-    print('• Temperatura tanque: "$temperaturaTanque"');
-    print('• Densidade 20°C: "$densidade20C"');
-    print('• Produto: "$produtoNome"');
-    
+
     try {
-      // Validar dados de entrada
-      if (temperaturaTanque.isEmpty || 
-          temperaturaTanque == '-' || 
-          densidade20C.isEmpty || 
+      if (temperaturaTanque.isEmpty ||
+          temperaturaTanque == '-' ||
+          densidade20C.isEmpty ||
           densidade20C == '-') {
-        print('❌ Dados inválidos para busca FCV');
         return '-';
       }
-      
-      // Determinar qual VIEW usar baseado no nome do produto
+
       String nomeView;
-      
-      // Usar nome do produto para decidir qual tabela usar
       final nomeProdutoLower = produtoNome.toLowerCase().trim();
-      print('📝 Produto em minúsculas: "$nomeProdutoLower"');
-      
-      if (nomeProdutoLower.contains('anidro') || 
+
+      if (nomeProdutoLower.contains('anidro') ||
           nomeProdutoLower.contains('hidratado')) {
         nomeView = 'tcv_anidro_hidratado_vw';
-        print('📋 Usando VIEW: tcv_anidro_hidratado_vw');
       } else {
         nomeView = 'tcv_gasolina_diesel_vw';
-        print('📋 Usando VIEW: tcv_gasolina_diesel_vw');
       }
-      
-      // Formatar temperatura (remover unidades e padronizar)
+
       String temperaturaFormatada = temperaturaTanque
           .replaceAll(' ºC', '')
           .replaceAll('°C', '')
@@ -1298,262 +1127,182 @@ class _CalcPageState extends State<CalcPage> {
           .replaceAll('°', '')
           .replaceAll('C', '')
           .trim();
-      
-      print('🌡️ Temperatura após limpeza: "$temperaturaFormatada"');
-      
-      // Substituir ponto por vírgula se necessário
+
       temperaturaFormatada = temperaturaFormatada.replaceAll('.', ',');
-      print('🌡️ Temperatura formatada: "$temperaturaFormatada"');
-      
-      // Formatar densidade para nome de coluna
+
       String densidadeFormatada = densidade20C
           .replaceAll(' ', '')
           .replaceAll('°C', '')
           .replaceAll('ºC', '')
           .replaceAll('°', '')
           .trim();
-      
-      print('⚖️ Densidade após limpeza: "$densidadeFormatada"');
-      
-      // Garantir formato correto da densidade
+
       densidadeFormatada = densidadeFormatada.replaceAll('.', ',');
-      print('⚖️ Densidade com vírgula: "$densidadeFormatada"');
-      
-      // CORREÇÃO: Arredondar para 3 casas decimais (último dígito = 0)
+
       if (densidadeFormatada.contains(',')) {
         final partes = densidadeFormatada.split(',');
         if (partes.length == 2) {
           String parteInteira = partes[0];
           String parteDecimal = partes[1];
-          
-          print('📐 Partes da densidade: inteira="$parteInteira", decimal="$parteDecimal"');
-          
-          // CORREÇÃO: Manter apenas 3 dígitos decimais e zerar o 4º
+
           if (parteDecimal.length >= 4) {
-            // Pegar os 3 primeiros dígitos
             String tresPrimeiros = parteDecimal.substring(0, 3);
-            // Zerar o 4º dígito
             parteDecimal = '${tresPrimeiros}0';
-            print('📐 Decimal arredondado para 3 casas: "$parteDecimal"');
           } else if (parteDecimal.length == 3) {
-            // Adicionar um zero no final
             parteDecimal = '${parteDecimal}0';
-            print('📐 Decimal com zero adicionado: "$parteDecimal"');
           } else {
-            // Completar com zeros até 4 dígitos, mas garantindo que o último seja 0
             parteDecimal = parteDecimal.padRight(4, '0');
-            print('📐 Decimal após padding: "$parteDecimal"');
           }
-          
+
           densidadeFormatada = '$parteInteira,$parteDecimal';
         } else {
-          print('❌ Formato de densidade inválido (não tem 2 partes)');
           return '-';
         }
       } else {
-        // Se não tem vírgula, adicionar
-        print('⚠️ Densidade sem vírgula, adicionando...');
         if (densidadeFormatada.length == 4) {
-          // Ex: "0728" -> "0,7280"
           densidadeFormatada = '0,${densidadeFormatada.substring(0, 3)}0';
         } else {
-          // Ex: "728" -> "0,7280"
           densidadeFormatada = '0,${densidadeFormatada}0';
         }
       }
-      
-      print('✅ Densidade final formatada (3 casas): "$densidadeFormatada"');
-      
-      // Criar nome da coluna (ex: 0,7280 → v_07280)
+
       String nomeColuna;
       if (densidadeFormatada.contains(',')) {
         final partes = densidadeFormatada.split(',');
         if (partes.length == 2) {
           String parteInteira = partes[0];
           String parteDecimal = partes[1];
-          
-          // Garantir 4 dígitos na parte decimal
+
           parteDecimal = parteDecimal.padRight(4, '0');
-          
-          // Criar código de 5 dígitos
+
           String codigo5Digitos = '${parteInteira}${parteDecimal}'.padLeft(5, '0');
-          
+
           if (codigo5Digitos.length > 5) {
             codigo5Digitos = codigo5Digitos.substring(0, 5);
           }
-          
+
           nomeColuna = 'v_$codigo5Digitos';
-          print('🏷️ Nome da coluna gerado: "$nomeColuna"');
         } else {
-          print('❌ Erro ao criar nome da coluna');
           return '-';
         }
       } else {
-        print('❌ Densidade sem vírgula para criar nome da coluna');
         return '-';
       }
-      
-      // Função para formatar resultado
+
       String _formatarResultadoFCV(String valorBruto) {
         String valorLimpo = valorBruto.trim();
         valorLimpo = valorLimpo.replaceAll('.', ',');
-        
-        // Garantir formato 0,9999
+
         if (!valorLimpo.contains(',')) {
           valorLimpo = '$valorLimpo,0';
         }
-        
+
         final partes = valorLimpo.split(',');
         if (partes.length == 2) {
           String parteInteira = partes[0];
           String parteDecimal = partes[1];
-          
-          // Completar com zeros até 4 dígitos
+
           parteDecimal = parteDecimal.padRight(4, '0');
-          
-          // Se tiver mais de 4 dígitos, truncar
+
           if (parteDecimal.length > 4) {
             parteDecimal = parteDecimal.substring(0, 4);
           }
-          
+
           return '$parteInteira,$parteDecimal';
         }
-        
+
         return valorLimpo;
       }
-      
-      // Primeira tentativa: busca exata
-      print('🔎 Buscando na tabela...');
-      print('• Tabela: $nomeView');
-      print('• Coluna: $nomeColuna');
-      print('• Temperatura: "$temperaturaFormatada"');
-      
+
       final resultado = await supabase
           .from(nomeView)
           .select(nomeColuna)
           .eq('temperatura_obs', temperaturaFormatada)
           .maybeSingle();
-      
+
       if (resultado != null && resultado[nomeColuna] != null) {
         String valorBruto = resultado[nomeColuna].toString();
-        print('✅ FCV encontrado (exato): "$valorBruto"');
         final valorFormatado = _formatarResultadoFCV(valorBruto);
-        print('✅ FCV formatado: "$valorFormatado"');
         return valorFormatado;
-      } else {
-        print('❌ FCV não encontrado (busca exata)');
-        print('• Resultado: $resultado');
-        if (resultado != null) {
-          print('• Coluna $nomeColuna existe? ${resultado.containsKey(nomeColuna)}');
-        }
       }
-      
-      // Se não encontrou, tentar busca por arredondamento de densidade
-      print('🔄 Tentando busca por arredondamento...');
-      
+
       if (densidadeFormatada.contains(',')) {
         final partes = densidadeFormatada.split(',');
         if (partes.length == 2) {
-                    
-          // Converter para número para arredondar
           final densidadeNum = double.tryParse(
             densidadeFormatada.replaceAll(',', '.')
           );
-          
-          print('🧮 Densidade como número: $densidadeNum');
-          
+
           if (densidadeNum != null) {
-            // Tentar colunas próximas (arredondamento para 0,0010)
             final List<String> densidadesParaTentar = [];
-            
-            // Calcular valores próximos (ex: 0,0010 acima/abaixo)
-            final double passo = 0.0010; // Agora passo de 0,0010
-            print('📈 Procurando densidades próximas (±0,0020)...');
-            
+            final double passo = 0.0010;
+
             for (double delta = -0.0020; delta <= 0.0020; delta += passo) {
               final double densidadeTeste = densidadeNum + delta;
-              
-              // Formatar para string com 4 casas decimais
               final String densidadeTesteStr = densidadeTeste.toStringAsFixed(4);
               final String densidadeTesteFormatada = densidadeTesteStr.replaceAll('.', ',');
-              
-              print('   • Delta: $delta → Densidade: $densidadeTesteFormatada');
-              
-              // Converter para nome de coluna
+
               if (densidadeTesteFormatada.contains(',')) {
                 final partesTeste = densidadeTesteFormatada.split(',');
                 if (partesTeste.length == 2) {
                   String parteInteiraTeste = partesTeste[0];
                   String parteDecimalTeste = partesTeste[1];
-                  
-                  // Zerar o 4º dígito
+
                   if (parteDecimalTeste.length >= 4) {
                     parteDecimalTeste = '${parteDecimalTeste.substring(0, 3)}0';
                   } else if (parteDecimalTeste.length == 3) {
                     parteDecimalTeste = '${parteDecimalTeste}0';
                   }
-                  
+
                   String codigo5DigitosTeste = '${parteInteiraTeste}${parteDecimalTeste}'.padLeft(5, '0');
                   if (codigo5DigitosTeste.length > 5) {
                     codigo5DigitosTeste = codigo5DigitosTeste.substring(0, 5);
                   }
-                  
+
                   final colunaProxima = 'v_$codigo5DigitosTeste';
                   densidadesParaTentar.add(colunaProxima);
-                  print('   • Coluna gerada: $colunaProxima');
                 }
               }
             }
-            
-            // Remover duplicatas
+
             final densidadesUnicas = densidadesParaTentar.toSet().toList();
-            print('🔢 Colunas únicas para tentar: $densidadesUnicas');
-            
-            // Tentar cada coluna próxima
+
             for (final colunaProxima in densidadesUnicas) {
-              print('   🔎 Tentando coluna: $colunaProxima');
               try {
                 final resultadoProximo = await supabase
                     .from(nomeView)
                     .select(colunaProxima)
                     .eq('temperatura_obs', temperaturaFormatada)
                     .maybeSingle();
-                
+
                 if (resultadoProximo != null && resultadoProximo[colunaProxima] != null) {
                   String valorBruto = resultadoProximo[colunaProxima].toString();
-                  print('   ✅ FCV encontrado (arredondado): "$valorBruto"');
                   final valorFormatado = _formatarResultadoFCV(valorBruto);
-                  print('   ✅ FCV formatado: "$valorFormatado"');
                   return valorFormatado;
-                } else {
-                  print('   ❌ Coluna $colunaProxima não encontrada');
                 }
               } catch (e) {
-                print('   ⚠️ Erro ao buscar coluna $colunaProxima: $e');
                 continue;
               }
             }
           }
         }
       }
-      
-      // Se ainda não encontrou, tentar variações de temperatura
-      print('🔄 Tentando variações de temperatura...');
+
       List<String> temperaturasParaTentar = [];
-      
+
       if (temperaturaFormatada.contains(',')) {
         final partes = temperaturaFormatada.split(',');
         if (partes.length == 2) {
           String parteInteira = partes[0];
           String parteDecimal = partes[1];
-          
+
           temperaturasParaTentar.addAll([
             '$parteInteira,$parteDecimal',
             '$parteInteira,${parteDecimal}0',
             '$parteInteira,${parteDecimal.padLeft(2, '0')}',
             '$parteInteira,0$parteDecimal',
           ]);
-          
+
           if (parteDecimal.length == 1) {
             temperaturasParaTentar.add('$parteInteira,${parteDecimal}0');
           }
@@ -1565,49 +1314,32 @@ class _CalcPageState extends State<CalcPage> {
           temperaturaFormatada,
         ]);
       }
-      
-      // Tentar temperaturas com ponto
+
       final temperaturasComPonto = temperaturasParaTentar.map((f) => f.replaceAll(',', '.')).toList();
       temperaturasParaTentar.addAll(temperaturasComPonto);
       temperaturasParaTentar = temperaturasParaTentar.toSet().toList();
-      
-      print('🌡️ Temperaturas para tentar: $temperaturasParaTentar');
-      
+
       for (final formatoTemp in temperaturasParaTentar) {
-        print('   🔎 Tentando temperatura: "$formatoTemp"');
         try {
           final resultado = await supabase
               .from(nomeView)
               .select(nomeColuna)
               .eq('temperatura_obs', formatoTemp)
               .maybeSingle();
-          
+
           if (resultado != null && resultado[nomeColuna] != null) {
             String valorBruto = resultado[nomeColuna].toString();
-            print('   ✅ FCV encontrado (temp variação): "$valorBruto"');
             final valorFormatado = _formatarResultadoFCV(valorBruto);
-            print('   ✅ FCV formatado: "$valorFormatado"');
             return valorFormatado;
           }
         } catch (e) {
-          print('   ⚠️ Erro ao buscar temp $formatoTemp: $e');
           continue;
         }
       }
-      
-      print('❌❌❌ FCV NÃO ENCONTRADO APÓS TODAS TENTATIVAS ❌❌❌');
+
       return '-';
-      
     } catch (e) {
-      print('🔥 ERRO NA FUNÇÃO _buscarFCV:');
-      print('🔥 Tipo: ${e.runtimeType}');
-      print('🔥 Mensagem: $e');
-      print('🔥 Stack: ${e.toString()}');
       return '-';
-    } finally {
-      print('══════════════════════════════════════════');
-      print('🏁 FIM DA BUSCA FCV');
-      print('══════════════════════════════════════════');
     }
   }
 
