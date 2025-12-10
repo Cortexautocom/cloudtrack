@@ -10,6 +10,7 @@ import 'sessoes/logistica/controle_documentos.dart';
 import 'sessoes/apuracao/medicao.dart';
 import 'sessoes/apuracao/tanques.dart';
 import 'sessoes/apuracao/escolherfilial.dart';
+import 'sessoes/vendas/programacao.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -896,6 +897,20 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 _mostrarTanques = true;
               }
             });
+            return;
+          }
+
+          if (nome == 'Vendas') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ProgramacaoPage(
+                  onVoltar: () {
+                    Navigator.pop(context); // Volta para o menu principal
+                  },
+                ),
+              ),
+            );
             return;
           }
           

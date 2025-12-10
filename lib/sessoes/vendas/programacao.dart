@@ -1,17 +1,15 @@
 // vendas/programacao.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'detalhes_lancamento.dart';
+import 'nova_venda.dart';
 
 class ProgramacaoPage extends StatefulWidget {
-  final VoidCallback onVoltar;
-  final Function(Map<String, dynamic> venda) onAbrirDetalhes;
-  final VoidCallback onNovaVenda;
+  final VoidCallback onVoltar;  
 
   const ProgramacaoPage({
     super.key,
-    required this.onVoltar,
-    required this.onAbrirDetalhes,
-    required this.onNovaVenda,
+    required this.onVoltar, // Mantém esta para voltar ao menu principal
   });
 
   @override
@@ -69,9 +67,23 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
   }
 
   void _abrirNovaVenda() {
-    widget.onNovaVenda();
-    // Não usamos Future.delayed para evitar setState após dispose
-    // A lista será atualizada quando o usuário voltar para esta página
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NovaVendaPage(
+          onVoltar: () {
+            Navigator.pop(context); // Fecha a página de nova venda
+            _carregarVendas(); // Recarrega a lista quando voltar
+          },
+          onSalvar: (sucesso) {
+            if (sucesso) {
+              Navigator.pop(context); // Fecha a página de nova venda
+              _carregarVendas(); // Recarrega a lista
+            }
+          },
+        ),
+      ),
+    );
   }
 
   List<Map<String, dynamic>> _getVendasFiltradas() {
@@ -239,7 +251,23 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
                   ),
                 ],
               ),
-              onTap: () => widget.onAbrirDetalhes(venda),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DetalhesLancamentoPage(
+                      venda: venda,
+                      onVoltar: () {
+                        Navigator.pop(context); // Volta para a lista de vendas
+                      },
+                      onVendaEditada: () {
+                        Navigator.pop(context); // Fecha detalhes
+                        _carregarVendas(); // Recarrega a lista
+                      },
+                    ),
+                  ),
+                );
+              },
             ),
           );
         },
