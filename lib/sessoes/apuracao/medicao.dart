@@ -643,8 +643,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                 'Abertura',
                                 Colors.blue[50]!,
                                 Colors.blue,
-                                ctrls.sublist(0, 10),
-                                focusNodes.sublist(0, 10),
+                                ctrls.sublist(0, 9), // CORRIGIDO: de 10 para 9
+                                focusNodes.sublist(0, 9), // CORRIGIDO: de 10 para 9
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -654,8 +654,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                 'Fechamento',
                                 Colors.green[50]!,
                                 Colors.green,
-                                ctrls.sublist(10, 20),
-                                focusNodes.sublist(10, 20),
+                                ctrls.sublist(9, 18), // CORRIGIDO: de 10 para 9, de 20 para 18
+                                focusNodes.sublist(9, 18), // CORRIGIDO: de 10 para 9, de 20 para 18
                               ),
                             ),
                           ],
@@ -667,8 +667,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                               '06:00h',
                               Colors.blue[50]!,
                               Colors.blue,
-                              ctrls.sublist(0, 10),
-                              focusNodes.sublist(0, 10),
+                              ctrls.sublist(0, 9), // CORRIGIDO: de 10 para 9
+                              focusNodes.sublist(0, 9), // CORRIGIDO: de 10 para 9
                             ),
                             const SizedBox(height: 12),
                             _buildSection(
@@ -676,8 +676,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                               '18:00h',
                               Colors.green[50]!,
                               Colors.green,
-                              ctrls.sublist(10, 20),
-                              focusNodes.sublist(10, 20),
+                              ctrls.sublist(9, 18), // CORRIGIDO: de 10 para 9, de 20 para 18
+                              focusNodes.sublist(9, 18), // CORRIGIDO: de 10 para 9, de 20 para 18
                             ),
                           ],
                         );

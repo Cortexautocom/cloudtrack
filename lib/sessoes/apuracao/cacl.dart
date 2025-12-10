@@ -23,9 +23,7 @@ class _CalcPageState extends State<CalcPage> {
 
   Future<void> _calcularVolumesIniciais() async {
     final medicoes = widget.dadosFormulario['medicoes'];
-
-    final alturaProdutoManha = medicoes['alturaProdutoManha'];
-    final alturaProdutoTarde = medicoes['alturaProdutoTarde'];
+    
     final alturaAguaManha = medicoes['alturaAguaManha'];
     final alturaAguaTarde = medicoes['alturaAguaTarde'];
 
@@ -54,9 +52,7 @@ class _CalcPageState extends State<CalcPage> {
         return {'cm': null, 'mm': null};
       }
     }
-
-    final produtoCmMmManha = extrairCmMm(alturaProdutoManha);
-    final produtoCmMmTarde = extrairCmMm(alturaProdutoTarde);
+    
     final aguaCmMmManha = extrairCmMm(alturaAguaManha);
     final aguaCmMmTarde = extrairCmMm(alturaAguaTarde);
 
@@ -70,38 +66,19 @@ class _CalcPageState extends State<CalcPage> {
       'mm': alturaTotalMmTarde.isEmpty ? null : alturaTotalMmTarde
     };
 
-    final volProdutoManha = await _buscarVolumeReal(produtoCmMmManha['cm'], produtoCmMmManha['mm']);
-    final volProdutoTarde = await _buscarVolumeReal(produtoCmMmTarde['cm'], produtoCmMmTarde['mm']);
+    // Calcular volumes reais
+    final volumeTotalLiquidoManha = await _buscarVolumeReal(totalCmMmManha['cm'], totalCmMmManha['mm']);
+    final volumeTotalLiquidoTarde = await _buscarVolumeReal(totalCmMmTarde['cm'], totalCmMmTarde['mm']);
+    
     final volAguaManha = await _buscarVolumeReal(aguaCmMmManha['cm'], aguaCmMmManha['mm']);
     final volAguaTarde = await _buscarVolumeReal(aguaCmMmTarde['cm'], aguaCmMmTarde['mm']);
 
-    final volumeTotalLiquidoManha = await _buscarVolumeReal(totalCmMmManha['cm'], totalCmMmManha['mm']);
-    final volumeTotalLiquidoTarde = await _buscarVolumeReal(totalCmMmTarde['cm'], totalCmMmTarde['mm']);
+    // Calcular volume do produto como VOLUME TOTAL - VOLUME DA ÁGUA
+    final volProdutoManha = volumeTotalLiquidoManha - volAguaManha;
+    final volProdutoTarde = volumeTotalLiquidoTarde - volAguaTarde;
 
-    final volumeCanalizacaoManhaStr = medicoes['volumeCanalizacaoManha']?.toString() ?? '0';
-    final volumeCanalizacaoTardeStr = medicoes['volumeCanalizacaoTarde']?.toString() ?? '0';
-    
-    double converterVolumeString(String volumeStr) {
-      if (volumeStr == '-' || volumeStr.isEmpty) {
-        return 0;
-      }
-      
-      try {
-        String limpo = volumeStr.replaceAll(' L', '').trim();
-        limpo = limpo.replaceAll('.', '');
-        limpo = limpo.replaceAll(',', '.');
-        
-        return double.tryParse(limpo) ?? 0;
-      } catch (e) {
-        return 0;
-      }
-    }
-
-    final volumeCanalizacaoManha = converterVolumeString(volumeCanalizacaoManhaStr);
-    final volumeCanalizacaoTarde = converterVolumeString(volumeCanalizacaoTardeStr);
-
-    final volumeTotalManha = volProdutoManha + volumeCanalizacaoManha;
-    final volumeTotalTarde = volProdutoTarde + volumeCanalizacaoTarde;
+    final volumeTotalManha = volProdutoManha;
+    final volumeTotalTarde = volProdutoTarde;
 
     setState(() {
       this.volumeManha = volProdutoManha;
@@ -129,6 +106,7 @@ class _CalcPageState extends State<CalcPage> {
 
     final produtoNome = widget.dadosFormulario['produto']?.toString() ?? '';
 
+    // Calcular densidade a 20°C para manhã
     if (medicoes['tempAmostraManha'] != null && 
         medicoes['tempAmostraManha'].toString().isNotEmpty &&
         medicoes['tempAmostraManha'].toString() != '-' &&
@@ -148,6 +126,7 @@ class _CalcPageState extends State<CalcPage> {
       widget.dadosFormulario['medicoes']['densidade20Manha'] = '-';
     }
 
+    // Calcular densidade a 20°C para tarde
     if (medicoes['tempAmostraTarde'] != null && 
         medicoes['tempAmostraTarde'].toString().isNotEmpty &&
         medicoes['tempAmostraTarde'].toString() != '-' &&
@@ -165,6 +144,78 @@ class _CalcPageState extends State<CalcPage> {
       widget.dadosFormulario['medicoes']['densidade20Tarde'] = densidade20Tarde;
     } else {
       widget.dadosFormulario['medicoes']['densidade20Tarde'] = '-';
+    }
+
+    // BUSCAR FCV PARA MANHÃ
+    if (medicoes['tempTanqueManha'] != null &&
+        medicoes['tempTanqueManha'].toString().isNotEmpty &&
+        medicoes['tempTanqueManha'].toString() != '-' &&
+        widget.dadosFormulario['medicoes']['densidade20Manha'] != null &&
+        widget.dadosFormulario['medicoes']['densidade20Manha'].toString().isNotEmpty &&
+        widget.dadosFormulario['medicoes']['densidade20Manha'].toString() != '-') {
+      
+      final fcvManha = await _buscarFCV(
+        temperaturaTanque: medicoes['tempTanqueManha'].toString(),
+        densidade20C: widget.dadosFormulario['medicoes']['densidade20Manha'].toString(),
+        produtoNome: produtoNome,
+      );
+      
+      widget.dadosFormulario['medicoes']['fatorCorrecaoManha'] = fcvManha;
+    } else {
+      widget.dadosFormulario['medicoes']['fatorCorrecaoManha'] = '-';
+    }
+
+    // BUSCAR FCV PARA TARDE
+    if (medicoes['tempTanqueTarde'] != null &&
+        medicoes['tempTanqueTarde'].toString().isNotEmpty &&
+        medicoes['tempTanqueTarde'].toString() != '-' &&
+        widget.dadosFormulario['medicoes']['densidade20Tarde'] != null &&
+        widget.dadosFormulario['medicoes']['densidade20Tarde'].toString().isNotEmpty &&
+        widget.dadosFormulario['medicoes']['densidade20Tarde'].toString() != '-') {
+      
+      final fcvTarde = await _buscarFCV(
+        temperaturaTanque: medicoes['tempTanqueTarde'].toString(),
+        densidade20C: widget.dadosFormulario['medicoes']['densidade20Tarde'].toString(),
+        produtoNome: produtoNome,
+      );
+      
+      widget.dadosFormulario['medicoes']['fatorCorrecaoTarde'] = fcvTarde;
+    } else {
+      widget.dadosFormulario['medicoes']['fatorCorrecaoTarde'] = '-';
+    }
+
+    // CALCULAR VOLUME A 20°C (opcional - se quiser calcular agora)
+    // Nota: Isso depende de ter o FCV e o volume do produto
+    if (widget.dadosFormulario['medicoes']['fatorCorrecaoManha'] != null &&
+        widget.dadosFormulario['medicoes']['fatorCorrecaoManha'].toString().isNotEmpty &&
+        widget.dadosFormulario['medicoes']['fatorCorrecaoManha'].toString() != '-') {
+      
+      try {
+        final fcvManhaStr = widget.dadosFormulario['medicoes']['fatorCorrecaoManha'].toString();
+        final fcvManha = double.tryParse(fcvManhaStr.replaceAll(',', '.')) ?? 1.0;
+        final volume20Manha = volProdutoManha * fcvManha;
+        widget.dadosFormulario['medicoes']['volume20Manha'] = _formatarVolumeLitros(volume20Manha);
+      } catch (e) {
+        widget.dadosFormulario['medicoes']['volume20Manha'] = '-';
+      }
+    } else {
+      widget.dadosFormulario['medicoes']['volume20Manha'] = '-';
+    }
+
+    if (widget.dadosFormulario['medicoes']['fatorCorrecaoTarde'] != null &&
+        widget.dadosFormulario['medicoes']['fatorCorrecaoTarde'].toString().isNotEmpty &&
+        widget.dadosFormulario['medicoes']['fatorCorrecaoTarde'].toString() != '-') {
+      
+      try {
+        final fcvTardeStr = widget.dadosFormulario['medicoes']['fatorCorrecaoTarde'].toString();
+        final fcvTarde = double.tryParse(fcvTardeStr.replaceAll(',', '.')) ?? 1.0;
+        final volume20Tarde = volProdutoTarde * fcvTarde;
+        widget.dadosFormulario['medicoes']['volume20Tarde'] = _formatarVolumeLitros(volume20Tarde);
+      } catch (e) {
+        widget.dadosFormulario['medicoes']['volume20Tarde'] = '-';
+      }
+    } else {
+      widget.dadosFormulario['medicoes']['volume20Tarde'] = '-';
     }
 
     setState(() {});
@@ -1049,4 +1100,274 @@ class _CalcPageState extends State<CalcPage> {
       return '-';
     }
   }
+
+  Future<String> _buscarFCV({
+    required String temperaturaTanque,
+    required String densidade20C,
+    required String produtoNome,
+  }) async {
+    final supabase = Supabase.instance.client;
+    
+    try {
+      // Validar dados de entrada
+      if (temperaturaTanque.isEmpty || 
+          temperaturaTanque == '-' || 
+          densidade20C.isEmpty || 
+          densidade20C == '-') {
+        return '-';
+      }
+      
+      // Determinar qual VIEW usar baseado no nome do produto
+      String nomeView;
+      
+      // Usar nome do produto para decidir qual tabela usar
+      final nomeProdutoLower = produtoNome.toLowerCase().trim();
+      if (nomeProdutoLower.contains('anidro') || 
+          nomeProdutoLower.contains('hidratado')) {
+        nomeView = 'tcv_anidro_hidratado_vw';
+      } else {
+        nomeView = 'tcv_gasolina_diesel_vw';
+      }
+      
+      // Formatar temperatura (remover unidades e padronizar)
+      String temperaturaFormatada = temperaturaTanque
+          .replaceAll(' ºC', '')
+          .replaceAll('°C', '')
+          .replaceAll('ºC', '')
+          .replaceAll('°', '')
+          .replaceAll('C', '')
+          .trim();
+      
+      // Substituir ponto por vírgula se necessário
+      temperaturaFormatada = temperaturaFormatada.replaceAll('.', ',');
+      
+      // Formatar densidade para nome de coluna
+      String densidadeFormatada = densidade20C
+          .replaceAll(' ', '')
+          .replaceAll('°C', '')
+          .replaceAll('ºC', '')
+          .replaceAll('°', '')
+          .trim();
+      
+      // Garantir formato correto da densidade
+      densidadeFormatada = densidadeFormatada.replaceAll('.', ',');
+      
+      // Padronizar densidade para 4 casas decimais
+      if (densidadeFormatada.contains(',')) {
+        final partes = densidadeFormatada.split(',');
+        if (partes.length == 2) {
+          String parteInteira = partes[0];
+          String parteDecimal = partes[1];
+          
+          // Completar com zeros até 4 dígitos
+          parteDecimal = parteDecimal.padRight(4, '0');
+          
+          // Se tiver mais de 4 dígitos, truncar
+          if (parteDecimal.length > 4) {
+            parteDecimal = parteDecimal.substring(0, 4);
+          }
+          
+          densidadeFormatada = '$parteInteira,$parteDecimal';
+        } else {
+          return '-';
+        }
+      } else {
+        // Se não tem vírgula, adicionar
+        if (densidadeFormatada.length == 4) {
+          densidadeFormatada = '0,${densidadeFormatada.substring(0, 3)}';
+        } else {
+          densidadeFormatada = '0,$densidadeFormatada';
+        }
+      }
+      
+      // Criar nome da coluna (ex: 0,8500 → v_08500)
+      String nomeColuna;
+      if (densidadeFormatada.contains(',')) {
+        final partes = densidadeFormatada.split(',');
+        if (partes.length == 2) {
+          String parteInteira = partes[0];
+          String parteDecimal = partes[1];
+          
+          // Garantir 4 dígitos na parte decimal
+          parteDecimal = parteDecimal.padRight(4, '0');
+          
+          // Criar código de 5 dígitos
+          String codigo5Digitos = '${parteInteira}${parteDecimal}'.padLeft(5, '0');
+          
+          if (codigo5Digitos.length > 5) {
+            codigo5Digitos = codigo5Digitos.substring(0, 5);
+          }
+          
+          nomeColuna = 'v_$codigo5Digitos';
+        } else {
+          return '-';
+        }
+      } else {
+        return '-';
+      }
+      
+      // Função para formatar resultado
+      String _formatarResultadoFCV(String valorBruto) {
+        String valorLimpo = valorBruto.trim();
+        valorLimpo = valorLimpo.replaceAll('.', ',');
+        
+        // Garantir formato 0,9999
+        if (!valorLimpo.contains(',')) {
+          valorLimpo = '$valorLimpo,0';
+        }
+        
+        final partes = valorLimpo.split(',');
+        if (partes.length == 2) {
+          String parteInteira = partes[0];
+          String parteDecimal = partes[1];
+          
+          // Completar com zeros até 4 dígitos
+          parteDecimal = parteDecimal.padRight(4, '0');
+          
+          // Se tiver mais de 4 dígitos, truncar
+          if (parteDecimal.length > 4) {
+            parteDecimal = parteDecimal.substring(0, 4);
+          }
+          
+          return '$parteInteira,$parteDecimal';
+        }
+        
+        return valorLimpo;
+      }
+      
+      // Primeira tentativa: busca exata
+      final resultado = await supabase
+          .from(nomeView)
+          .select(nomeColuna)
+          .eq('temperatura_obs', temperaturaFormatada)
+          .maybeSingle();
+      
+      if (resultado != null && resultado[nomeColuna] != null) {
+        String valorBruto = resultado[nomeColuna].toString();
+        return _formatarResultadoFCV(valorBruto);
+      }
+      
+      // Se não encontrou, tentar busca por arredondamento de densidade
+      // Estratégia: buscar colunas próximas (±0,0005)
+      if (densidadeFormatada.contains(',')) {
+        final partes = densidadeFormatada.split(',');
+        if (partes.length == 2) {
+          
+          // Converter para número para arredondar
+          final densidadeNum = double.tryParse(
+            densidadeFormatada.replaceAll(',', '.')
+          );
+          
+          if (densidadeNum != null) {
+            // Tentar colunas próximas (arredondamento para 0,0005)
+            final List<String> densidadesParaTentar = [];
+            
+            // Calcular valores próximos (ex: 0,0005 acima/abaixo)
+            final double passo = 0.0005;
+            
+            for (double delta = -0.0010; delta <= 0.0010; delta += passo) {
+              final double densidadeTeste = densidadeNum + delta;
+              
+              // Formatar para string com 4 casas decimais
+              final String densidadeTesteStr = densidadeTeste.toStringAsFixed(4);
+              final String densidadeTesteFormatada = densidadeTesteStr.replaceAll('.', ',');
+              
+              // Converter para nome de coluna
+              if (densidadeTesteFormatada.contains(',')) {
+                final partesTeste = densidadeTesteFormatada.split(',');
+                if (partesTeste.length == 2) {
+                  String parteInteiraTeste = partesTeste[0];
+                  String parteDecimalTeste = partesTeste[1];
+                  
+                  String codigo5DigitosTeste = '${parteInteiraTeste}${parteDecimalTeste}'.padLeft(5, '0');
+                  if (codigo5DigitosTeste.length > 5) {
+                    codigo5DigitosTeste = codigo5DigitosTeste.substring(0, 5);
+                  }
+                  
+                  densidadesParaTentar.add('v_$codigo5DigitosTeste');
+                }
+              }
+            }
+            
+            // Remover duplicatas
+            final densidadesUnicas = densidadesParaTentar.toSet().toList();
+            
+            // Tentar cada coluna próxima
+            for (final colunaProxima in densidadesUnicas) {
+              try {
+                final resultadoProximo = await supabase
+                    .from(nomeView)
+                    .select(colunaProxima)
+                    .eq('temperatura_obs', temperaturaFormatada)
+                    .maybeSingle();
+                
+                if (resultadoProximo != null && resultadoProximo[colunaProxima] != null) {
+                  String valorBruto = resultadoProximo[colunaProxima].toString();
+                  return _formatarResultadoFCV(valorBruto);
+                }
+              } catch (e) {
+                continue;
+              }
+            }
+          }
+        }
+      }
+      
+      // Se ainda não encontrou, tentar variações de temperatura
+      List<String> temperaturasParaTentar = [];
+      
+      if (temperaturaFormatada.contains(',')) {
+        final partes = temperaturaFormatada.split(',');
+        if (partes.length == 2) {
+          String parteInteira = partes[0];
+          String parteDecimal = partes[1];
+          
+          temperaturasParaTentar.addAll([
+            '$parteInteira,$parteDecimal',
+            '$parteInteira,${parteDecimal}0',
+            '$parteInteira,${parteDecimal.padLeft(2, '0')}',
+            '$parteInteira,0$parteDecimal',
+          ]);
+          
+          if (parteDecimal.length == 1) {
+            temperaturasParaTentar.add('$parteInteira,${parteDecimal}0');
+          }
+        }
+      } else {
+        temperaturasParaTentar.addAll([
+          '$temperaturaFormatada,0',
+          '$temperaturaFormatada,00',
+          temperaturaFormatada,
+        ]);
+      }
+      
+      // Tentar temperaturas com ponto
+      final temperaturasComPonto = temperaturasParaTentar.map((f) => f.replaceAll(',', '.')).toList();
+      temperaturasParaTentar.addAll(temperaturasComPonto);
+      temperaturasParaTentar = temperaturasParaTentar.toSet().toList();
+      
+      for (final formatoTemp in temperaturasParaTentar) {
+        try {
+          final resultado = await supabase
+              .from(nomeView)
+              .select(nomeColuna)
+              .eq('temperatura_obs', formatoTemp)
+              .maybeSingle();
+          
+          if (resultado != null && resultado[nomeColuna] != null) {
+            String valorBruto = resultado[nomeColuna].toString();
+            return _formatarResultadoFCV(valorBruto);
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+      
+      return '-';
+      
+    } catch (e) {
+      return '-';
+    }
+  }
+
 }
