@@ -63,12 +63,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'icon': Icons.analytics,
         'label': 'Medição',
         'descricao': 'Sistema de medição e apuração',
-      },
-      {
-        'icon': Icons.calculate,
-        'label': 'CACL',
-        'descricao': 'Cálculos e apurações contábeis',
-      },
+      },      
       {
         'icon': Icons.storage,
         'label': 'Tanques',
@@ -656,14 +651,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           }
         });
         break;
-
-      case 'CACL':
-        setState(() {
-          _veioDaApuracao = true;
-          _mostrarApuracaoFilhos = false;
-          _mostrarCalcGerado = true;
-        });
-        break;
         
       case 'Tanques':
         setState(() {
@@ -853,18 +840,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               _mostrarApuracaoFilhos = true;
             });
             return;
-          }
-          
-          if (nome == 'CACL') {
-            setState(() {
-              _veioDaApuracao = false;
-              showConversaoList = false;
-              showControleAcesso = false;
-              showUsuarios = false;
-              _mostrarCalcGerado = true;
-            });
-            return;
-          }
+          }          
 
           if (nome == 'Medição') {
             setState(() {

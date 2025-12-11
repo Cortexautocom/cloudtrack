@@ -1139,6 +1139,15 @@ class _CalcPageState extends State<CalcPage> {
 
       densidadeFormatada = densidadeFormatada.replaceAll('.', ',');
 
+      // CORREÇÃO: Se densidade for maior que 0,8780, usar 0,8780
+      final densidadeNum = double.tryParse(densidadeFormatada.replaceAll(',', '.'));
+      final densidadeLimite = 0.8780;
+      
+      if (densidadeNum != null && densidadeNum > densidadeLimite) {
+        densidadeFormatada = '0,8780';
+        print('FCV: Densidade ajustada para 0,8780 (valor máximo da tabela)');
+      }
+
       if (densidadeFormatada.contains(',')) {
         final partes = densidadeFormatada.split(',');
         if (partes.length == 2) {
@@ -1214,6 +1223,7 @@ class _CalcPageState extends State<CalcPage> {
         return valorLimpo;
       }
 
+      // Busca inicial
       final resultado = await supabase
           .from(nomeView)
           .select(nomeColuna)
@@ -1226,68 +1236,97 @@ class _CalcPageState extends State<CalcPage> {
         return valorFormatado;
       }
 
-      if (densidadeFormatada.contains(',')) {
-        final partes = densidadeFormatada.split(',');
-        if (partes.length == 2) {
-          final densidadeNum = double.tryParse(
-            densidadeFormatada.replaceAll(',', '.')
-          );
+      // Se a densidade já foi ajustada para 0,8780 e ainda não encontrou,
+      // não tenta densidades menores
+      if (densidadeNum != null && densidadeNum > densidadeLimite) {
+        // Tenta apenas com a coluna 08780
+        final coluna08780 = 'v_08780';
+        try {
+          final resultado08780 = await supabase
+              .from(nomeView)
+              .select(coluna08780)
+              .eq('temperatura_obs', temperaturaFormatada)
+              .maybeSingle();
 
-          if (densidadeNum != null) {
-            final List<String> densidadesParaTentar = [];
-            final double passo = 0.0010;
+          if (resultado08780 != null && resultado08780[coluna08780] != null) {
+            String valorBruto = resultado08780[coluna08780].toString();
+            return _formatarResultadoFCV(valorBruto);
+          }
+        } catch (e) {
+          // Continua para os fallbacks de temperatura
+        }
+      } else {
+        // Busca por densidades próximas (apenas se densidade não foi ajustada para 0,8780)
+        if (densidadeFormatada.contains(',')) {
+          final partes = densidadeFormatada.split(',');
+          if (partes.length == 2) {
+            final densidadeNumAtual = double.tryParse(
+              densidadeFormatada.replaceAll(',', '.')
+            );
 
-            for (double delta = -0.0020; delta <= 0.0020; delta += passo) {
-              final double densidadeTeste = densidadeNum + delta;
-              final String densidadeTesteStr = densidadeTeste.toStringAsFixed(4);
-              final String densidadeTesteFormatada = densidadeTesteStr.replaceAll('.', ',');
+            if (densidadeNumAtual != null) {
+              final List<String> densidadesParaTentar = [];
+              final double passo = 0.0010;
 
-              if (densidadeTesteFormatada.contains(',')) {
-                final partesTeste = densidadeTesteFormatada.split(',');
-                if (partesTeste.length == 2) {
-                  String parteInteiraTeste = partesTeste[0];
-                  String parteDecimalTeste = partesTeste[1];
+              // Começa com a densidade atual e depois tenta valores menores
+              // Não tenta valores maiores se já está próximo do limite
+              for (double delta = 0.0; delta >= -0.0050; delta -= passo) {
+                final double densidadeTeste = densidadeNumAtual + delta;
+                
+                // Não vai abaixo de 0,6500 (assumindo que seja o mínimo)
+                if (densidadeTeste < 0.6500) break;
+                
+                final String densidadeTesteStr = densidadeTeste.toStringAsFixed(4);
+                final String densidadeTesteFormatada = densidadeTesteStr.replaceAll('.', ',');
 
-                  if (parteDecimalTeste.length >= 4) {
-                    parteDecimalTeste = '${parteDecimalTeste.substring(0, 3)}0';
-                  } else if (parteDecimalTeste.length == 3) {
-                    parteDecimalTeste = '${parteDecimalTeste}0';
+                if (densidadeTesteFormatada.contains(',')) {
+                  final partesTeste = densidadeTesteFormatada.split(',');
+                  if (partesTeste.length == 2) {
+                    String parteInteiraTeste = partesTeste[0];
+                    String parteDecimalTeste = partesTeste[1];
+
+                    if (parteDecimalTeste.length >= 4) {
+                      parteDecimalTeste = '${parteDecimalTeste.substring(0, 3)}0';
+                    } else if (parteDecimalTeste.length == 3) {
+                      parteDecimalTeste = '${parteDecimalTeste}0';
+                    }
+
+                    String codigo5DigitosTeste = '${parteInteiraTeste}${parteDecimalTeste}'.padLeft(5, '0');
+                    if (codigo5DigitosTeste.length > 5) {
+                      codigo5DigitosTeste = codigo5DigitosTeste.substring(0, 5);
+                    }
+
+                    final colunaProxima = 'v_$codigo5DigitosTeste';
+                    densidadesParaTentar.add(colunaProxima);
                   }
-
-                  String codigo5DigitosTeste = '${parteInteiraTeste}${parteDecimalTeste}'.padLeft(5, '0');
-                  if (codigo5DigitosTeste.length > 5) {
-                    codigo5DigitosTeste = codigo5DigitosTeste.substring(0, 5);
-                  }
-
-                  final colunaProxima = 'v_$codigo5DigitosTeste';
-                  densidadesParaTentar.add(colunaProxima);
                 }
               }
-            }
 
-            final densidadesUnicas = densidadesParaTentar.toSet().toList();
+              final densidadesUnicas = densidadesParaTentar.toSet().toList();
 
-            for (final colunaProxima in densidadesUnicas) {
-              try {
-                final resultadoProximo = await supabase
-                    .from(nomeView)
-                    .select(colunaProxima)
-                    .eq('temperatura_obs', temperaturaFormatada)
-                    .maybeSingle();
+              for (final colunaProxima in densidadesUnicas) {
+                try {
+                  final resultadoProximo = await supabase
+                      .from(nomeView)
+                      .select(colunaProxima)
+                      .eq('temperatura_obs', temperaturaFormatada)
+                      .maybeSingle();
 
-                if (resultadoProximo != null && resultadoProximo[colunaProxima] != null) {
-                  String valorBruto = resultadoProximo[colunaProxima].toString();
-                  final valorFormatado = _formatarResultadoFCV(valorBruto);
-                  return valorFormatado;
+                  if (resultadoProximo != null && resultadoProximo[colunaProxima] != null) {
+                    String valorBruto = resultadoProximo[colunaProxima].toString();
+                    final valorFormatado = _formatarResultadoFCV(valorBruto);
+                    return valorFormatado;
+                  }
+                } catch (e) {
+                  continue;
                 }
-              } catch (e) {
-                continue;
               }
             }
           }
         }
       }
 
+      // Fallback para formatos alternativos de temperatura
       List<String> temperaturasParaTentar = [];
 
       if (temperaturaFormatada.contains(',')) {
@@ -1321,6 +1360,7 @@ class _CalcPageState extends State<CalcPage> {
 
       for (final formatoTemp in temperaturasParaTentar) {
         try {
+          // Tenta com a coluna original
           final resultado = await supabase
               .from(nomeView)
               .select(nomeColuna)
@@ -1331,6 +1371,21 @@ class _CalcPageState extends State<CalcPage> {
             String valorBruto = resultado[nomeColuna].toString();
             final valorFormatado = _formatarResultadoFCV(valorBruto);
             return valorFormatado;
+          }
+          
+          // Se densidade > 0,8780, tenta com a coluna 08780
+          if (densidadeNum != null && densidadeNum > densidadeLimite) {
+            final coluna08780 = 'v_08780';
+            final resultado08780 = await supabase
+                .from(nomeView)
+                .select(coluna08780)
+                .eq('temperatura_obs', formatoTemp)
+                .maybeSingle();
+
+            if (resultado08780 != null && resultado08780[coluna08780] != null) {
+              String valorBruto = resultado08780[coluna08780].toString();
+              return _formatarResultadoFCV(valorBruto);
+            }
           }
         } catch (e) {
           continue;
