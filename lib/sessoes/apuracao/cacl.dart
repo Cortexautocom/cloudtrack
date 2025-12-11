@@ -212,6 +212,8 @@ class _CalcPageState extends State<CalcPage> {
       widget.dadosFormulario['medicoes']['volume20Tarde'] = '-';
     }
 
+    await _calcularMassa();
+    
     setState(() {});
   }
 
@@ -716,6 +718,34 @@ class _CalcPageState extends State<CalcPage> {
           ],
         ),
         ...linhas,
+        
+        TableRow(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+              child: Text(
+                "Massa do produto (Volume a 20 ºC × Densidade  a 20 ºC):",
+                style: const TextStyle(fontSize: 11),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+              child: Text(
+                _obterValorMedicao(medicoes['massaManha']),
+                style: const TextStyle(fontSize: 11),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+              child: Text(
+                _obterValorMedicao(medicoes['massaTarde']),
+                style: const TextStyle(fontSize: 11),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -1395,6 +1425,157 @@ class _CalcPageState extends State<CalcPage> {
       return '-';
     } catch (e) {
       return '-';
+    }
+  }
+
+  Future<void> _calcularMassa() async {
+    final medicoes = widget.dadosFormulario['medicoes'];
+    
+    // Para 1ª medição (Manhã) - Volume20 × Densidade20
+    if (medicoes['volume20Manha'] != null && 
+        medicoes['volume20Manha'].toString().isNotEmpty &&
+        medicoes['volume20Manha'].toString() != '-' &&
+        medicoes['densidade20Manha'] != null &&
+        medicoes['densidade20Manha'].toString().isNotEmpty &&
+        medicoes['densidade20Manha'].toString() != '-') {
+      
+      try {
+        // Converter volume a 20ºC formatado para double
+        final volume20Manha = _converterVolumeParaDouble(medicoes['volume20Manha'].toString());
+        
+        // Converter densidade a 20ºC para double
+        final densidade20Manha = double.tryParse(
+          medicoes['densidade20Manha'].toString()
+              .replaceAll(' kg/L', '')
+              .replaceAll(',', '.')
+              .trim()
+        ) ?? 0.0;
+        
+        // Cálculo da massa: Volume a 20ºC × Densidade a 20ºC
+        final massaManha = volume20Manha * densidade20Manha;
+        
+        // Formatar massa: ponto como milhar, vírgula como decimal, 1 casa decimal
+        final massaManhaFormatada = _formatarMassa(massaManha);
+        
+        widget.dadosFormulario['medicoes']['massaManha'] = massaManhaFormatada;
+      } catch (e) {
+        widget.dadosFormulario['medicoes']['massaManha'] = '-';
+      }
+    } else {
+      widget.dadosFormulario['medicoes']['massaManha'] = '-';
+    }
+    
+    // Para 2ª medição (Tarde) - Volume20 × Densidade20
+    if (medicoes['volume20Tarde'] != null && 
+        medicoes['volume20Tarde'].toString().isNotEmpty &&
+        medicoes['volume20Tarde'].toString() != '-' &&
+        medicoes['densidade20Tarde'] != null &&
+        medicoes['densidade20Tarde'].toString().isNotEmpty &&
+        medicoes['densidade20Tarde'].toString() != '-') {
+      
+      try {
+        // Converter volume a 20ºC formatado para double
+        final volume20Tarde = _converterVolumeParaDouble(medicoes['volume20Tarde'].toString());
+        
+        // Converter densidade a 20ºC para double
+        final densidade20Tarde = double.tryParse(
+          medicoes['densidade20Tarde'].toString()
+              .replaceAll(' kg/L', '')
+              .replaceAll(',', '.')
+              .trim()
+        ) ?? 0.0;
+        
+        // Cálculo da massa: Volume a 20ºC × Densidade a 20ºC
+        final massaTarde = volume20Tarde * densidade20Tarde;
+        
+        // Formatar massa: ponto como milhar, vírgula como decimal, 1 casa decimal
+        final massaTardeFormatada = _formatarMassa(massaTarde);
+        
+        widget.dadosFormulario['medicoes']['massaTarde'] = massaTardeFormatada;
+      } catch (e) {
+        widget.dadosFormulario['medicoes']['massaTarde'] = '-';
+      }
+    } else {
+      widget.dadosFormulario['medicoes']['massaTarde'] = '-';
+    }
+  }
+
+  String _formatarMassa(double massa) {
+    try {
+      if (massa.isNaN || massa.isInfinite || massa == 0.0) {
+        return '-';
+      }
+      
+      // Arredonda para 1 casa decimal
+      final massaArredondada = massa.toStringAsFixed(1);
+      
+      // Separa parte inteira e decimal
+      final partes = massaArredondada.split('.');
+      if (partes.length != 2) {
+        return massaArredondada;
+      }
+      
+      String parteInteira = partes[0];
+      String parteDecimal = partes[1];
+      
+      // Formata parte inteira com pontos como separadores de milhar
+      String parteInteiraFormatada = '';
+      int contador = 0;
+      
+      // Percorre de trás para frente para adicionar pontos
+      for (int i = parteInteira.length - 1; i >= 0; i--) {
+        parteInteiraFormatada = parteInteira[i] + parteInteiraFormatada;
+        contador++;
+        
+        // Adiciona ponto a cada 3 dígitos (exceto no início)
+        if (contador == 3 && i > 0) {
+          parteInteiraFormatada = '.$parteInteiraFormatada';
+          contador = 0;
+        }
+      }
+      
+      // Retorna no formato: "194.458,3"
+      return '$parteInteiraFormatada,$parteDecimal';
+      
+    } catch (e) {
+      return '-';
+    }
+  }
+
+  double _converterVolumeParaDouble(String volumeStr) {
+    try {
+      
+      // Remove "L" e espaços
+      String limpo = volumeStr.replaceAll(' L', '').trim();
+      
+      // Se estiver vazio após limpar, retorna 0
+      if (limpo.isEmpty || limpo == '-') {
+        return 0.0;
+      }
+      
+      // Remove pontos usados como separadores de milhar (formato: 1.500)
+      if (limpo.contains('.')) {
+        // Verifica se é formato brasileiro (ponto como separador de milhar)
+        final partes = limpo.split('.');
+        if (partes.length > 1) {
+          // Se a última parte tem 3 dígitos, provavelmente é separador de milhar
+          if (partes.last.length == 3) {
+            limpo = limpo.replaceAll('.', '');
+          } else {
+            // Caso contrário, trata como decimal (substitui ponto por vírgula)
+            limpo = limpo.replaceAll('.', ',');
+          }
+        } else {
+          limpo = limpo.replaceAll('.', '');
+        }
+      }
+      
+      // Converte vírgula para ponto para parse
+      limpo = limpo.replaceAll(',', '.');
+      
+      return double.tryParse(limpo) ?? 0.0;
+    } catch (e) {
+      return 0.0;
     }
   }
 

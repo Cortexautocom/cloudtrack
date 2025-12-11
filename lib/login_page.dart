@@ -144,7 +144,7 @@ class _LoginPageState extends State<LoginPage> {
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
-                image: AssetImage('assets/background_login.jpg'),
+                image: AssetImage('assets/background_login#.jpg'),
                 fit: BoxFit.cover,
               ),
             ),
@@ -154,7 +154,7 @@ class _LoginPageState extends State<LoginPage> {
           Positioned(
             top: 80,
             left: 80,
-            child: Image.asset('assets/logo_top_login.png'),
+            child: Image.asset('assets/logo_top_login#.png'),
           ),
 
           // ===== Caixa principal =====
