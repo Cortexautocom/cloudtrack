@@ -496,13 +496,15 @@ class _CalcPageState extends State<CalcPage> {
 
                   const SizedBox(height: 25),
 
-                  _subtitulo("COMPARAÇÃO DOS RESULTADOS"),
-                  const SizedBox(height: 8),
+                  _subtitulo("COMPARAÇÃO DE RESULTADOS"),
+                    const SizedBox(height: 8),
 
-                  _tabela([
-                    ["Litros a Ambiente", _calcularLitrosAmbiente(medicoes['cmManha'], medicoes['mmManha'])],
-                    ["Litros a 20 °C", _calcularLitros20C(medicoes['cmManha'], medicoes['mmManha'], medicoes['densidadeManha'], medicoes['tempTanqueManha'])],
-                  ]),
+                    _tabelaComparacaoResultados(
+                      volumeAmbienteManha: volumeManha,
+                      volumeAmbienteTarde: volumeTarde,
+                      volume20Manha: _extrairNumero(medicoes['volume20Manha']?.toString()),
+                      volume20Tarde: _extrairNumero(medicoes['volume20Tarde']?.toString()),
+                    ),
 
                   const SizedBox(height: 25),
 
@@ -792,6 +794,110 @@ class _CalcPageState extends State<CalcPage> {
     );
   }
 
+  Widget _tabelaComparacaoResultados({
+    required double volumeAmbienteManha,
+    required double volumeAmbienteTarde,
+    required double volume20Manha,
+    required double volume20Tarde,
+  }) {
+    double entradaSaidaAmbiente = volumeAmbienteTarde - volumeAmbienteManha;
+    double entradaSaida20 = volume20Tarde - volume20Manha;
+
+    String fmt(double v) =>
+        v.isNaN ? "-" : "${v.toStringAsFixed(0).replaceAll('.', '.')} L";
+
+    return Table(
+      border: TableBorder.all(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      columnWidths: const {
+        0: FlexColumnWidth(2.5),
+        1: FlexColumnWidth(1.0),
+        2: FlexColumnWidth(1.0),
+        3: FlexColumnWidth(1.0),
+      },
+      children: [
+        // CABEÇALHO
+        const TableRow(
+          decoration: BoxDecoration(color: Color(0xFFE0E0E0)),
+          children: [
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text("DESCRIÇÃO",
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text("1ª MEDIÇÃO",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text("2ª MEDIÇÃO",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text("ENTRADA/SAÍDA",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+
+        // LINHA 1: VOLUME AMBIENTE
+        TableRow(
+          children: [
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text("Volume ambiente", style: TextStyle(fontSize: 11)),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text(fmt(volumeAmbienteManha), textAlign: TextAlign.center),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text(fmt(volumeAmbienteTarde), textAlign: TextAlign.center),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text(fmt(entradaSaidaAmbiente),
+                  textAlign: TextAlign.center),
+            ),
+          ],
+        ),
+
+        // LINHA 2: VOLUME A 20 ºC
+        TableRow(
+          children: [
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text("Volume a 20 ºC", style: TextStyle(fontSize: 11)),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text(fmt(volume20Manha), textAlign: TextAlign.center),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text(fmt(volume20Tarde), textAlign: TextAlign.center),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text(fmt(entradaSaida20),
+                  textAlign: TextAlign.center),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+
   String _obterValorMedicao(dynamic valor) {
     if (valor == null) return "-";
 
@@ -829,30 +935,7 @@ class _CalcPageState extends State<CalcPage> {
     if (cm == null || cm.isEmpty) return "-";
     final mmValue = (mm == null || mm.isEmpty) ? "0" : mm;
     return "$cm,$mmValue cm";
-  }
-
-  String _calcularLitrosAmbiente(String? cm, String? mm) {
-    return _calcularVolume(cm, mm);
-  }
-
-  String _calcularLitros20C(String? cm, String? mm, String? densidade, String? temperatura) {
-    return _calcularVolumeA20(cm, mm, densidade, temperatura);
-  }
-
-  String _calcularVolume(String? cm, String? mm) {
-    if (cm == null || cm.isEmpty) return "-";
-    final cmValue = double.tryParse(cm.replaceAll(',', '.')) ?? 0;
-    final mmValue = double.tryParse(mm?.replaceAll(',', '.') ?? '0') ?? 0;
-    final alturaTotal = cmValue + (mmValue / 10);
-    final volume = alturaTotal * 100;
-    return '${volume.toStringAsFixed(0)} L';
-  }
-
-  String _calcularVolumeA20(String? cm, String? mm, String? densidade, String? temperatura) {
-    if (cm == null || cm.isEmpty) return "-";
-    final volumeAmbiente = _calcularVolume(cm, mm);    
-    return volumeAmbiente;
-  }
+  }  
 
   String _calcularRecebido(String? cm, String? mm) {
     if (cm == null || cm.isEmpty) return "-";
@@ -1578,5 +1661,16 @@ class _CalcPageState extends State<CalcPage> {
       return 0.0;
     }
   }
+
+  double _extrairNumero(String? valor) {
+    if (valor == null) return 0;
+
+    final somenteNumeros = valor.replaceAll(RegExp(r'[^0-9]'), '');
+
+    if (somenteNumeros.isEmpty) return 0;
+
+    return double.tryParse(somenteNumeros) ?? 0;
+  }
+
 
 }
