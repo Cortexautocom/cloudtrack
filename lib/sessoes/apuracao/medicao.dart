@@ -633,61 +633,31 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
 
             Padding(
               padding: const EdgeInsets.all(16),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final isWide = constraints.maxWidth > 600;
-                  
-                  // NO MÉTODO _buildTanqueCard(), na parte do LayoutBuilder:
-
-                  return isWide
-                      ? Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: _buildSection(
-                                '1ª Medição',
-                                'Abertura',
-                                Colors.blue[50]!,
-                                Colors.blue,
-                                ctrls.sublist(0, 9), // MANHÃ: 0-9 (9 itens: 0-8)
-                                focusNodes.sublist(0, 9),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildSection(
-                                '2ª Medição',
-                                'Fechamento',
-                                Colors.green[50]!,
-                                Colors.green,
-                                ctrls.sublist(9, 19), // TARDE: 9-19 (10 itens: 9-18)
-                                focusNodes.sublist(9, 19),
-                              ),
-                            ),
-                          ],
-                        )
-                      : Column(
-                          children: [
-                            _buildSection(
-                              'MANHÃ',
-                              '06:00h',
-                              Colors.blue[50]!,
-                              Colors.blue,
-                              ctrls.sublist(0, 9), // CORRIGIDO: de 10 para 9 (sem faturado)
-                              focusNodes.sublist(0, 9), // CORRIGIDO: de 10 para 9
-                            ),
-                            const SizedBox(height: 12),
-                            _buildSection(
-                              'TARDE',
-                              '18:00h',
-                              Colors.green[50]!,
-                              Colors.green,
-                              ctrls.sublist(9, 19), // CORRIGIDO: de 10,20 para 9,19
-                              focusNodes.sublist(9, 19), // CORRIGIDO: de 10,20 para 9,19
-                            ),
-                          ],
-                        );
-                },
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _buildSection(
+                      '1ª Medição',
+                      'Abertura',
+                      Colors.blue[50]!,
+                      Colors.blue,
+                      ctrls.sublist(0, 9), // PRIMEIRA MEDIÇÃO: 9 campos (0-8)
+                      focusNodes.sublist(0, 9),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildSection(
+                      '2ª Medição',
+                      'Fechamento',
+                      Colors.green[50]!,
+                      Colors.green,
+                      ctrls.sublist(9, 19), // SEGUNDA MEDIÇÃO: 10 campos (9-18)
+                      focusNodes.sublist(9, 19),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -699,11 +669,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
   Widget _buildSection(String periodo, String hora, Color bg, Color accent, 
       List<TextEditingController> c, List<FocusNode> f) {
     
-    // Verifica se esta seção deve ter o campo "Faturado"
-    // (apenas para tarde/fechamento)
-    final bool temFaturado = periodo.contains('TARDE') || 
-                        periodo.contains('2ª') || 
-                        periodo.contains('Fechamento');
+    // Determina se é a segunda medição (com faturado)
+    final bool ehSegundaMedicao = periodo.contains('2ª');
     
     return FocusScope(
       child: Container(
@@ -769,16 +736,16 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                     width: 100, maxLength: 3, focusNode: f[6], nextFocus: f[7]),
                 _buildNumberField('Água mm', c[7], '', 
                     width: 100, maxLength: 1, focusNode: f[7], nextFocus: f[8]),
-                // CONDICIONAL: Faturado apenas na tarde
-                temFaturado 
-                    ? _buildFaturadoField('Faturado', c[8], '',  // c[8] é faturado na tarde
+                // Faturado apenas na segunda medição
+                ehSegundaMedicao 
+                    ? _buildFaturadoField('Faturado', c[8], '', 
                         width: 100, focusNode: f[8], nextFocus: f[9])
-                    : _buildGhostField(width: 100),  // Fantasma na manhã
+                    : _buildGhostField(width: 100),
               ],
             ),
             const SizedBox(height: 12),
 
-            // OBSERVAÇÕES (índice varia conforme tem faturado ou não)
+            // OBSERVAÇÕES
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -792,8 +759,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                 ),
                 const SizedBox(height: 6),
                 TextFormField(
-                  controller: temFaturado ? c[9] : c[8], // 9 se tem faturado, 8 se não
-                  focusNode: temFaturado ? f[9] : f[8],
+                  controller: ehSegundaMedicao ? c[9] : c[8],
+                  focusNode: ehSegundaMedicao ? f[9] : f[8],
                   textInputAction: TextInputAction.done,
                   maxLines: 2,
                   maxLength: 140,
