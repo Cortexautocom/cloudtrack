@@ -138,8 +138,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           TextEditingController(), // 15 - temp amostra tarde
           TextEditingController(), // 16 - água cm tarde
           TextEditingController(), // 17 - água mm tarde
-          TextEditingController(), // 18 - faturado tarde  // NOVO CAMPO
-          TextEditingController(), // 19 - observações tarde // MOVED DOWN
+          TextEditingController(), // 18 - faturado tarde  // NOVO CAMPO          
         ]);
 
         _focusNodes.add([
@@ -161,8 +160,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           FocusNode(), // 15 - temp amostra tarde
           FocusNode(), // 16 - água cm tarde
           FocusNode(), // 17 - água mm tarde
-          FocusNode(), // 18 - faturado tarde  // NOVO
-          FocusNode(), // 19 - observações tarde
+          FocusNode(), // 18 - faturado tarde  // NOVO          
         ]);
       }
 
@@ -295,9 +293,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'tempTanqueTarde': controllers[12].text,
       'densidadeTarde': controllers[13].text,
       'tempAmostraTarde': controllers[14].text,
-
-      'faturadoManha': controllers[8].text,
-      'faturadoTarde': controllers[18].text,
+      
+      'faturadoTarde': controllers[17].text,
       
       'volumeProdutoManha': '0',
       'volumeProdutoTarde': '0',
@@ -640,6 +637,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                 builder: (context, constraints) {
                   final isWide = constraints.maxWidth > 600;
                   
+                  // NO MÉTODO _buildTanqueCard(), na parte do LayoutBuilder:
+
                   return isWide
                       ? Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -650,8 +649,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                 'Abertura',
                                 Colors.blue[50]!,
                                 Colors.blue,
-                                ctrls.sublist(0, 10), // ATUALIZADO: de 9 para 10 (inclui faturado)
-                                focusNodes.sublist(0, 10), // ATUALIZADO: de 9 para 10
+                                ctrls.sublist(0, 9), // MANHÃ: 0-9 (9 itens: 0-8)
+                                focusNodes.sublist(0, 9),
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -661,8 +660,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                 'Fechamento',
                                 Colors.green[50]!,
                                 Colors.green,
-                                ctrls.sublist(10, 20), // ATUALIZADO: de 9 para 10, de 18 para 20 (inclui faturado)
-                                focusNodes.sublist(10, 20), // ATUALIZADO: de 9 para 10, de 18 para 20
+                                ctrls.sublist(9, 19), // TARDE: 9-19 (10 itens: 9-18)
+                                focusNodes.sublist(9, 19),
                               ),
                             ),
                           ],
@@ -674,8 +673,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                               '06:00h',
                               Colors.blue[50]!,
                               Colors.blue,
-                              ctrls.sublist(0, 10), // ATUALIZADO: de 9 para 10 (inclui faturado)
-                              focusNodes.sublist(0, 10), // ATUALIZADO: de 9 para 10
+                              ctrls.sublist(0, 9), // CORRIGIDO: de 10 para 9 (sem faturado)
+                              focusNodes.sublist(0, 9), // CORRIGIDO: de 10 para 9
                             ),
                             const SizedBox(height: 12),
                             _buildSection(
@@ -683,8 +682,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                               '18:00h',
                               Colors.green[50]!,
                               Colors.green,
-                              ctrls.sublist(10, 20), // ATUALIZADO: de 9 para 10, de 18 para 20 (inclui faturado)
-                              focusNodes.sublist(10, 20), // ATUALIZADO: de 9 para 10, de 18 para 20
+                              ctrls.sublist(9, 19), // CORRIGIDO: de 10,20 para 9,19
+                              focusNodes.sublist(9, 19), // CORRIGIDO: de 10,20 para 9,19
                             ),
                           ],
                         );
@@ -699,6 +698,13 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
 
   Widget _buildSection(String periodo, String hora, Color bg, Color accent, 
       List<TextEditingController> c, List<FocusNode> f) {
+    
+    // Verifica se esta seção deve ter o campo "Faturado"
+    // (apenas para tarde/fechamento)
+    final bool temFaturado = periodo.contains('TARDE') || 
+                        periodo.contains('2ª') || 
+                        periodo.contains('Fechamento');
+    
     return FocusScope(
       child: Container(
         width: double.infinity,
@@ -755,7 +761,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
             ),
             const SizedBox(height: 12),
 
-            // TERCEIRA LINHA: Água cm, Água mm, Faturado
+            // TERCEIRA LINHA: Água cm, Água mm, (Faturado ou fantasma)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -763,13 +769,16 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                     width: 100, maxLength: 3, focusNode: f[6], nextFocus: f[7]),
                 _buildNumberField('Água mm', c[7], '', 
                     width: 100, maxLength: 1, focusNode: f[7], nextFocus: f[8]),
-                _buildFaturadoField('Faturado', c[8], '',  // CAMPO COM FORMATAÇÃO
-                    width: 100, focusNode: f[8], nextFocus: f[9]),
+                // CONDICIONAL: Faturado apenas na tarde
+                temFaturado 
+                    ? _buildFaturadoField('Faturado', c[8], '',  // c[8] é faturado na tarde
+                        width: 100, focusNode: f[8], nextFocus: f[9])
+                    : _buildGhostField(width: 100),  // Fantasma na manhã
               ],
             ),
             const SizedBox(height: 12),
 
-            // OBSERVAÇÕES (índice atualizado de 8 para 9)
+            // OBSERVAÇÕES (índice varia conforme tem faturado ou não)
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -783,8 +792,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                 ),
                 const SizedBox(height: 6),
                 TextFormField(
-                  controller: c[9], // ÍNDICE ATUALIZADO PARA 9
-                  focusNode: f[9],  // ÍNDICE ATUALIZADO PARA 9
+                  controller: temFaturado ? c[9] : c[8], // 9 se tem faturado, 8 se não
+                  focusNode: temFaturado ? f[9] : f[8],
                   textInputAction: TextInputAction.done,
                   maxLines: 2,
                   maxLength: 140,
@@ -1097,6 +1106,31 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               ),
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGhostField({double width = 100}) {
+    return Column(
+      children: [
+        // Label invisível (mantém o espaço)
+        Opacity(
+          opacity: 0,
+          child: Text(
+            ' ',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        // Container vazio com mesma altura
+        Container(
+          width: width,
+          height: 36,
         ),
       ],
     );
