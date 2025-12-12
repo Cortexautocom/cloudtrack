@@ -733,7 +733,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildNumberField('Água cm', c[6], '', 
-                    width: 100, maxLength: 3, focusNode: f[6], nextFocus: f[7]),
+                    width: 100, maxLength: 1, focusNode: f[6], nextFocus: f[7]),
                 _buildNumberField('Água mm', c[7], '', 
                     width: 100, maxLength: 1, focusNode: f[7], nextFocus: f[8]),
                 // Faturado apenas na segunda medição
