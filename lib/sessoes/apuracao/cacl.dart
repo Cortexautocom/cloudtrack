@@ -504,30 +504,10 @@ class _CalcPageState extends State<CalcPage> {
                       volumeAmbienteTarde: volumeTarde,
                       volume20Manha: _extrairNumero(medicoes['volume20Manha']?.toString()),
                       volume20Tarde: _extrairNumero(medicoes['volume20Tarde']?.toString()),
+                      entradaSaidaAmbiente: volumeTarde - volumeManha,
+                      entradaSaida20: _extrairNumero(medicoes['volume20Tarde']?.toString()) - 
+                                      _extrairNumero(medicoes['volume20Manha']?.toString()),
                     ),
-
-                  const SizedBox(height: 25),
-
-                  _subtitulo("MANIFESTAÇÃO"),
-                  const SizedBox(height: 8),
-
-                  _tabela([
-                    ["Recebido", _calcularRecebido(medicoes['cmManha'], medicoes['mmManha'])],
-                    ["Diferença", _calcularDiferenca(medicoes['cmManha'], medicoes['mmManha'])],
-                    ["Percentual", _calcularPercentual(medicoes['cmManha'], medicoes['mmManha'])],
-                  ]),
-
-                  const SizedBox(height: 25),
-
-                  _subtitulo("ABERTURA / ENTRADA / SAÍDA / SALDO"),
-                  const SizedBox(height: 8),
-
-                  _tabela([
-                    ["Abertura", _calcularAbertura()],
-                    ["Entrada", _calcularEntrada(medicoes['cmManha'], medicoes['mmManha'])],
-                    ["Saída", _calcularSaida()],
-                    ["Saldo Final", _calcularSaldoFinal(medicoes['cmManha'], medicoes['mmManha'])],
-                  ]),
 
                   if (widget.dadosFormulario['responsavel'] != null && widget.dadosFormulario['responsavel']!.isNotEmpty)
                     Column(
@@ -628,40 +608,6 @@ class _CalcPageState extends State<CalcPage> {
         valor,
         style: const TextStyle(fontSize: 11),
       ),
-    );
-  }
-
-  Widget _tabela(List<List<String>> linhas) {
-    return Table(
-      border: TableBorder.all(
-        color: Colors.black54,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      columnWidths: const {
-        0: FlexColumnWidth(2.5),
-        1: FlexColumnWidth(1.5),
-      },
-      children: linhas.map((l) {
-        return TableRow(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-              child: Text(
-                l[0], 
-                style: const TextStyle(fontSize: 11),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-              child: Text(
-                l[1], 
-                style: const TextStyle(fontSize: 11),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ],
-        );
-      }).toList(),
     );
   }
 
@@ -799,10 +745,9 @@ class _CalcPageState extends State<CalcPage> {
     required double volumeAmbienteTarde,
     required double volume20Manha,
     required double volume20Tarde,
+    required double entradaSaidaAmbiente,
+    required double entradaSaida20,
   }) {
-    double entradaSaidaAmbiente = volumeAmbienteTarde - volumeAmbienteManha;
-    double entradaSaida20 = volume20Tarde - volume20Manha;
-
     String fmt(double v) =>
         v.isNaN ? "-" : "${v.toStringAsFixed(0).replaceAll('.', '.')} L";
 
@@ -893,6 +838,44 @@ class _CalcPageState extends State<CalcPage> {
             ),
           ],
         ),
+
+        // LINHA 3: FATURADO (NOVA LINHA)
+        TableRow(
+          children: [
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: SizedBox(), // Célula vazia na primeira coluna
+            ),
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: SizedBox(), // Célula vazia na segunda coluna
+            ),
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text(
+                "Faturado",
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.right,
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text(
+                fmt(entradaSaidaAmbiente - entradaSaida20),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green[700],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -936,48 +919,6 @@ class _CalcPageState extends State<CalcPage> {
     final mmValue = (mm == null || mm.isEmpty) ? "0" : mm;
     return "$cm,$mmValue cm";
   }  
-
-  String _calcularRecebido(String? cm, String? mm) {
-    if (cm == null || cm.isEmpty) return "-";
-    final cmValue = double.tryParse(cm.replaceAll(',', '.')) ?? 0;
-    final volumeRecebido = cmValue * 95;
-    return '${volumeRecebido.toStringAsFixed(0)} L';
-  }
-
-  String _calcularDiferenca(String? cm, String? mm) {
-    if (cm == null || cm.isEmpty) return "-";
-    final cmValue = double.tryParse(cm.replaceAll(',', '.')) ?? 0;
-    final diferenca = cmValue * 2;
-    return '${diferenca.toStringAsFixed(0)} L';
-  }
-
-  String _calcularPercentual(String? cm, String? mm) {
-    if (cm == null || cm.isEmpty) return "-";
-    final cmValue = double.tryParse(cm.replaceAll(',', '.')) ?? 0;
-    final percentual = (cmValue * 0.5);
-    return '${percentual.toStringAsFixed(1)} %';
-  }
-
-  String _calcularAbertura() {
-    return "1.500 L";
-  }
-
-  String _calcularEntrada(String? cm, String? mm) {
-    return _calcularRecebido(cm, mm);
-  }
-
-  String _calcularSaida() {
-    return "850 L";
-  }
-
-  String _calcularSaldoFinal(String? cm, String? mm) {
-    if (cm == null || cm.isEmpty) return "-";
-    final abertura = 1500.0;
-    final entrada = double.tryParse(_calcularRecebido(cm, mm).replaceAll(' L', '')) ?? 0;
-    final saida = 850.0;
-    final saldo = abertura + entrada - saida;
-    return '${saldo.toStringAsFixed(0)} L';
-  }
 
   String _formatarVolumeLitros(double volume) {
     final volumeInteiro = volume.round();
@@ -1257,8 +1198,7 @@ class _CalcPageState extends State<CalcPage> {
       final densidadeLimite = 0.8780;
       
       if (densidadeNum != null && densidadeNum > densidadeLimite) {
-        densidadeFormatada = '0,8780';
-        print('FCV: Densidade ajustada para 0,8780 (valor máximo da tabela)');
+        densidadeFormatada = '0,8780';        
       }
 
       if (densidadeFormatada.contains(',')) {
