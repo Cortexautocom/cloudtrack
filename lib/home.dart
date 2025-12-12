@@ -11,6 +11,7 @@ import 'sessoes/apuracao/medicao.dart';
 import 'sessoes/apuracao/tanques.dart';
 import 'sessoes/apuracao/escolherfilial.dart';
 import 'sessoes/vendas/programacao.dart';
+import 'sessoes/apuracao/certificado_analise.dart'; // página provisória do certificado
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -40,6 +41,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _veioDaApuracao = false;
   bool _mostrarMedicaoTanques = false;
   bool _mostrarTanques = false;
+  bool _mostrarCertificadosAnalise = false;
   Map<String, dynamic>? _dadosCalcGerado;
   
   // FLAGS PARA ESCOLHA DE FILIAL
@@ -68,6 +70,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'icon': Icons.storage,
         'label': 'Tanques',
         'descricao': 'Gerenciamento de tanques de combustível',
+      },
+      // NOVO ITEM ADICIONADO
+      {
+        'icon': Icons.assignment, // Ou outro ícone apropriado
+        'label': 'Certificado de análise',
+        'descricao': 'Geração e gestão de certificados de análise',
       },
     ];
   }
@@ -173,6 +181,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarEscolherFilial = false;
       _filialSelecionadaId = null;
       _contextoEscolhaFilial = '';
+      _mostrarCertificadosAnalise = false;
     });
   }
 
@@ -430,38 +439,51 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         transitionBuilder: (child, animation) =>
             FadeTransition(opacity: animation, child: child),
 
-        child: _mostrarEscolherFilial
-            ? EscolherFilialPage(
-                key: ValueKey('escolher-filial-$_contextoEscolhaFilial'),
+        child: _mostrarCertificadosAnalise
+            ? CertificadoAnalisePage(
+                key: const ValueKey('certificado-analise'),
                 onVoltar: () {
                   setState(() {
-                    _mostrarEscolherFilial = false;
-                    if (_contextoEscolhaFilial == 'medição' && _veioDaApuracao) {
-                      _mostrarApuracaoFilhos = true;
-                    } else if (_contextoEscolhaFilial == 'tanques' && _veioDaApuracao) {
+                    _mostrarCertificadosAnalise = false;
+                    if (_veioDaApuracao) {
                       _mostrarApuracaoFilhos = true;
                     }
-                    _contextoEscolhaFilial = '';
                   });
                 },
-                onSelecionarFilial: (idFilial) {
-                  setState(() {
-                    _filialSelecionadaId = idFilial;
-                    _mostrarEscolherFilial = false;
-                    
-                    if (_contextoEscolhaFilial == 'medição') {
-                      _mostrarMedicaoTanques = true;
-                    } else if (_contextoEscolhaFilial == 'tanques') {
-                      _mostrarTanques = true;
-                    }
-                    
-                    _contextoEscolhaFilial = '';
-                  });
-                },
-                titulo: _contextoEscolhaFilial == 'medição' 
-                  ? 'Selecionar filial para medição'
-                  : 'Selecionar filial para gerenciar tanques',
               )
+
+            : _mostrarEscolherFilial
+                ? EscolherFilialPage(
+                    key: ValueKey('escolher-filial-$_contextoEscolhaFilial'),
+                    onVoltar: () {
+                      setState(() {
+                        _mostrarEscolherFilial = false;
+                        if (_contextoEscolhaFilial == 'medição' && _veioDaApuracao) {
+                          _mostrarApuracaoFilhos = true;
+                        } else if (_contextoEscolhaFilial == 'tanques' && _veioDaApuracao) {
+                          _mostrarApuracaoFilhos = true;
+                        }
+                        _contextoEscolhaFilial = '';
+                      });
+                    },
+                    onSelecionarFilial: (idFilial) {
+                      setState(() {
+                        _filialSelecionadaId = idFilial;
+                        _mostrarEscolherFilial = false;
+                        
+                        if (_contextoEscolhaFilial == 'medição') {
+                          _mostrarMedicaoTanques = true;
+                        } else if (_contextoEscolhaFilial == 'tanques') {
+                          _mostrarTanques = true;
+                        }
+                        
+                        _contextoEscolhaFilial = '';
+                      });
+                    },
+                    titulo: _contextoEscolhaFilial == 'medição' 
+                      ? 'Selecionar filial para medição'
+                      : 'Selecionar filial para gerenciar tanques',
+                  )
 
             : _mostrarMedicaoTanques
                 ? MedicaoTanquesPage(
@@ -665,6 +687,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           }
         });
         break;
+      case 'Certificado de análise':
+        
+        setState(() {
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Página de Certificado de análise em desenvolvimento'),
+            ),
+          );
+        });
+        break;      
     }
   }
 
