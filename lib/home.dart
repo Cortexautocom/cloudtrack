@@ -188,6 +188,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   void _voltarParaCardsPai() {
     setState(() {
       _mostrarApuracaoFilhos = false;
+      _veioDaApuracao = false;
     });
   }
 
@@ -458,11 +459,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     onVoltar: () {
                       setState(() {
                         _mostrarEscolherFilial = false;
-                        if (_contextoEscolhaFilial == 'medição' && _veioDaApuracao) {
-                          _mostrarApuracaoFilhos = true;
-                        } else if (_contextoEscolhaFilial == 'tanques' && _veioDaApuracao) {
+                        // NÃO redefinir _veioDaApuracao aqui
+                        // Voltar para apuração se veio de lá
+                        if (_veioDaApuracao) {
                           _mostrarApuracaoFilhos = true;
                         }
+                        // Limpar o contexto
                         _contextoEscolhaFilial = '';
                       });
                     },
@@ -500,12 +502,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           _mostrarEscolherFilial = true;
                           _contextoEscolhaFilial = 'medição';
                         } else {
+                          // Se não é admin, verifica se veio da apuração
                           if (_veioDaApuracao) {
                             _mostrarApuracaoFilhos = true;
+                          } else {
+                            // Se não veio da apuração, volta para sessões normais
+                            _mostrarApuracaoFilhos = false;
                           }
                         }
-
-                        _veioDaApuracao = false;
+                        // NÃO redefinir _veioDaApuracao = false aqui
                       });
                     },
                   )
@@ -524,12 +529,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           _mostrarEscolherFilial = true;
                           _contextoEscolhaFilial = 'tanques';
                         } else {
+                          // Se não é admin, verifica se veio da apuração
                           if (_veioDaApuracao) {
                             _mostrarApuracaoFilhos = true;
+                          } else {
+                            // Se não veio da apuração, volta para sessões normais
+                            _mostrarApuracaoFilhos = false;
                           }
                         }
-
-                        _veioDaApuracao = false;
+                        // NÃO redefinir _veioDaApuracao = false aqui
                       });
                     },
                     filialSelecionadaId: _filialSelecionadaId,
@@ -662,7 +670,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     switch (nomeCard) {
       case 'Medição':
         setState(() {
-          _veioDaApuracao = true;
+          _veioDaApuracao = true; // MANTER esta linha
           _mostrarApuracaoFilhos = false;
 
           if (usuario!.nivel == 3) {
@@ -676,7 +684,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         
       case 'Tanques':
         setState(() {
-          _veioDaApuracao = true;
+          _veioDaApuracao = true; // MANTER esta linha
           _mostrarApuracaoFilhos = false;
 
           if (usuario!.nivel == 3) {
@@ -688,16 +696,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         });
         break;
       case 'Certificado de análise':
-        
         setState(() {
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Página de Certificado de análise em desenvolvimento'),
-            ),
-          );
+          _veioDaApuracao = true; // ADICIONAR esta linha
+          _mostrarCertificadosAnalise = true;
+          _mostrarApuracaoFilhos = false;
         });
-        break;      
+        break;
     }
   }
 

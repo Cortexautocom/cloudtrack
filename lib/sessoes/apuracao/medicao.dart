@@ -128,37 +128,41 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           TextEditingController(), // 5 - temp amostra manhã
           TextEditingController(), // 6 - água cm manhã
           TextEditingController(), // 7 - água mm manhã
-          TextEditingController(), // 8 - observações manhã (MOVED UP)
-          TextEditingController(), // 9 - horário tarde
-          TextEditingController(), // 10 - cm tarde
-          TextEditingController(), // 11 - mm tarde
-          TextEditingController(), // 12 - temp tanque tarde
-          TextEditingController(), // 13 - densidade tarde
-          TextEditingController(), // 14 - temp amostra tarde
-          TextEditingController(), // 15 - água cm tarde
-          TextEditingController(), // 16 - água mm tarde
-          TextEditingController(), // 17 - observações tarde (MOVED UP)
+          TextEditingController(), // 8 - faturado manhã  // NOVO CAMPO
+          TextEditingController(), // 9 - observações manhã // MOVED DOWN
+          TextEditingController(), // 10 - horário tarde
+          TextEditingController(), // 11 - cm tarde
+          TextEditingController(), // 12 - mm tarde
+          TextEditingController(), // 13 - temp tanque tarde
+          TextEditingController(), // 14 - densidade tarde
+          TextEditingController(), // 15 - temp amostra tarde
+          TextEditingController(), // 16 - água cm tarde
+          TextEditingController(), // 17 - água mm tarde
+          TextEditingController(), // 18 - faturado tarde  // NOVO CAMPO
+          TextEditingController(), // 19 - observações tarde // MOVED DOWN
         ]);
 
         _focusNodes.add([
-          FocusNode(),
-          FocusNode(),
-          FocusNode(),
-          FocusNode(),
-          FocusNode(),
-          FocusNode(),
-          FocusNode(),
-          FocusNode(),
-          FocusNode(),
-          FocusNode(),
-          FocusNode(),
-          FocusNode(),
-          FocusNode(),
-          FocusNode(),
-          FocusNode(),
-          FocusNode(),
-          FocusNode(),
-          FocusNode(),          
+          FocusNode(), // 0 - horário manhã
+          FocusNode(), // 1 - cm manhã
+          FocusNode(), // 2 - mm manhã
+          FocusNode(), // 3 - temp tanque manhã
+          FocusNode(), // 4 - densidade manhã
+          FocusNode(), // 5 - temp amostra manhã
+          FocusNode(), // 6 - água cm manhã
+          FocusNode(), // 7 - água mm manhã
+          FocusNode(), // 8 - faturado manhã  // NOVO
+          FocusNode(), // 9 - observações manhã
+          FocusNode(), // 10 - horário tarde
+          FocusNode(), // 11 - cm tarde
+          FocusNode(), // 12 - mm tarde
+          FocusNode(), // 13 - temp tanque tarde
+          FocusNode(), // 14 - densidade tarde
+          FocusNode(), // 15 - temp amostra tarde
+          FocusNode(), // 16 - água cm tarde
+          FocusNode(), // 17 - água mm tarde
+          FocusNode(), // 18 - faturado tarde  // NOVO
+          FocusNode(), // 19 - observações tarde
         ]);
       }
 
@@ -291,6 +295,9 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'tempTanqueTarde': controllers[12].text,
       'densidadeTarde': controllers[13].text,
       'tempAmostraTarde': controllers[14].text,
+
+      'faturadoManha': controllers[8].text,
+      'faturadoTarde': controllers[18].text,
       
       'volumeProdutoManha': '0',
       'volumeProdutoTarde': '0',
@@ -643,8 +650,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                 'Abertura',
                                 Colors.blue[50]!,
                                 Colors.blue,
-                                ctrls.sublist(0, 9), // CORRIGIDO: de 10 para 9
-                                focusNodes.sublist(0, 9), // CORRIGIDO: de 10 para 9
+                                ctrls.sublist(0, 10), // ATUALIZADO: de 9 para 10 (inclui faturado)
+                                focusNodes.sublist(0, 10), // ATUALIZADO: de 9 para 10
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -654,8 +661,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                 'Fechamento',
                                 Colors.green[50]!,
                                 Colors.green,
-                                ctrls.sublist(9, 18), // CORRIGIDO: de 10 para 9, de 20 para 18
-                                focusNodes.sublist(9, 18), // CORRIGIDO: de 10 para 9, de 20 para 18
+                                ctrls.sublist(10, 20), // ATUALIZADO: de 9 para 10, de 18 para 20 (inclui faturado)
+                                focusNodes.sublist(10, 20), // ATUALIZADO: de 9 para 10, de 18 para 20
                               ),
                             ),
                           ],
@@ -667,8 +674,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                               '06:00h',
                               Colors.blue[50]!,
                               Colors.blue,
-                              ctrls.sublist(0, 9), // CORRIGIDO: de 10 para 9
-                              focusNodes.sublist(0, 9), // CORRIGIDO: de 10 para 9
+                              ctrls.sublist(0, 10), // ATUALIZADO: de 9 para 10 (inclui faturado)
+                              focusNodes.sublist(0, 10), // ATUALIZADO: de 9 para 10
                             ),
                             const SizedBox(height: 12),
                             _buildSection(
@@ -676,8 +683,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                               '18:00h',
                               Colors.green[50]!,
                               Colors.green,
-                              ctrls.sublist(9, 18), // CORRIGIDO: de 10 para 9, de 20 para 18
-                              focusNodes.sublist(9, 18), // CORRIGIDO: de 10 para 9, de 20 para 18
+                              ctrls.sublist(10, 20), // ATUALIZADO: de 9 para 10, de 18 para 20 (inclui faturado)
+                              focusNodes.sublist(10, 20), // ATUALIZADO: de 9 para 10, de 18 para 20
                             ),
                           ],
                         );
@@ -748,7 +755,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
             ),
             const SizedBox(height: 12),
 
-            // TERCEIRA LINHA: Água cm, Água mm (REMOVIDO: Vol. Canalização)
+            // TERCEIRA LINHA: Água cm, Água mm, Faturado
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -756,13 +763,13 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                     width: 100, maxLength: 3, focusNode: f[6], nextFocus: f[7]),
                 _buildNumberField('Água mm', c[7], '', 
                     width: 100, maxLength: 1, focusNode: f[7], nextFocus: f[8]),
-                _buildGhostField(width: 100),
-                // Campo removido: Vol. Canalização
+                _buildFaturadoField('Faturado', c[8], '',  // CAMPO COM FORMATAÇÃO
+                    width: 100, focusNode: f[8], nextFocus: f[9]),
               ],
             ),
             const SizedBox(height: 12),
 
-            // OBSERVAÇÕES (índice atualizado de 9 para 8)
+            // OBSERVAÇÕES (índice atualizado de 8 para 9)
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -776,8 +783,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                 ),
                 const SizedBox(height: 6),
                 TextFormField(
-                  controller: c[8], // ÍNDICE ATUALIZADO
-                  focusNode: f[8],  // ÍNDICE ATUALIZADO
+                  controller: c[9], // ÍNDICE ATUALIZADO PARA 9
+                  focusNode: f[9],  // ÍNDICE ATUALIZADO PARA 9
                   textInputAction: TextInputAction.done,
                   maxLines: 2,
                   maxLength: 140,
@@ -1018,26 +1025,78 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     );
   }
 
-  Widget _buildGhostField({double width = 100}) {
+  String _aplicarMascaraFaturado(String texto) {
+    // Remove tudo que não é número
+    String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
+    
+    // Limita a 6 dígitos (999999 = 999.999)
+    if (apenasNumeros.length > 6) {
+      apenasNumeros = apenasNumeros.substring(0, 6);
+    }
+    
+    if (apenasNumeros.isEmpty) return '';
+    
+    // Se tiver mais de 3 dígitos, adiciona o ponto
+    if (apenasNumeros.length > 3) {
+      String parteMilhar = apenasNumeros.substring(0, apenasNumeros.length - 3);
+      String parteCentena = apenasNumeros.substring(apenasNumeros.length - 3);
+      return '$parteMilhar.$parteCentena';
+    }
+    
+    return apenasNumeros;
+  }
+
+  Widget _buildFaturadoField(String label, TextEditingController ctrl, String hint, 
+      {double width = 100, FocusNode? focusNode, FocusNode? nextFocus}) {
     return Column(
       children: [
-        // Label invisível (mantém o espaço)
-        Opacity(
-          opacity: 0,
-          child: Text(
-            ' ',
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w500,
-            ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w500,
           ),
         ),
         const SizedBox(height: 4),
-        // Container vazio com mesma altura
         Container(
           width: width,
           height: 36,
+          child: TextFormField(
+            controller: ctrl,
+            focusNode: focusNode,
+            textInputAction: nextFocus != null ? TextInputAction.next : TextInputAction.done,
+            onFieldSubmitted: (_) => nextFocus?.requestFocus(),
+            textAlign: TextAlign.center,
+            keyboardType: TextInputType.number,
+            style: const TextStyle(fontSize: 12),
+            onChanged: (value) {
+              final cursorPosition = ctrl.selection.baseOffset;
+              final maskedValue = _aplicarMascaraFaturado(value);
+              
+              if (maskedValue != value) {
+                ctrl.value = TextEditingValue(
+                  text: maskedValue,
+                  selection: TextSelection.collapsed(
+                    offset: cursorPosition + (maskedValue.length - value.length),
+                  ),
+                );
+              }
+            },
+            decoration: InputDecoration(
+              hintText: hint,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(5),
+                borderSide: BorderSide(color: Colors.grey.shade400),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(5),
+                borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.5),
+              ),
+            ),
+          ),
         ),
       ],
     );
