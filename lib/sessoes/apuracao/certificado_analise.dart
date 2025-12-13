@@ -159,42 +159,51 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                     key: _formKey,
                     child: Column(
                       children: [
-                        carregandoProdutos
-                            ? const CircularProgressIndicator()
-                            : DropdownButtonFormField<String>(
-                                initialValue: produtoSelecionado,
-                                items: produtos
-                                    .map(
-                                      (p) => DropdownMenuItem<String>(
-                                        value: p,
-                                        child: Text(p),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (valor) {
-                                  setState(() {
-                                    produtoSelecionado = valor;
-                                  });
-                                },
-                                decoration: _decoration('Produto'),
-                              ),
-                              
-                        const SizedBox(height: 20),
-
-                        _linha([
-                          _campo('Data', dataCtrl, enabled: false),
-                          _campo('Hora', horaCtrl, enabled: false),
+                        // PRIMEIRA LINHA: Nota Fiscal, Produto, Data, Hora (4 campos)
+                        // COM CONTROLE DE TAMANHO: Data e Hora menores
+                        _linhaFlexivel([
+                          {
+                            'flex': 5, // Notas Fiscais (41.7%)
+                            'widget': _campo('Notas Fiscais', campos['notas']!),
+                          },
+                          {
+                            'flex': 5, // Produto (41.7%)
+                            'widget': carregandoProdutos
+                                ? const CircularProgressIndicator()
+                                : DropdownButtonFormField<String>(
+                                    value: produtoSelecionado,
+                                    items: produtos
+                                        .map(
+                                          (p) => DropdownMenuItem<String>(
+                                            value: p,
+                                            child: Text(p),
+                                          ),
+                                        )
+                                        .toList(),
+                                    onChanged: (valor) {
+                                      setState(() {
+                                        produtoSelecionado = valor;
+                                      });
+                                    },
+                                    decoration: _decoration('Produto'),
+                                  ),
+                          },
+                          {
+                            'flex': 3, // Data (8.3%) - MENOR
+                            'widget': _campo('Data', dataCtrl, enabled: false),
+                          },
+                          {
+                            'flex': 2, // Hora (8.3%) - MENOR
+                            'widget': _campo('Hora', horaCtrl, enabled: false),
+                          },
                         ]),
 
                         const SizedBox(height: 12),
 
+                        // SEGUNDA LINHA: Motorista e Transportadora (2 campos)
                         _linha([
-                          _campo('Transportadora',
-                              campos['transportadora']!),
-                          _campo(
-                              'Motorista', campos['motorista']!),
-                          _campo('Notas Fiscais',
-                              campos['notas']!),
+                          _campo('Motorista', campos['motorista']!),
+                          _campo('Transportadora', campos['transportadora']!),
                         ]),
 
                         const SizedBox(height: 20),
@@ -264,9 +273,21 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
         children: campos
             .map((c) => Expanded(
                   child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
                     child: c,
+                  ),
+                ))
+            .toList(),
+      );
+
+  // NOVO MÉTODO: Para linhas com controle flexível de tamanho
+  Widget _linhaFlexivel(List<Map<String, dynamic>> camposConfig) => Row(
+        children: camposConfig
+            .map((config) => Expanded(
+                  flex: config['flex'] ?? 1, // flex padrão é 1
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: config['widget'],
                   ),
                 ))
             .toList(),
@@ -277,8 +298,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
     return TextFormField(
       controller: c,
       enabled: enabled,
-      decoration:
-          _decoration(label, disabled: !enabled),
+      decoration: _decoration(label, disabled: !enabled),
     );
   }
 
