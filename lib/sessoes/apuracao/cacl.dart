@@ -506,9 +506,7 @@ class _CalcPageState extends State<CalcPage> {
                   // NOVO BLOCO FATURADO ADICIONADO AQUI
                   const SizedBox(height: 20),
                   _blocoFaturado(
-                    entradaSaidaAmbiente: volumeTarde - volumeManha,
-                    entradaSaida20: _extrairNumero(medicoes['volume20Tarde']?.toString()) - 
-                                    _extrairNumero(medicoes['volume20Manha']?.toString()),
+                    medicoes: medicoes,
                   ),
 
                   if (widget.dadosFormulario['responsavel'] != null && widget.dadosFormulario['responsavel']!.isNotEmpty)
@@ -1612,32 +1610,95 @@ class _CalcPageState extends State<CalcPage> {
   }
 
   Widget _blocoFaturado({
-    required double entradaSaidaAmbiente,
-    required double entradaSaida20,
+    required Map<String, dynamic> medicoes,
   }) {
-    String fmt(double v) =>
-        v.isNaN ? "-" : "${v.toStringAsFixed(0).replaceAll('.', '.')} L";
+    // Função para formatar no padrão "999.999 L" - Corrigida para negativos
+    String fmt(num v) {
+      if (v.isNaN) return "-";
+      
+      // Arredonda e converte para inteiro
+      final volumeInteiro = v.round();
+      
+      // Converte para string e remove sinal negativo temporariamente
+      final isNegativo = volumeInteiro < 0;
+      String inteiroFormatado = volumeInteiro.abs().toString();
+      
+      // Adiciona pontos como separadores de milhar
+      if (inteiroFormatado.length > 3) {
+        final buffer = StringBuffer();
+        int contador = 0;
+        
+        for (int i = inteiroFormatado.length - 1; i >= 0; i--) {
+          buffer.write(inteiroFormatado[i]);
+          contador++;
+          
+          if (contador == 3 && i > 0) {
+            buffer.write('.');
+            contador = 0;
+          }
+        }
+        
+        final chars = buffer.toString().split('').reversed.toList();
+        inteiroFormatado = chars.join('');
+      }
+      
+      // Adiciona sinal negativo se necessário
+      final sinal = isNegativo ? '-' : '';
+      return '$sinal$inteiroFormatado L';
+    }
 
-    final faturado = entradaSaidaAmbiente - entradaSaida20;
-    final faturadoFormatado = fmt(faturado);
+    // Função para formatar porcentagem com 2 casas decimais
+    String fmtPercent(double v) {
+      if (v.isNaN || v.isInfinite) return "-";
+      return '${v >= 0 ? '+' : ''}${v.toStringAsFixed(2)}%';
+    }
+
+    // Pega o valor do usuário para "Faturado"
+    final faturadoUsuarioStr = medicoes['faturadoTarde']?.toString() ?? '';
     
-    // NOVO: Calcular o valor da diferença (você pode ajustar este cálculo conforme necessário)
-    final diferenca = entradaSaidaAmbiente - entradaSaida20; // Exemplo: mesma diferença
+    // Converte para double (se não for vazio)
+    double faturadoUsuario = 0.0;
+    if (faturadoUsuarioStr.isNotEmpty && faturadoUsuarioStr != '-') {
+      try {
+        // Remove pontos de milhar e converte vírgula para ponto
+        String limpo = faturadoUsuarioStr.replaceAll('.', '').replaceAll(',', '.');
+        faturadoUsuario = double.tryParse(limpo) ?? 0.0;
+      } catch (e) {
+        faturadoUsuario = 0.0;
+      }
+    }
+    
+    // Pega os volumes
+    final volume20Tarde = _extrairNumero(medicoes['volume20Tarde']?.toString());
+    final volume20Manha = _extrairNumero(medicoes['volume20Manha']?.toString());
+    
+    // Cálculo da diferença: Volume a 20ºC - Faturado
+    final entradaSaida20 = volume20Tarde - volume20Manha;
+    final diferenca = entradaSaida20 - faturadoUsuario;
+    
+    // Formata
+    final faturadoFormatado = faturadoUsuario > 0 ? fmt(faturadoUsuario) : "-";
     final diferencaFormatada = fmt(diferenca);
+    
+    // Porcentagem
+    final entradaSaida20Double = entradaSaida20.toDouble();
+    final porcentagem = entradaSaida20Double != 0 ? (diferenca.toDouble() / entradaSaida20Double) * 100 : 0.0;
+    final porcentagemFormatada = fmtPercent(porcentagem);
+    
+    // Concatenação: "-114 L | -0,36%"
+    final concatenacao = '$diferencaFormatada  |  $porcentagemFormatada';
+
+    // REGRAS DE CORES:
+    // 1. "Faturado": cor automática (preto) - REMOVER O VERDE
+    // 2. "Diferença": vermelho se negativo, azul se positivo
+    final corDiferenca = diferenca < 0 ? Colors.red[700] : Colors.blue[700];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // LINHA: [ESPAÇO FANTASMA] + [BLOCO COM 2 LINHAS]
         Row(
           children: [
-            // ESPAÇO FANTASMA (70% da linha)
-            Expanded(
-              flex: 7,
-              child: SizedBox(),
-            ),
-            
-            // BLOCO VISÍVEL AGORA COM 2 LINHAS (30% da linha) - REDUZIDO
+            Expanded(flex: 7, child: SizedBox()),
             Expanded(
               flex: 3,
               child: Container(
@@ -1649,17 +1710,16 @@ class _CalcPageState extends State<CalcPage> {
                   defaultColumnWidth: IntrinsicColumnWidth(),
                   border: TableBorder.all(color: Colors.black54),
                   children: [
-                    // LINHA 1: FATURADO (REDUZIDO)
                     TableRow(
                       children: [
                         Container(
-                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12), // REDUZIDO: vertical de 12 para 8
+                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                           color: Color(0xFFF5F5F5),
                           child: Center(
                             child: Text(
                               "Faturado",
                               style: TextStyle(
-                                fontSize: 10, // REDUZIDO de 11 para 10
+                                fontSize: 10,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.black87,
                               ),
@@ -1668,15 +1728,15 @@ class _CalcPageState extends State<CalcPage> {
                           ),
                         ),
                         Container(
-                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12), // REDUZIDO: vertical de 12 para 8
+                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                           color: Colors.white,
                           child: Center(
                             child: Text(
                               faturadoFormatado,
                               style: TextStyle(
-                                fontSize: 11, // REDUZIDO de 12 para 11
+                                fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.green[700],
+                                color: Colors.black87, // ALTERADO: COR AUTOMÁTICA (PRETO)
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -1684,18 +1744,16 @@ class _CalcPageState extends State<CalcPage> {
                         ),
                       ],
                     ),
-                    
-                    // NOVA LINHA 2: DIFERENÇA (REDUZIDO)
                     TableRow(
                       children: [
                         Container(
-                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12), // REDUZIDO: vertical de 12 para 8
+                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                           color: Color(0xFFF5F5F5),
                           child: Center(
                             child: Text(
                               "Diferença",
                               style: TextStyle(
-                                fontSize: 10, // REDUZIDO de 11 para 10
+                                fontSize: 10,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.black87,
                               ),
@@ -1704,15 +1762,15 @@ class _CalcPageState extends State<CalcPage> {
                           ),
                         ),
                         Container(
-                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12), // REDUZIDO: vertical de 12 para 8
+                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                           color: Colors.white,
                           child: Center(
                             child: Text(
-                              diferencaFormatada,
+                              concatenacao,
                               style: TextStyle(
-                                fontSize: 11, // REDUZIDO de 12 para 11
+                                fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.blue[700],
+                                color: corDiferenca, // ALTERADO: COR CONDICIONAL
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -1725,6 +1783,18 @@ class _CalcPageState extends State<CalcPage> {
               ),
             ),
           ],
+        ),
+        SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.only(left: 140),
+          child: Text(
+            "Diferença = Volume a 20ºC - Faturado",
+            style: TextStyle(
+              fontSize: 9,
+              color: Colors.grey[600],
+              fontStyle: FontStyle.italic,
+            ),
+          ),
         ),
       ],
     );
