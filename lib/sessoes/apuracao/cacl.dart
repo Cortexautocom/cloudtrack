@@ -299,33 +299,27 @@ class _CalcPageState extends State<CalcPage> {
     try {
       if (valor == null) return 0.0;
       
-      if (valor is String) {
-        final str = valor.trim();
-        
-        if (str.contains('.') && str.split('.')[1].length == 3) {
-          final semPonto = str.replaceAll('.', '');
-          return double.tryParse(semPonto) ?? 0.0;
-        }
-        
-        return double.tryParse(str.replaceAll(',', '.')) ?? 0.0;
-      }
+      String str = valor.toString().trim();
+      str = str.replaceAll(',', '.');
       
-      if (valor is num) {
-        final numVal = valor.toDouble();
+      if (str.contains('.')) {
+        final partes = str.split('.');
         
-        if (numVal < 1000 && numVal.toString().contains('.')) {
-          final strVal = numVal.toString();
-          final partes = strVal.split('.');
+        if (partes.length == 2) {
+          String parteInteira = partes[0];
+          String parteDecimal = partes[1];
           
-          if (partes.length == 2 && partes[1].length == 3) {
-            return numVal * 1000;
+          if (parteDecimal.length < 3) {
+            parteDecimal = parteDecimal.padRight(3, '0');
           }
+          
+          final numeroCompleto = double.tryParse('$parteInteira.$parteDecimal') ?? 0.0;
+          return numeroCompleto * 1000;
         }
-        
-        return numVal;
       }
       
-      return 0.0;
+      return double.tryParse(str) ?? 0.0;
+      
     } catch (e) {
       return 0.0;
     }
@@ -476,7 +470,7 @@ class _CalcPageState extends State<CalcPage> {
                     ),
                     _linhaMedicao("Temperatura do produto no tanque:", 
                         _formatarTemperatura(medicoes['tempTanqueManha']), 
-                        _formatarTemperatura(medicoes['tempTanqueTarde'])), // NOVO CAMPO AQUI
+                        _formatarTemperatura(medicoes['tempTanqueTarde'])),
                     _linhaMedicao("Densidade observada na amostra:", 
                         _obterValorMedicao(medicoes['densidadeManha']), 
                         _obterValorMedicao(medicoes['densidadeTarde'])),
@@ -497,17 +491,25 @@ class _CalcPageState extends State<CalcPage> {
                   const SizedBox(height: 25),
 
                   _subtitulo("COMPARAÇÃO DE RESULTADOS"),
-                    const SizedBox(height: 8),
+                  const SizedBox(height: 8),
 
-                    _tabelaComparacaoResultados(
-                      volumeAmbienteManha: volumeManha,
-                      volumeAmbienteTarde: volumeTarde,
-                      volume20Manha: _extrairNumero(medicoes['volume20Manha']?.toString()),
-                      volume20Tarde: _extrairNumero(medicoes['volume20Tarde']?.toString()),
-                      entradaSaidaAmbiente: volumeTarde - volumeManha,
-                      entradaSaida20: _extrairNumero(medicoes['volume20Tarde']?.toString()) - 
-                                      _extrairNumero(medicoes['volume20Manha']?.toString()),
-                    ),
+                  _tabelaComparacaoResultados(
+                    volumeAmbienteManha: volumeManha,
+                    volumeAmbienteTarde: volumeTarde,
+                    volume20Manha: _extrairNumero(medicoes['volume20Manha']?.toString()),
+                    volume20Tarde: _extrairNumero(medicoes['volume20Tarde']?.toString()),
+                    entradaSaidaAmbiente: volumeTarde - volumeManha,
+                    entradaSaida20: _extrairNumero(medicoes['volume20Tarde']?.toString()) - 
+                                    _extrairNumero(medicoes['volume20Manha']?.toString()),
+                  ),
+
+                  // NOVO BLOCO FATURADO ADICIONADO AQUI
+                  const SizedBox(height: 20),
+                  _blocoFaturado(
+                    entradaSaidaAmbiente: volumeTarde - volumeManha,
+                    entradaSaida20: _extrairNumero(medicoes['volume20Tarde']?.toString()) - 
+                                    _extrairNumero(medicoes['volume20Manha']?.toString()),
+                  ),
 
                   if (widget.dadosFormulario['responsavel'] != null && widget.dadosFormulario['responsavel']!.isNotEmpty)
                     Column(
@@ -748,8 +750,33 @@ class _CalcPageState extends State<CalcPage> {
     required double entradaSaidaAmbiente,
     required double entradaSaida20,
   }) {
-    String fmt(double v) =>
-        v.isNaN ? "-" : "${v.toStringAsFixed(0).replaceAll('.', '.')} L";
+    // Função para formatar no padrão "999.999 L"
+    String fmt(double v) {
+      if (v.isNaN) return "-";
+      
+      final volumeInteiro = v.round();
+      String inteiroFormatado = volumeInteiro.toString();
+      
+      if (inteiroFormatado.length > 3) {
+        final buffer = StringBuffer();
+        int contador = 0;
+        
+        for (int i = inteiroFormatado.length - 1; i >= 0; i--) {
+          buffer.write(inteiroFormatado[i]);
+          contador++;
+          
+          if (contador == 3 && i > 0) {
+            buffer.write('.');
+            contador = 0;
+          }
+        }
+        
+        final chars = buffer.toString().split('').reversed.toList();
+        inteiroFormatado = chars.join('');
+      }
+      
+      return '$inteiroFormatado L';
+    }
 
     return Table(
       border: TableBorder.all(
@@ -763,116 +790,88 @@ class _CalcPageState extends State<CalcPage> {
         3: FlexColumnWidth(1.0),
       },
       children: [
-        // CABEÇALHO
-        const TableRow(
+        // CABEÇALHO - REDUZIDO
+        TableRow(
           decoration: BoxDecoration(color: Color(0xFFE0E0E0)),
           children: [
             Padding(
-              padding: EdgeInsets.all(8.0),
+              padding: EdgeInsets.all(6.0),
               child: Text("DESCRIÇÃO",
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
             ),
             Padding(
-              padding: EdgeInsets.all(8.0),
+              padding: EdgeInsets.all(6.0),
               child: Text("1ª MEDIÇÃO",
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
             ),
             Padding(
-              padding: EdgeInsets.all(8.0),
+              padding: EdgeInsets.all(6.0),
               child: Text("2ª MEDIÇÃO",
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
             ),
             Padding(
-              padding: EdgeInsets.all(8.0),
+              padding: EdgeInsets.all(6.0),
               child: Text("ENTRADA/SAÍDA",
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
 
-        // LINHA 1: VOLUME AMBIENTE
+        // LINHA 1: VOLUME AMBIENTE - REDUZIDA
         TableRow(
           children: [
             Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Text("Volume ambiente", style: TextStyle(fontSize: 11)),
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
+              child: Text("Volume ambiente", style: TextStyle(fontSize: 10)),
             ),
             Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Text(fmt(volumeAmbienteManha), textAlign: TextAlign.center),
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
+              child: Text(fmt(volumeAmbienteManha), 
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10)),
             ),
             Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Text(fmt(volumeAmbienteTarde), textAlign: TextAlign.center),
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
+              child: Text(fmt(volumeAmbienteTarde), 
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10)),
             ),
             Padding(
-              padding: EdgeInsets.all(8.0),
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
               child: Text(fmt(entradaSaidaAmbiente),
-                  textAlign: TextAlign.center),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10)),
             ),
           ],
         ),
 
-        // LINHA 2: VOLUME A 20 ºC
+        // LINHA 2: VOLUME A 20 ºC - REDUZIDA
         TableRow(
           children: [
             Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Text("Volume a 20 ºC", style: TextStyle(fontSize: 11)),
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
+              child: Text("Volume a 20 ºC", style: TextStyle(fontSize: 10)),
             ),
             Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Text(fmt(volume20Manha), textAlign: TextAlign.center),
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
+              child: Text(fmt(volume20Manha), 
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10)),
             ),
             Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Text(fmt(volume20Tarde), textAlign: TextAlign.center),
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
+              child: Text(fmt(volume20Tarde), 
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10)),
             ),
             Padding(
-              padding: EdgeInsets.all(8.0),
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
               child: Text(fmt(entradaSaida20),
-                  textAlign: TextAlign.center),
-            ),
-          ],
-        ),
-
-        // LINHA 3: FATURADO (NOVA LINHA)
-        TableRow(
-          children: [
-            Padding(
-              padding: EdgeInsets.all(8.0),
-              child: SizedBox(), // Célula vazia na primeira coluna
-            ),
-            Padding(
-              padding: EdgeInsets.all(8.0),
-              child: SizedBox(), // Célula vazia na segunda coluna
-            ),
-            Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Text(
-                "Faturado",
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-                textAlign: TextAlign.right,
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Text(
-                fmt(entradaSaidaAmbiente - entradaSaida20),
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green[700],
-                ),
-                textAlign: TextAlign.center,
-              ),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10)),
             ),
           ],
         ),
@@ -1612,5 +1611,123 @@ class _CalcPageState extends State<CalcPage> {
     return double.tryParse(somenteNumeros) ?? 0;
   }
 
+  Widget _blocoFaturado({
+    required double entradaSaidaAmbiente,
+    required double entradaSaida20,
+  }) {
+    String fmt(double v) =>
+        v.isNaN ? "-" : "${v.toStringAsFixed(0).replaceAll('.', '.')} L";
+
+    final faturado = entradaSaidaAmbiente - entradaSaida20;
+    final faturadoFormatado = fmt(faturado);
+    
+    // NOVO: Calcular o valor da diferença (você pode ajustar este cálculo conforme necessário)
+    final diferenca = entradaSaidaAmbiente - entradaSaida20; // Exemplo: mesma diferença
+    final diferencaFormatada = fmt(diferenca);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // LINHA: [ESPAÇO FANTASMA] + [BLOCO COM 2 LINHAS]
+        Row(
+          children: [
+            // ESPAÇO FANTASMA (70% da linha)
+            Expanded(
+              flex: 7,
+              child: SizedBox(),
+            ),
+            
+            // BLOCO VISÍVEL AGORA COM 2 LINHAS (30% da linha) - REDUZIDO
+            Expanded(
+              flex: 3,
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black54),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Table(
+                  defaultColumnWidth: IntrinsicColumnWidth(),
+                  border: TableBorder.all(color: Colors.black54),
+                  children: [
+                    // LINHA 1: FATURADO (REDUZIDO)
+                    TableRow(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12), // REDUZIDO: vertical de 12 para 8
+                          color: Color(0xFFF5F5F5),
+                          child: Center(
+                            child: Text(
+                              "Faturado",
+                              style: TextStyle(
+                                fontSize: 10, // REDUZIDO de 11 para 10
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12), // REDUZIDO: vertical de 12 para 8
+                          color: Colors.white,
+                          child: Center(
+                            child: Text(
+                              faturadoFormatado,
+                              style: TextStyle(
+                                fontSize: 11, // REDUZIDO de 12 para 11
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green[700],
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    // NOVA LINHA 2: DIFERENÇA (REDUZIDO)
+                    TableRow(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12), // REDUZIDO: vertical de 12 para 8
+                          color: Color(0xFFF5F5F5),
+                          child: Center(
+                            child: Text(
+                              "Diferença",
+                              style: TextStyle(
+                                fontSize: 10, // REDUZIDO de 11 para 10
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12), // REDUZIDO: vertical de 12 para 8
+                          color: Colors.white,
+                          child: Center(
+                            child: Text(
+                              diferencaFormatada,
+                              style: TextStyle(
+                                fontSize: 11, // REDUZIDO de 12 para 11
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue[700],
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 
 }
