@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:typed_data';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
 import 'dart:convert' show base64Encode;
 import 'dart:js' as js;
+import 'certificado_pdf.dart';
 
 class CertificadoAnalisePage extends StatefulWidget {
   final VoidCallback onVoltar;
@@ -899,148 +898,6 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
     _focusTempCT.dispose();
     super.dispose();
   }
-  
-  // ================= GERAR PDF =================
-  Future<Uint8List> _gerarCertificadoPDF() async {
-    final pdf = pw.Document();
-    
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(20),
-        build: (pw.Context context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              // CABEÇALHO
-              pw.Center(
-                child: pw.Text(
-                  'CERTIFICADO DE ANÁLISE',
-                  style: pw.TextStyle(
-                    fontSize: 18,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-              ),
-              pw.SizedBox(height: 20),
-              
-              // INFORMAÇÕES BÁSICAS
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text('Data: ${dataCtrl.text}'),
-                      pw.Text('Hora: ${horaCtrl.text}'),
-                    ],
-                  ),
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text('Produto: ${produtoSelecionado ?? "Não selecionado"}'),
-                      pw.Text('Notas Fiscais: ${campos['notas']!.text}'),
-                    ],
-                  ),
-                ],
-              ),
-              
-              pw.Divider(),
-              
-              // TRANSPORTADORA E MOTORISTA
-              pw.Text(
-                'INFORMAÇÕES DE TRANSPORTE',
-                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-              ),
-              pw.SizedBox(height: 10),
-              pw.Text('Transportadora: ${campos['transportadora']!.text}'),
-              pw.Text('Motorista: ${campos['motorista']!.text}'),
-              
-              pw.SizedBox(height: 20),
-              
-              // COLETAS
-              pw.Text(
-                'COLETAS NA PRESENÇA DO MOTORISTA',
-                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-              ),
-              pw.SizedBox(height: 10),
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text('Temperatura da amostra: ${campos['tempAmostra']!.text} °C'),
-                  pw.Text('Densidade observada: ${campos['densidadeAmostra']!.text}'),
-                  pw.Text('Temperatura do CT: ${campos['tempCT']!.text} °C'),
-                ],
-              ),
-              
-              pw.SizedBox(height: 20),
-              
-              // RESULTADOS
-              pw.Text(
-                'RESULTADOS OBTIDOS',
-                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-              ),
-              pw.SizedBox(height: 10),
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text('Densidade a 20°C: ${campos['densidade20']!.text}'),
-                  pw.Text('Fator de Correção (FCV): ${campos['fatorCorrecao']!.text}'),
-                ],
-              ),
-              
-              pw.SizedBox(height: 20),
-              
-              // VOLUMES AMBIENTE
-              pw.Text(
-                'VOLUMES APURADOS - AMBIENTE',
-                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-              ),
-              pw.SizedBox(height: 10),
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text('Quantidade de origem: ${campos['origemAmb']!.text}'),
-                  pw.Text('Quantidade de destino: ${campos['destinoAmb']!.text}'),
-                  pw.Text('Diferença: ${campos['difAmb']!.text}'),
-                ],
-              ),
-              
-              pw.SizedBox(height: 20),
-              
-              // VOLUMES 20°C
-              pw.Text(
-                'VOLUMES APURADOS A 20°C',
-                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-              ),
-              pw.SizedBox(height: 10),
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text('Quantidade de origem: ${campos['origem20']!.text}'),
-                  pw.Text('Quantidade de destino: ${campos['destino20']!.text}'),
-                  pw.Text('Diferença: ${campos['dif20']!.text}'),
-                ],
-              ),
-              
-              pw.SizedBox(height: 30),
-              
-              // RODAPÉ
-              pw.Divider(),
-              pw.Center(
-                child: pw.Text(
-                  'Documento gerado automaticamente pelo CloudTrack',
-                  style: pw.TextStyle(fontSize: 10),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-    
-    return pdf.save();
-  }
 
   // ================= DOWNLOAD PDF =================
   Future<void> _baixarPDF() async {
@@ -1075,22 +932,47 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
     );
     
     try {
-      // 3. Gera o PDF
-      final pdfBytes = await _gerarCertificadoPDF();
+      // 3. Prepara os dados para o PDF
+      final dadosPDF = {
+        'transportadora': campos['transportadora']!.text,
+        'motorista': campos['motorista']!.text,
+        'notas': campos['notas']!.text,
+        'tempAmostra': campos['tempAmostra']!.text,
+        'densidadeAmostra': campos['densidadeAmostra']!.text,
+        'tempCT': campos['tempCT']!.text,
+        'densidade20': campos['densidade20']!.text,
+        'fatorCorrecao': campos['fatorCorrecao']!.text,
+        'origemAmb': campos['origemAmb']!.text,
+        'destinoAmb': campos['destinoAmb']!.text,
+        'difAmb': campos['difAmb']!.text,
+        'origem20': campos['origem20']!.text,
+        'destino20': campos['destino20']!.text,
+        'dif20': campos['dif20']!.text,
+      };
       
-      // 4. Fecha loading
+      // 4. Gera o PDF usando a classe separada
+      final pdfDocument = await CertificadoPDF.gerar(
+        data: dataCtrl.text,
+        hora: horaCtrl.text,
+        produto: produtoSelecionado,
+        campos: dadosPDF,
+      );
+      
+      // 5. Converte o documento para bytes
+      final pdfBytes = await pdfDocument.save();
+      
+      // 6. Fecha loading
       if (context.mounted) Navigator.of(context).pop();
       
-      // 5. Faz download (apenas Web por enquanto)
+      // 7. Faz download
       if (kIsWeb) {
         await _downloadForWeb(pdfBytes);
       } else {
-        // Para mobile/desktop futuro
         print('PDF gerado (${pdfBytes.length} bytes) - Plataforma não web');
         _showMobileMessage();
       }
       
-      // 6. Mensagem de sucesso
+      // 8. Mensagem de sucesso
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1101,7 +983,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
       }
       
     } catch (e) {
-      // 7. Tratamento de erro
+      // 9. Tratamento de erro
       print('ERRO no _baixarPDF: $e');
       
       if (context.mounted) {
@@ -1117,6 +999,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
   }
 
   // Função SIMPLES para download Web
+  
   Future<void> _downloadForWeb(Uint8List bytes) async {
     try {
       // Converte bytes para Base64
@@ -1126,7 +1009,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
       final dataUrl = 'data:application/pdf;base64,$base64';
       
       // Cria nome do arquivo
-      final fileName = 'Certificado_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      final fileName = 'Certificado_${produtoSelecionado ?? "Analise"}_${DateTime.now().millisecondsSinceEpoch}.pdf';
       
       // JavaScript para fazer o download
       final jsCode = '''
