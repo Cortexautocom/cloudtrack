@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:typed_data';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'dart:convert' show base64Encode;
+import 'dart:js' as js;
 
 class CertificadoAnalisePage extends StatefulWidget {
   final VoidCallback onVoltar;
@@ -184,6 +190,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                       setState(() {
                                         produtoSelecionado = valor;
                                       });
+                                      _calcularResultadosObtidos();
                                     },
                                     decoration: _decoration('Produto'),
                                   ),
@@ -218,6 +225,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                             controller: campos['tempCT'],
                             focusNode: _focusTempCT,
                             decoration: _decoration('Temperatura do CT (°C)'),
+                            onChanged: (_) => _calcularResultadosObtidos(),
                           ),
                         ]),
 
@@ -256,6 +264,69 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                           _campo('Diferença',
                               campos['dif20']!),
                         ]),
+
+                        // 🔴 BOTÃO PARA GERAR CERTIFICADO EM PDF
+                        const SizedBox(height: 40),
+                        
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: const Color(0xFF0D47A1)),
+                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.grey[50],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              children: [
+                                const Text(
+                                  'GERAR CERTIFICADO EM PDF',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0D47A1),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                const Text(
+                                  'Clique no botão abaixo para baixar o certificado em formato PDF',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                                const SizedBox(height: 20),
+                                ElevatedButton.icon(
+                                  onPressed: _baixarPDF,
+                                  icon: const Icon(Icons.picture_as_pdf, size: 24),
+                                  label: const Text(
+                                    'BAIXAR CERTIFICADO PDF',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0D47A1),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 30,
+                                      vertical: 15,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                const Text(
+                                  'O PDF será gerado com todos os dados preenchidos acima',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
                       ],
                     ),
                   ),
@@ -827,5 +898,304 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
   void dispose() {
     _focusTempCT.dispose();
     super.dispose();
+  }
+  
+  // ================= GERAR PDF =================
+  Future<Uint8List> _gerarCertificadoPDF() async {
+    final pdf = pw.Document();
+    
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(20),
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // CABEÇALHO
+              pw.Center(
+                child: pw.Text(
+                  'CERTIFICADO DE ANÁLISE',
+                  style: pw.TextStyle(
+                    fontSize: 18,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ),
+              pw.SizedBox(height: 20),
+              
+              // INFORMAÇÕES BÁSICAS
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('Data: ${dataCtrl.text}'),
+                      pw.Text('Hora: ${horaCtrl.text}'),
+                    ],
+                  ),
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('Produto: ${produtoSelecionado ?? "Não selecionado"}'),
+                      pw.Text('Notas Fiscais: ${campos['notas']!.text}'),
+                    ],
+                  ),
+                ],
+              ),
+              
+              pw.Divider(),
+              
+              // TRANSPORTADORA E MOTORISTA
+              pw.Text(
+                'INFORMAÇÕES DE TRANSPORTE',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Text('Transportadora: ${campos['transportadora']!.text}'),
+              pw.Text('Motorista: ${campos['motorista']!.text}'),
+              
+              pw.SizedBox(height: 20),
+              
+              // COLETAS
+              pw.Text(
+                'COLETAS NA PRESENÇA DO MOTORISTA',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text('Temperatura da amostra: ${campos['tempAmostra']!.text} °C'),
+                  pw.Text('Densidade observada: ${campos['densidadeAmostra']!.text}'),
+                  pw.Text('Temperatura do CT: ${campos['tempCT']!.text} °C'),
+                ],
+              ),
+              
+              pw.SizedBox(height: 20),
+              
+              // RESULTADOS
+              pw.Text(
+                'RESULTADOS OBTIDOS',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text('Densidade a 20°C: ${campos['densidade20']!.text}'),
+                  pw.Text('Fator de Correção (FCV): ${campos['fatorCorrecao']!.text}'),
+                ],
+              ),
+              
+              pw.SizedBox(height: 20),
+              
+              // VOLUMES AMBIENTE
+              pw.Text(
+                'VOLUMES APURADOS - AMBIENTE',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text('Quantidade de origem: ${campos['origemAmb']!.text}'),
+                  pw.Text('Quantidade de destino: ${campos['destinoAmb']!.text}'),
+                  pw.Text('Diferença: ${campos['difAmb']!.text}'),
+                ],
+              ),
+              
+              pw.SizedBox(height: 20),
+              
+              // VOLUMES 20°C
+              pw.Text(
+                'VOLUMES APURADOS A 20°C',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text('Quantidade de origem: ${campos['origem20']!.text}'),
+                  pw.Text('Quantidade de destino: ${campos['destino20']!.text}'),
+                  pw.Text('Diferença: ${campos['dif20']!.text}'),
+                ],
+              ),
+              
+              pw.SizedBox(height: 30),
+              
+              // RODAPÉ
+              pw.Divider(),
+              pw.Center(
+                child: pw.Text(
+                  'Documento gerado automaticamente pelo CloudTrack',
+                  style: pw.TextStyle(fontSize: 10),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    
+    return pdf.save();
+  }
+
+  // ================= DOWNLOAD PDF =================
+  Future<void> _baixarPDF() async {
+    // 1. Validações
+    if (!_formKey.currentState!.validate()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Preencha todos os campos obrigatórios!'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
+    if (produtoSelecionado == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecione um produto!'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
+    // 2. Mostra loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+    
+    try {
+      // 3. Gera o PDF
+      final pdfBytes = await _gerarCertificadoPDF();
+      
+      // 4. Fecha loading
+      if (context.mounted) Navigator.of(context).pop();
+      
+      // 5. Faz download (apenas Web por enquanto)
+      if (kIsWeb) {
+        await _downloadForWeb(pdfBytes);
+      } else {
+        // Para mobile/desktop futuro
+        print('PDF gerado (${pdfBytes.length} bytes) - Plataforma não web');
+        _showMobileMessage();
+      }
+      
+      // 6. Mensagem de sucesso
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✓ Certificado baixado com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      
+    } catch (e) {
+      // 7. Tratamento de erro
+      print('ERRO no _baixarPDF: $e');
+      
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao gerar PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Função SIMPLES para download Web
+  Future<void> _downloadForWeb(Uint8List bytes) async {
+    try {
+      // Converte bytes para Base64
+      final base64 = base64Encode(bytes);
+      
+      // Cria URL de dados
+      final dataUrl = 'data:application/pdf;base64,$base64';
+      
+      // Cria nome do arquivo
+      final fileName = 'Certificado_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      
+      // JavaScript para fazer o download
+      final jsCode = '''
+        try {
+          // Cria elemento de link
+          const link = document.createElement('a');
+          link.href = '$dataUrl';
+          link.download = '$fileName';
+          link.style.display = 'none';
+          
+          // Adiciona à página
+          document.body.appendChild(link);
+          
+          // Clica no link para iniciar download
+          link.click();
+          
+          // Remove o link depois de um tempo
+          setTimeout(() => {
+            document.body.removeChild(link);
+          }, 100);
+          
+          console.log('Download iniciado: ' + '$fileName');
+        } catch (error) {
+          console.error('Erro no download automático:', error);
+          // Fallback: abre em nova aba
+          window.open('$dataUrl', '_blank');
+        }
+      ''';
+      
+      // Executa o JavaScript
+      js.context.callMethod('eval', [jsCode]);
+      
+    } catch (e) {
+      print('Erro no download Web: $e');
+      
+      // Fallback: instruções manuais
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Como baixar manualmente'),
+            content: const Text(
+              '1. O PDF foi gerado com sucesso\n'
+              '2. Se não baixou automaticamente:\n'
+              '3. Clique com botão direito na tela\n'
+              '4. Selecione "Salvar página como"\n'
+              '5. Salve como arquivo PDF',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  // Função auxiliar para mobile
+  void _showMobileMessage() {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('PDF gerado! Em breve disponível para download no mobile.'),
+          backgroundColor: Colors.blue,
+        ),
+      );
+    }
   }
 }
