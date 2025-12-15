@@ -135,6 +135,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // ================= HEADER =================
         Row(
           children: [
             IconButton(
@@ -153,6 +154,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
         ),
         const Divider(),
 
+        // ================= CONTEÚDO =================
         Expanded(
           child: SingleChildScrollView(
             child: Center(
@@ -164,7 +166,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                     key: _formKey,
                     child: Column(
                       children: [
-                        // ============ SEÇÃO TIPO DE OPERAÇÃO ============
+                        // ================= TIPO DE OPERAÇÃO =================
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -178,7 +180,6 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                               ),
                             ),
                             const SizedBox(height: 8),
-
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
@@ -188,33 +189,30 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                               ),
                               child: Row(
                                 children: [
-                                  // Opção Carregamento
                                   Expanded(
                                     child: Row(
                                       children: [
                                         Radio<String>(
-                                          value: 'Carregamento',
+                                          value: 'Carga',
                                           groupValue: tipoOperacao,
-                                          onChanged: (String? value) {
+                                          onChanged: (value) {
                                             setState(() {
                                               tipoOperacao = value;
                                             });
                                           },
                                           activeColor: const Color(0xFF0D47A1),
                                         ),
-                                        const Text('Carregamento'),
+                                        const Text('Carga'),
                                       ],
                                     ),
                                   ),
-
-                                  // Opção Descarga
                                   Expanded(
                                     child: Row(
                                       children: [
                                         Radio<String>(
                                           value: 'Descarga',
                                           groupValue: tipoOperacao,
-                                          onChanged: (String? value) {
+                                          onChanged: (value) {
                                             setState(() {
                                               tipoOperacao = value;
                                             });
@@ -231,158 +229,140 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                             const SizedBox(height: 20),
                           ],
                         ),
-                        // ================================================
 
-                        // PRIMEIRA LINHA: Nota Fiscal, Produto, Data, Hora (4 campos)
-                        // COM CONTROLE DE TAMANHO: Data e Hora menores
-                        _linhaFlexivel([
-                          {
-                            'flex': 5, // Notas Fiscais (41.7%)
-                            'widget': _campo('Notas Fiscais', campos['notas']!),
-                          },
-                          {
-                            'flex': 5, // Produto (41.7%)
-                            'widget': carregandoProdutos
-                                ? const CircularProgressIndicator()
-                                : DropdownButtonFormField<String>(
-                                    value: produtoSelecionado,
-                                    items: produtos
-                                        .map(
-                                          (p) => DropdownMenuItem<String>(
-                                            value: p,
-                                            child: Text(p),
-                                          ),
-                                        )
-                                        .toList(),
-                                    onChanged: (valor) {
-                                      setState(() {
-                                        produtoSelecionado = valor;
-                                      });
-                                      _calcularResultadosObtidos();
-                                    },
-                                    decoration: _decoration('Produto'),
-                                  ),
-                          },
-                          {
-                            'flex': 3, // Data (8.3%) - MENOR
-                            'widget': _campo('Data', dataCtrl, enabled: false),
-                          },
-                          {
-                            'flex': 2, // Hora (8.3%) - MENOR
-                            'widget': _campo('Hora', horaCtrl, enabled: false),
-                          },
-                        ]),
-
-                        const SizedBox(height: 12),
-
-                        // SEGUNDA LINHA: Motorista e Transportadora (2 campos)
-                        _linha([
-                          _campo('Motorista', campos['motorista']!),
-                          _campo('Transportadora', campos['transportadora']!),
-                        ]),
-
-                        const SizedBox(height: 20),
-                        _secao('Coletas na presença do motorista'),
-
-                        _linha([
-                          _campo('Temperatura da amostra (°C)', campos['tempAmostra']!),
-                          _campo('Densidade observada', campos['densidadeAmostra']!),
-                          TextFormField(
-                            controller: campos['tempCT'],
-                            focusNode: _focusTempCT,
-                            decoration: _decoration('Temperatura do CT (°C)'),
-                            onChanged: (_) => _calcularResultadosObtidos(),
-                          ),
-                        ]),
-
-                        const SizedBox(height: 20),
-                        _secao('Resultados obtidos'),
-
-                        _linha([
-                          _campo('Densidade a 20 ºC', campos['densidade20']!, enabled: false),
-                          _campo('Fator de correção (FCV)', campos['fatorCorrecao']!, enabled: false),
-                        ]),
-
-                        const SizedBox(height: 20),
-                        _secao('Volumes apurados - Ambiente'),
-
-                        _linha([
-                          _campo('Quantidade de origem', campos['origemAmb']!),
-                          _campo('Quantidade de destino', campos['destinoAmb']!),
-                          _campo('Diferença', campos['difAmb']!),
-                        ]),
-
-                        const SizedBox(height: 20),
-                        _secao('Volumes apurados a 20 ºC'),
-
-                        _linha([
-                          _campo('Quantidade de origem', campos['origem20']!),
-                          _campo('Quantidade de destino', campos['destino20']!),
-                          _campo('Diferença', campos['dif20']!),
-                        ]),
-
-                        // 🔴 BOTÃO PARA GERAR CERTIFICADO EM PDF
-                        const SizedBox(height: 40),
-
-                        Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: const Color(0xFF0D47A1)),
-                            borderRadius: BorderRadius.circular(8),
-                            color: Colors.grey[50],
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
+                        // ================= FORMULÁRIO =================
+                        Opacity(
+                          opacity: tipoOperacao == null ? 0.3 : 1.0,
+                          child: AbsorbPointer(
+                            absorbing: tipoOperacao == null,
                             child: Column(
                               children: [
-                                const Text(
-                                  'GERAR CERTIFICADO EM PDF',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0D47A1),
+                                _linhaFlexivel([
+                                  {
+                                    'flex': 5,
+                                    'widget': _campo('Notas Fiscais', campos['notas']!),
+                                  },
+                                  {
+                                    'flex': 5,
+                                    'widget': carregandoProdutos
+                                        ? const Center(
+                                            child: SizedBox(
+                                              width: 24,
+                                              height: 24,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2.5,
+                                                color: Color(0xFF0D47A1),
+                                              ),
+                                            ),
+                                          )
+                                        : DropdownButtonFormField<String>(
+                                            value: produtoSelecionado,
+                                            items: produtos
+                                                .map(
+                                                  (p) => DropdownMenuItem(
+                                                    value: p,
+                                                    child: Text(p),
+                                                  ),
+                                                )
+                                                .toList(),
+                                            onChanged: (valor) {
+                                              setState(() {
+                                                produtoSelecionado = valor;
+                                              });
+                                              _calcularResultadosObtidos();
+                                            },
+                                            decoration: _decoration('Produto'),
+                                          ),
+                                  },
+                                  {
+                                    'flex': 3,
+                                    'widget': _campo('Data', dataCtrl, enabled: false),
+                                  },
+                                  {
+                                    'flex': 2,
+                                    'widget': _campo('Hora', horaCtrl, enabled: false),
+                                  },
+                                ]),
+                                const SizedBox(height: 12),
+                                _linha([
+                                  _campo('Motorista', campos['motorista']!),
+                                  _campo('Transportadora', campos['transportadora']!),
+                                ]),
+                                const SizedBox(height: 20),
+                                _secao('Coletas na presença do motorista'),
+                                _linha([
+                                  _campo('Temperatura da amostra (°C)', campos['tempAmostra']!),
+                                  _campo('Densidade observada', campos['densidadeAmostra']!),
+                                  TextFormField(
+                                    controller: campos['tempCT'],
+                                    focusNode: _focusTempCT,
+                                    decoration: _decoration('Temperatura do CT (°C)'),
+                                    onChanged: (_) => _calcularResultadosObtidos(),
                                   ),
-                                ),
-                                const SizedBox(height: 10),
-                                const Text(
-                                  'Clique no botão abaixo para baixar o certificado em formato PDF',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.grey),
+                                ]),
+                                const SizedBox(height: 20),
+                                _secao('Resultados obtidos'),
+                                _linha([
+                                  _campo('Densidade a 20 ºC', campos['densidade20']!, enabled: false),
+                                  _campo('Fator de correção (FCV)', campos['fatorCorrecao']!, enabled: false),
+                                ]),
+                                const SizedBox(height: 20),
+                                _secao('Volumes apurados - Ambiente'),
+                                _linha([
+                                  _campo('Quantidade de origem', campos['origemAmb']!),
+                                  _campo('Quantidade de destino', campos['destinoAmb']!),
+                                  _campo('Diferença', campos['difAmb']!),
+                                ]),
+                                const SizedBox(height: 20),
+                                _secao('Volumes apurados a 20 ºC'),
+                                _linha([
+                                  _campo('Quantidade de origem', campos['origem20']!),
+                                  _campo('Quantidade de destino', campos['destino20']!),
+                                  _campo('Diferença', campos['dif20']!),
+                                ]),
+                                const SizedBox(height: 40),
+
+                                // ================= PDF =================
+                                Container(
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: const Color(0xFF0D47A1)),
+                                    borderRadius: BorderRadius.circular(8),
+                                    color: Colors.grey[50],
+                                  ),
+                                  padding: const EdgeInsets.all(20),
+                                  child: Column(
+                                    children: [
+                                      const Text(
+                                        'GERAR CERTIFICADO EM PDF',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF0D47A1),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      const Text(
+                                        'Clique no botão abaixo para baixar o certificado em formato PDF',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(color: Colors.grey),
+                                      ),
+                                      const SizedBox(height: 20),
+                                      ElevatedButton.icon(
+                                        onPressed: tipoOperacao == null ? null : _baixarPDF,
+                                        icon: const Icon(Icons.picture_as_pdf, size: 24),
+                                        label: const Text(
+                                          'BAIXAR CERTIFICADO PDF',
+                                          style: TextStyle(fontSize: 16),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                                 const SizedBox(height: 20),
-                                ElevatedButton.icon(
-                                  onPressed: _baixarPDF,
-                                  icon: const Icon(Icons.picture_as_pdf, size: 24),
-                                  label: const Text(
-                                    'BAIXAR CERTIFICADO PDF',
-                                    style: TextStyle(fontSize: 16),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF0D47A1),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 30,
-                                      vertical: 15,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                const Text(
-                                  'O PDF será gerado com todos os dados preenchidos acima',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
-                                ),
                               ],
                             ),
                           ),
                         ),
-
-                        const SizedBox(height: 20),
                       ],
                     ),
                   ),
@@ -394,6 +374,9 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
       ],
     );
   }
+
+
+
 
   // ================= UI HELPERS =================
   Widget _linha(List<Widget> campos) => Row(
