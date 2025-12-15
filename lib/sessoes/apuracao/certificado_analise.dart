@@ -21,7 +21,7 @@ class CertificadoAnalisePage extends StatefulWidget {
 
 class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
   final _formKey = GlobalKey<FormState>();
-
+  String? tipoOperacao;
   // ================= CONTROLLERS =================
   final TextEditingController dataCtrl = TextEditingController();
   final TextEditingController horaCtrl = TextEditingController();
@@ -131,7 +131,6 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
     setState(() {});
   }
 
-  // ================= BUILD =================
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -145,9 +144,10 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
             const Text(
               'Certificado de Análise',
               style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0D47A1)),
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0D47A1),
+              ),
             ),
           ],
         ),
@@ -164,6 +164,75 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                     key: _formKey,
                     child: Column(
                       children: [
+                        // ============ SEÇÃO TIPO DE OPERAÇÃO ============
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 10),
+                            const Text(
+                              'TIPO DE OPERAÇÃO',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0D47A1),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade400),
+                                borderRadius: BorderRadius.circular(6),
+                                color: Colors.white,
+                              ),
+                              child: Row(
+                                children: [
+                                  // Opção Carregamento
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        Radio<String>(
+                                          value: 'Carregamento',
+                                          groupValue: tipoOperacao,
+                                          onChanged: (String? value) {
+                                            setState(() {
+                                              tipoOperacao = value;
+                                            });
+                                          },
+                                          activeColor: const Color(0xFF0D47A1),
+                                        ),
+                                        const Text('Carregamento'),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // Opção Descarga
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        Radio<String>(
+                                          value: 'Descarga',
+                                          groupValue: tipoOperacao,
+                                          onChanged: (String? value) {
+                                            setState(() {
+                                              tipoOperacao = value;
+                                            });
+                                          },
+                                          activeColor: const Color(0xFF0D47A1),
+                                        ),
+                                        const Text('Descarga'),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+                        ),
+                        // ================================================
+
                         // PRIMEIRA LINHA: Nota Fiscal, Produto, Data, Hora (4 campos)
                         // COM CONTROLE DE TAMANHO: Data e Hora menores
                         _linhaFlexivel([
@@ -216,10 +285,8 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                         _secao('Coletas na presença do motorista'),
 
                         _linha([
-                          _campo('Temperatura da amostra (°C)',
-                              campos['tempAmostra']!),
-                          _campo('Densidade observada',
-                              campos['densidadeAmostra']!),
+                          _campo('Temperatura da amostra (°C)', campos['tempAmostra']!),
+                          _campo('Densidade observada', campos['densidadeAmostra']!),
                           TextFormField(
                             controller: campos['tempCT'],
                             focusNode: _focusTempCT,
@@ -232,41 +299,31 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                         _secao('Resultados obtidos'),
 
                         _linha([
-                          _campo('Densidade a 20 ºC',
-                              campos['densidade20']!,
-                              enabled: false),
-                          _campo('Fator de correção (FCV)',
-                              campos['fatorCorrecao']!,
-                              enabled: false),
+                          _campo('Densidade a 20 ºC', campos['densidade20']!, enabled: false),
+                          _campo('Fator de correção (FCV)', campos['fatorCorrecao']!, enabled: false),
                         ]),
 
                         const SizedBox(height: 20),
                         _secao('Volumes apurados - Ambiente'),
 
                         _linha([
-                          _campo('Quantidade de origem',
-                              campos['origemAmb']!),
-                          _campo('Quantidade de destino',
-                              campos['destinoAmb']!),
-                          _campo('Diferença',
-                              campos['difAmb']!),
+                          _campo('Quantidade de origem', campos['origemAmb']!),
+                          _campo('Quantidade de destino', campos['destinoAmb']!),
+                          _campo('Diferença', campos['difAmb']!),
                         ]),
 
                         const SizedBox(height: 20),
                         _secao('Volumes apurados a 20 ºC'),
 
                         _linha([
-                          _campo('Quantidade de origem',
-                              campos['origem20']!),
-                          _campo('Quantidade de destino',
-                              campos['destino20']!),
-                          _campo('Diferença',
-                              campos['dif20']!),
+                          _campo('Quantidade de origem', campos['origem20']!),
+                          _campo('Quantidade de destino', campos['destino20']!),
+                          _campo('Diferença', campos['dif20']!),
                         ]),
 
                         // 🔴 BOTÃO PARA GERAR CERTIFICADO EM PDF
                         const SizedBox(height: 40),
-                        
+
                         Container(
                           decoration: BoxDecoration(
                             border: Border.all(color: const Color(0xFF0D47A1)),
@@ -911,6 +968,16 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
       );
       return;
     }
+
+    if (tipoOperacao == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecione o tipo de operação!'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
     
     if (produtoSelecionado == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1080,5 +1147,5 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
         ),
       );
     }
-  }
+  }  
 }
