@@ -240,7 +240,26 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                 _linhaFlexivel([
                                   {
                                     'flex': 5,
-                                    'widget': _campo('Notas Fiscais', campos['notas']!),
+                                    'widget': TextFormField(
+                                                controller: campos['notas'],
+                                                keyboardType: TextInputType.number,
+                                                onChanged: (value) {
+                                                  final cursorPosition = campos['notas']!.selection.baseOffset;
+                                                  final maskedValue = _aplicarMascaraNotasFiscais(value);
+
+                                                  if (maskedValue != value) {
+                                                    campos['notas']!.value = TextEditingValue(
+                                                      text: maskedValue,
+                                                      selection: TextSelection.collapsed(
+                                                        offset: cursorPosition + (maskedValue.length - value.length),
+                                                      ),
+                                                    );
+                                                  }
+                                                },
+                                                decoration: _decoration('Notas Fiscais').copyWith(
+                                                  hintText: '000.000',
+                                                ),
+                                              ),
                                   },
                                   {
                                     'flex': 5,
@@ -285,20 +304,78 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                 ]),
                                 const SizedBox(height: 12),
                                 _linha([
-                                  _campo('Motorista', campos['motorista']!),
-                                  _campo('Transportadora', campos['transportadora']!),
+                                  TextFormField(
+                                    controller: campos['motorista'],
+                                    maxLength: 50,
+                                    decoration: _decoration('Motorista').copyWith(
+                                      counterText: '',
+                                    ),
+                                  ),
+                                  TextFormField(
+                                    controller: campos['transportadora'],
+                                    maxLength: 50,
+                                    decoration: _decoration('Transportadora').copyWith(
+                                      counterText: '',
+                                    ),
+                                  )
                                 ]),
                                 const SizedBox(height: 20),
                                 _secao('Coletas na presença do motorista'),
                                 _linha([
-                                  _campo('Temperatura da amostra (°C)', campos['tempAmostra']!),
-                                  _campo('Densidade observada', campos['densidadeAmostra']!),
+                                  TextFormField(
+                                    controller: campos['tempAmostra'],
+                                    keyboardType: TextInputType.number,
+                                    onChanged: (value) {
+                                      final masked = _aplicarMascaraTemperatura(value);
+
+                                      if (masked != value) {
+                                        campos['tempAmostra']!.value = TextEditingValue(
+                                          text: masked,
+                                          selection: TextSelection.collapsed(offset: masked.length),
+                                        );
+                                      }
+                                    },
+                                    decoration: _decoration('Temperatura da amostra (°C)').copyWith(
+                                      hintText: '00,0',
+                                    ),
+                                  ),
+
+                                  TextFormField(
+                                    controller: campos['densidadeAmostra'],
+                                    keyboardType: TextInputType.number,
+                                    onChanged: (value) {
+                                      final masked = _aplicarMascaraDensidade(value);
+
+                                      if (masked != value) {
+                                        campos['densidadeAmostra']!.value = TextEditingValue(
+                                          text: masked,
+                                          selection: TextSelection.collapsed(offset: masked.length),
+                                        );
+                                      }
+                                    },
+                                    decoration: _decoration('Densidade observada').copyWith(
+                                      hintText: '0,0000',
+                                    ),
+                                  ),
+
                                   TextFormField(
                                     controller: campos['tempCT'],
-                                    focusNode: _focusTempCT,
-                                    decoration: _decoration('Temperatura do CT (°C)'),
-                                    onChanged: (_) => _calcularResultadosObtidos(),
+                                    keyboardType: TextInputType.number,
+                                    onChanged: (value) {
+                                      final masked = _aplicarMascaraTemperatura(value);
+
+                                      if (masked != value) {
+                                        campos['tempCT']!.value = TextEditingValue(
+                                          text: masked,
+                                          selection: TextSelection.collapsed(offset: masked.length),
+                                        );
+                                      }
+                                    },
+                                    decoration: _decoration('Temperatura do CT (°C)').copyWith(
+                                      hintText: '00,0',
+                                    ),
                                   ),
+
                                 ]),
                                 const SizedBox(height: 20),
                                 _secao('Resultados obtidos'),
@@ -1130,5 +1207,66 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
         ),
       );
     }
-  }  
+  }
+
+  String _aplicarMascaraNotasFiscais(String texto) {
+    // Remove tudo que não é número
+    String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
+
+    // Limita a 6 dígitos
+    if (apenasNumeros.length > 6) {
+      apenasNumeros = apenasNumeros.substring(0, 6);
+    }
+
+    if (apenasNumeros.isEmpty) return '';
+
+    // Aplica máscara 999.999
+    if (apenasNumeros.length > 3) {
+      String parteMilhar = apenasNumeros.substring(0, apenasNumeros.length - 3);
+      String parteCentena = apenasNumeros.substring(apenasNumeros.length - 3);
+      return '$parteMilhar.$parteCentena';
+    }
+
+    return apenasNumeros;
+  }
+
+  String _aplicarMascaraTemperatura(String texto) {
+    // Remove tudo que não for número
+    String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
+
+    // Limita a 3 dígitos numéricos
+    if (apenasNumeros.length > 3) {
+      apenasNumeros = apenasNumeros.substring(0, 3);
+    }
+
+    if (apenasNumeros.isEmpty) return '';
+
+    // Insere vírgula antes do 3º dígito
+    if (apenasNumeros.length > 2) {
+      return '${apenasNumeros.substring(0, 2)},${apenasNumeros.substring(2)}';
+    }
+
+    return apenasNumeros;
+  }
+
+  String _aplicarMascaraDensidade(String texto) {
+    // Remove tudo que não for número
+    String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
+
+    if (apenasNumeros.isEmpty) return '';
+
+    // Limita a 5 caracteres no total (ex: 0,7456)
+    if (apenasNumeros.length > 5) {
+      apenasNumeros = apenasNumeros.substring(0, 5);
+    }
+
+    // Primeiro dígito é parte inteira, resto é decimal
+    String parteInteira = apenasNumeros.substring(0, 1);
+    String parteDecimal =
+        apenasNumeros.length > 1 ? apenasNumeros.substring(1) : '';
+
+    return parteDecimal.isEmpty
+        ? '$parteInteira,'
+        : '$parteInteira,$parteDecimal';
+  }
 }
