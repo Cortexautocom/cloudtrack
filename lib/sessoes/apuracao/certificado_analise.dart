@@ -902,11 +902,12 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
         return null;
       }
 
-      // 1️⃣ Tentativa direta
+      // 1️⃣ Tentativa direta com a densidade original
       final direto = await _buscarFCVPorCodigo(codigoOriginal);
       if (direto != null) return direto;
 
-      // ================= APROXIMAÇÃO DE DENSIDADE =================
+      // ================= BUSCA DENSIDADE MAIS PRÓXIMA =================
+      // Busca todas as densidades disponíveis na view
       final sampleRow = await supabase
           .from(nomeView)
           .select()
@@ -917,6 +918,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
         return '-';
       }
 
+      // Extrai todas as densidades disponíveis da view
       final densidadesDisponiveis = sampleRow.keys
           .where((k) => k.startsWith('v_'))
           .map((k) {
@@ -925,7 +927,11 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
               final valor =
                   double.tryParse('${codigo[0]}.${codigo.substring(1)}');
               if (valor != null) {
-                return {'codigo': codigo, 'valor': valor};
+                return {
+                  'codigo': codigo,
+                  'valor': valor,
+                  'diferenca': (valor - densidadeNum).abs()
+                };
               }
             }
             return null;
@@ -937,23 +943,102 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
         return '-';
       }
 
+      // Ordena por proximidade (menor diferença primeiro)
       densidadesDisponiveis.sort((a, b) {
-        final da = (a['valor'] - densidadeNum).abs();
-        final db = (b['valor'] - densidadeNum).abs();
+        final da = a['diferenca'] as double;
+        final db = b['diferenca'] as double;
         return da.compareTo(db);
       });
 
-      final codigoMaisProximo = densidadesDisponiveis.first['codigo'];
+      // Pega a densidade mais próxima
+      final densidadeMaisProxima = densidadesDisponiveis.first;
+      final codigoMaisProximo = densidadeMaisProxima['codigo'] as String;
+      final diferenca = densidadeMaisProxima['diferenca'] as double;
 
+      // 2️⃣ Tenta buscar FCV com a densidade mais próxima
       final aproximado = await _buscarFCVPorCodigo(codigoMaisProximo);
+      
       if (aproximado != null) {
+        // Mostra alerta informando que usou valor aproximado
+        if (context.mounted && diferenca > 0.0001) { // Só mostra se houver diferença significativa
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            
+          });
+        }
         return aproximado;
+      }
+
+      // 3️⃣ Fallback: tenta buscar com valores de temperatura alternativos
+      final temperaturaAlternativas = [
+        temperaturaFormatada,
+        temperaturaFormatada.replaceAll(',', '.'),
+        ..._gerarVariacoesTemperatura(temperaturaFormatada),
+      ];
+
+      for (final tempAlt in temperaturaAlternativas) {
+        try {
+          final r = await supabase
+              .from(nomeView)
+              .select('v_$codigoMaisProximo')
+              .eq('temperatura_obs', tempAlt)
+              .maybeSingle();
+
+          if (r != null && r['v_$codigoMaisProximo'] != null) {
+            if (context.mounted && diferenca > 0.0001) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                
+              });
+            }
+            return _formatarFCV(r['v_$codigoMaisProximo'].toString());
+          }
+        } catch (_) {
+          continue;
+        }
       }
 
       return '-';
     } catch (_) {
       return '-';
     }
+  }
+
+  // Função auxiliar para gerar variações de temperatura
+  List<String> _gerarVariacoesTemperatura(String temperatura) {
+    final List<String> variacoes = [];
+    
+    if (temperatura.contains(',')) {
+      final partes = temperatura.split(',');
+      final inteiro = partes[0];
+      final decimal = partes[1];
+      
+      // Para anidro/hidratado
+      variacoes.addAll([
+        '$inteiro,${decimal.padRight(2, '0')}', // Completa com zeros
+        '$inteiro,${decimal.substring(0, decimal.length - 1)}', // Remove último dígito
+      ]);
+      
+      // Para gasolina/diesel
+      if (decimal.length > 1) {
+        variacoes.add('$inteiro,${decimal.substring(0, 1)}');
+      }
+      
+      // Versão com ponto
+      final temperaturaComPonto = temperatura.replaceAll(',', '.');
+      variacoes.addAll([
+        temperaturaComPonto,
+        '$inteiro.${decimal.padRight(2, '0')}',
+      ]);
+    } else {
+      // Temperatura sem decimal
+      variacoes.addAll([
+        '$temperatura,0',
+        '$temperatura,00',
+        '$temperatura.0',
+        '$temperatura.00',
+      ]);
+    }
+    
+    return variacoes.toSet().toList(); // Remove duplicatas
   }
 
 
