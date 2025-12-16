@@ -268,7 +268,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                                   }
                                                 },
                                                 decoration: _decoration('Notas Fiscais').copyWith(
-                                                  hintText: '000.000',
+                                                  hintText: '',
                                                 ),
                                               ),
                                   },
@@ -399,18 +399,109 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                 const SizedBox(height: 20),
                                 _secao('Volumes apurados - Ambiente'),
                                 _linha([
-                                  _campo('Quantidade de origem', campos['origemAmb']!),
-                                  _campo('Quantidade de destino', campos['destinoAmb']!),
-                                  _campo('Diferença', campos['difAmb']!),
+                                  TextFormField(
+                                    controller: campos['origemAmb'],
+                                    keyboardType: TextInputType.number,
+                                    onChanged: (value) {
+                                      final ctrl = campos['origemAmb']!;
+                                      final masked = _aplicarMascaraNotasFiscais(value);
+
+                                      if (masked != value) {
+                                        ctrl.value = TextEditingValue(
+                                          text: masked,
+                                          selection: TextSelection.collapsed(offset: masked.length),
+                                        );
+                                      }
+                                    },
+                                    decoration: _decoration('Quantidade de origem'),
+                                  ),
+                                  TextFormField(
+                                    controller: campos['destinoAmb'],
+                                    keyboardType: TextInputType.number,
+                                    onChanged: (value) {
+                                      final ctrl = campos['destinoAmb']!;
+                                      final masked = _aplicarMascaraNotasFiscais(value);
+
+                                      if (masked != value) {
+                                        ctrl.value = TextEditingValue(
+                                          text: masked,
+                                          selection: TextSelection.collapsed(offset: masked.length),
+                                        );
+                                      }
+                                    },
+                                    decoration: _decoration('Quantidade de destino'),
+                                  ),
+                                  TextFormField(
+                                    controller: campos['difAmb'],
+                                    keyboardType: TextInputType.number,
+                                    onChanged: (value) {
+                                      final ctrl = campos['difAmb']!;
+                                      final masked = _aplicarMascaraNotasFiscais(value);
+
+                                      if (masked != value) {
+                                        ctrl.value = TextEditingValue(
+                                          text: masked,
+                                          selection: TextSelection.collapsed(offset: masked.length),
+                                        );
+                                      }
+                                    },
+                                    decoration: _decoration('Diferença'),
+                                  ),
                                 ]),
                                 const SizedBox(height: 20),
                                 _secao('Volumes apurados a 20 ºC'),
                                 _linha([
-                                  _campo('Quantidade de origem', campos['origem20']!),
-                                  _campo('Quantidade de destino', campos['destino20']!),
-                                  _campo('Diferença', campos['dif20']!),
+                                  TextFormField(
+                                    controller: campos['origem20'],
+                                    keyboardType: TextInputType.number,
+                                    onChanged: (value) {
+                                      final ctrl = campos['origem20']!;
+                                      final masked = _aplicarMascaraNotasFiscais(value);
+
+                                      if (masked != value) {
+                                        ctrl.value = TextEditingValue(
+                                          text: masked,
+                                          selection: TextSelection.collapsed(offset: masked.length),
+                                        );
+                                      }
+                                    },
+                                    decoration: _decoration('Quantidade de origem'),
+                                  ),
+                                  TextFormField(
+                                    controller: campos['destino20'],
+                                    keyboardType: TextInputType.number,
+                                    onChanged: (value) {
+                                      final ctrl = campos['destino20']!;
+                                      final masked = _aplicarMascaraNotasFiscais(value);
+
+                                      if (masked != value) {
+                                        ctrl.value = TextEditingValue(
+                                          text: masked,
+                                          selection: TextSelection.collapsed(offset: masked.length),
+                                        );
+                                      }
+                                    },
+                                    decoration: _decoration('Quantidade de destino'),
+                                  ),
+                                  TextFormField(
+                                    controller: campos['dif20'],
+                                    keyboardType: TextInputType.number,
+                                    onChanged: (value) {
+                                      final ctrl = campos['dif20']!;
+                                      final masked = _aplicarMascaraNotasFiscais(value);
+
+                                      if (masked != value) {
+                                        ctrl.value = TextEditingValue(
+                                          text: masked,
+                                          selection: TextSelection.collapsed(offset: masked.length),
+                                        );
+                                      }
+                                    },
+                                    decoration: _decoration('Diferença'),
+                                  ),
                                 ]),
                                 const SizedBox(height: 40),
+
 
                                 // ================= PDF =================
                                 Container(
