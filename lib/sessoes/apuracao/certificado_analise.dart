@@ -34,6 +34,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
     // Cabeçalho
     'transportadora': TextEditingController(),
     'motorista': TextEditingController(),
+    'placa': TextEditingController(),
     'notas': TextEditingController(),
 
     // Coletas (usuário)
@@ -330,21 +331,53 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                   },
                                 ]),
                                 const SizedBox(height: 12),
-                                _linha([
-                                  TextFormField(
-                                    controller: campos['motorista'],
-                                    maxLength: 50,
-                                    decoration: _decoration('Motorista').copyWith(
-                                      counterText: '',
+                                // NOVA LINHA COM PLACA, MOTORISTA E TRANSPORTADORA
+                                // COM MÁSCARA AUTOMÁTICA PARA PLACA
+                                _linhaFlexivel([
+                                  {
+                                    'flex': 3, // Placa - 15% (3/20)
+                                    'widget': TextFormField(
+                                      controller: campos['placa'],
+                                      maxLength: 7,
+                                      textCapitalization: TextCapitalization.characters,
+                                      onChanged: (value) {
+                                        final masked = _aplicarMascaraPlaca(value);
+                                        if (masked != value) {
+                                          campos['placa']!.value = TextEditingValue(
+                                            text: masked,
+                                            selection: TextSelection.collapsed(offset: masked.length),
+                                          );
+                                        }
+                                      },
+                                      decoration: _decoration('Placa').copyWith(
+                                        counterText: '',
+                                        hintText: '',
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                                        labelStyle: const TextStyle(fontSize: 14),
+                                      ),
+                                      style: const TextStyle(fontSize: 15),
                                     ),
-                                  ),
-                                  TextFormField(
-                                    controller: campos['transportadora'],
-                                    maxLength: 50,
-                                    decoration: _decoration('Transportadora').copyWith(
-                                      counterText: '',
+                                  },
+                                  {
+                                    'flex': 10, // Motorista - 50% (10/20)
+                                    'widget': TextFormField(
+                                      controller: campos['motorista'],
+                                      maxLength: 50,
+                                      decoration: _decoration('Motorista').copyWith(
+                                        counterText: '',
+                                      ),
                                     ),
-                                  )
+                                  },
+                                  {
+                                    'flex': 7, // Transportadora - 35% (7/20)
+                                    'widget': TextFormField(
+                                      controller: campos['transportadora'],
+                                      maxLength: 50,
+                                      decoration: _decoration('Transportadora').copyWith(
+                                        counterText: '',
+                                      ),
+                                    ),
+                                  },
                                 ]),
                                 const SizedBox(height: 20),
                                 _secao('Coletas na presença do motorista'),
@@ -1119,6 +1152,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
       final dadosPDF = {
         'transportadora': campos['transportadora']!.text,
         'motorista': campos['motorista']!.text,
+        'placa': campos['placa']!.text,
         'notas': campos['notas']!.text,
         'tempAmostra': campos['tempAmostra']!.text,
         'densidadeAmostra': campos['densidadeAmostra']!.text,
@@ -1473,6 +1507,27 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
     }
     
     return resultado;
+  }
+
+  String _aplicarMascaraPlaca(String texto) {
+    // Remove caracteres especiais e converte para maiúsculas
+    String limpo = texto
+        .replaceAll(RegExp(r'[^A-Za-z0-9]'), '')
+        .toUpperCase();
+    
+    if (limpo.isEmpty) return '';
+    
+    // Para placas no padrão Mercosul (AAA1B23)
+    if (limpo.length <= 3) {
+      return limpo;
+    }
+    
+    // Limita a 7 caracteres (formato AAA1B23)
+    if (limpo.length > 7) {
+      limpo = limpo.substring(0, 7);
+    }
+    
+    return limpo;
   }
 
 }
