@@ -265,7 +265,7 @@ class CertificadoPDF {
               // RODAPÉ COM ASSINATURAS (obrigatório aparecer)
               pw.Container(
                 width: double.infinity,
-                margin: const pw.EdgeInsets.only(top: 15), // Espaço acima
+                margin: const pw.EdgeInsets.only(top: 15),
                 padding: const pw.EdgeInsets.all(10),
                 decoration: pw.BoxDecoration(
                   border: pw.Border.all(color: PdfColors.grey400),
@@ -273,6 +273,7 @@ class CertificadoPDF {
                 ),
                 child: pw.Column(
                   children: [
+                    // 1️⃣ AVISO "DOCUMENTO VÁLIDO APENAS..."
                     pw.Text(
                       'DOCUMENTO VÁLIDO APENAS COM ASSINATURA',
                       style: pw.TextStyle(
@@ -284,7 +285,42 @@ class CertificadoPDF {
                     ),
                     pw.SizedBox(height: 12),
                     
-                    // ASSINATURAS EM LINHA
+                    // 2️⃣ FRASE DE DECLARAÇÃO DO MOTORISTA
+                    pw.Container(
+                      width: double.infinity,
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 20),
+                      child: pw.Text(
+                        'Eu, ${campos['motorista']?.isNotEmpty == true ? campos['motorista'] : "______________________"}, declaro que acompanhei o processo de coleta e análise, e estou de acordo com os procedimentos de apuração adotados.',
+                        style: pw.TextStyle(
+                          fontSize: 7,
+                          color: PdfColors.grey600,
+                          fontStyle: pw.FontStyle.italic,
+                          height: 1.3,
+                        ),
+                        textAlign: pw.TextAlign.center,
+                      ),
+                    ),
+                    
+                    pw.SizedBox(height: 15),
+                    
+                    // 3️⃣ ASSINATURA DO MOTORISTA
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.center,
+                      children: [
+                        pw.Text('_________________________', 
+                          style: pw.TextStyle(fontSize: 9, height: 1)),
+                        pw.SizedBox(height: 3),
+                        pw.Text('Motorista - ${campos['motorista'] ?? "Não informado"}', 
+                          style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
+                        pw.SizedBox(height: 1),
+                        pw.Text('(Assinou o documento eletronicamente)', 
+                          style: pw.TextStyle(fontSize: 7, color: PdfColors.grey600, fontStyle: pw.FontStyle.italic)),
+                      ],
+                    ),
+                    
+                    pw.SizedBox(height: 20),
+                    
+                    // 4️⃣ ASSINATURAS DOS TÉCNICOS
                     pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       children: [
@@ -293,10 +329,10 @@ class CertificadoPDF {
                           crossAxisAlignment: pw.CrossAxisAlignment.center,
                           children: [
                             pw.Text('_________________________', 
-                              style: pw.TextStyle(fontSize: 9, height: 1)), // Reduzido de 10
-                            pw.SizedBox(height: 3), // Reduzido de 4
+                              style: pw.TextStyle(fontSize: 9, height: 1)),
+                            pw.SizedBox(height: 3),
                             pw.Text('Responsável pela Coleta', 
-                              style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700)), // Reduzido de 9
+                              style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
                           ],
                         ),
                         
@@ -305,38 +341,21 @@ class CertificadoPDF {
                           crossAxisAlignment: pw.CrossAxisAlignment.center,
                           children: [
                             pw.Text('_________________________', 
-                              style: pw.TextStyle(fontSize: 9, height: 1)), // Reduzido de 10
-                            pw.SizedBox(height: 3), // Reduzido de 4
+                              style: pw.TextStyle(fontSize: 9, height: 1)),
+                            pw.SizedBox(height: 3),
                             pw.Text('Responsável Técnico', 
-                              style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700)), // Reduzido de 9
+                              style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
                           ],
                         ),
                       ],
                     ),
                     
                     pw.SizedBox(height: 12),
-                    
-                    // ASSINATURA DO MOTORISTA CENTRALIZADA
-                    pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.center,
-                      children: [
-                        pw.Text('_________________________', 
-                          style: pw.TextStyle(fontSize: 9, height: 1)), // Reduzido de 10
-                        pw.SizedBox(height: 3), // Reduzido de 4
-                        pw.Text('Motorista - ${campos['motorista'] ?? "Não informado"}', 
-                          style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700)), // Reduzido de 9
-                        pw.SizedBox(height: 1), // Reduzido de 2
-                        pw.Text('(Assinou o documento eletronicamente)', 
-                          style: pw.TextStyle(fontSize: 7, color: PdfColors.grey600, fontStyle: pw.FontStyle.italic)), // Reduzido de 8
-                      ],
-                    ),
-                    
-                    pw.SizedBox(height: 8), // Reduzido de 10
-                    pw.Divider(height: 0.5, color: PdfColors.grey400), // Mais fino
-                    pw.SizedBox(height: 4), // Reduzido de 5
+                    pw.Divider(height: 0.5, color: PdfColors.grey400),
+                    pw.SizedBox(height: 4),
                     pw.Text(
                       'Documento gerado automaticamente pelo CloudTrack - $data $hora',
-                      style: pw.TextStyle(fontSize: 7, color: PdfColors.grey600), // Reduzido de 8
+                      style: pw.TextStyle(fontSize: 7, color: PdfColors.grey600),
                       textAlign: pw.TextAlign.center,
                     ),
                   ],
@@ -407,5 +426,5 @@ class CertificadoPDF {
           : null,
     );
   } 
-  
+  //888
 }
