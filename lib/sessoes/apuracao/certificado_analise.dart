@@ -27,6 +27,9 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
   final TextEditingController horaCtrl = TextEditingController();
   final FocusNode _focusTempCT = FocusNode();
 
+  final FocusNode _focusDestinoAmb = FocusNode();
+  final FocusNode _focusDestino20 = FocusNode();
+
   final Map<String, TextEditingController> campos = {
     // Cabeçalho
     'transportadora': TextEditingController(),
@@ -68,6 +71,19 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
         _calcularResultadosObtidos();
       }
     });
+
+    _focusDestinoAmb.addListener(() {
+      if (!_focusDestinoAmb.hasFocus) {
+        _calcularDiferencaAmbiente();
+      }
+    });
+  
+    _focusDestino20.addListener(() {
+      if (!_focusDestino20.hasFocus) {
+        _calcularDiferenca20C();
+      }
+    });
+
   }
 
   void _setarDataHoraAtual() {
@@ -412,11 +428,13 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                           selection: TextSelection.collapsed(offset: masked.length),
                                         );
                                       }
+                                      _calcularDiferencaAmbiente();
                                     },
                                     decoration: _decoration('Quantidade de origem'),
                                   ),
                                   TextFormField(
                                     controller: campos['destinoAmb'],
+                                    focusNode: _focusDestinoAmb,
                                     keyboardType: TextInputType.number,
                                     onChanged: (value) {
                                       final ctrl = campos['destinoAmb']!;
@@ -433,6 +451,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                   ),
                                   TextFormField(
                                     controller: campos['difAmb'],
+                                    enabled: false,
                                     keyboardType: TextInputType.number,
                                     onChanged: (value) {
                                       final ctrl = campos['difAmb']!;
@@ -445,7 +464,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                         );
                                       }
                                     },
-                                    decoration: _decoration('Diferença'),
+                                    decoration: _decoration('Complemento/Falta'),
                                   ),
                                 ]),
                                 const SizedBox(height: 20),
@@ -464,11 +483,13 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                           selection: TextSelection.collapsed(offset: masked.length),
                                         );
                                       }
+                                      _calcularDiferenca20C();
                                     },
                                     decoration: _decoration('Quantidade de origem'),
                                   ),
                                   TextFormField(
                                     controller: campos['destino20'],
+                                    focusNode: _focusDestino20,
                                     keyboardType: TextInputType.number,
                                     onChanged: (value) {
                                       final ctrl = campos['destino20']!;
@@ -485,6 +506,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                   ),
                                   TextFormField(
                                     controller: campos['dif20'],
+                                    enabled: false,
                                     keyboardType: TextInputType.number,
                                     onChanged: (value) {
                                       final ctrl = campos['dif20']!;
@@ -1045,6 +1067,8 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
   @override
   void dispose() {
     _focusTempCT.dispose();
+    _focusDestinoAmb.dispose();
+    _focusDestino20.dispose();
     super.dispose();
   }
 
@@ -1301,4 +1325,154 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
         ? '$parteInteira,'
         : '$parteInteira,$parteDecimal';
   }
+
+  // Função para calcular diferença dos volumes ambiente
+    void _calcularDiferencaAmbiente() {
+    try {
+      final origemText = campos['origemAmb']!.text;
+      final destinoText = campos['destinoAmb']!.text;
+      
+      if (origemText.isEmpty || destinoText.isEmpty) {
+        campos['difAmb']!.text = '';
+        return;
+      }
+      
+      // Remove pontos de separação de milhar
+      final origemLimpa = origemText.replaceAll('.', '');
+      final destinoLimpa = destinoText.replaceAll('.', '');
+      
+      // Converte para double
+      final origem = double.tryParse(origemLimpa);
+      final destino = double.tryParse(destinoLimpa);
+      
+      if (origem != null && destino != null) {
+        final diferenca = destino - origem;
+        
+        // Formata o resultado COM SINAL
+        final resultadoFormatado = _formatarDiferencaComSinal(diferenca);
+        
+        // Atualiza o campo de diferença
+        campos['difAmb']!.text = resultadoFormatado;
+      } else {
+        campos['difAmb']!.text = '';
+      }
+    } catch (e) {
+      print('Erro ao calcular diferença ambiente: $e');
+      campos['difAmb']!.text = '';
+    }
+  }
+
+  // Função para calcular diferença dos volumes a 20°C
+    void _calcularDiferenca20C() {
+    try {
+      final origemText = campos['origem20']!.text;
+      final destinoText = campos['destino20']!.text;
+      
+      if (origemText.isEmpty || destinoText.isEmpty) {
+        campos['dif20']!.text = '';
+        return;
+      }
+      
+      // Remove pontos de separação de milhar
+      final origemLimpa = origemText.replaceAll('.', '');
+      final destinoLimpa = destinoText.replaceAll('.', '');
+      
+      // Converte para double
+      final origem = double.tryParse(origemLimpa);
+      final destino = double.tryParse(destinoLimpa);
+      
+      if (origem != null && destino != null) {
+        final diferenca = destino - origem;
+        
+        // Formata o resultado COM SINAL
+        final resultadoFormatado = _formatarDiferencaComSinal(diferenca);
+        
+        // Atualiza o campo de diferença
+        campos['dif20']!.text = resultadoFormatado;
+      } else {
+        campos['dif20']!.text = '';
+      }
+    } catch (e) {
+      print('Erro ao calcular diferença 20°C: $e');
+      campos['dif20']!.text = '';
+    }
+  }
+
+  // Função para formatar diferenças COM SINAL (+/-)
+  String _formatarDiferencaComSinal(double valor) {
+    if (valor.isNaN || valor.isInfinite) {
+      return '';
+    }
+    
+    // Determina o sinal
+    String sinal = '';
+    if (valor > 0) {
+      sinal = '+';
+    } else if (valor < 0) {
+      sinal = '-';
+    }
+    // Para valor = 0, não coloca sinal
+    
+    // Pega o valor absoluto para formatação
+    double valorAbs = valor.abs();
+    
+    // Formatação do valor
+    String valorFormatado;
+    
+    // Verifica se é número inteiro
+    if (valorAbs % 1 == 0) {
+      valorFormatado = valorAbs.toInt().toString();
+    } else {
+      // Formata com 2 casas decimais
+      valorFormatado = valorAbs.toStringAsFixed(2);
+    }
+    
+    // Remove zeros desnecessários após a vírgula
+    if (valorFormatado.contains('.')) {
+      valorFormatado = valorFormatado.replaceAll(RegExp(r'0*$'), '');
+      if (valorFormatado.endsWith('.')) {
+        valorFormatado = valorFormatado.substring(0, valorFormatado.length - 1);
+      }
+    }
+    
+    // Substitui ponto por vírgula se necessário
+    valorFormatado = valorFormatado.replaceAll('.', ',');
+    
+    // Aplica máscara de milhar (se for necessário)
+    if (valorFormatado.contains(',')) {
+      final partes = valorFormatado.split(',');
+      if (partes.length == 2) {
+        String parteInteira = _aplicarMascaraMilhar(partes[0]);
+        String parteDecimal = partes[1];
+        valorFormatado = '$parteInteira,$parteDecimal';
+      }
+    } else {
+      valorFormatado = _aplicarMascaraMilhar(valorFormatado);
+    }
+    
+    // Retorna com sinal
+    return sinal + valorFormatado;
+  }
+
+  // Função auxiliar para aplicar máscara de milhar
+  String _aplicarMascaraMilhar(String texto) {
+    // Remove tudo que não é número
+    String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
+    
+    if (apenasNumeros.isEmpty || apenasNumeros == '0') {
+      return '0';
+    }
+    
+    // Aplica máscara de milhar
+    String resultado = '';
+    for (int i = apenasNumeros.length - 1, count = 0; i >= 0; i--, count++) {
+      if (count > 0 && count % 3 == 0) {
+        resultado = '.$resultado';
+      }
+      resultado = apenasNumeros[i] + resultado;
+    }
+    
+    return resultado;
+  }
+
 }
