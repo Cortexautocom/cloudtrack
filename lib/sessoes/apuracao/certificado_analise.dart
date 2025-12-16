@@ -105,6 +105,8 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
     final tempAmostra = campos['tempAmostra']!.text;
     final densObs = campos['densidadeAmostra']!.text;
     final tempCT = campos['tempCT']!.text;
+    final fcvAtual = campos['fatorCorrecao']!.text;
+
 
     // Limpar campos antes de buscar
     campos['densidade20']!.text = '';
@@ -126,7 +128,16 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
           )
         : '-';
 
-    campos['fatorCorrecao']!.text = fcv;
+    if (fcv != '-' && fcv.isNotEmpty) {
+      
+      campos['fatorCorrecao']!.text = fcv;
+    } else {
+      
+      if (fcvAtual.isEmpty || fcvAtual == '-') {
+        campos['fatorCorrecao']!.text = '-';
+      }
+    }
+
 
     setState(() {});
   }
@@ -360,6 +371,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
 
                                   TextFormField(
                                     controller: campos['tempCT'],
+                                    focusNode: _focusTempCT,
                                     keyboardType: TextInputType.number,
                                     onChanged: (value) {
                                       final masked = _aplicarMascaraTemperatura(value);
@@ -370,6 +382,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                           selection: TextSelection.collapsed(offset: masked.length),
                                         );
                                       }
+                                      _calcularResultadosObtidos();
                                     },
                                     decoration: _decoration('Temperatura do CT (°C)').copyWith(
                                       hintText: '00,0',
@@ -722,293 +735,136 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
         return '-';
       }
 
-      String nomeView;
+      // ================= VIEW =================
       final nomeProdutoLower = produtoNome.toLowerCase().trim();
+      final nomeView = (nomeProdutoLower.contains('anidro') ||
+              nomeProdutoLower.contains('hidratado'))
+          ? 'tcv_anidro_hidratado_vw'
+          : 'tcv_gasolina_diesel_vw';
 
-      if (nomeProdutoLower.contains('anidro') ||
-          nomeProdutoLower.contains('hidratado')) {
-        nomeView = 'tcv_anidro_hidratado_vw';
-      } else {
-        nomeView = 'tcv_gasolina_diesel_vw';
-      }
-
-      // Formata temperatura igual ao CACL
+      // ================= TEMPERATURA =================
       String temperaturaFormatada = temperaturaTanque
-          .replaceAll(' ºC', '')
           .replaceAll('°C', '')
           .replaceAll('ºC', '')
           .replaceAll('°', '')
           .replaceAll('C', '')
-          .trim();
+          .trim()
+          .replaceAll('.', ',');
 
-      temperaturaFormatada = temperaturaFormatada.replaceAll('.', ',');
+      // ================= DENSIDADE =================
+      String densidadeFormatada =
+          densidade20C.trim().replaceAll('.', ',');
 
-      // Formata densidade igual ao CACL
-      String densidadeFormatada = densidade20C
-          .replaceAll(' ', '')
-          .replaceAll('°C', '')
-          .replaceAll('ºC', '')
-          .replaceAll('°', '')
-          .trim();
+      final densidadeNum =
+          double.tryParse(densidadeFormatada.replaceAll(',', '.'));
 
-      densidadeFormatada = densidadeFormatada.replaceAll('.', ',');
-
-      // CORREÇÃO: Se densidade for maior que 0,8780, usar 0,8780 (igual ao CACL)
-      final densidadeNum = double.tryParse(densidadeFormatada.replaceAll(',', '.'));
-      final densidadeLimite = 0.8780;
-      
-      if (densidadeNum != null && densidadeNum > densidadeLimite) {
-        densidadeFormatada = '0,8780';        
+      if (densidadeNum == null) {
+        return '-';
       }
 
-      // Prepara a densidade no formato correto (igual ao CACL)
-      if (densidadeFormatada.contains(',')) {
-        final partes = densidadeFormatada.split(',');
-        if (partes.length == 2) {
-          String parteInteira = partes[0];
-          String parteDecimal = partes[1];
+      // ================= FORMATADOR FCV =================
+      String _formatarFCV(String valor) {
+        String v = valor.replaceAll('.', ',').trim();
 
-          if (parteDecimal.length >= 4) {
-            String tresPrimeiros = parteDecimal.substring(0, 3);
-            parteDecimal = '${tresPrimeiros}0';
-          } else if (parteDecimal.length == 3) {
-            parteDecimal = '${parteDecimal}0';
-          } else {
-            parteDecimal = parteDecimal.padRight(4, '0');
-          }
+        if (!v.contains(',')) {
+          return '$v,0000';
+        }
 
-          densidadeFormatada = '$parteInteira,$parteDecimal';
-        } else {
-          return '-';
+        final partes = v.split(',');
+        String inteiro = partes[0];
+        String decimal = partes[1];
+
+        decimal = decimal.padRight(4, '0');
+        if (decimal.length > 4) {
+          decimal = decimal.substring(0, 4);
         }
-      } else {
-        if (densidadeFormatada.length == 4) {
-          densidadeFormatada = '0,${densidadeFormatada.substring(0, 3)}0';
-        } else {
-          densidadeFormatada = '0,${densidadeFormatada}0';
-        }
+
+        return '$inteiro,$decimal';
       }
 
-      // Função auxiliar para formatar resultado
-      String _formatarResultadoFCV(String valorBruto) {
-        String valorLimpo = valorBruto.trim();
-        valorLimpo = valorLimpo.replaceAll('.', ',');
-
-        if (!valorLimpo.contains(',')) {
-          valorLimpo = '$valorLimpo,0';
-        }
-
-        final partes = valorLimpo.split(',');
-        if (partes.length == 2) {
-          String parteInteira = partes[0];
-          String parteDecimal = partes[1];
-
-          parteDecimal = parteDecimal.padRight(4, '0');
-
-          if (parteDecimal.length > 4) {
-            parteDecimal = parteDecimal.substring(0, 4);
-          }
-
-          return '$parteInteira,$parteDecimal';
-        }
-
-        return valorLimpo;
+      // ================= CONVERTE DENSIDADE EM CÓDIGO =================
+      String _densidadeParaCodigo(String densidade) {
+        final partes = densidade.split(',');
+        if (partes.length != 2) return '';
+        final codigo =
+            '${partes[0]}${partes[1].padRight(4, '0')}'.padLeft(5, '0');
+        return codigo.length > 5 ? codigo.substring(0, 5) : codigo;
       }
 
-      // Função para converter densidade para código de 5 dígitos
-      String _densidadeParaCodigo5Digitos(String densidadeStr) {
-        if (densidadeStr.contains(',')) {
-          final partes = densidadeStr.split(',');
-          if (partes.length == 2) {
-            String parteInteira = partes[0];
-            String parteDecimal = partes[1];
+      final codigoOriginal = _densidadeParaCodigo(densidadeFormatada);
 
-            parteDecimal = parteDecimal.padRight(4, '0');
+      // ================= BUSCA FCV DIRETA =================
+      Future<String?> _buscarFCVPorCodigo(String codigo) async {
+        final coluna = 'v_$codigo';
 
-            String codigo5Digitos = '${parteInteira}${parteDecimal}'.padLeft(5, '0');
-
-            if (codigo5Digitos.length > 5) {
-              codigo5Digitos = codigo5Digitos.substring(0, 5);
-            }
-
-            return codigo5Digitos;
-          }
-        }
-        return '';
-      }
-
-      // Função para buscar FCV com uma densidade específica
-      Future<String?> _buscarFCVComDensidade(String codigo5Digitos) async {
-        final nomeColuna = 'v_$codigo5Digitos';
-        
         try {
-          final resultado = await supabase
+          final r = await supabase
               .from(nomeView)
-              .select(nomeColuna)
+              .select(coluna)
               .eq('temperatura_obs', temperaturaFormatada)
               .maybeSingle();
 
-          if (resultado != null && resultado[nomeColuna] != null) {
-            String valorBruto = resultado[nomeColuna].toString();
-            return _formatarResultadoFCV(valorBruto);
+          if (r != null && r[coluna] != null) {
+            return _formatarFCV(r[coluna].toString());
           }
-        } catch (e) {
-          // Ignora erro e tenta próximo
-        }
+        } catch (_) {}
         return null;
       }
 
-      // Tenta buscar com a densidade fornecida primeiro
-      final codigoOriginal = _densidadeParaCodigo5Digitos(densidadeFormatada);
-      if (codigoOriginal.isNotEmpty) {
-        final resultadoOriginal = await _buscarFCVComDensidade(codigoOriginal);
-        if (resultadoOriginal != null) {
-          return resultadoOriginal;
-        }
+      // 1️⃣ Tentativa direta
+      final direto = await _buscarFCVPorCodigo(codigoOriginal);
+      if (direto != null) return direto;
+
+      // ================= APROXIMAÇÃO DE DENSIDADE =================
+      final sampleRow = await supabase
+          .from(nomeView)
+          .select()
+          .limit(1)
+          .maybeSingle();
+
+      if (sampleRow == null) {
+        return '-';
       }
 
-      // Se densidade > 0,8780, tenta com a coluna 08780
-      if (densidadeNum != null && densidadeNum > densidadeLimite) {
-        final resultado08780 = await _buscarFCVComDensidade('08780');
-        if (resultado08780 != null) {
-          return resultado08780;
-        }
+      final densidadesDisponiveis = sampleRow.keys
+          .where((k) => k.startsWith('v_'))
+          .map((k) {
+            final codigo = k.replaceFirst('v_', '');
+            if (codigo.length == 5) {
+              final valor =
+                  double.tryParse('${codigo[0]}.${codigo.substring(1)}');
+              if (valor != null) {
+                return {'codigo': codigo, 'valor': valor};
+              }
+            }
+            return null;
+          })
+          .whereType<Map<String, dynamic>>()
+          .toList();
+
+      if (densidadesDisponiveis.isEmpty) {
+        return '-';
       }
 
-      // Se não encontrou, busca pela densidade mais próxima
-      if (densidadeNum != null) {
-        final List<Map<String, dynamic>> densidadesProximas = [];
-        final double passo = 0.0010; // Passo de 0,0010
-        final int maxTentativas = 10; // Máximo de 10 tentativas em cada direção
-        
-        // Busca para cima (densidades maiores)
-        for (int i = 1; i <= maxTentativas; i++) {
-          final double densidadeTeste = densidadeNum + (i * passo);
-          
-          // Limite superior: 0,8780 para gasolina/diesel
-          if (densidadeTeste > densidadeLimite) break;
-          
-          final String densidadeTesteStr = densidadeTeste.toStringAsFixed(4);
-          final String densidadeTesteFormatada = densidadeTesteStr.replaceAll('.', ',');
-          final String codigoTeste = _densidadeParaCodigo5Digitos(densidadeTesteFormatada);
-          
-          if (codigoTeste.isNotEmpty) {
-            final resultado = await _buscarFCVComDensidade(codigoTeste);
-            if (resultado != null) {
-              densidadesProximas.add({
-                'densidade': densidadeTeste,
-                'diferenca': densidadeTeste - densidadeNum,
-                'resultado': resultado,
-              });
-            }
-          }
-        }
-        
-        // Busca para baixo (densidades menores)
-        for (int i = 1; i <= maxTentativas; i++) {
-          final double densidadeTeste = densidadeNum - (i * passo);
-          
-          // Limite inferior: 0,6500 (assumindo mínimo)
-          if (densidadeTeste < 0.6500) break;
-          
-          final String densidadeTesteStr = densidadeTeste.toStringAsFixed(4);
-          final String densidadeTesteFormatada = densidadeTesteStr.replaceAll('.', ',');
-          final String codigoTeste = _densidadeParaCodigo5Digitos(densidadeTesteFormatada);
-          
-          if (codigoTeste.isNotEmpty) {
-            final resultado = await _buscarFCVComDensidade(codigoTeste);
-            if (resultado != null) {
-              densidadesProximas.add({
-                'densidade': densidadeTeste,
-                'diferenca': densidadeNum - densidadeTeste,
-                'resultado': resultado,
-              });
-            }
-          }
-        }
-        
-        // Encontra a densidade mais próxima
-        if (densidadesProximas.isNotEmpty) {
-          // Ordena pela menor diferença
-          densidadesProximas.sort((a, b) => a['diferenca'].compareTo(b['diferenca']));          
-          return densidadesProximas.first['resultado'];
-        }
-      }
+      densidadesDisponiveis.sort((a, b) {
+        final da = (a['valor'] - densidadeNum).abs();
+        final db = (b['valor'] - densidadeNum).abs();
+        return da.compareTo(db);
+      });
 
-      // Fallback para formatos alternativos de temperatura (igual ao CACL)
-      List<String> temperaturasParaTentar = [];
+      final codigoMaisProximo = densidadesDisponiveis.first['codigo'];
 
-      if (temperaturaFormatada.contains(',')) {
-        final partes = temperaturaFormatada.split(',');
-        if (partes.length == 2) {
-          String parteInteira = partes[0];
-          String parteDecimal = partes[1];
-
-          temperaturasParaTentar.addAll([
-            '$parteInteira,$parteDecimal',
-            '$parteInteira,${parteDecimal}0',
-            '$parteInteira,${parteDecimal.padLeft(2, '0')}',
-            '$parteInteira,0$parteDecimal',
-          ]);
-
-          if (parteDecimal.length == 1) {
-            temperaturasParaTentar.add('$parteInteira,${parteDecimal}0');
-          }
-        }
-      } else {
-        temperaturasParaTentar.addAll([
-          '$temperaturaFormatada,0',
-          '$temperaturaFormatada,00',
-          temperaturaFormatada,
-        ]);
-      }
-
-      final temperaturasComPonto = temperaturasParaTentar.map((f) => f.replaceAll(',', '.')).toList();
-      temperaturasParaTentar.addAll(temperaturasComPonto);
-      temperaturasParaTentar = temperaturasParaTentar.toSet().toList();
-
-      for (final formatoTemp in temperaturasParaTentar) {
-        try {
-          // Tenta com a coluna original
-          if (codigoOriginal.isNotEmpty) {
-            final nomeColuna = 'v_$codigoOriginal';
-            final resultado = await supabase
-                .from(nomeView)
-                .select(nomeColuna)
-                .eq('temperatura_obs', formatoTemp)
-                .maybeSingle();
-
-            if (resultado != null && resultado[nomeColuna] != null) {
-              String valorBruto = resultado[nomeColuna].toString();
-              final valorFormatado = _formatarResultadoFCV(valorBruto);
-              return valorFormatado;
-            }
-          }
-          
-          // Se densidade > 0,8780, tenta com a coluna 08780
-          if (densidadeNum != null && densidadeNum > densidadeLimite) {
-            final coluna08780 = 'v_08780';
-            final resultado08780 = await supabase
-                .from(nomeView)
-                .select(coluna08780)
-                .eq('temperatura_obs', formatoTemp)
-                .maybeSingle();
-
-            if (resultado08780 != null && resultado08780[coluna08780] != null) {
-              String valorBruto = resultado08780[coluna08780].toString();
-              return _formatarResultadoFCV(valorBruto);
-            }
-          }
-        } catch (e) {
-          continue;
-        }
+      final aproximado = await _buscarFCVPorCodigo(codigoMaisProximo);
+      if (aproximado != null) {
+        return aproximado;
       }
 
       return '-';
-    } catch (e) {
+    } catch (_) {
       return '-';
     }
   }
+
 
   @override
   void dispose() {
