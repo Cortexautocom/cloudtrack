@@ -36,7 +36,7 @@ class CertificadoPDF {
                 child: pw.Column(
                   children: [
                     pw.Text(
-                      'CERTIFICADO DE ANÁLISE LABORATORIAL',
+                      'CERTIFICADO DE ANÁLISE',
                       style: pw.TextStyle(
                         fontSize: 20,
                         fontWeight: pw.FontWeight.bold,
@@ -112,9 +112,9 @@ class CertificadoPDF {
                             ),
                           ),
                           pw.Divider(color: azulPrincipal, height: 15),
-                          _infoLinhaPDF('Transportadora:', campos['transportadora'] ?? ""),
+                          _infoLinhaPDF('Placa do veículo:', campos['placa'] ?? ""),
                           _infoLinhaPDF('Motorista:', campos['motorista'] ?? ""),
-                          pw.SizedBox(height: 20),
+                          _infoLinhaPDF('Transportadora:', campos['transportadora'] ?? ""),
                         ],
                       ),
                     ),
@@ -124,7 +124,7 @@ class CertificadoPDF {
               
               pw.SizedBox(height: 25),
               
-              // SEÇÃO: COLETAS
+              // SEÇÃO: COLETAS (COM DOIS QUADROS)
               pw.Container(
                 width: double.infinity,
                 padding: const pw.EdgeInsets.all(12),
@@ -143,14 +143,21 @@ class CertificadoPDF {
                       ),
                     ),
                     pw.SizedBox(height: 15),
+                    
+                    // PRIMEIRO QUADRO: Parâmetros das coletas
                     pw.Table(
+                      columnWidths: {
+                        0: const pw.FlexColumnWidth(1.8), // Parâmetro
+                        1: const pw.FlexColumnWidth(1),   // Valor (centralizado)
+                        2: const pw.FlexColumnWidth(0.7), // Unidade
+                      },
                       border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
                       children: [
                         pw.TableRow(
                           decoration: pw.BoxDecoration(color: PdfColors.grey200),
                           children: [
                             _celulaTabela('PARÂMETRO', true),
-                            _celulaTabela('VALOR', true),
+                            _celulaTabela('VALOR', true, centralizado: true),
                             _celulaTabela('UNIDADE', true),
                           ],
                         ),
@@ -159,36 +166,28 @@ class CertificadoPDF {
                         _linhaTabela('Temperatura do CT', campos['tempCT'] ?? "", '°C'),
                       ],
                     ),
-                  ],
-                ),
-              ),
-              
-              pw.SizedBox(height: 25),
-              
-              // SEÇÃO: RESULTADOS
-              pw.Container(
-                width: double.infinity,
-                padding: const pw.EdgeInsets.all(12),
-                decoration: pw.BoxDecoration(
-                  color: cinzaClaro,
-                  borderRadius: pw.BorderRadius.circular(6),
-                ),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text(
-                      'RESULTADOS OBTIDOS',
-                      style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold,
-                        color: azulPrincipal,
-                      ),
-                    ),
-                    pw.SizedBox(height: 15),
-                    pw.Row(
+                    
+                    pw.SizedBox(height: 20),
+                    
+                    // SEGUNDO QUADRO: Resultados obtidos
+                    pw.Table(
+                      columnWidths: {
+                        0: const pw.FlexColumnWidth(1.8), // Resultados Obtidos
+                        1: const pw.FlexColumnWidth(1),   // Valor (centralizado)
+                        2: const pw.FlexColumnWidth(0.7), // Unidade
+                      },
+                      border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.5),
                       children: [
-                        _cardResultado('Densidade a 20°C', campos['densidade20'] ?? ""),
-                        pw.SizedBox(width: 15),
-                        _cardResultado('Fator de Correção (FCV)', campos['fatorCorrecao'] ?? ""),
+                        pw.TableRow(
+                          decoration: pw.BoxDecoration(color: PdfColors.grey200),
+                          children: [
+                            _celulaTabela('RESULTADOS OBTIDOS', true),
+                            _celulaTabela('VALOR', true, centralizado: true),
+                            _celulaTabela('UNIDADE', true),
+                          ],
+                        ),
+                        _linhaTabela('Densidade a 20ºC', campos['densidade20'] ?? "", ''),
+                        _linhaTabela('Fator de conversão de volume (FCV)', campos['fatorCorrecao'] ?? "", ''),
                       ],
                     ),
                   ],
@@ -260,9 +259,10 @@ class CertificadoPDF {
                 ],
               ),
               
-              pw.SizedBox(height: 30),
+              // ESPAÇO FLEXÍVEL PARA AJUSTAR O TAMANHO
+              pw.Spacer(),
               
-              // RODAPÉ
+              // RODAPÉ COM ASSINATURAS OFICIAIS - CORRIGIDO
               pw.Container(
                 width: double.infinity,
                 padding: const pw.EdgeInsets.all(10),
@@ -281,26 +281,58 @@ class CertificadoPDF {
                       ),
                       textAlign: pw.TextAlign.center,
                     ),
-                    pw.SizedBox(height: 10),
+                    pw.SizedBox(height: 15),
+                    
+                    // ASSINATURAS EM LINHA
                     pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       children: [
+                        // Assinatura do Responsável pela Coleta
                         pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.center,
                           children: [
-                            pw.Text('_________________________', style: pw.TextStyle(fontSize: 10)),
-                            pw.Text('Responsável pela Coleta', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                            pw.Text('_________________________', 
+                              style: pw.TextStyle(fontSize: 10, height: 1.2)),
+                            pw.SizedBox(height: 4),
+                            pw.Text('Responsável pela Coleta', 
+                              style: pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
                           ],
                         ),
+                        
+                        // Assinatura do Responsável Técnico
                         pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.center,
                           children: [
-                            pw.Text('_________________________', style: pw.TextStyle(fontSize: 10)),
-                            pw.Text('Responsável Técnico', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                            pw.Text('_________________________', 
+                              style: pw.TextStyle(fontSize: 10, height: 1.2)),
+                            pw.SizedBox(height: 4),
+                            pw.Text('Responsável Técnico', 
+                              style: pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
                           ],
                         ),
                       ],
                     ),
+                    
+                    pw.SizedBox(height: 15),
+                    
+                    // ASSINATURA DO MOTORISTA CENTRALIZADA
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.center,
+                      children: [
+                        pw.Text('_________________________', 
+                          style: pw.TextStyle(fontSize: 10, height: 1.2)),
+                        pw.SizedBox(height: 4),
+                        pw.Text('Motorista - ${campos['motorista'] ?? "Não informado"}', 
+                          style: pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                        pw.SizedBox(height: 2),
+                        pw.Text('(Assinou o documento eletronicamente)', 
+                          style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600, fontStyle: pw.FontStyle.italic)),
+                      ],
+                    ),
+                    
                     pw.SizedBox(height: 10),
-                    pw.Divider(),
+                    pw.Divider(height: 1, color: PdfColors.grey400),
+                    pw.SizedBox(height: 5),
                     pw.Text(
                       'Documento gerado automaticamente pelo CloudTrack - $data $hora',
                       style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
@@ -348,13 +380,13 @@ class CertificadoPDF {
     return pw.TableRow(
       children: [
         _celulaTabela(parametro, false),
-        _celulaTabela(valor, false),
+        _celulaTabela(valor, false, centralizado: true),
         _celulaTabela(unidade, false),
       ],
     );
   }
   
-  static pw.Container _celulaTabela(String texto, bool isHeader) {
+  static pw.Container _celulaTabela(String texto, bool isHeader, {bool centralizado = false}) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(8),
       child: pw.Text(
@@ -364,6 +396,7 @@ class CertificadoPDF {
           fontSize: 10,
           color: isHeader ? PdfColors.white : PdfColors.black,
         ),
+        textAlign: centralizado ? pw.TextAlign.center : pw.TextAlign.left,
       ),
       decoration: isHeader 
           ? pw.BoxDecoration(color: PdfColor.fromInt(0xFF0D47A1))
@@ -371,39 +404,4 @@ class CertificadoPDF {
     );
   }
   
-  static pw.Widget _cardResultado(String titulo, String valor) {
-    return pw.Expanded(
-      child: pw.Container(
-        padding: const pw.EdgeInsets.all(15),
-        decoration: pw.BoxDecoration(
-          color: PdfColors.white,
-          border: pw.Border.all(color: PdfColor.fromInt(0xFF0D47A1), width: 1.5),
-          borderRadius: pw.BorderRadius.circular(8),
-        ),
-        child: pw.Column(
-          children: [
-            pw.Text(
-              titulo,
-              style: pw.TextStyle(
-                fontSize: 12,
-                fontWeight: pw.FontWeight.bold,
-                color: PdfColor.fromInt(0xFF0D47A1),
-              ),
-              textAlign: pw.TextAlign.center,
-            ),
-            pw.SizedBox(height: 10),
-            pw.Text(
-              valor.isEmpty ? '-' : valor,
-              style: pw.TextStyle(
-                fontSize: 16,
-                fontWeight: pw.FontWeight.bold,
-                color: PdfColors.black,
-              ),
-              textAlign: pw.TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
