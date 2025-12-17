@@ -2009,6 +2009,14 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
 
   // Método para limpar/reiniciar o formulário
   void _novoDocumento() {
+    // VERIFICAÇÃO: Se a análise estiver concluída, NÃO mostra o diálogo
+    if (_analiseConcluida) {
+      // Apenas limpa o formulário sem mostrar diálogo
+      _limparFormulario();
+      return;
+    }
+    
+    // Se a análise NÃO estiver concluída, mostra o diálogo normal
     // Confirmação antes de limpar
     showDialog(
       context: context,
