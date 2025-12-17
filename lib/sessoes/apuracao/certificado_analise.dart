@@ -1875,7 +1875,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
   }
   
   // Método para processar a conclusão da análise
-  void _processarConclusao() {
+  Future<void> _processarConclusao() async {
     // Mostra um loading enquanto processa
     showDialog(
       context: context,
@@ -1887,42 +1887,121 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
       ),
     );
 
-    // Simula um processamento (substituir por lógica real depois)
-    Future.delayed(const Duration(seconds: 2), () {
-      // Fecha o loading
-      if (context.mounted) Navigator.of(context).pop();
-
-      // ATUALIZA O ESTADO - Análise concluída!
+    try {
+      final supabase = Supabase.instance.client;
+      
+      // 1. Obter o usuário autenticado
+      final user = supabase.auth.currentUser;
+      if (user == null) {
+        throw Exception('Usuário não autenticado');
+      }
+      
+      // 2. Formatar os dados para o banco
+      final Map<String, dynamic> dadosParaBanco = {
+        'data_analise': _formatarDataParaBanco(dataCtrl.text),
+        'hora_analise': horaCtrl.text,
+        'tipo_operacao': tipoOperacao!,
+        'produto_nome': produtoSelecionado!,
+        'transportadora': campos['transportadora']!.text,
+        'motorista': campos['motorista']!.text,
+        'notas_fiscais': campos['notas']!.text,
+        'placa_cavalo': campos['placaCavalo']!.text,
+        'carreta1': campos['carreta1']!.text,
+        'carreta2': campos['carreta2']!.text,
+        'temperatura_amostra': _converterParaDecimal(campos['tempAmostra']!.text),
+        'densidade_observada': _converterParaDecimal(campos['densidadeAmostra']!.text),
+        'temperatura_ct': _converterParaDecimal(campos['tempCT']!.text),
+        'densidade_20c': _converterParaDecimal(campos['densidade20']!.text),
+        'fator_correcao': _converterParaDecimal(campos['fatorCorrecao']!.text),
+        'origem_ambiente': _converterParaInteiro(campos['origemAmb']!.text),
+        'destino_ambiente': _converterParaInteiro(campos['destinoAmb']!.text),
+        'origem_20c': _converterParaInteiro(campos['origem20']!.text),
+        'destino_20c': _converterParaInteiro(campos['destino20']!.text),
+        'analise_concluida': true,
+        'data_conclusao': DateTime.now().toIso8601String(),
+        'usuario_id': user.id,
+        'status': 'concluida',
+      };
+      
+      // 3. Se tiver o produto_id, adicionar também
+      final produtoResult = await supabase
+          .from('produtos')
+          .select('id')
+          .eq('nome', produtoSelecionado!)
+          .maybeSingle();
+      
+      if (produtoResult != null) {
+        dadosParaBanco['produto_id'] = produtoResult['id'];
+      }
+      
+      // 4. Inserir no banco de dados
+      final response = await supabase
+          .from('ordens_analises')
+          .insert(dadosParaBanco)
+          .select('numero_controle')
+          .single();
+      
+      // 5. Fechar loading
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+      
+      // 6. ATUALIZAR O ESTADO - Análise concluída!
       setState(() {
         _analiseConcluida = true;
+        
+        // Atualizar o número de controle no campo
+        campos['numeroControle']!.text = response['numero_controle'].toString();
       });
-
-      // Mostra mensagem de sucesso
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text('✓ Análise concluída com sucesso! O PDF agora está disponível.'),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
-        ),
-      );
-
-      // Aqui você pode adicionar:
-      // 1. Salvar os dados no banco
-      // 2. Gerar número de controle
-      // 3. Enviar para aprovação
-      // 4. Limpar o formulário
-      // 5. Navegar para outra tela
-
       
-    });
+      // 7. Mostrar mensagem de sucesso
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '✓ Análise ${response['numero_controle']} concluída com sucesso! O PDF agora está disponível.',
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+      
+    } catch (e) {
+      // Fecha o loading em caso de erro
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+      
+      // Mostra mensagem de erro
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Erro ao salvar análise: ${e.toString()}'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+      
+      print('Erro ao salvar análise: $e');
+    }
   }
 
   // Método para limpar/reiniciar o formulário
@@ -2088,4 +2167,45 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
     );
   }
 
+  // Função para formatar data DD/MM/YYYY para YYYY-MM-DD
+  String _formatarDataParaBanco(String data) {
+    if (data.isEmpty) return '';
+    
+    try {
+      final partes = data.split('/');
+      if (partes.length == 3) {
+        return '${partes[2]}-${partes[1]}-${partes[0]}';
+      }
+      return '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  // Função para converter campo de texto para decimal (NUMERIC)
+  // CORRIGIDO: Função para converter campo de texto para decimal (NUMERIC)
+  double? _converterParaDecimal(String texto) {
+    if (texto.isEmpty || texto == '-') return null;
+    
+    try {
+      // Substituir vírgula por ponto para o PostgreSQL
+      final textoLimpo = texto.replaceAll('.', '').replaceAll(',', '.');
+      return double.tryParse(textoLimpo);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // CORRIGIDO: Função para converter campo de texto para inteiro
+  int? _converterParaInteiro(String texto) {
+    if (texto.isEmpty) return null;
+    
+    try {
+      // Remover pontos de milhar
+      final textoLimpo = texto.replaceAll('.', '');
+      return int.tryParse(textoLimpo);
+    } catch (e) {
+      return null;
+    }
+  } 
 }
