@@ -498,7 +498,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                           selection: TextSelection.collapsed(offset: masked.length),
                                         );
                                       }
-                                      _calcularResultadosObtidos();
+                                      //_calcularResultadosObtidos();
                                     },
                                     decoration: _decoration('Temperatura do CT (°C)').copyWith(
                                       hintText: '00,0',
@@ -590,6 +590,8 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                   ),
                                   TextFormField(
                                     controller: campos['destino20'],
+                                    style: TextStyle(color: const Color.fromARGB(255, 0, 81, 255)),
+                                    enabled: false,
                                     focusNode: _focusDestino20,
                                     keyboardType: TextInputType.number,
                                     onChanged: (value) {
@@ -628,85 +630,86 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
 
                                 // ================= BOTÕES DE AÇÃO =================
                                 const SizedBox(height: 40),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    // BOTÃO CONCLUIR ANÁLISE (ESQUERDA)
-                                    ElevatedButton.icon(
-                                      onPressed: (!_analiseConcluida && tipoOperacao != null) ? _confirmarConclusao : null,
-                                      icon: Icon(_analiseConcluida ? Icons.check_circle_outline : Icons.check_circle, size: 24),
-                                      label: Text(
-                                        _analiseConcluida ? 'Análise Concluída' : 'Concluir análise',
-                                        style: const TextStyle(fontSize: 16),
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: _analiseConcluida ? Colors.grey[400] : Colors.green,
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                      ),
-                                    ),
-                                    
-                                    // BOTÃO GERAR PDF (CENTRO) - AGORA NO MEIO
-                                    ElevatedButton.icon(
-                                      onPressed: (_analiseConcluida && tipoOperacao != null) ? _baixarPDF : null,
-                                      icon: Icon(
-                                        Icons.picture_as_pdf, 
-                                        size: 24,
-                                        color: _analiseConcluida ? Colors.white : Colors.grey[600],
-                                      ),
-                                      label: Text(
-                                        'Gerar Certificado PDF',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          color: _analiseConcluida ? Colors.white : Colors.grey[600],
-                                        ),
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: _analiseConcluida 
-                                            ? const Color(0xFF0D47A1) // Azul quando disponível
-                                            : Colors.grey[300], // Cinza claro quando indisponível
-                                        foregroundColor: _analiseConcluida ? Colors.white : Colors.grey[600],
-                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                          side: BorderSide(
-                                            color: _analiseConcluida 
-                                                ? const Color(0xFF0D47A1)
-                                                : Colors.grey[400]!,
-                                            width: 1,
-                                          ),
-                                        ),
-                                        elevation: _analiseConcluida ? 2 : 0, // Sombra só quando ativo
-                                        shadowColor: _analiseConcluida ? const Color(0xFF0D47A1).withOpacity(0.3) : Colors.transparent,
-                                      ),
-                                    ),
-                                    
-                                    // BOTÃO NOVO DOCUMENTO (DIREITA) - AGORA NA DIREITA
-                                    ElevatedButton.icon(
-                                      onPressed: _novoDocumento,
-                                      icon: const Icon(Icons.add, size: 24),
-                                      label: const Text(
-                                        'Novo documento',
-                                        style: TextStyle(fontSize: 16),
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.orange, // Laranja para destacar
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                
                                 const SizedBox(height: 20),
                               ],
                             ),
                           ),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            // BOTÃO CONCLUIR ANÁLISE (ESQUERDA)
+                            ElevatedButton.icon(
+                              onPressed: (!_analiseConcluida && tipoOperacao != null) ? _confirmarConclusao : null,
+                              icon: Icon(_analiseConcluida ? Icons.check_circle_outline : Icons.check_circle, size: 24),
+                              label: Text(
+                                _analiseConcluida ? 'Análise Concluída' : 'Concluir análise',
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _analiseConcluida ? Colors.grey[400] : Colors.green,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                            
+                            // BOTÃO GERAR PDF (CENTRO) - AGORA NO MEIO
+                            ElevatedButton.icon(
+                              onPressed: (_analiseConcluida && tipoOperacao != null) ? _baixarPDF : null,
+                              icon: Icon(
+                                Icons.picture_as_pdf, 
+                                size: 24,
+                                color: _analiseConcluida ? Colors.white : Colors.grey[600],
+                              ),
+                              label: Text(
+                                'Gerar Certificado PDF',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: _analiseConcluida ? Colors.white : Colors.grey[600],
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _analiseConcluida 
+                                    ? const Color(0xFF0D47A1) // Azul quando disponível
+                                    : Colors.grey[300], // Cinza claro quando indisponível
+                                foregroundColor: _analiseConcluida ? Colors.white : Colors.grey[600],
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: BorderSide(
+                                    color: _analiseConcluida 
+                                        ? const Color(0xFF0D47A1)
+                                        : Colors.grey[400]!,
+                                    width: 1,
+                                  ),
+                                ),
+                                elevation: _analiseConcluida ? 2 : 0, // Sombra só quando ativo
+                                shadowColor: _analiseConcluida ? const Color(0xFF0D47A1).withOpacity(0.3) : Colors.transparent,
+                              ),
+                            ),
+                            
+                            // BOTÃO NOVO DOCUMENTO (DIREITA) - AGORA NA DIREITA
+                            ElevatedButton.icon(
+                              onPressed: _novoDocumento,
+                              icon: const Icon(Icons.add, size: 24),
+                              label: const Text(
+                                'Novo documento',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange, // Laranja para destacar
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -1481,7 +1484,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
   }
 
   // Função para calcular diferença dos volumes ambiente
-    void _calcularDiferencaAmbiente() {
+  void _calcularDiferencaAmbiente() {
     try {
       final origemText = campos['origemAmb']!.text;
       final destinoText = campos['destinoAmb']!.text;
