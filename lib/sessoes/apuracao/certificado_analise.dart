@@ -270,7 +270,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                         Opacity(
                           opacity: tipoOperacao == null ? 0.3 : 1.0,
                           child: AbsorbPointer(
-                            absorbing: tipoOperacao == null,
+                            absorbing: tipoOperacao == null || _analiseConcluida, 
                             child: Column(
                               children: [
                               // ================= NÚMERO DE CONTROLE =================
@@ -379,14 +379,14 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                     ),
                                   },
                                 ]),
-                                const SizedBox(height: 12),
-                                // LINHA COM OS 3 CAMPOS DE PLACA
+                                const SizedBox(height: 12),                                
+                                // LINHA COM OS 3 CAMPOS DE PLACA - FORMATO ABC-1D23
                                 _linhaFlexivel([
                                   {
                                     'flex': 4, // Placa do cavalo
                                     'widget': TextFormField(
                                       controller: campos['placaCavalo'],
-                                      maxLength: 7,
+                                      maxLength: 8, // 3 letras + hífen + 4 caracteres = 8 caracteres totais
                                       textCapitalization: TextCapitalization.characters,
                                       onChanged: (value) {
                                         final masked = _aplicarMascaraPlaca(value);
@@ -399,7 +399,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                       },
                                       decoration: _decoration('Placa do cavalo').copyWith(
                                         counterText: '',
-                                        hintText: '',
+                                        hintText: '', // SEM HINT
                                       ),
                                     ),
                                   },
@@ -407,7 +407,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                     'flex': 4, // Carreta 1
                                     'widget': TextFormField(
                                       controller: campos['carreta1'],
-                                      maxLength: 7,
+                                      maxLength: 8, // 3 letras + hífen + 4 caracteres = 8 caracteres totais
                                       textCapitalization: TextCapitalization.characters,
                                       onChanged: (value) {
                                         final masked = _aplicarMascaraPlaca(value);
@@ -420,7 +420,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                       },
                                       decoration: _decoration('Carreta 1').copyWith(
                                         counterText: '',
-                                        hintText: '',
+                                        hintText: '', // SEM HINT
                                       ),
                                     ),
                                   },
@@ -428,7 +428,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                     'flex': 4, // Carreta 2
                                     'widget': TextFormField(
                                       controller: campos['carreta2'],
-                                      maxLength: 7,
+                                      maxLength: 8, // 3 letras + hífen + 4 caracteres = 8 caracteres totais
                                       textCapitalization: TextCapitalization.characters,
                                       onChanged: (value) {
                                         final masked = _aplicarMascaraPlaca(value);
@@ -441,7 +441,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                       },
                                       decoration: _decoration('Carreta 2').copyWith(
                                         counterText: '',
-                                        hintText: '',
+                                        hintText: '', // SEM HINT
                                       ),
                                     ),
                                   },
@@ -648,6 +648,25 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                         ),
                                       ),
                                     ),
+                                    
+                                    // BOTÃO NOVO DOCUMENTO (CENTRO) - SEMPRE ATIVO
+                                    ElevatedButton.icon(
+                                      onPressed: _novoDocumento,
+                                      icon: const Icon(Icons.add, size: 24),
+                                      label: const Text(
+                                        'Novo documento',
+                                        style: TextStyle(fontSize: 16),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.orange, // Laranja para destacar
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                    ),
+                                    
                                     // BOTÃO GERAR PDF (DIREITA)
                                     ElevatedButton.icon(
                                       onPressed: (_analiseConcluida && tipoOperacao != null) ? _baixarPDF : null,
@@ -684,6 +703,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                     ),
                                   ],
                                 ),
+                                const SizedBox(height: 20),
                                 const SizedBox(height: 20),
                                 const SizedBox(height: 20),
                               ],
@@ -1587,24 +1607,55 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
   }
 
   String _aplicarMascaraPlaca(String texto) {
-    // Remove caracteres especiais e converte para maiúsculas
+    // Remove tudo que não é letra, número ou hífen
     String limpo = texto
-        .replaceAll(RegExp(r'[^A-Za-z0-9]'), '')
+        .replaceAll(RegExp(r'[^A-Za-z0-9-]'), '')
         .toUpperCase();
     
     if (limpo.isEmpty) return '';
     
-    // Para placas no padrão Mercosul (AAA1B23)
-    if (limpo.length <= 3) {
-      return limpo;
+    // Remove hífens para facilitar o processamento
+    String semHifen = limpo.replaceAll('-', '');
+    
+    // Limita a 7 caracteres (3 letras + 4 caracteres)
+    if (semHifen.length > 7) {
+      semHifen = semHifen.substring(0, 7);
     }
     
-    // Limita a 7 caracteres (formato AAA1B23)
-    if (limpo.length > 7) {
-      limpo = limpo.substring(0, 7);
+    // Separa letras (antes do hífen) e caracteres (depois do hífen)
+    String letras = '';
+    String segundoBloco = '';
+    
+    for (int i = 0; i < semHifen.length; i++) {
+      String char = semHifen[i];
+      
+      // Até 3 caracteres: aceita apenas letras
+      if (letras.length < 3) {
+        if (RegExp(r'[A-Z]').hasMatch(char)) {
+          letras += char;
+        }
+        // Ignora números antes de completar 3 letras
+      } else {
+        // Após 3 letras: aceita letras E números
+        if (RegExp(r'[A-Z0-9]').hasMatch(char)) {
+          segundoBloco += char;
+        }
+      }
     }
     
-    return limpo;
+    // Limita segundo bloco a 4 caracteres
+    if (segundoBloco.length > 4) {
+      segundoBloco = segundoBloco.substring(0, 4);
+    }
+    
+    // Formata com hífen
+    if (letras.isEmpty) {
+      return '';
+    } else if (segundoBloco.isEmpty) {
+      return letras + '-';
+    } else {
+      return '$letras-$segundoBloco';
+    }
   }
 
   // Função para calcular destino a 20°C automaticamente
@@ -1651,9 +1702,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
       
       // 8. Recalcular a diferença a 20°C
       _calcularDiferenca20C();
-      
-      print('Destino 20°C calculado: $destinoAmb × $fcv = $destino20CFormatado');
-      
+                  
     } catch (e) {
       print('Erro ao calcular destino 20°C automático: $e');
     }
@@ -1876,6 +1925,169 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
 
       
     });
+  }
+
+  // Método para limpar/reiniciar o formulário
+  void _novoDocumento() {
+    // Confirmação antes de limpar
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.0),
+            side: const BorderSide(
+              color: Color(0xFF0D47A1),
+              width: 2.0,
+            ),
+          ),
+          backgroundColor: Colors.white,
+          title: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0D47A1),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.warning_amber, color: Colors.white, size: 28),
+                SizedBox(width: 12),
+                Text(
+                  'Novo Documento',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          content: const SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: 8),
+                Text(
+                  'Tem certeza que deseja criar um novo documento?',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  'Todos os dados preenchidos serão perdidos e o formulário será reiniciado.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.black54,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            // BOTÃO CANCELAR
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Fecha o diálogo
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.grey[700],
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: BorderSide(color: Colors.grey[400]!),
+                ),
+              ),
+              child: const Text(
+                'Cancelar',
+                style: TextStyle(fontSize: 16),
+              ),
+            ),
+
+            // BOTÃO CONFIRMAR
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Fecha o diálogo
+                _limparFormulario(); // Limpa o formulário
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0D47A1),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                'Novo Documento',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        );
+      },
+    );
+  }
+
+  // Método que realmente limpa o formulário
+  void _limparFormulario() {
+    setState(() {
+      // 1. Limpa o tipo de operação
+      tipoOperacao = null;
+      
+      // 2. Reseta a flag de análise concluída
+      _analiseConcluida = false;
+      
+      // 3. Limpa todos os controllers
+      for (var controller in campos.values) {
+        controller.clear();
+      }
+      
+      // 4. Limpa o produto selecionado
+      produtoSelecionado = null;
+      
+      // 5. Atualiza data e hora para o momento atual
+      _setarDataHoraAtual();
+      
+      // 6. Limpa campos calculados automaticamente
+      campos['densidade20']!.text = '';
+      campos['fatorCorrecao']!.text = '';
+      campos['difAmb']!.text = '';
+      campos['dif20']!.text = '';
+      
+      // 7. Reseta o foco
+      _focusTempCT.unfocus();
+      _focusDestinoAmb.unfocus();
+      _focusDestino20.unfocus();
+      _focusOrigem20.unfocus();
+    });
+    
+    // Mostra mensagem de sucesso
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.refresh, color: Colors.white),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text('✓ Formulário limpo! Preencha os dados para um novo certificado.'),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.blue,
+        duration: Duration(seconds: 3),
+      ),
+    );
   }
 
 }

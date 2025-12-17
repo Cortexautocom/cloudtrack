@@ -36,7 +36,7 @@ class CertificadoPDF {
                 child: pw.Column(
                   children: [
                     pw.Text(
-                      'CERTIFICADO DE ANÁLISE',
+                      'ORDEM DE DESCARGA',
                       style: pw.TextStyle(
                         fontSize: 18, // Reduzido de 20
                         fontWeight: pw.FontWeight.bold,
@@ -97,10 +97,10 @@ class CertificadoPDF {
                   // CARTÃO 2: Dados do Transporte
                   pw.Expanded(
                     child: pw.Container(
-                      padding: const pw.EdgeInsets.all(10), // Reduzido de 12
+                      padding: const pw.EdgeInsets.all(10),
                       decoration: pw.BoxDecoration(
-                        border: pw.Border.all(color: PdfColors.grey300, width: 0.5), // Reduzido
-                        borderRadius: pw.BorderRadius.circular(5), // Reduzido
+                        border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
+                        borderRadius: pw.BorderRadius.circular(5),
                       ),
                       child: pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -110,13 +110,41 @@ class CertificadoPDF {
                             style: pw.TextStyle(
                               fontWeight: pw.FontWeight.bold,
                               color: azulPrincipal,
-                              fontSize: 11, // Adicionado para consistência
+                              fontSize: 11,
                             ),
                           ),
-                          pw.Divider(color: azulPrincipal, height: 10), // Reduzido de 15
-                          _infoLinhaPDFCompacta('Placa do veículo:', campos['placa'] ?? ""),
+                          pw.Divider(color: azulPrincipal, height: 10),
+                          
+                          // Motorista e Transportadora (mantidos)
                           _infoLinhaPDFCompacta('Motorista:', campos['motorista'] ?? ""),
                           _infoLinhaPDFCompacta('Transportadora:', campos['transportadora'] ?? ""),
+                          
+                          // NOVA LINHA: Placas combinadas
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.only(bottom: 6),
+                            child: pw.Row(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Text(
+                                  'Placas: ',
+                                  style: pw.TextStyle(
+                                    fontWeight: pw.FontWeight.bold,
+                                    fontSize: 9,
+                                  ),
+                                ),
+                                pw.Expanded(
+                                  child: pw.Text(
+                                    _formatarPlacasParaPDF(
+                                      cavalo: campos['placaCavalo'],
+                                      carreta1: campos['carreta1'],
+                                      carreta2: campos['carreta2'],
+                                    ),
+                                    style: const pw.TextStyle(fontSize: 9),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -331,7 +359,7 @@ class CertificadoPDF {
                             pw.Text('_________________________', 
                               style: pw.TextStyle(fontSize: 9, height: 1)),
                             pw.SizedBox(height: 3),
-                            pw.Text('Responsável pela Coleta', 
+                            pw.Text('Operador responsável', 
                               style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
                           ],
                         ),
@@ -343,7 +371,7 @@ class CertificadoPDF {
                             pw.Text('_________________________', 
                               style: pw.TextStyle(fontSize: 9, height: 1)),
                             pw.SizedBox(height: 3),
-                            pw.Text('Responsável Técnico', 
+                            pw.Text('Laboratório', 
                               style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
                           ],
                         ),
@@ -354,7 +382,7 @@ class CertificadoPDF {
                     pw.Divider(height: 0.5, color: PdfColors.grey400),
                     pw.SizedBox(height: 4),
                     pw.Text(
-                      'Documento gerado automaticamente pelo CloudTrack - $data $hora',
+                      'CloudTrack® - Terminais - $data $hora',
                       style: pw.TextStyle(fontSize: 7, color: PdfColors.grey600),
                       textAlign: pw.TextAlign.center,
                     ),
@@ -425,6 +453,35 @@ class CertificadoPDF {
           ? pw.BoxDecoration(color: PdfColor.fromInt(0xFF0D47A1))
           : null,
     );
-  } 
-  //888
+  }
+
+  // Função auxiliar para formatar as placas para o PDF
+  static String _formatarPlacasParaPDF({
+    String? cavalo,
+    String? carreta1,
+    String? carreta2,
+  }) {
+    // Lista para armazenar as placas não vazias
+    final List<String> placas = [];
+    
+    if (cavalo != null && cavalo.trim().isNotEmpty) {
+      placas.add(cavalo.trim());
+    }
+    
+    if (carreta1 != null && carreta1.trim().isNotEmpty) {
+      placas.add(carreta1.trim());
+    }
+    
+    if (carreta2 != null && carreta2.trim().isNotEmpty) {
+      placas.add(carreta2.trim());
+    }
+    
+    // Se não há nenhuma placa
+    if (placas.isEmpty) {
+      return 'Não informado';
+    }
+    
+    // Junta as placas com vírgula e espaço
+    return placas.join(', ');
+  }
 }
