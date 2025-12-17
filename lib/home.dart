@@ -11,7 +11,7 @@ import 'sessoes/apuracao/medicao.dart';
 import 'sessoes/apuracao/tanques.dart';
 import 'sessoes/apuracao/escolherfilial.dart';
 import 'sessoes/vendas/programacao.dart';
-import 'sessoes/apuracao/certificado_analise.dart'; // página provisória do certificado
+import 'sessoes/apuracao/certificado_analise.dart'; // página de Ordens / Análise
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -41,7 +41,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _veioDaApuracao = false;
   bool _mostrarMedicaoTanques = false;
   bool _mostrarTanques = false;
-  bool _mostrarCertificadosAnalise = false;
+  bool _mostrarOrdensAnalise = false;
   Map<String, dynamic>? _dadosCalcGerado;
   
   // FLAGS PARA ESCOLHA DE FILIAL
@@ -74,8 +74,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       // NOVO ITEM ADICIONADO
       {
         'icon': Icons.assignment, // Ou outro ícone apropriado
-        'label': 'Certificado de análise',
-        'descricao': 'Geração e gestão de certificados de análise',
+        'label': 'Ordens / Análise',
+        'descricao': 'Geração e gestão de ordens de análise',
       },
     ];
   }
@@ -181,8 +181,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarEscolherFilial = false;
       _filialSelecionadaId = null;
       _contextoEscolhaFilial = '';
-      _mostrarCertificadosAnalise = false;
-      _mostrarCertificadosAnalise = false;
+      _mostrarOrdensAnalise = false;
     });
   }
 
@@ -314,7 +313,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   _mostrarEscolherFilial = false;
                                   _filialSelecionadaId = null;
                                   _contextoEscolhaFilial = '';
-                                  _mostrarCertificadosAnalise = false;
+                                  _mostrarOrdensAnalise = false;
                                 });
 
                                 if (menuItems[index] == 'Sessões') {
@@ -442,12 +441,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         transitionBuilder: (child, animation) =>
             FadeTransition(opacity: animation, child: child),
 
-        child: _mostrarCertificadosAnalise
+        child: _mostrarOrdensAnalise
             ? CertificadoAnalisePage(
-                key: const ValueKey('certificado-analise'),
+                key: const ValueKey('ordens-analise'),
                 onVoltar: () {
                   setState(() {
-                    _mostrarCertificadosAnalise = false;
+                    _mostrarOrdensAnalise = false;
                     if (_veioDaApuracao) {
                       _mostrarApuracaoFilhos = true;
                     }
@@ -697,10 +696,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           }
         });
         break;
-      case 'Certificado de análise':
+      case 'Ordens / Análise':
         setState(() {
           _veioDaApuracao = true; // ADICIONAR esta linha
-          _mostrarCertificadosAnalise = true;
+          _mostrarOrdensAnalise = true;
           _mostrarApuracaoFilhos = false;
         });
         break;
