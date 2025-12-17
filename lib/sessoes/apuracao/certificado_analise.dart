@@ -649,25 +649,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                       ),
                                     ),
                                     
-                                    // BOTÃO NOVO DOCUMENTO (CENTRO) - SEMPRE ATIVO
-                                    ElevatedButton.icon(
-                                      onPressed: _novoDocumento,
-                                      icon: const Icon(Icons.add, size: 24),
-                                      label: const Text(
-                                        'Novo documento',
-                                        style: TextStyle(fontSize: 16),
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.orange, // Laranja para destacar
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                      ),
-                                    ),
-                                    
-                                    // BOTÃO GERAR PDF (DIREITA)
+                                    // BOTÃO GERAR PDF (CENTRO) - AGORA NO MEIO
                                     ElevatedButton.icon(
                                       onPressed: (_analiseConcluida && tipoOperacao != null) ? _baixarPDF : null,
                                       icon: Icon(
@@ -701,10 +683,26 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                         shadowColor: _analiseConcluida ? const Color(0xFF0D47A1).withOpacity(0.3) : Colors.transparent,
                                       ),
                                     ),
+                                    
+                                    // BOTÃO NOVO DOCUMENTO (DIREITA) - AGORA NA DIREITA
+                                    ElevatedButton.icon(
+                                      onPressed: _novoDocumento,
+                                      icon: const Icon(Icons.add, size: 24),
+                                      label: const Text(
+                                        'Novo documento',
+                                        style: TextStyle(fontSize: 16),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.orange, // Laranja para destacar
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                    ),
                                   ],
                                 ),
-                                const SizedBox(height: 20),
-                                const SizedBox(height: 20),
                                 const SizedBox(height: 20),
                               ],
                             ),
