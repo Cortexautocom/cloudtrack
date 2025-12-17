@@ -182,6 +182,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _filialSelecionadaId = null;
       _contextoEscolhaFilial = '';
       _mostrarCertificadosAnalise = false;
+      _mostrarCertificadosAnalise = false;
     });
   }
 
@@ -313,6 +314,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   _mostrarEscolherFilial = false;
                                   _filialSelecionadaId = null;
                                   _contextoEscolhaFilial = '';
+                                  _mostrarCertificadosAnalise = false;
                                 });
 
                                 if (menuItems[index] == 'Sessões') {
