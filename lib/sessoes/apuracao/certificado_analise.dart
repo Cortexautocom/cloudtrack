@@ -22,6 +22,7 @@ class CertificadoAnalisePage extends StatefulWidget {
 class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
   final _formKey = GlobalKey<FormState>();
   String? tipoOperacao;
+  bool _analiseConcluida = false;
   // ================= CONTROLLERS =================
   final TextEditingController dataCtrl = TextEditingController();
   final TextEditingController horaCtrl = TextEditingController();
@@ -625,42 +626,65 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                 const SizedBox(height: 40),
 
 
-                                // ================= PDF =================
-                                Container(
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: const Color(0xFF0D47A1)),
-                                    borderRadius: BorderRadius.circular(8),
-                                    color: Colors.grey[50],
-                                  ),
-                                  padding: const EdgeInsets.all(20),
-                                  child: Column(
-                                    children: [
-                                      const Text(
-                                        'GERAR CERTIFICADO EM PDF',
+                                // ================= BOTÕES DE AÇÃO =================
+                                const SizedBox(height: 40),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    // BOTÃO CONCLUIR ANÁLISE (ESQUERDA)
+                                    ElevatedButton.icon(
+                                      onPressed: (!_analiseConcluida && tipoOperacao != null) ? _confirmarConclusao : null,
+                                      icon: Icon(_analiseConcluida ? Icons.check_circle_outline : Icons.check_circle, size: 24),
+                                      label: Text(
+                                        _analiseConcluida ? 'Análise Concluída' : 'Concluir análise',
+                                        style: const TextStyle(fontSize: 16),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: _analiseConcluida ? Colors.grey[400] : Colors.green,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                    ),
+                                    // BOTÃO GERAR PDF (DIREITA)
+                                    ElevatedButton.icon(
+                                      onPressed: (_analiseConcluida && tipoOperacao != null) ? _baixarPDF : null,
+                                      icon: Icon(
+                                        Icons.picture_as_pdf, 
+                                        size: 24,
+                                        color: _analiseConcluida ? Colors.white : Colors.grey[600],
+                                      ),
+                                      label: Text(
+                                        'Gerar Certificado PDF',
                                         style: TextStyle(
                                           fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF0D47A1),
+                                          color: _analiseConcluida ? Colors.white : Colors.grey[600],
                                         ),
                                       ),
-                                      const SizedBox(height: 10),
-                                      const Text(
-                                        'Clique no botão abaixo para baixar o certificado em formato PDF',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(color: Colors.grey),
-                                      ),
-                                      const SizedBox(height: 20),
-                                      ElevatedButton.icon(
-                                        onPressed: tipoOperacao == null ? null : _baixarPDF,
-                                        icon: const Icon(Icons.picture_as_pdf, size: 24),
-                                        label: const Text(
-                                          'BAIXAR CERTIFICADO PDF',
-                                          style: TextStyle(fontSize: 16),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: _analiseConcluida 
+                                            ? const Color(0xFF0D47A1) // Azul quando disponível
+                                            : Colors.grey[300], // Cinza claro quando indisponível
+                                        foregroundColor: _analiseConcluida ? Colors.white : Colors.grey[600],
+                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                          side: BorderSide(
+                                            color: _analiseConcluida 
+                                                ? const Color(0xFF0D47A1)
+                                                : Colors.grey[400]!,
+                                            width: 1,
+                                          ),
                                         ),
+                                        elevation: _analiseConcluida ? 2 : 0, // Sombra só quando ativo
+                                        shadowColor: _analiseConcluida ? const Color(0xFF0D47A1).withOpacity(0.3) : Colors.transparent,
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
+                                const SizedBox(height: 20),
                                 const SizedBox(height: 20),
                               ],
                             ),
@@ -1183,6 +1207,16 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
       return;
     }
 
+    if (!_analiseConcluida) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Conclua a análise primeiro para gerar o PDF!'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     if (tipoOperacao == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1641,6 +1675,207 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
     valorStr = _aplicarMascaraMilhar(valorStr);
     
     return valorStr;
+  }
+
+  // Método para confirmar conclusão da análise
+  void _confirmarConclusao() {
+    // Validações básicas antes de mostrar o diálogo
+    if (tipoOperacao == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecione o tipo de operação!'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    if (produtoSelecionado == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecione um produto!'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Mostra o diálogo personalizado
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Não fecha ao clicar fora
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.0),
+            side: const BorderSide(
+              color: Color(0xFF0D47A1),
+              width: 2.0,
+            ),
+          ),
+          backgroundColor: Colors.white,
+          title: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0D47A1),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.warning_amber, color: Colors.white, size: 28),
+                SizedBox(width: 12),
+                Text(
+                  'Confirmação',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          content: SizedBox(
+            width: 400, // Largura fixa
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 8),
+                const Text(
+                  'Tem certeza que deseja concluir a análise?',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber[200]!),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.amber, size: 20),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Após a conclusão, qualquer edição ou correção no documento só poderá ser realizada por um supervisor nível 3.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color.fromARGB(255, 239, 108, 0),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+          actions: [
+            // BOTÃO CANCELAR
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Fecha o diálogo
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.grey[700],
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: BorderSide(color: Colors.grey[400]!),
+                ),
+              ),
+              child: const Text(
+                'Cancelar',
+                style: TextStyle(fontSize: 16),
+              ),
+            ),
+
+            // BOTÃO CONFIRMAR
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Fecha o diálogo
+                _processarConclusao(); // Processa a conclusão
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                'Confirmar Conclusão',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        );
+      },
+    );
+  }
+  
+  // Método para processar a conclusão da análise
+  void _processarConclusao() {
+    // Mostra um loading enquanto processa
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0D47A1)),
+        ),
+      ),
+    );
+
+    // Simula um processamento (substituir por lógica real depois)
+    Future.delayed(const Duration(seconds: 2), () {
+      // Fecha o loading
+      if (context.mounted) Navigator.of(context).pop();
+
+      // ATUALIZA O ESTADO - Análise concluída!
+      setState(() {
+        _analiseConcluida = true;
+      });
+
+      // Mostra mensagem de sucesso
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text('✓ Análise concluída com sucesso! O PDF agora está disponível.'),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
+        ),
+      );
+
+      // Aqui você pode adicionar:
+      // 1. Salvar os dados no banco
+      // 2. Gerar número de controle
+      // 3. Enviar para aprovação
+      // 4. Limpar o formulário
+      // 5. Navegar para outra tela
+
+      
+    });
   }
 
 }

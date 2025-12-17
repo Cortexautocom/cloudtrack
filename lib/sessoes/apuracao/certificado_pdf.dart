@@ -313,7 +313,7 @@ class CertificadoPDF {
                         pw.Text('Motorista - ${campos['motorista'] ?? "Não informado"}', 
                           style: pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
                         pw.SizedBox(height: 1),
-                        pw.Text('(Assinou o documento eletronicamente)', 
+                        pw.Text('', 
                           style: pw.TextStyle(fontSize: 7, color: PdfColors.grey600, fontStyle: pw.FontStyle.italic)),
                       ],
                     ),
