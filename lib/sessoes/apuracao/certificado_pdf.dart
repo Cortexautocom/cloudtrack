@@ -6,6 +6,7 @@ class CertificadoPDF {
   // Função principal para gerar o PDF
   static Future<pw.Document> gerar({
     required String data,
+    required String? tipoOperacao,
     required String hora,
     required String? produto,
     required Map<String, String> campos,
@@ -36,7 +37,7 @@ class CertificadoPDF {
                 child: pw.Column(
                   children: [
                     pw.Text(
-                      'ORDEM DE DESCARGA',
+                      _determinarTitulo(tipoOperacao),
                       style: pw.TextStyle(
                         fontSize: 18, // Reduzido de 20
                         fontWeight: pw.FontWeight.bold,
@@ -85,8 +86,8 @@ class CertificadoPDF {
                           pw.Divider(color: azulPrincipal, height: 10), // Reduzido de 15
                           _infoLinhaPDFCompacta('Produto:', produto ?? "Não informado"),
                           _infoLinhaPDFCompacta('Notas Fiscais:', campos['notas'] ?? ""),
-                          _infoLinhaPDFCompacta('Data Coleta:', data),
-                          _infoLinhaPDFCompacta('Hora Coleta:', hora),
+                          _infoLinhaPDFCompacta('Data da Coleta:', data),
+                          _infoLinhaPDFCompacta('Hora da Coleta:', hora),
                         ],
                       ),
                     ),
@@ -193,7 +194,7 @@ class CertificadoPDF {
                           ],
                         ),
                         _linhaTabelaCompacta('Temperatura da amostra', campos['tempAmostra'] ?? "", '°C'),
-                        _linhaTabelaCompacta('Densidade observada', campos['densidadeAmostra'] ?? "", ''),
+                        _linhaTabelaCompacta('Densidade observada', campos['densidadeAmostra'] ?? "", 'g/cm³'),
                         _linhaTabelaCompacta('Temperatura do CT', campos['tempCT'] ?? "", '°C'),
                       ],
                     ),
@@ -217,7 +218,7 @@ class CertificadoPDF {
                             _celulaTabelaCompacta('UNIDADE', true),
                           ],
                         ),
-                        _linhaTabelaCompacta('Densidade a 20ºC', campos['densidade20'] ?? "", ''),
+                        _linhaTabelaCompacta('Densidade a 20ºC', campos['densidade20'] ?? "", 'g/cm³'),
                         _linhaTabelaCompacta('Fator de conversão de volume (FCV)', campos['fatorCorrecao'] ?? "", ''),
                       ],
                     ),
@@ -483,5 +484,16 @@ class CertificadoPDF {
     
     // Junta as placas com vírgula e espaço
     return placas.join(', ');
+  }
+  // Função para determinar o título baseado no tipo de operação
+  static String _determinarTitulo(String? tipoOperacao) {
+    switch (tipoOperacao?.toLowerCase()) {
+      case 'carga':
+        return 'ORDEM DE CARREGAMENTO';
+      case 'descarga':
+        return 'ORDEM DE DESCARGA';
+      default:
+        return 'CERTIFICADO DE ANÁLISE'; // Fallback para casos não especificados
+    }
   }
 }

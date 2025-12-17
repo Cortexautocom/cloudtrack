@@ -564,7 +564,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                         );
                                       }
                                     },
-                                    decoration: _decoration('Complemento/Falta'),
+                                    decoration: _decoration('Complemento/Retirada'),
                                   ),
                                 ]),
                                 const SizedBox(height: 20),
@@ -1295,6 +1295,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
         data: dataCtrl.text,
         hora: horaCtrl.text,
         produto: produtoSelecionado,
+        tipoOperacao: tipoOperacao,
         campos: dadosPDF,
       );
       
