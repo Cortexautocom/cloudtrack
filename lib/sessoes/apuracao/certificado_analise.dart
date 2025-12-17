@@ -29,13 +29,18 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
 
   final FocusNode _focusDestinoAmb = FocusNode();
   final FocusNode _focusDestino20 = FocusNode();
+  final FocusNode _focusOrigem20 = FocusNode();
 
   final Map<String, TextEditingController> campos = {
     // Cabeçalho
+    'numeroControle': TextEditingController(),
     'transportadora': TextEditingController(),
     'motorista': TextEditingController(),
-    'placa': TextEditingController(),
     'notas': TextEditingController(),
+
+    'placaCavalo': TextEditingController(),
+    'carreta1': TextEditingController(),
+    'carreta2': TextEditingController(),
 
     // Coletas (usuário)
     'tempAmostra': TextEditingController(),
@@ -76,6 +81,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
     _focusDestinoAmb.addListener(() {
       if (!_focusDestinoAmb.hasFocus) {
         _calcularDiferencaAmbiente();
+        _calcularDestino20CAutomatico();
       }
     });
   
@@ -84,7 +90,11 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
         _calcularDiferenca20C();
       }
     });
-
+    _focusOrigem20.addListener(() {
+      if (!_focusOrigem20.hasFocus) {
+        _calcularDestino20CAutomatico();
+      }
+    });
   }
 
   void _setarDataHoraAtual() {
@@ -114,7 +124,6 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
 
   // ================= CÁLCULOS =================
   Future<void> _calcularResultadosObtidos() async {
-
     if (produtoSelecionado == null) {
       return;
     }
@@ -123,7 +132,6 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
     final densObs = campos['densidadeAmostra']!.text;
     final tempCT = campos['tempCT']!.text;
     final fcvAtual = campos['fatorCorrecao']!.text;
-
 
     // Limpar campos antes de buscar
     campos['densidade20']!.text = '';
@@ -146,15 +154,14 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
         : '-';
 
     if (fcv != '-' && fcv.isNotEmpty) {
-      
       campos['fatorCorrecao']!.text = fcv;
+      // ADICIONE ESTA LINHA ↓
+      _calcularDestino20CAutomatico(); // Recalcular quando FCV mudar
     } else {
-      
       if (fcvAtual.isEmpty || fcvAtual == '-') {
         campos['fatorCorrecao']!.text = '-';
       }
     }
-
 
     setState(() {});
   }
@@ -265,6 +272,23 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                             absorbing: tipoOperacao == null,
                             child: Column(
                               children: [
+                              // ================= NÚMERO DE CONTROLE =================
+                                _linha([
+                                  TextFormField(
+                                    controller: campos['numeroControle'],
+                                    enabled: false, // Será preenchido automaticamente pelo backend
+                                    decoration: _decoration('Nº Controle do Certificado').copyWith(
+                                      hintText: 'A ser gerado automaticamente',
+                                      filled: true,
+                                      fillColor: Colors.grey[200],
+                                    ),
+                                    style: const TextStyle(
+                                      fontStyle: FontStyle.italic,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ]),
+                                const SizedBox(height: 12),
                                 _linhaFlexivel([
                                   {
                                     'flex': 5,
@@ -331,33 +355,8 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                   },
                                 ]),
                                 const SizedBox(height: 12),
-                                // NOVA LINHA COM PLACA, MOTORISTA E TRANSPORTADORA
-                                // COM MÁSCARA AUTOMÁTICA PARA PLACA
+                                
                                 _linhaFlexivel([
-                                  {
-                                    'flex': 3, // Placa - 15% (3/20)
-                                    'widget': TextFormField(
-                                      controller: campos['placa'],
-                                      maxLength: 7,
-                                      textCapitalization: TextCapitalization.characters,
-                                      onChanged: (value) {
-                                        final masked = _aplicarMascaraPlaca(value);
-                                        if (masked != value) {
-                                          campos['placa']!.value = TextEditingValue(
-                                            text: masked,
-                                            selection: TextSelection.collapsed(offset: masked.length),
-                                          );
-                                        }
-                                      },
-                                      decoration: _decoration('Placa').copyWith(
-                                        counterText: '',
-                                        hintText: '',
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                                        labelStyle: const TextStyle(fontSize: 14),
-                                      ),
-                                      style: const TextStyle(fontSize: 15),
-                                    ),
-                                  },
                                   {
                                     'flex': 10, // Motorista - 50% (10/20)
                                     'widget': TextFormField(
@@ -369,12 +368,79 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                     ),
                                   },
                                   {
-                                    'flex': 7, // Transportadora - 35% (7/20)
+                                    'flex': 10, // Transportadora - 50% (10/20)
                                     'widget': TextFormField(
                                       controller: campos['transportadora'],
                                       maxLength: 50,
                                       decoration: _decoration('Transportadora').copyWith(
                                         counterText: '',
+                                      ),
+                                    ),
+                                  },
+                                ]),
+                                const SizedBox(height: 12),
+                                // LINHA COM OS 3 CAMPOS DE PLACA
+                                _linhaFlexivel([
+                                  {
+                                    'flex': 4, // Placa do cavalo
+                                    'widget': TextFormField(
+                                      controller: campos['placaCavalo'],
+                                      maxLength: 7,
+                                      textCapitalization: TextCapitalization.characters,
+                                      onChanged: (value) {
+                                        final masked = _aplicarMascaraPlaca(value);
+                                        if (masked != value) {
+                                          campos['placaCavalo']!.value = TextEditingValue(
+                                            text: masked,
+                                            selection: TextSelection.collapsed(offset: masked.length),
+                                          );
+                                        }
+                                      },
+                                      decoration: _decoration('Placa do cavalo').copyWith(
+                                        counterText: '',
+                                        hintText: '',
+                                      ),
+                                    ),
+                                  },
+                                  {
+                                    'flex': 4, // Carreta 1
+                                    'widget': TextFormField(
+                                      controller: campos['carreta1'],
+                                      maxLength: 7,
+                                      textCapitalization: TextCapitalization.characters,
+                                      onChanged: (value) {
+                                        final masked = _aplicarMascaraPlaca(value);
+                                        if (masked != value) {
+                                          campos['carreta1']!.value = TextEditingValue(
+                                            text: masked,
+                                            selection: TextSelection.collapsed(offset: masked.length),
+                                          );
+                                        }
+                                      },
+                                      decoration: _decoration('Carreta 1').copyWith(
+                                        counterText: '',
+                                        hintText: '',
+                                      ),
+                                    ),
+                                  },
+                                  {
+                                    'flex': 4, // Carreta 2
+                                    'widget': TextFormField(
+                                      controller: campos['carreta2'],
+                                      maxLength: 7,
+                                      textCapitalization: TextCapitalization.characters,
+                                      onChanged: (value) {
+                                        final masked = _aplicarMascaraPlaca(value);
+                                        if (masked != value) {
+                                          campos['carreta2']!.value = TextEditingValue(
+                                            text: masked,
+                                            selection: TextSelection.collapsed(offset: masked.length),
+                                          );
+                                        }
+                                      },
+                                      decoration: _decoration('Carreta 2').copyWith(
+                                        counterText: '',
+                                        hintText: '',
                                       ),
                                     ),
                                   },
@@ -505,6 +571,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                                 _linha([
                                   TextFormField(
                                     controller: campos['origem20'],
+                                    focusNode: _focusOrigem20,
                                     keyboardType: TextInputType.number,
                                     onChanged: (value) {
                                       final ctrl = campos['origem20']!;
@@ -610,9 +677,6 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
       ],
     );
   }
-
-
-
 
   // ================= UI HELPERS =================
   Widget _linha(List<Widget> campos) => Row(
@@ -1102,6 +1166,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
     _focusTempCT.dispose();
     _focusDestinoAmb.dispose();
     _focusDestino20.dispose();
+    _focusOrigem20.dispose();
     super.dispose();
   }
 
@@ -1150,9 +1215,12 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
     try {
       // 3. Prepara os dados para o PDF
       final dadosPDF = {
+        'numeroControle': campos['numeroControle']!.text,
         'transportadora': campos['transportadora']!.text,
         'motorista': campos['motorista']!.text,
-        'placa': campos['placa']!.text,
+        'placaCavalo': campos['placaCavalo']!.text,
+        'carreta1': campos['carreta1']!.text,
+        'carreta2': campos['carreta2']!.text,
         'notas': campos['notas']!.text,
         'tempAmostra': campos['tempAmostra']!.text,
         'densidadeAmostra': campos['densidadeAmostra']!.text,
@@ -1450,39 +1518,14 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
     // Pega o valor absoluto para formatação
     double valorAbs = valor.abs();
     
-    // Formatação do valor
-    String valorFormatado;
+    // Converte para número inteiro (arredondar para baixo)
+    int valorInteiro = valorAbs.floor();
     
-    // Verifica se é número inteiro
-    if (valorAbs % 1 == 0) {
-      valorFormatado = valorAbs.toInt().toString();
-    } else {
-      // Formata com 2 casas decimais
-      valorFormatado = valorAbs.toStringAsFixed(2);
-    }
+    // Converte para string
+    String valorFormatado = valorInteiro.toString();
     
-    // Remove zeros desnecessários após a vírgula
-    if (valorFormatado.contains('.')) {
-      valorFormatado = valorFormatado.replaceAll(RegExp(r'0*$'), '');
-      if (valorFormatado.endsWith('.')) {
-        valorFormatado = valorFormatado.substring(0, valorFormatado.length - 1);
-      }
-    }
-    
-    // Substitui ponto por vírgula se necessário
-    valorFormatado = valorFormatado.replaceAll('.', ',');
-    
-    // Aplica máscara de milhar (se for necessário)
-    if (valorFormatado.contains(',')) {
-      final partes = valorFormatado.split(',');
-      if (partes.length == 2) {
-        String parteInteira = _aplicarMascaraMilhar(partes[0]);
-        String parteDecimal = partes[1];
-        valorFormatado = '$parteInteira,$parteDecimal';
-      }
-    } else {
-      valorFormatado = _aplicarMascaraMilhar(valorFormatado);
-    }
+    // Aplica máscara de milhar
+    valorFormatado = _aplicarMascaraMilhar(valorFormatado);
     
     // Retorna com sinal
     return sinal + valorFormatado;
@@ -1528,6 +1571,76 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
     }
     
     return limpo;
+  }
+
+  // Função para calcular destino a 20°C automaticamente
+  // Função para calcular destino a 20°C automaticamente
+  void _calcularDestino20CAutomatico() {
+    try {
+      // 1. Verificar se o FCV está disponível
+      final fcvText = campos['fatorCorrecao']!.text;
+      if (fcvText.isEmpty || fcvText == '-') {
+        print('FCV não disponível para cálculo');
+        return; // Não calcula se não tiver FCV
+      }
+      
+      // 2. Pegar o valor de destino ambiente
+      final destinoAmbText = campos['destinoAmb']!.text;
+      if (destinoAmbText.isEmpty) {
+        // Se destino ambiente estiver vazio, limpa o destino 20°C
+        campos['destino20']!.text = '';
+        _calcularDiferenca20C();
+        return;
+      }
+      
+      // 3. Limpar os valores para conversão
+      // Remover ponto de milhar e substituir vírgula por ponto para cálculo
+      final destinoAmbLimpo = destinoAmbText.replaceAll('.', '');
+      final fcvLimpo = fcvText.replaceAll(',', '.');
+      
+      // 4. Converter para números
+      final destinoAmb = double.tryParse(destinoAmbLimpo);
+      final fcv = double.tryParse(fcvLimpo);
+      
+      if (destinoAmb == null || fcv == null) {
+        return; // Se não conseguir converter, sai
+      }
+      
+      // 5. Calcular: destino (20°C) = destino (ambiente) × FCV
+      final destino20C = destinoAmb * fcv;
+      
+      // 6. Formatar o resultado SEM casas decimais
+      String destino20CFormatado = _formatarNumeroParaCampo(destino20C);
+      
+      // 7. Atualizar o campo destino20
+      campos['destino20']!.text = destino20CFormatado;
+      
+      // 8. Recalcular a diferença a 20°C
+      _calcularDiferenca20C();
+      
+      print('Destino 20°C calculado: $destinoAmb × $fcv = $destino20CFormatado');
+      
+    } catch (e) {
+      print('Erro ao calcular destino 20°C automático: $e');
+    }
+  }
+  
+  // Função para formatar número para o campo (COM arredondamento, SEM casas decimais)
+  String _formatarNumeroParaCampo(double valor) {
+    if (valor.isNaN || valor.isInfinite) {
+      return '';
+    }
+    
+    // 1. Arredondar para o número inteiro mais próximo
+    int valorInteiro = valor.round(); // round() arredonda (0.5 para cima)
+    
+    // 2. Converter para string
+    String valorStr = valorInteiro.toString();
+    
+    // 3. Aplicar máscara de milhar
+    valorStr = _aplicarMascaraMilhar(valorStr);
+    
+    return valorStr;
   }
 
 }
