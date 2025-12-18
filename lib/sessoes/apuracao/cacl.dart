@@ -1686,7 +1686,7 @@ class _CalcPageState extends State<CalcPage> {
     final porcentagemFormatada = fmtPercent(porcentagem);
     
     // Concatenação: "-114 L | -0,36%"
-    final concatenacao = '$diferencaFormatada  |  $porcentagemFormatada';
+    final concatenacao = '$diferencaFormatada   ║   $porcentagemFormatada';
 
     // REGRAS DE CORES:
     // 1. "Faturado": cor automática (preto) - REMOVER O VERDE
