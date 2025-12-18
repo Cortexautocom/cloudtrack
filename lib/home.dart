@@ -51,13 +51,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   
   List<Map<String, dynamic>> sessoes = [];
   List<Map<String, dynamic>> apuracaoFilhos = [];
+  List<Map<String, dynamic>> estoquesFilhos = [];
+  bool _mostrarEstoquesFilhos = false;
 
   @override
   void initState() {
     super.initState();
     _inicializarApuracaoFilhos();
+    _inicializarEstoquesFilhos();
     selectedIndex = -1;
   }
+
 
   void _inicializarApuracaoFilhos() {
     apuracaoFilhos = [
@@ -76,6 +80,26 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'icon': Icons.assignment, // Ou outro ícone apropriado
         'label': 'Ordens / Análise',
         'descricao': 'Geração e gestão de ordens de análise',
+      },
+    ];
+  }
+
+  void _inicializarEstoquesFilhos() {
+    estoquesFilhos = [
+      {
+        'icon': Icons.inventory_2,
+        'label': 'Estoque Geral',
+        'descricao': 'Visão consolidada dos estoques',
+      },
+      {
+        'icon': Icons.swap_horiz,
+        'label': 'Movimentações',
+        'descricao': 'Entradas e saídas de produtos',
+      },
+      {
+        'icon': Icons.warning_amber,
+        'label': 'Alertas',
+        'descricao': 'Estoque mínimo e inconsistências',
       },
     ];
   }
@@ -543,6 +567,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     },
                     filialSelecionadaId: _filialSelecionadaId,
                   )
+            : _mostrarEstoquesFilhos
+                ? _buildEstoquesFilhosPage()
 
             : _mostrarApuracaoFilhos
                 ? _buildApuracaoFilhosPage()
@@ -594,6 +620,50 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
         Expanded(
           child: _buildGridApuracaoFilhos(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEstoquesFilhosPage() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
+              onPressed: () {
+                setState(() {
+                  _mostrarEstoquesFilhos = false;
+                });
+              },
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Estoques',
+              style: TextStyle(
+                fontSize: 24,
+                color: Color(0xFF0D47A1),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        const Divider(),
+        const SizedBox(height: 20),
+
+        Expanded(
+          child: GridView.count(
+            crossAxisCount: 7,
+            crossAxisSpacing: 15,
+            mainAxisSpacing: 15,
+            childAspectRatio: 1,
+            children: estoquesFilhos
+                .map((card) => _buildCardApuracaoFilho(card))
+                .toList(),
+          ),
         ),
       ],
     );
@@ -863,6 +933,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       child: InkWell(
         onTap: () {
           final nome = sessao['label'];
+          if (nome == 'Estoques') {
+            setState(() {
+              _mostrarEstoquesFilhos = true;
+            });
+            return;
+          }
+
           final usuario = UsuarioAtual.instance;
 
           if (nome == 'Tabelas de conversão') {
