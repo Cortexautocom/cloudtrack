@@ -4,13 +4,21 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class EscolherFilialPage extends StatefulWidget {
   final VoidCallback onVoltar;
   final Function(String idFilial) onSelecionarFilial;
-  final String titulo; // ← ADICIONE ESTE PARÂMETRO
+  final String titulo;
+  
+  // Adicione parâmetros para personalização
+  final Color? corPrimaria;
+  final Color? corFundoItem;
+  final Color? corHover;
 
   const EscolherFilialPage({
     super.key,
     required this.onVoltar,
     required this.onSelecionarFilial,
-    this.titulo = 'Selecionar filial', // ← ADICIONE COM VALOR PADRÃO
+    this.titulo = 'Selecionar filial',
+    this.corPrimaria, // ← NOVO
+    this.corFundoItem, // ← NOVO
+    this.corHover, // ← NOVO
   });
 
   @override
@@ -20,6 +28,11 @@ class EscolherFilialPage extends StatefulWidget {
 class _EscolherFilialPageState extends State<EscolherFilialPage> {
   bool carregando = true;
   List<Map<String, dynamic>> filiais = [];
+
+  // Cor padrão caso não seja fornecida
+  Color get _corPrimaria => widget.corPrimaria ?? const Color(0xFF0D47A1);
+  Color get _corFundoItem => widget.corFundoItem ?? const Color.fromARGB(255, 246, 255, 241);
+  Color get _corHover => widget.corHover ?? const Color(0xFFE3F2FD);
 
   @override
   void initState() {
@@ -54,15 +67,15 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
         Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
+              icon: Icon(Icons.arrow_back, color: _corPrimaria),
               onPressed: widget.onVoltar,
             ),
             const SizedBox(width: 10),
             Text(
-              widget.titulo, // ← USE widget.titulo AQUI
-              style: const TextStyle(
+              widget.titulo,
+              style: TextStyle(
                 fontSize: 22,
-                color: Color(0xFF0D47A1),
+                color: _corPrimaria,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -71,15 +84,14 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
 
         const SizedBox(height: 10),
         const Divider(),
-
         const SizedBox(height: 20),
 
         // Conteúdo
         Expanded(
           child: carregando
-              ? const Center(
+              ? Center(
                   child: CircularProgressIndicator(
-                    color: Color(0xFF0D47A1),
+                    color: _corPrimaria,
                   ),
                 )
               : filiais.isEmpty
@@ -99,9 +111,9 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
                       itemBuilder: (context, index) {
                         final filial = filiais[index];
                         return _buildFilialListItem(
-                          id: filial['id'],
-                          nome: filial['nome'],
-                          cidade: filial['cidade'],
+                          id: filial['id'].toString(),
+                          nome: filial['nome'].toString(),
+                          cidade: filial['cidade'].toString(),
                         );
                       },
                     ),
@@ -118,29 +130,38 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
     return Card(
       elevation: 2,
       margin: EdgeInsets.zero,
+      color: _corFundoItem,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: ListTile(
         onTap: () => widget.onSelecionarFilial(id),
+        hoverColor: _corHover.withOpacity(0.5), // ← HOVER PERSONALIZADO
+        splashColor: _corHover, // ← COR DO CLIQUE
+        
         leading: Container(
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: const Color(0xFF0D47A1).withOpacity(0.1),
+            color: _corPrimaria.withOpacity(0.1), // ← USA COR PRIMÁRIA
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(
+          child: Icon(
             Icons.business,
-            color: Color(0xFF0D47A1),
+            color: _corPrimaria, // ← USA COR PRIMÁRIA
             size: 24,
           ),
         ),
+        
         title: Text(
           nome,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF0D47A1),
+            color: _corPrimaria, // ← USA COR PRIMÁRIA
           ),
         ),
+        
         subtitle: Text(
           cidade,
           style: TextStyle(
@@ -148,11 +169,13 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
             color: Colors.grey.shade600,
           ),
         ),
+        
         trailing: const Icon(
           Icons.arrow_forward_ios,
           size: 16,
           color: Colors.grey,
         ),
+        
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),

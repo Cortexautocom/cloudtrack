@@ -552,7 +552,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                   Icon(Icons.description, size: 18),
                   SizedBox(width: 6),
                   Text(
-                    'Gerar CACL',
+                    'Pré-visualização',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
