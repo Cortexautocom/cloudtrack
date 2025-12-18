@@ -401,76 +401,7 @@ class _CalcPageState extends State<CalcPage> {
                     ],
                   ),
 
-                  const SizedBox(height: 20),
-
-                  // AVISO DE PRÉ-VISUALIZAÇÃO
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE3F2FD),
-                      border: Border.all(color: const Color(0xFF2196F3)),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.info_outline,
-                          color: Color(0xFF2196F3),
-                          size: 20,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                "Esta é uma pré-visualização do certificado",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF0D47A1),
-                                  fontSize: 13,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                "Os campos de assinatura serão incluídos no PDF final. "
-                                "Verifique os dados antes de gerar o documento oficial.",
-                                style: TextStyle(
-                                  color: Colors.grey[700],
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        ElevatedButton.icon(
-                          onPressed: _isGeneratingPDF ? null : _baixarPDFCACL,
-                          icon: _isGeneratingPDF
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Icons.picture_as_pdf, size: 18),
-                          label: Text(_isGeneratingPDF ? 'Gerando...' : 'Gerar PDF'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0D47A1),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 25),
+                  const SizedBox(height: 20),                  
 
                   // DADOS PRINCIPAIS
                   SizedBox(
@@ -588,42 +519,110 @@ class _CalcPageState extends State<CalcPage> {
                   const SizedBox(height: 20),
                   _blocoFaturado(
                     medicoes: medicoes,
-                  ),
-
-                  
+                  ),                 
 
                   // RODAPÉ
-                  SizedBox(
+                  Container(
                     width: double.infinity,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            "Pré-visualização • Use o botão 'Gerar PDF' para criar o documento oficial",
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontStyle: FontStyle.italic,
-                              fontSize: 11,
-                            ),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE3F2FD),
+                      border: Border.all(color: const Color(0xFF2196F3)),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.info_outline,
+                          color: Color(0xFF2196F3),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "Esta é uma pré-visualização do certificado",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0D47A1),
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                "Os campos de assinatura serão incluídos no PDF final. "
+                                "Verifique os dados antes de gerar o documento oficial.",
+                                style: TextStyle(
+                                  color: Colors.grey[700],
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "Documento gerado em: ${DateTime.now().toLocal().toString().substring(0, 16)}",
-                            style: TextStyle(
-                              color: Colors.grey.shade500,
-                              fontSize: 9,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),                        
+                      ],
                     ),
                   ),
                   const SizedBox(height: 10),
+                  // LINHA DE BOTÕES
+                  Container(
+                    margin: const EdgeInsets.only(top: 20),
+                    width: double.infinity,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // BOTÃO "EMITIR CACL" - AGORA PRIMEIRO
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Função "Emitir CACL" será implementada em breve!'),
+                                backgroundColor: Colors.blue,
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.send, size: 18),
+                          label: const Text('Emitir CACL'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                        ),
+                        
+                        const SizedBox(width: 20),
+                        
+                        // BOTÃO "GERAR PDF" - AGORA SEGUNDO
+                        ElevatedButton.icon(
+                          onPressed: _isGeneratingPDF ? null : _baixarPDFCACL,
+                          icon: _isGeneratingPDF
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.picture_as_pdf, size: 18),
+                          label: Text(_isGeneratingPDF ? 'Gerando...' : 'Gerar PDF'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D47A1),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
