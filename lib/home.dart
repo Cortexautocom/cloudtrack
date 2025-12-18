@@ -11,7 +11,9 @@ import 'sessoes/apuracao/medicao.dart';
 import 'sessoes/apuracao/tanques.dart';
 import 'sessoes/apuracao/escolherfilial.dart';
 import 'sessoes/vendas/programacao.dart';
-import 'sessoes/apuracao/certificado_analise.dart'; // página de Ordens / Análise
+import 'sessoes/apuracao/certificado_analise.dart';
+import 'sessoes/estoques/estoque_geral.dart';
+
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -773,6 +775,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _mostrarApuracaoFilhos = false;
         });
         break;
+      case 'Estoque Geral':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const EstoqueGeralPage(),
+          ),
+        );
+        break;    
     }
   }
 
