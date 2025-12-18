@@ -89,7 +89,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   void _inicializarEstoquesFilhos() {
     estoquesFilhos = [
       {
-        'icon': Icons.inventory_2,
+        'icon': Icons.hub,
         'label': 'Estoque Geral',
         'descricao': 'Visão consolidada dos estoques',
       },
@@ -1051,6 +1051,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   IconData _definirIcone(String nome) {
     final lower = nome.toLowerCase();
+    if (lower.contains('estoques')) return Icons.leaderboard;
     if (lower.contains('tabela')) return Icons.view_list;
     if (lower.contains('motor')) return Icons.people;
     if (lower.contains('rota')) return Icons.map;
