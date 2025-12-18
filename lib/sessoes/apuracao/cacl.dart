@@ -19,6 +19,7 @@ class _CalcPageState extends State<CalcPage> {
   double volumeTarde = 0;
   double volumeTotalLiquidoManha = 0;
   double volumeTotalLiquidoTarde = 0;
+  bool _isGeneratingPDF = false;
 
   @override
   void initState() {
@@ -346,26 +347,29 @@ class _CalcPageState extends State<CalcPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // CABEÇALHO COM BANDEIRA DE PRÉ-VISUALIZAÇÃO
                   Stack(
                     children: [
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE0E0E0),
                           border: Border.all(color: Colors.black, width: 1.5),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Center(
-                          child: Text(
-                            "CERTIFICADO DE ARQUEAÇÃO DE CARGAS LÍQUIDAS",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
+                        child: Column(
+                          children: [
+                            const Text(
+                              "CACL - PRÉ-VISUALIZAÇÃO",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                                letterSpacing: 0.5,
+                              ),
+                            ),                           
+                          ],
                         ),
                       ),
                       Positioned(
@@ -381,49 +385,94 @@ class _CalcPageState extends State<CalcPage> {
                               width: 32,
                               height: 32,
                               decoration: BoxDecoration(
-                                color: const Color.fromARGB(255, 209, 209, 209),
-                                border: Border.all(color: const Color.fromARGB(255, 202, 202, 202), width: 1),
+                                color: const Color.fromARGB(255, 197, 255, 195),
+                                border: Border.all(color: const Color.fromARGB(255, 141, 141, 141), width: 1),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: const Icon(
                                 Icons.arrow_back,
                                 size: 20,
-                                color: Color.fromARGB(255, 235, 235, 235),
+                                color: Color.fromARGB(255, 73, 107, 255),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      // BOTÃO PARA GERAR PDF (ADICIONADO)
-                      Positioned(
-                        right: 8,
-                        top: 8,
-                        child: Tooltip(
-                          message: 'Gerar PDF',
-                          child: GestureDetector(
-                            onTap: _baixarPDFCACL,
-                            child: Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF0D47A1),
-                                border: Border.all(color: const Color(0xFF0D47A1), width: 1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Icon(
-                                Icons.picture_as_pdf,
-                                size: 20,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                      ),                      
                     ],
                   ),
 
                   const SizedBox(height: 20),
 
+                  // AVISO DE PRÉ-VISUALIZAÇÃO
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE3F2FD),
+                      border: Border.all(color: const Color(0xFF2196F3)),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.info_outline,
+                          color: Color(0xFF2196F3),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "Esta é uma pré-visualização do certificado",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0D47A1),
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                "Os campos de assinatura serão incluídos no PDF final. "
+                                "Verifique os dados antes de gerar o documento oficial.",
+                                style: TextStyle(
+                                  color: Colors.grey[700],
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: _isGeneratingPDF ? null : _baixarPDFCACL,
+                          icon: _isGeneratingPDF
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.picture_as_pdf, size: 18),
+                          label: Text(_isGeneratingPDF ? 'Gerando...' : 'Gerar PDF'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D47A1),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 25),
+
+                  // DADOS PRINCIPAIS
                   SizedBox(
                     width: double.infinity,
                     child: Row(
@@ -474,6 +523,7 @@ class _CalcPageState extends State<CalcPage> {
 
                   const SizedBox(height: 25),
 
+                  // SEÇÃO DE MEDIÇÕES
                   _subtitulo("VOLUME RECEBIDO NOS TANQUES DE TERRA E CANALIZAÇÃO RESPECTIVA"),
                   const SizedBox(height: 12),
 
@@ -520,6 +570,7 @@ class _CalcPageState extends State<CalcPage> {
 
                   const SizedBox(height: 25),
 
+                  // COMPARAÇÃO DE RESULTADOS
                   _subtitulo("COMPARAÇÃO DE RESULTADOS"),
                   const SizedBox(height: 8),
 
@@ -539,34 +590,9 @@ class _CalcPageState extends State<CalcPage> {
                     medicoes: medicoes,
                   ),
 
-                  if (widget.dadosFormulario['responsavel'] != null && widget.dadosFormulario['responsavel']!.isNotEmpty)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 25),
-                        _subtitulo("RESPONSÁVEL PELA MEDIÇÃO"),
-                        const SizedBox(height: 8),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.black38),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            widget.dadosFormulario['responsavel']!,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                  
 
-                  const SizedBox(height: 30),
-
-                  // RODAPÉ CORRIGIDO: Substituído Container por SizedBox com Container interno
+                  // RODAPÉ
                   SizedBox(
                     width: double.infinity,
                     child: Container(
@@ -578,7 +604,7 @@ class _CalcPageState extends State<CalcPage> {
                       child: Column(
                         children: [
                           Text(
-                            "Página demonstrativa — valores ilustrativos",
+                            "Pré-visualização • Use o botão 'Gerar PDF' para criar o documento oficial",
                             style: TextStyle(
                               color: Colors.grey.shade600,
                               fontStyle: FontStyle.italic,
@@ -587,7 +613,7 @@ class _CalcPageState extends State<CalcPage> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            "Use Ctrl+P para imprimir • Botão Voltar do navegador para retornar",
+                            "Documento gerado em: ${DateTime.now().toLocal().toString().substring(0, 16)}",
                             style: TextStyle(
                               color: Colors.grey.shade500,
                               fontSize: 9,
@@ -1817,31 +1843,15 @@ class _CalcPageState extends State<CalcPage> {
             ),
           ],
         ),
-        SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.only(left: 140),
-          child: Text(
-            "Diferença = Volume a 20ºC - Faturado",
-            style: TextStyle(
-              fontSize: 9,
-              color: Colors.grey[600],
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-        ),
+        SizedBox(height: 15),        
       ],
     );
   }
 
   Future<void> _baixarPDFCACL() async {
-    // Mostra loading
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
+    setState(() {
+      _isGeneratingPDF = true;
+    });
     
     try {
       // Gera o PDF usando a classe CACLPdf
@@ -1851,9 +1861,6 @@ class _CalcPageState extends State<CalcPage> {
       
       // Converte o documento para bytes
       final pdfBytes = await pdfDocument.save();
-      
-      // Fecha loading
-      if (context.mounted) Navigator.of(context).pop();
       
       // Faz download
       if (kIsWeb) {
@@ -1869,6 +1876,7 @@ class _CalcPageState extends State<CalcPage> {
           const SnackBar(
             content: Text('✓ Certificado CACL baixado com sucesso!'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
           ),
         );
       }
@@ -1877,13 +1885,19 @@ class _CalcPageState extends State<CalcPage> {
       print('ERRO ao gerar PDF CACL: $e');
       
       if (context.mounted) {
-        Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erro ao gerar PDF: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGeneratingPDF = false;
+        });
       }
     }
   }
@@ -1932,9 +1946,9 @@ class _CalcPageState extends State<CalcPage> {
         const SnackBar(
           content: Text('PDF CACL gerado! Em breve disponível para download no mobile.'),
           backgroundColor: Colors.blue,
+          duration: Duration(seconds: 3),
         ),
       );
     }
   }
-
 }
