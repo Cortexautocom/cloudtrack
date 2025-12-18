@@ -21,11 +21,13 @@ class _CalcPageState extends State<CalcPage> {
   double volumeTotalLiquidoTarde = 0;
   bool _isGeneratingPDF = false;
   bool _isEmittingCACL = false;
+  bool _caclJaEmitido = false;
 
   @override
   void initState() {
     super.initState();
     _calcularVolumesIniciais();
+    _verificarSeCaclJaFoiEmitido();
   }
 
   Future<void> _calcularVolumesIniciais() async {
@@ -512,6 +514,9 @@ class _CalcPageState extends State<CalcPage> {
             duration: Duration(seconds: 3),
           ),
         );
+        setState(() {
+          _caclJaEmitido = true;
+        });
       }
       
     } catch (e) {
@@ -780,11 +785,26 @@ class _CalcPageState extends State<CalcPage> {
                       children: [
                         // BOTÃO "EMITIR CACL" - AGORA PRIMEIRO
                         ElevatedButton.icon(
-                          onPressed: _emitirCACL, // <-- ALTERAÇÃO AQUI
-                          icon: const Icon(Icons.send, size: 18),
-                          label: const Text('Emitir CACL'),
+                          onPressed: _caclJaEmitido || _isEmittingCACL ? null : _emitirCACL,
+                          icon: _isEmittingCACL
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : _caclJaEmitido
+                                  ? const Icon(Icons.check_circle, size: 18)
+                                  : const Icon(Icons.send, size: 18),
+                          label: _isEmittingCACL
+                              ? const Text('Emitindo...')
+                              : _caclJaEmitido
+                                  ? const Text('Já Emitido')
+                                  : const Text('Emitir CACL'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
+                            backgroundColor: _caclJaEmitido ? Colors.grey : Colors.green,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                             shape: RoundedRectangleBorder(
@@ -797,7 +817,7 @@ class _CalcPageState extends State<CalcPage> {
                         
                         // BOTÃO "GERAR PDF" - AGORA SEGUNDO
                         ElevatedButton.icon(
-                          onPressed: _isGeneratingPDF ? null : _baixarPDFCACL,
+                          onPressed: (!_caclJaEmitido || _isGeneratingPDF) ? null : _baixarPDFCACL,
                           icon: _isGeneratingPDF
                               ? const SizedBox(
                                   width: 16,
@@ -810,7 +830,7 @@ class _CalcPageState extends State<CalcPage> {
                               : const Icon(Icons.picture_as_pdf, size: 18),
                           label: Text(_isGeneratingPDF ? 'Gerando...' : 'Gerar PDF'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0D47A1),
+                            backgroundColor: !_caclJaEmitido ? Colors.grey : const Color(0xFF0D47A1),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                             shape: RoundedRectangleBorder(
@@ -2146,6 +2166,50 @@ class _CalcPageState extends State<CalcPage> {
           duration: Duration(seconds: 3),
         ),
       );
+    }
+  }
+
+  Future<void> _verificarSeCaclJaFoiEmitido() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final session = supabase.auth.currentSession;
+      
+      if (session == null) {
+        return; // Usuário não logado, não verifica
+      }
+      
+      // Obter valores principais
+      final data = widget.dadosFormulario['data']?.toString();
+      final produto = widget.dadosFormulario['produto']?.toString();      
+      
+      // Se não tiver dados suficientes, não verifica
+      if (data == null || data.isEmpty || produto == null || produto.isEmpty) {
+        return;
+      }
+      
+      // NOVA SINTAXE: Filtrar usando where
+      final response = await supabase
+          .from('calculos_cacl')
+          .select('id')
+          .eq('created_by', session.user.id) // Filtro direto
+          .eq('data', data)                   // Filtro direto  
+          .eq('produto', produto)             // Filtro direto
+          .limit(1);
+      
+      // A resposta já vem como List<dynamic>
+      if (response.isNotEmpty) {
+        // Encontrou um registro existente
+        if (mounted) {
+          setState(() {
+            _caclJaEmitido = true;
+          });
+        }
+        print('✅ CACL já foi emitido anteriormente por este usuário');
+      }
+      
+    } catch (e) {
+      print('⚠️ Erro ao verificar se CACL já foi emitido: $e');
+      // Não altera o estado em caso de erro
     }
   }
 }
