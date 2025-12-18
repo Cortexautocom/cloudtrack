@@ -20,6 +20,7 @@ class _CalcPageState extends State<CalcPage> {
   double volumeTotalLiquidoManha = 0;
   double volumeTotalLiquidoTarde = 0;
   bool _isGeneratingPDF = false;
+  bool _isEmittingCACL = false;
 
   @override
   void initState() {
@@ -331,6 +332,210 @@ class _CalcPageState extends State<CalcPage> {
     }
   }
 
+  Future<void> _emitirCACL() async {
+    if (_isEmittingCACL) return;
+    
+    setState(() {
+      _isEmittingCACL = true;
+    });
+    
+    try {
+      final supabase = Supabase.instance.client;
+      final medicoes = widget.dadosFormulario['medicoes'] ?? {};
+      
+      // Verifica se o usuário está logado
+      final session = supabase.auth.currentSession;
+      if (session == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Você precisa estar logado para emitir o CACL'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      
+      // Formatar data para o padrão YYYY-MM-DD
+      String? dataFormatada;
+      final dataOriginal = widget.dadosFormulario['data']?.toString() ?? '';
+      if (dataOriginal.isNotEmpty) {
+        try {
+          // Tenta converter de "14/01/2024" para "2024-01-14"
+          final partes = dataOriginal.split('/');
+          if (partes.length == 3) {
+            dataFormatada = '${partes[2]}-${partes[1].padLeft(2, '0')}-${partes[0].padLeft(2, '0')}';
+          } else {
+            dataFormatada = dataOriginal;
+          }
+        } catch (e) {
+          dataFormatada = dataOriginal;
+        }
+      }
+      
+      // Função auxiliar para converter horário
+      String? formatarHorarioParaTime(String? horario) {
+        if (horario == null || horario.isEmpty || horario == '-') return null;
+        
+        String limpo = horario.trim().replaceAll('h', '').replaceAll('H', '');
+        
+        if (limpo.contains(':')) {
+          final partes = limpo.split(':');
+          if (partes.length == 2) {
+            final horas = int.tryParse(partes[0]) ?? 0;
+            final minutos = int.tryParse(partes[1]) ?? 0;
+            
+            if (horas >= 0 && horas < 24 && minutos >= 0 && minutos < 60) {
+              return '${horas.toString().padLeft(2, '0')}:${minutos.toString().padLeft(2, '0')}:00';
+            }
+          }
+        }
+        
+        return null;
+      }
+      
+      // Função auxiliar para converter texto para double (tratando "-" como null)
+      double? converterParaDouble(String? valor) {
+        if (valor == null || valor.isEmpty || valor == '-') return null;
+        
+        try {
+          String limpo = valor.replaceAll(' L', '').replaceAll(' cm', '')
+              .replaceAll(' ºC', '').replaceAll('°C', '')
+              .replaceAll(',', '.').replaceAll('.', '');
+          return double.tryParse(limpo);
+        } catch (e) {
+          return null;
+        }
+      }
+      
+      // Função auxiliar para extrair números de valores formatados (como "1.500 L")
+      double? extrairNumeroFormatado(String? valor) {
+        if (valor == null || valor.isEmpty || valor == '-') return null;
+        
+        try {
+          // Remove tudo que não é número
+          String somenteNumeros = valor.replaceAll(RegExp(r'[^0-9]'), '');
+          if (somenteNumeros.isEmpty) return null;
+          return double.tryParse(somenteNumeros);
+        } catch (e) {
+          return null;
+        }
+      }
+      
+      // Preparar dados para inserção
+      final dadosParaInserir = {
+        // Dados principais
+        'data': dataFormatada,
+        'base': widget.dadosFormulario['base']?.toString(),
+        'produto': widget.dadosFormulario['produto']?.toString(),
+        'tanque': widget.dadosFormulario['tanque']?.toString(),
+        'filial_id': widget.dadosFormulario['filial_id']?.toString(),
+        
+        // Medições da manhã
+        'horario_manha': formatarHorarioParaTime(medicoes['horarioManha']?.toString()),
+        'altura_total_liquido_manha': medicoes['alturaTotalManha']?.toString(),
+        'altura_total_cm_manha': medicoes['cmManha']?.toString(),
+        'altura_total_mm_manha': medicoes['mmManha']?.toString(),
+        'volume_total_liquido_manha': volumeTotalLiquidoManha,
+        'altura_agua_manha': medicoes['alturaAguaManha']?.toString(),
+        'volume_agua_manha': extrairNumeroFormatado(medicoes['volumeAguaManha']?.toString()),
+        'altura_produto_manha': medicoes['alturaProdutoManha']?.toString(),
+        'volume_produto_manha': volumeManha,
+        'temperatura_tanque_manha': medicoes['tempTanqueManha']?.toString(),
+        'densidade_observada_manha': medicoes['densidadeManha']?.toString(),
+        'temperatura_amostra_manha': medicoes['tempAmostraManha']?.toString(),
+        'densidade_20_manha': medicoes['densidade20Manha']?.toString(),
+        'fator_correcao_manha': medicoes['fatorCorrecaoManha']?.toString(),
+        'volume_20_manha': extrairNumeroFormatado(medicoes['volume20Manha']?.toString()),
+        'massa_manha': medicoes['massaManha']?.toString(),
+        
+        // Medições da tarde
+        'horario_tarde': formatarHorarioParaTime(medicoes['horarioTarde']?.toString()),
+        'altura_total_liquido_tarde': medicoes['alturaTotalTarde']?.toString(),
+        'altura_total_cm_tarde': medicoes['cmTarde']?.toString(),
+        'altura_total_mm_tarde': medicoes['mmTarde']?.toString(),
+        'volume_total_liquido_tarde': volumeTotalLiquidoTarde,
+        'altura_agua_tarde': medicoes['alturaAguaTarde']?.toString(),
+        'volume_agua_tarde': extrairNumeroFormatado(medicoes['volumeAguaTarde']?.toString()),
+        'altura_produto_tarde': medicoes['alturaProdutoTarde']?.toString(),
+        'volume_produto_tarde': volumeTarde,
+        'temperatura_tanque_tarde': medicoes['tempTanqueTarde']?.toString(),
+        'densidade_observada_tarde': medicoes['densidadeTarde']?.toString(),
+        'temperatura_amostra_tarde': medicoes['tempAmostraTarde']?.toString(),
+        'densidade_20_tarde': medicoes['densidade20Tarde']?.toString(),
+        'fator_correcao_tarde': medicoes['fatorCorrecaoTarde']?.toString(),
+        'volume_20_tarde': extrairNumeroFormatado(medicoes['volume20Tarde']?.toString()),
+        'massa_tarde': medicoes['massaTarde']?.toString(),
+        
+        // Cálculos comparativos
+        'volume_ambiente_manha': volumeManha,
+        'volume_ambiente_tarde': volumeTarde,
+        'entrada_saida_ambiente': volumeTarde - volumeManha,
+        'entrada_saida_20': (_extrairNumero(medicoes['volume20Tarde']?.toString()) - 
+                            _extrairNumero(medicoes['volume20Manha']?.toString())),
+        
+        // Informações de faturamento
+        'faturado_tarde': converterParaDouble(medicoes['faturadoTarde']?.toString()),
+        'diferenca_faturado': (extrairNumeroFormatado(medicoes['volume20Tarde']?.toString()) ?? 0) -
+                            (extrairNumeroFormatado(medicoes['volume20Manha']?.toString()) ?? 0) -
+                            (converterParaDouble(medicoes['faturadoTarde']?.toString()) ?? 0),
+        
+        // Auditoria
+        'created_by': session.user.id,
+      };
+      
+      // Calcular porcentagem da diferença
+      final entradaSaida20 = _extrairNumero(medicoes['volume20Tarde']?.toString()) - 
+                            _extrairNumero(medicoes['volume20Manha']?.toString());
+      final diferenca = entradaSaida20 - (converterParaDouble(medicoes['faturadoTarde']?.toString()) ?? 0);
+      
+      if (entradaSaida20 != 0) {
+        final porcentagem = (diferenca / entradaSaida20) * 100;
+        dadosParaInserir['porcentagem_diferenca'] = '${porcentagem >= 0 ? '+' : ''}${porcentagem.toStringAsFixed(2)}%';
+      } else {
+        dadosParaInserir['porcentagem_diferenca'] = '0.00%';
+      }
+      
+      // Remover campos nulos
+      dadosParaInserir.removeWhere((key, value) => value == null);
+      
+      // CORREÇÃO AQUI: Nova sintaxe do Supabase
+      await supabase
+          .from('cacl')
+          .insert(dadosParaInserir);
+      
+      // Sucesso!
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✓ CACL emitido e salvo no banco com sucesso!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      
+    } catch (e) {
+      print('ERRO ao emitir CACL: $e');
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao emitir CACL: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isEmittingCACL = false;
+        });
+      }
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final medicoes = widget.dadosFormulario['medicoes'] ?? {};
@@ -575,14 +780,7 @@ class _CalcPageState extends State<CalcPage> {
                       children: [
                         // BOTÃO "EMITIR CACL" - AGORA PRIMEIRO
                         ElevatedButton.icon(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Função "Emitir CACL" será implementada em breve!'),
-                                backgroundColor: Colors.blue,
-                              ),
-                            );
-                          },
+                          onPressed: _emitirCACL, // <-- ALTERAÇÃO AQUI
                           icon: const Icon(Icons.send, size: 18),
                           label: const Text('Emitir CACL'),
                           style: ElevatedButton.styleFrom(
