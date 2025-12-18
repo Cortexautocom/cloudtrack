@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'cacl_pdf.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:typed_data';
+import 'dart:convert' show base64Encode;
+import 'dart:js' as js;
 
 class CalcPage extends StatefulWidget {
   final Map<String, dynamic> dadosFormulario;
@@ -336,7 +341,7 @@ class _CalcPageState extends State<CalcPage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
+            SizedBox(
               width: 670,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -384,6 +389,31 @@ class _CalcPageState extends State<CalcPage> {
                                 Icons.arrow_back,
                                 size: 20,
                                 color: Color.fromARGB(255, 235, 235, 235),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // BOTÃO PARA GERAR PDF (ADICIONADO)
+                      Positioned(
+                        right: 8,
+                        top: 8,
+                        child: Tooltip(
+                          message: 'Gerar PDF',
+                          child: GestureDetector(
+                            onTap: _baixarPDFCACL,
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0D47A1),
+                                border: Border.all(color: const Color(0xFF0D47A1), width: 1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Icon(
+                                Icons.picture_as_pdf,
+                                size: 20,
+                                color: Colors.white,
                               ),
                             ),
                           ),
@@ -503,7 +533,7 @@ class _CalcPageState extends State<CalcPage> {
                                     _extrairNumero(medicoes['volume20Manha']?.toString()),
                   ),
 
-                  // NOVO BLOCO FATURADO ADICIONADO AQUI
+                  // BLOCO FATURADO
                   const SizedBox(height: 20),
                   _blocoFaturado(
                     medicoes: medicoes,
@@ -536,32 +566,35 @@ class _CalcPageState extends State<CalcPage> {
 
                   const SizedBox(height: 30),
 
-                  Container(
+                  // RODAPÉ CORRIGIDO: Substituído Container por SizedBox com Container interno
+                  SizedBox(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          "Página demonstrativa — valores ilustrativos",
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontStyle: FontStyle.italic,
-                            fontSize: 11,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            "Página demonstrativa — valores ilustrativos",
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontStyle: FontStyle.italic,
+                              fontSize: 11,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          "Use Ctrl+P para imprimir • Botão Voltar do navegador para retornar",
-                          style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontSize: 9,
+                          const SizedBox(height: 4),
+                          Text(
+                            "Use Ctrl+P para imprimir • Botão Voltar do navegador para retornar",
+                            style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 9,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -1798,6 +1831,110 @@ class _CalcPageState extends State<CalcPage> {
         ),
       ],
     );
+  }
+
+  Future<void> _baixarPDFCACL() async {
+    // Mostra loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+    
+    try {
+      // Gera o PDF usando a classe CACLPdf
+      final pdfDocument = await CACLPdf.gerar(
+        dadosFormulario: widget.dadosFormulario,
+      );
+      
+      // Converte o documento para bytes
+      final pdfBytes = await pdfDocument.save();
+      
+      // Fecha loading
+      if (context.mounted) Navigator.of(context).pop();
+      
+      // Faz download
+      if (kIsWeb) {
+        await _downloadForWebCACL(pdfBytes);
+      } else {
+        print('PDF CACL gerado (${pdfBytes.length} bytes)');
+        _showMobileMessageCACL();
+      }
+      
+      // Mensagem de sucesso
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✓ Certificado CACL baixado com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      
+    } catch (e) {
+      print('ERRO ao gerar PDF CACL: $e');
+      
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao gerar PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Função para download Web
+  Future<void> _downloadForWebCACL(Uint8List bytes) async {
+    try {
+      final base64 = base64Encode(bytes);
+      final dataUrl = 'data:application/pdf;base64,$base64';
+      
+      final produto = widget.dadosFormulario['produto']?.toString() ?? 'CACL';
+      final data = widget.dadosFormulario['data']?.toString() ?? '';
+      final fileName = 'CACL_${produto}_${data.replaceAll('/', '-')}.pdf';
+      
+      final jsCode = '''
+        try {
+          const link = document.createElement('a');
+          link.href = '$dataUrl';
+          link.download = '$fileName';
+          link.style.display = 'none';
+          
+          document.body.appendChild(link);
+          link.click();
+          
+          setTimeout(() => {
+            document.body.removeChild(link);
+          }, 100);
+          
+          console.log('Download CACL iniciado: ' + '$fileName');
+        } catch (error) {
+          console.error('Erro no download automático:', error);
+          window.open('$dataUrl', '_blank');
+        }
+      ''';
+      
+      js.context.callMethod('eval', [jsCode]);
+      
+    } catch (e) {
+      print('Erro no download Web CACL: $e');
+    }
+  }
+
+  void _showMobileMessageCACL() {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('PDF CACL gerado! Em breve disponível para download no mobile.'),
+          backgroundColor: Colors.blue,
+        ),
+      );
+    }
   }
 
 }
