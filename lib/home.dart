@@ -13,6 +13,7 @@ import 'sessoes/apuracao/escolherfilial.dart';
 import 'sessoes/vendas/programacao.dart';
 import 'sessoes/apuracao/certificado_analise.dart';
 import 'sessoes/estoques/estoque_geral.dart';
+import 'sessoes/apuracao/historico_cacl.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -488,8 +489,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 },
               )
             : _mostrarHistorico
-                ? _buildHistoricoPage()
-
+                ? HistoricoCaclPage(
+                    key: const ValueKey('historico-cacl'),
+                    onVoltar: () {
+                      setState(() {
+                        _mostrarHistorico = false;
+                        if (_veioDaApuracao) {
+                          _mostrarApuracaoFilhos = true;
+                        }
+                      });
+                    },
+                  )
             : _mostrarEscolherFilial
                 ? EscolherFilialPage(
                     key: ValueKey('escolher-filial-$_contextoEscolhaFilial'),
@@ -1142,73 +1152,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildHistoricoPage() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
-              onPressed: () {
-                setState(() {
-                  _mostrarHistorico = false;
-                  if (_veioDaApuracao) {
-                    _mostrarApuracaoFilhos = true;
-                  }
-                });
-              },
-              tooltip: 'Voltar para apuração',
-            ),
-            const SizedBox(width: 10),
-            const Text(
-              'Histórico de CACLs',
-              style: TextStyle(
-                fontSize: 24,
-                color: Color(0xFF0D47A1),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        const Divider(color: Colors.grey),
-        const SizedBox(height: 20),
-        
-        // Conteúdo placeholder - você pode substituir por sua implementação
-        Expanded(
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.history,
-                  size: 80,
-                  color: Colors.grey[400],
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Página de Histórico em construção',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: () {
-                    // Implementar navegação para página de histórico real
-                  },
-                  child: const Text('Ver Histórico'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

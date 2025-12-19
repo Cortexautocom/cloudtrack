@@ -31,7 +31,7 @@ dependencies:
 
   pdf: ^3.10.4
   universal_io: ^2.3.0  # Para detectar plataforma
-  mime: ^1.0.4 
+  mime: ^1.0.4
 
 dev_dependencies:
   flutter_test:
