@@ -56,7 +56,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   List<Map<String, dynamic>> sessoes = [];
   List<Map<String, dynamic>> apuracaoFilhos = [];
   List<Map<String, dynamic>> estoquesFilhos = [];
+  List<Map<String, dynamic>> filiais = []; // Nova lista para armazenar filiais
   bool _mostrarEstoquesFilhos = false;
+  bool _mostrarEstoquePorEmpresa = false; // Nova flag para mostrar estoque por empresa
+  bool carregandoFiliais = false; // Nova flag para carregamento de filiais
 
   @override
   void initState() {
@@ -65,7 +68,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     _inicializarEstoquesFilhos();
     selectedIndex = -1;
   }
-
 
   void _inicializarApuracaoFilhos() {
     apuracaoFilhos = [
@@ -101,6 +103,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'descricao': 'Visão consolidada dos estoques',
       },
       {
+        'icon': Icons.business,
+        'label': 'Estoque por empresa',
+        'descricao': 'Estoques separados por filial',
+      },
+      {
         'icon': Icons.swap_horiz,
         'label': 'Movimentações',
         'descricao': 'Entradas e saídas de produtos',
@@ -111,6 +118,41 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'descricao': 'Estoque mínimo e inconsistências',
       },
     ];
+  }
+
+  Future<void> _carregarFiliais() async {
+    setState(() => carregandoFiliais = true);
+    final supabase = Supabase.instance.client;
+    
+    try {
+      final dados = await supabase
+          .from('filiais')
+          .select('id, nome, cidade')
+          .order('nome');
+      
+      setState(() {
+        filiais = dados.map((filial) {
+          return {
+            'id': filial['id'],
+            'label': filial['nome'],
+            'descricao': filial['cidade'],
+            'icon': Icons.store,
+          };
+        }).toList();
+      });
+    } catch (e) {
+      debugPrint("❌ Erro ao carregar filiais: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Erro ao carregar filiais."),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() => carregandoFiliais = false);
+    }
   }
 
   Future<void> _carregarSessoesDoBanco() async {
@@ -216,6 +258,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _contextoEscolhaFilial = '';
       _mostrarOrdensAnalise = false;
       _mostrarHistorico = false;
+      _mostrarEstoquePorEmpresa = false;
     });
   }
 
@@ -349,6 +392,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   _contextoEscolhaFilial = '';
                                   _mostrarOrdensAnalise = false;
                                   _mostrarHistorico = false;
+                                  _mostrarEstoquePorEmpresa = false;
                                 });
 
                                 if (menuItems[index] == 'Sessões') {
@@ -589,6 +633,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     },
                     filialSelecionadaId: _filialSelecionadaId,
                   )
+            : _mostrarEstoquePorEmpresa
+                ? _buildEstoquePorEmpresaPage()
+
             : _mostrarEstoquesFilhos
                 ? _buildEstoquesFilhosPage()
 
@@ -691,6 +738,61 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
+  Widget _buildEstoquePorEmpresaPage() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
+              onPressed: () {
+                setState(() {
+                  _mostrarEstoquePorEmpresa = false;
+                  _mostrarEstoquesFilhos = true;
+                });
+              },
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Estoque por empresa',
+              style: TextStyle(
+                fontSize: 24,
+                color: Color(0xFF0D47A1),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        const Divider(),
+        const SizedBox(height: 20),
+
+        if (carregandoFiliais)
+          const Center(
+            child: CircularProgressIndicator(color: Color(0xFF0D47A1)),
+          )
+        else if (filiais.isEmpty)
+          const Center(
+            child: Text(
+              'Nenhuma filial encontrada.',
+              style: TextStyle(color: Colors.grey),
+            ),
+          )
+        else
+          Expanded(
+            child: GridView.count(
+              crossAxisCount: 7,
+              crossAxisSpacing: 15,
+              mainAxisSpacing: 15,
+              childAspectRatio: 1,
+              children: filiais.map((filial) => _buildCardApuracaoFilho(filial)).toList(),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildGridApuracaoFilhos() {
     return GridView.count(
       shrinkWrap: true,
@@ -740,7 +842,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
-                  card['descricao'],
+                  card['descricao'] ?? '',
                   style: const TextStyle(
                     fontSize: 10,
                     color: Colors.grey,
@@ -797,14 +899,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         });
         break;
         
-      // NOVO CASE ADICIONADO
       case 'Histórico':
         setState(() {
           _veioDaApuracao = true;
           _mostrarApuracaoFilhos = false;
-          // Aqui você pode navegar para a página de Histórico
-          // Por enquanto, vamos apenas mostrar um placeholder
-          _mostrarHistorico = true; // Você precisará criar esta variável
+          _mostrarHistorico = true;
         });
         break;
         
@@ -815,7 +914,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             builder: (_) => const EstoqueGeralPage(),
           ),
         );
-        break;    
+        break;
+        
+      case 'Estoque por empresa':
+        setState(() {
+          _mostrarEstoquePorEmpresa = true;
+          _mostrarEstoquesFilhos = false;
+          _carregarFiliais(); // Carrega as filiais do banco
+        });
+        break;
     }
   }
 
