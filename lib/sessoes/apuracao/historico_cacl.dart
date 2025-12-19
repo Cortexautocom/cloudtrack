@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'cacl.dart';
+
 
 class HistoricoCaclPage extends StatefulWidget {
   final VoidCallback onVoltar;
@@ -123,9 +125,28 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
                             '  •  $base',
                             style: const TextStyle(fontSize: 12),
                           ),
-                          onTap: () {
-                            // FUTURO:
-                            // Abrir detalhes do CACL ou PDF
+                          onTap: () async {
+                            final supabase = Supabase.instance.client;
+
+                            final caclCompleto = await supabase
+                                .from('cacl')
+                                .select('*')
+                                .eq('id', cacl['id'])
+                                .single();
+
+                            final dadosFormulario = _mapearCaclParaFormulario(caclCompleto);
+
+                            if (!context.mounted) return;
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => CalcPage(
+                                  dadosFormulario: dadosFormulario,
+                                  modo: CaclModo.visualizacao,
+                                ),
+                              ),
+                            );
                           },
                         );
                       },
@@ -134,4 +155,60 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
       ],
     );
   }
+
+  Map<String, dynamic> _mapearCaclParaFormulario(Map<String, dynamic> cacl) {
+    return {
+      'data': cacl['data']?.toString(),
+      'base': cacl['base'],
+      'produto': cacl['produto'],
+      'tanque': cacl['tanque'],
+      'filial_id': cacl['filial_id'],
+
+      'medicoes': {
+        // MANHÃ
+        'horarioManha': cacl['horario_manha'],
+        'cmManha': cacl['altura_total_cm_manha'],
+        'mmManha': cacl['altura_total_mm_manha'],
+        'alturaAguaManha': cacl['altura_agua_manha'],
+        'volumeAguaManha': cacl['volume_agua_manha'] != null
+            ? '${cacl['volume_agua_manha']} L'
+            : '-',
+        'alturaProdutoManha': cacl['altura_produto_manha'],
+        'tempTanqueManha': cacl['temperatura_tanque_manha'],
+        'densidadeManha': cacl['densidade_observada_manha'],
+        'tempAmostraManha': cacl['temperatura_amostra_manha'],
+        'densidade20Manha': cacl['densidade_20_manha'],
+        'fatorCorrecaoManha': cacl['fator_correcao_manha'],
+        'volume20Manha': cacl['volume_20_manha'] != null
+            ? '${cacl['volume_20_manha']} L'
+            : '-',
+        'massaManha': cacl['massa_manha'],
+
+        // TARDE
+        'horarioTarde': cacl['horario_tarde'],
+        'cmTarde': cacl['altura_total_cm_tarde'],
+        'mmTarde': cacl['altura_total_mm_tarde'],
+        'alturaAguaTarde': cacl['altura_agua_tarde'],
+        'volumeAguaTarde': cacl['volume_agua_tarde'] != null
+            ? '${cacl['volume_agua_tarde']} L'
+            : '-',
+        'alturaProdutoTarde': cacl['altura_produto_tarde'],
+        'tempTanqueTarde': cacl['temperatura_tanque_tarde'],
+        'densidadeTarde': cacl['densidade_observada_tarde'],
+        'tempAmostraTarde': cacl['temperatura_amostra_tarde'],
+        'densidade20Tarde': cacl['densidade_20_tarde'],
+        'fatorCorrecaoTarde': cacl['fator_correcao_tarde'],
+        'volume20Tarde': cacl['volume_20_tarde'] != null
+            ? '${cacl['volume_20_tarde']} L'
+            : '-',
+        'massaTarde': cacl['massa_tarde'],
+
+        // FATURAMENTO
+        'faturadoTarde': cacl['faturado_tarde'],
+      }
+    };
+  }
+
+
+
 }

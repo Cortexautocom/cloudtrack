@@ -6,9 +6,21 @@ import 'dart:typed_data';
 import 'dart:convert' show base64Encode;
 import 'dart:js' as js;
 
+// ✅ ETAPA 1 — Criar enum de modo do CACL
+enum CaclModo {
+  emissao,
+  visualizacao,
+}
+
 class CalcPage extends StatefulWidget {
   final Map<String, dynamic> dadosFormulario;
-  const CalcPage({super.key, required this.dadosFormulario});
+  final CaclModo modo; // ✅ ETAPA 2.1 — Adicionar parâmetro modo
+
+  const CalcPage({
+    super.key,
+    required this.dadosFormulario,
+    this.modo = CaclModo.emissao, // ✅ Valor padrão é emissão
+  });
 
   @override
   State<CalcPage> createState() => _CalcPageState();
@@ -26,8 +38,34 @@ class _CalcPageState extends State<CalcPage> {
   @override
   void initState() {
     super.initState();
-    _calcularVolumesIniciais();
-    _verificarSeCaclJaFoiEmitido();
+
+    // ✅ ETAPA 2.2 — Ajustar initState
+    if (widget.modo == CaclModo.emissao) {
+      _calcularVolumesIniciais();
+      _verificarSeCaclJaFoiEmitido();
+    } else {
+      // Modo visualização: carrega os dados já calculados do banco
+      _carregarDadosParaVisualizacao();
+    }
+  }
+
+  Future<void> _carregarDadosParaVisualizacao() async {
+    try {
+      // Se já vierem preenchidos do banco, usa-os diretamente
+      final medicoes = widget.dadosFormulario['medicoes'] ?? {};
+      
+      // Extrai valores para exibição
+      volumeManha = medicoes['volume_produto_manha'] ?? 0.0;
+      volumeTarde = medicoes['volume_produto_tarde'] ?? 0.0;
+      volumeTotalLiquidoManha = medicoes['volume_total_liquido_manha'] ?? 0.0;
+      volumeTotalLiquidoTarde = medicoes['volume_total_liquido_tarde'] ?? 0.0;
+      
+      setState(() {
+        _caclJaEmitido = true; // No modo visualização, sempre já foi emitido
+      });
+    } catch (e) {
+      debugPrint('Erro ao carregar dados para visualização: $e');
+    }
   }
 
   Future<void> _calcularVolumesIniciais() async {
@@ -540,7 +578,6 @@ class _CalcPageState extends State<CalcPage> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     final medicoes = widget.dadosFormulario['medicoes'] ?? {};
@@ -570,9 +607,12 @@ class _CalcPageState extends State<CalcPage> {
                         ),
                         child: Column(
                           children: [
-                            const Text(
-                              "CACL - PRÉ-VISUALIZAÇÃO",
-                              style: TextStyle(
+                            Text(
+                              // ✅ ETAPA 3 — Ajustar título do cabeçalho
+                              widget.modo == CaclModo.emissao
+                                ? "CACL - PRÉ-VISUALIZAÇÃO"
+                                : "CACL - HISTÓRICO",
+                              style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.black87,
@@ -586,7 +626,10 @@ class _CalcPageState extends State<CalcPage> {
                         left: 8,
                         top: 8,
                         child: Tooltip(
-                          message: 'Voltar para medições',
+                          // ✅ ETAPA 4 — Ajustar tooltip do botão voltar
+                          message: widget.modo == CaclModo.emissao
+                            ? 'Voltar para medições'
+                            : 'Voltar para histórico',
                           child: GestureDetector(
                             onTap: () {
                               Navigator.of(context).pop();
@@ -752,9 +795,11 @@ class _CalcPageState extends State<CalcPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                "Esta é uma pré-visualização do certificado",
-                                style: TextStyle(
+                              Text(
+                                widget.modo == CaclModo.emissao
+                                  ? "Esta é uma pré-visualização do certificado"
+                                  : "Visualização do CACL já emitido",
+                                style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF0D47A1),
                                   fontSize: 13,
@@ -762,8 +807,11 @@ class _CalcPageState extends State<CalcPage> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                "Os campos de assinatura serão incluídos no PDF final. "
-                                "Verifique os dados antes de gerar o documento oficial.",
+                                widget.modo == CaclModo.emissao
+                                  ? "Os campos de assinatura serão incluídos no PDF final. "
+                                    "Verifique os dados antes de gerar o documento oficial."
+                                  : "Este CACL já foi emitido e está salvo no histórico. "
+                                    "Você pode gerar um novo PDF se necessário.",
                                 style: TextStyle(
                                   color: Colors.grey[700],
                                   fontSize: 11,
@@ -776,7 +824,8 @@ class _CalcPageState extends State<CalcPage> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  // LINHA DE BOTÕES
+                  
+                  // ✅ ETAPA 5 — Ocultar botões de ação no modo visualização                  
                   Container(
                     margin: const EdgeInsets.only(top: 20),
                     width: double.infinity,
@@ -784,6 +833,7 @@ class _CalcPageState extends State<CalcPage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         // BOTÃO "EMITIR CACL" - AGORA PRIMEIRO
+                        if (widget.modo == CaclModo.emissao)
                         ElevatedButton.icon(
                           onPressed: _caclJaEmitido || _isEmittingCACL ? null : _emitirCACL,
                           icon: _isEmittingCACL
@@ -813,11 +863,12 @@ class _CalcPageState extends State<CalcPage> {
                           ),
                         ),
                         
-                        const SizedBox(width: 20),
+                        if (widget.modo == CaclModo.emissao)
+                          const SizedBox(width: 20),
                         
                         // BOTÃO "GERAR PDF" - AGORA SEGUNDO
                         ElevatedButton.icon(
-                          onPressed: (!_caclJaEmitido || _isGeneratingPDF) ? null : _baixarPDFCACL,
+                          onPressed: _isGeneratingPDF ? null : _baixarPDFCACL,
                           icon: _isGeneratingPDF
                               ? const SizedBox(
                                   width: 16,
@@ -1152,7 +1203,6 @@ class _CalcPageState extends State<CalcPage> {
       ],
     );
   }
-
 
   String _obterValorMedicao(dynamic valor) {
     if (valor == null) return "-";
