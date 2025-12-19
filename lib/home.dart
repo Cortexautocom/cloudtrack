@@ -101,17 +101,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       {
         'icon': Icons.hub,
         'label': 'Estoque Geral',
-        'descricao': 'Visão consolidada dos estoques',
+        'descricao': 'Visão consolidada dos estoques da base',
       },
       {
         'icon': Icons.business,
         'label': 'Estoque por empresa',
-        'descricao': 'Estoques separados por filial',
+        'descricao': 'Estoques separados por empresa',
       },
       {
         'icon': Icons.swap_horiz,
         'label': 'Movimentações',
-        'descricao': 'Entradas e saídas de produtos',
+        'descricao': 'Acompanhar entradas e saídas em geral',
       },
       {
         'icon': Icons.warning_amber,
@@ -1249,7 +1249,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           Container(
             padding: EdgeInsets.symmetric(horizontal: 40),
             child: Text(
-              'Seu ambiente moderno de gestão de estoques e logística totalmente na nuvem,\ncom rotinas e fluxos planejados e implementados por inteligência artificial,\nbuscando máxima eficiência e redução de custos operacionais.',
+              'Seu ambiente moderno de gestão de estoques e logística em nuvem',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey[700],
