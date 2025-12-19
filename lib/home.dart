@@ -14,6 +14,7 @@ import 'sessoes/vendas/programacao.dart';
 import 'sessoes/apuracao/certificado_analise.dart';
 import 'sessoes/estoques/estoque_geral.dart';
 import 'sessoes/apuracao/historico_cacl.dart';
+import 'sessoes/estoques/estoque_mes.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -786,7 +787,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               crossAxisSpacing: 15,
               mainAxisSpacing: 15,
               childAspectRatio: 1,
-              children: filiais.map((filial) => _buildCardApuracaoFilho(filial)).toList(),
+              children: filiais.map((filial) => _buildCardFilial(filial)).toList(),
+
             ),
           ),
       ],
@@ -1258,6 +1260,64 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCardFilial(Map<String, dynamic> filial) {
+    return Material(
+      elevation: 2,
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.hardEdge,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => EstoqueMesPage(
+                filialId: filial['id'],
+                nomeFilial: filial['label'],
+              ),
+            ),
+          );
+        },
+        hoverColor: const Color(0xFFE8F5E9),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                filial['icon'],
+                color: const Color.fromARGB(255, 48, 153, 35),
+                size: 50,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                filial['label'],
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF0D47A1),
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                filial['descricao'] ?? '',
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
