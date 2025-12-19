@@ -362,7 +362,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                 constraints: const BoxConstraints(),
               ),
               const SizedBox(width: 6),
-              const Text('Medição de tanques',
+              const Text('Emissão de CACL',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
               const SizedBox(width: 12),
               const Icon(Icons.calendar_today, size: 14, color: Colors.grey),

@@ -7,7 +7,7 @@ import 'configuracoes/usuarios.dart';
 import 'perfil.dart';
 import 'sessoes/apuracao/cacl.dart';
 import 'sessoes/logistica/controle_documentos.dart';
-import 'sessoes/apuracao/medicao.dart';
+import 'sessoes/apuracao/emitir_cacl.dart';
 import 'sessoes/apuracao/tanques.dart';
 import 'sessoes/apuracao/escolherfilial.dart';
 import 'sessoes/vendas/programacao.dart';
@@ -44,12 +44,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarMedicaoTanques = false;
   bool _mostrarTanques = false;
   bool _mostrarOrdensAnalise = false;
+  bool _mostrarHistorico = false;
   Map<String, dynamic>? _dadosCalcGerado;
   
   // FLAGS PARA ESCOLHA DE FILIAL
-  bool _mostrarEscolherFilial = false; // ← FLAG ÚNICA PARA AMBAS AS FUNCIONALIDADES
+  bool _mostrarEscolherFilial = false;
   String? _filialSelecionadaId;
-  String _contextoEscolhaFilial = ''; // ← 'medição' ou 'tanques'
+  String _contextoEscolhaFilial = '';
   
   List<Map<String, dynamic>> sessoes = [];
   List<Map<String, dynamic>> apuracaoFilhos = [];
@@ -69,8 +70,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     apuracaoFilhos = [
       {
         'icon': Icons.analytics,
-        'label': 'Medição',
-        'descricao': 'Sistema de medição e apuração',
+        'label': 'CACL',
+        'descricao': 'Emitir CACLs',
       },      
       {
         'icon': Icons.storage,
@@ -82,6 +83,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'icon': Icons.assignment, // Ou outro ícone apropriado
         'label': 'Ordens / Análise',
         'descricao': 'Geração e gestão de ordens de análise',
+      },
+      {
+        'icon': Icons.history, // Ícone apropriado para histórico
+        'label': 'Histórico',
+        'descricao': 'Consultar histórico de CACLs emitidos',
       },
     ];
   }
@@ -208,6 +214,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _filialSelecionadaId = null;
       _contextoEscolhaFilial = '';
       _mostrarOrdensAnalise = false;
+      _mostrarHistorico = false;
     });
   }
 
@@ -340,6 +347,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   _filialSelecionadaId = null;
                                   _contextoEscolhaFilial = '';
                                   _mostrarOrdensAnalise = false;
+                                  _mostrarHistorico = false;
                                 });
 
                                 if (menuItems[index] == 'Sessões') {
@@ -479,6 +487,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   });
                 },
               )
+            : _mostrarHistorico
+                ? _buildHistoricoPage()
 
             : _mostrarEscolherFilial
                 ? EscolherFilialPage(
@@ -500,7 +510,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         _filialSelecionadaId = idFilial;
                         _mostrarEscolherFilial = false;
                         
-                        if (_contextoEscolhaFilial == 'medição') {
+                        if (_contextoEscolhaFilial == 'cacl') {
                           _mostrarMedicaoTanques = true;
                         } else if (_contextoEscolhaFilial == 'tanques') {
                           _mostrarTanques = true;
@@ -509,9 +519,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         _contextoEscolhaFilial = '';
                       });
                     },
-                    titulo: _contextoEscolhaFilial == 'medição' 
-                      ? 'Selecionar filial para medição'
-                      : 'Selecionar filial para gerenciar tanques',
+                    titulo: _contextoEscolhaFilial == 'cacl' 
+                      ? 'Selecionar filial para CACL:'
+                      : 'Selecionar filial para gerenciar tanques:',
                   )
 
             : _mostrarMedicaoTanques
@@ -527,7 +537,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
                         if (usuario!.nivel == 3) {
                           _mostrarEscolherFilial = true;
-                          _contextoEscolhaFilial = 'medição';
+                          _contextoEscolhaFilial = 'cacl';
                         } else {
                           // Se não é admin, verifica se veio da apuração
                           if (_veioDaApuracao) {
@@ -741,23 +751,23 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final usuario = UsuarioAtual.instance;
 
     switch (nomeCard) {
-      case 'Medição':
+      case 'CACL':
         setState(() {
-          _veioDaApuracao = true; // MANTER esta linha
+          _veioDaApuracao = true;
           _mostrarApuracaoFilhos = false;
 
           if (usuario!.nivel == 3) {
             _mostrarEscolherFilial = true;
-            _contextoEscolhaFilial = 'medição';
+            _contextoEscolhaFilial = 'cacl';
           } else {
             _mostrarMedicaoTanques = true;
           }
         });
         break;
-        
+          
       case 'Tanques':
         setState(() {
-          _veioDaApuracao = true; // MANTER esta linha
+          _veioDaApuracao = true;
           _mostrarApuracaoFilhos = false;
 
           if (usuario!.nivel == 3) {
@@ -768,13 +778,26 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           }
         });
         break;
+        
       case 'Ordens / Análise':
         setState(() {
-          _veioDaApuracao = true; // ADICIONAR esta linha
+          _veioDaApuracao = true;
           _mostrarOrdensAnalise = true;
           _mostrarApuracaoFilhos = false;
         });
         break;
+        
+      // NOVO CASE ADICIONADO
+      case 'Histórico':
+        setState(() {
+          _veioDaApuracao = true;
+          _mostrarApuracaoFilhos = false;
+          // Aqui você pode navegar para a página de Histórico
+          // Por enquanto, vamos apenas mostrar um placeholder
+          _mostrarHistorico = true; // Você precisará criar esta variável
+        });
+        break;
+        
       case 'Estoque Geral':
         Navigator.push(
           context,
@@ -967,7 +990,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             return;
           }          
 
-          if (nome == 'Medição') {
+          if (nome == 'CACL') {
             setState(() {
               _veioDaApuracao = false;
               showConversaoList = false;
@@ -976,7 +999,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
               if (usuario!.nivel == 3) {
                 _mostrarEscolherFilial = true;
-                _contextoEscolhaFilial = 'medição';
+                _contextoEscolhaFilial = 'cacl';
               } else {
                 _mostrarMedicaoTanques = true;
               }
@@ -1061,7 +1084,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     if (lower.contains('cacl')) return Icons.receipt_long;
     if (lower.contains('controle')) return Icons.car_repair;
     if (lower.contains('apura')) return Icons.analytics;
-    if (lower.contains('medic')) return Icons.analytics;
+    if (lower.contains('cacl')) return Icons.analytics;
     if (lower.contains('venda')) return Icons.local_gas_station;
     if (lower.contains('tanque')) return Icons.storage;
     return Icons.apps;
@@ -1119,6 +1142,73 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildHistoricoPage() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
+              onPressed: () {
+                setState(() {
+                  _mostrarHistorico = false;
+                  if (_veioDaApuracao) {
+                    _mostrarApuracaoFilhos = true;
+                  }
+                });
+              },
+              tooltip: 'Voltar para apuração',
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Histórico de CACLs',
+              style: TextStyle(
+                fontSize: 24,
+                color: Color(0xFF0D47A1),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        const Divider(color: Colors.grey),
+        const SizedBox(height: 20),
+        
+        // Conteúdo placeholder - você pode substituir por sua implementação
+        Expanded(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.history,
+                  size: 80,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Página de Histórico em construção',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: () {
+                    // Implementar navegação para página de histórico real
+                  },
+                  child: const Text('Ver Histórico'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
