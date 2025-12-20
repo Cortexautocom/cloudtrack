@@ -27,10 +27,10 @@ class CalcPage extends StatefulWidget {
 }
 
 class _CalcPageState extends State<CalcPage> {
-  double volumeManha = 0;
-  double volumeTarde = 0;
-  double volumeTotalLiquidoManha = 0;
-  double volumeTotalLiquidoTarde = 0;
+  double volumeInicial = 0;
+  double volumeFinal = 0;
+  double volumeTotalLiquidoInicial = 0;
+  double volumeTotalLiquidoFinal = 0;
   bool _isGeneratingPDF = false;
   bool _isEmittingCACL = false;
   bool _caclJaEmitido = false;
@@ -52,13 +52,53 @@ class _CalcPageState extends State<CalcPage> {
   Future<void> _carregarDadosParaVisualizacao() async {
     try {
       // Se já vierem preenchidos do banco, usa-os diretamente
-      final medicoes = widget.dadosFormulario['medicoes'] ?? {};
+      final dadosDoBanco = widget.dadosFormulario;
       
       // Extrai valores para exibição
-      volumeManha = medicoes['volume_produto_manha'] ?? 0.0;
-      volumeTarde = medicoes['volume_produto_tarde'] ?? 0.0;
-      volumeTotalLiquidoManha = medicoes['volume_total_liquido_manha'] ?? 0.0;
-      volumeTotalLiquidoTarde = medicoes['volume_total_liquido_tarde'] ?? 0.0;
+      volumeInicial = dadosDoBanco['volume_produto_inicial']?.toDouble() ?? 0.0;
+      volumeFinal = dadosDoBanco['volume_produto_final']?.toDouble() ?? 0.0;
+      volumeTotalLiquidoInicial = dadosDoBanco['volume_total_liquido_inicial']?.toDouble() ?? 0.0;
+      volumeTotalLiquidoFinal = dadosDoBanco['volume_total_liquido_final']?.toDouble() ?? 0.0;
+      
+      // Preenche os campos de medições para a interface
+      final medicoes = widget.dadosFormulario['medicoes'] ?? {};
+      medicoes['volumeProdutoInicial'] = _formatarVolumeLitros(volumeInicial);
+      medicoes['volumeProdutoFinal'] = _formatarVolumeLitros(volumeFinal);
+      medicoes['volumeTotalLiquidoInicial'] = _formatarVolumeLitros(volumeTotalLiquidoInicial);
+      medicoes['volumeTotalLiquidoFinal'] = _formatarVolumeLitros(volumeTotalLiquidoFinal);
+      
+      // Preenche outros campos do banco para a interface
+      medicoes['cmInicial'] = dadosDoBanco['altura_total_cm_inicial']?.toString();
+      medicoes['mmInicial'] = dadosDoBanco['altura_total_mm_inicial']?.toString();
+      medicoes['cmFinal'] = dadosDoBanco['altura_total_cm_final']?.toString();
+      medicoes['mmFinal'] = dadosDoBanco['altura_total_mm_final']?.toString();
+      medicoes['alturaAguaInicial'] = dadosDoBanco['altura_agua_inicial']?.toString();
+      medicoes['alturaAguaFinal'] = dadosDoBanco['altura_agua_final']?.toString();
+      medicoes['alturaProdutoInicial'] = dadosDoBanco['altura_produto_inicial']?.toString();
+      medicoes['alturaProdutoFinal'] = dadosDoBanco['altura_produto_final']?.toString();
+      medicoes['tempTanqueInicial'] = dadosDoBanco['temperatura_tanque_inicial']?.toString();
+      medicoes['tempTanqueFinal'] = dadosDoBanco['temperatura_tanque_final']?.toString();
+      medicoes['densidadeInicial'] = dadosDoBanco['densidade_observada_inicial']?.toString();
+      medicoes['densidadeFinal'] = dadosDoBanco['densidade_observada_final']?.toString();
+      medicoes['tempAmostraInicial'] = dadosDoBanco['temperatura_amostra_inicial']?.toString();
+      medicoes['tempAmostraFinal'] = dadosDoBanco['temperatura_amostra_final']?.toString();
+      medicoes['densidade20Inicial'] = dadosDoBanco['densidade_20_inicial']?.toString();
+      medicoes['densidade20Final'] = dadosDoBanco['densidade_20_final']?.toString();
+      medicoes['fatorCorrecaoInicial'] = dadosDoBanco['fator_correcao_inicial']?.toString();
+      medicoes['fatorCorrecaoFinal'] = dadosDoBanco['fator_correcao_final']?.toString();
+      medicoes['volume20Inicial'] = dadosDoBanco['volume_20_inicial']?.toString() != null 
+          ? _formatarVolumeLitros(dadosDoBanco['volume_20_inicial']?.toDouble() ?? 0)
+          : '-';
+      medicoes['volume20Final'] = dadosDoBanco['volume_20_final']?.toString() != null
+          ? _formatarVolumeLitros(dadosDoBanco['volume_20_final']?.toDouble() ?? 0)
+          : '-';
+      medicoes['massaInicial'] = dadosDoBanco['massa_inicial']?.toString();
+      medicoes['massaFinal'] = dadosDoBanco['massa_final']?.toString();
+      medicoes['faturadoFinal'] = dadosDoBanco['faturado_final']?.toString() != null
+          ? _formatarVolumeLitros(dadosDoBanco['faturado_final']?.toDouble() ?? 0)
+          : '-';
+      medicoes['horarioInicial'] = _formatarHorarioParaExibicao(dadosDoBanco['horario_inicial']?.toString());
+      medicoes['horarioFinal'] = _formatarHorarioParaExibicao(dadosDoBanco['horario_final']?.toString());
       
       setState(() {
         _caclJaEmitido = true; // No modo visualização, sempre já foi emitido
@@ -68,16 +108,33 @@ class _CalcPageState extends State<CalcPage> {
     }
   }
 
+  String _formatarHorarioParaExibicao(String? horarioTime) {
+    if (horarioTime == null || horarioTime.isEmpty) return '--:-- h';
+    
+    try {
+      // Formato esperado: "08:30:00"
+      if (horarioTime.contains(':')) {
+        final partes = horarioTime.split(':');
+        if (partes.length >= 2) {
+          return '${partes[0]}:${partes[1]} h';
+        }
+      }
+      return '$horarioTime h';
+    } catch (e) {
+      return '--:-- h';
+    }
+  }
+
   Future<void> _calcularVolumesIniciais() async {
     final medicoes = widget.dadosFormulario['medicoes'];
     
-    final alturaAguaManha = medicoes['alturaAguaManha'];
-    final alturaAguaTarde = medicoes['alturaAguaTarde'];
+    final alturaAguaInicial = medicoes['alturaAguaInicial'];
+    final alturaAguaFinal = medicoes['alturaAguaFinal'];
 
-    final alturaTotalCmManha = medicoes['cmManha']?.toString() ?? '';
-    final alturaTotalMmManha = medicoes['mmManha']?.toString() ?? '';
-    final alturaTotalCmTarde = medicoes['cmTarde']?.toString() ?? '';
-    final alturaTotalMmTarde = medicoes['mmTarde']?.toString() ?? '';
+    final alturaTotalCmInicial = medicoes['cmInicial']?.toString() ?? '';
+    final alturaTotalMmInicial = medicoes['mmInicial']?.toString() ?? '';
+    final alturaTotalCmFinal = medicoes['cmFinal']?.toString() ?? '';
+    final alturaTotalMmFinal = medicoes['mmFinal']?.toString() ?? '';
 
     Map<String, String?> extrairCmMm(String? alturaFormatada) {
       if (alturaFormatada == null || alturaFormatada.isEmpty || alturaFormatada == '-') {
@@ -100,163 +157,163 @@ class _CalcPageState extends State<CalcPage> {
       }
     }
     
-    final aguaCmMmManha = extrairCmMm(alturaAguaManha);
-    final aguaCmMmTarde = extrairCmMm(alturaAguaTarde);
+    final aguaCmMmInicial = extrairCmMm(alturaAguaInicial);
+    final aguaCmMmFinal = extrairCmMm(alturaAguaFinal);
 
-    final Map<String, String?> totalCmMmManha = {
-      'cm': alturaTotalCmManha.isEmpty ? null : alturaTotalCmManha,
-      'mm': alturaTotalMmManha.isEmpty ? null : alturaTotalMmManha
+    final Map<String, String?> totalCmMmInicial = {
+      'cm': alturaTotalCmInicial.isEmpty ? null : alturaTotalCmInicial,
+      'mm': alturaTotalMmInicial.isEmpty ? null : alturaTotalMmInicial
     };
     
-    final Map<String, String?> totalCmMmTarde = {
-      'cm': alturaTotalCmTarde.isEmpty ? null : alturaTotalCmTarde,
-      'mm': alturaTotalMmTarde.isEmpty ? null : alturaTotalMmTarde
+    final Map<String, String?> totalCmMmFinal = {
+      'cm': alturaTotalCmFinal.isEmpty ? null : alturaTotalCmFinal,
+      'mm': alturaTotalMmFinal.isEmpty ? null : alturaTotalMmFinal
     };
 
-    final volumeTotalLiquidoManha = await _buscarVolumeReal(totalCmMmManha['cm'], totalCmMmManha['mm']);
-    final volumeTotalLiquidoTarde = await _buscarVolumeReal(totalCmMmTarde['cm'], totalCmMmTarde['mm']);
+    final volumeTotalLiquidoInicial = await _buscarVolumeReal(totalCmMmInicial['cm'], totalCmMmInicial['mm']);
+    final volumeTotalLiquidoFinal = await _buscarVolumeReal(totalCmMmFinal['cm'], totalCmMmFinal['mm']);
     
-    final volAguaManha = await _buscarVolumeReal(aguaCmMmManha['cm'], aguaCmMmManha['mm']);
-    final volAguaTarde = await _buscarVolumeReal(aguaCmMmTarde['cm'], aguaCmMmTarde['mm']);
+    final volAguaInicial = await _buscarVolumeReal(aguaCmMmInicial['cm'], aguaCmMmInicial['mm']);
+    final volAguaFinal = await _buscarVolumeReal(aguaCmMmFinal['cm'], aguaCmMmFinal['mm']);
 
-    final volProdutoManha = volumeTotalLiquidoManha - volAguaManha;
-    final volProdutoTarde = volumeTotalLiquidoTarde - volAguaTarde;
+    final volProdutoInicial = volumeTotalLiquidoInicial - volAguaInicial;
+    final volProdutoFinal = volumeTotalLiquidoFinal - volAguaFinal;
 
-    final volumeTotalManha = volProdutoManha;
-    final volumeTotalTarde = volProdutoTarde;
+    final volumeTotalInicial = volProdutoInicial;
+    final volumeTotalFinal = volProdutoFinal;
 
     setState(() {
-      this.volumeManha = volProdutoManha;
-      this.volumeTarde = volProdutoTarde;
-      this.volumeTotalLiquidoManha = volumeTotalLiquidoManha;
-      this.volumeTotalLiquidoTarde = volumeTotalLiquidoTarde;
+      this.volumeInicial = volProdutoInicial;
+      this.volumeFinal = volProdutoFinal;
+      this.volumeTotalLiquidoInicial = volumeTotalLiquidoInicial;
+      this.volumeTotalLiquidoFinal = volumeTotalLiquidoFinal;
     });
 
-    final volumeProdutoManhaFormatado = _formatarVolumeLitros(volProdutoManha);
-    final volumeProdutoTardeFormatado = _formatarVolumeLitros(volProdutoTarde);
-    final volumeAguaManhaFormatado = _formatarVolumeLitros(volAguaManha);
-    final volumeAguaTardeFormatado = _formatarVolumeLitros(volAguaTarde);
-    final volumeTotalManhaFormatado = _formatarVolumeLitros(volumeTotalManha);
-    final volumeTotalTardeFormatado = _formatarVolumeLitros(volumeTotalTarde);
+    final volumeProdutoInicialFormatado = _formatarVolumeLitros(volProdutoInicial);
+    final volumeProdutoFinalFormatado = _formatarVolumeLitros(volProdutoFinal);
+    final volumeAguaInicialFormatado = _formatarVolumeLitros(volAguaInicial);
+    final volumeAguaFinalFormatado = _formatarVolumeLitros(volAguaFinal);
+    final volumeTotalInicialFormatado = _formatarVolumeLitros(volumeTotalInicial);
+    final volumeTotalFinalFormatado = _formatarVolumeLitros(volumeTotalFinal);
 
-    widget.dadosFormulario['medicoes']['volumeProdutoManha'] = volumeProdutoManhaFormatado;
-    widget.dadosFormulario['medicoes']['volumeProdutoTarde'] = volumeProdutoTardeFormatado;
-    widget.dadosFormulario['medicoes']['volumeAguaManha'] = volumeAguaManhaFormatado;
-    widget.dadosFormulario['medicoes']['volumeAguaTarde'] = volumeAguaTardeFormatado;
-    widget.dadosFormulario['medicoes']['volumeTotalLiquidoManha'] = _formatarVolumeLitros(volumeTotalLiquidoManha);
-    widget.dadosFormulario['medicoes']['volumeTotalLiquidoTarde'] = _formatarVolumeLitros(volumeTotalLiquidoTarde);
+    widget.dadosFormulario['medicoes']['volumeProdutoInicial'] = volumeProdutoInicialFormatado;
+    widget.dadosFormulario['medicoes']['volumeProdutoFinal'] = volumeProdutoFinalFormatado;
+    widget.dadosFormulario['medicoes']['volumeAguaInicial'] = volumeAguaInicialFormatado;
+    widget.dadosFormulario['medicoes']['volumeAguaFinal'] = volumeAguaFinalFormatado;
+    widget.dadosFormulario['medicoes']['volumeTotalLiquidoInicial'] = _formatarVolumeLitros(volumeTotalLiquidoInicial);
+    widget.dadosFormulario['medicoes']['volumeTotalLiquidoFinal'] = _formatarVolumeLitros(volumeTotalLiquidoFinal);
     
-    widget.dadosFormulario['medicoes']['volumeTotalManha'] = volumeTotalManhaFormatado;
-    widget.dadosFormulario['medicoes']['volumeTotalTarde'] = volumeTotalTardeFormatado;
+    widget.dadosFormulario['medicoes']['volumeTotalInicial'] = volumeTotalInicialFormatado;
+    widget.dadosFormulario['medicoes']['volumeTotalFinal'] = volumeTotalFinalFormatado;
 
     final produtoNome = widget.dadosFormulario['produto']?.toString() ?? '';
       
-    if (medicoes['tempAmostraManha'] != null && 
-        medicoes['tempAmostraManha'].toString().isNotEmpty &&
-        medicoes['tempAmostraManha'].toString() != '-' &&
-        medicoes['densidadeManha'] != null &&
-        medicoes['densidadeManha'].toString().isNotEmpty &&
-        medicoes['densidadeManha'].toString() != '-' &&
+    if (medicoes['tempAmostraInicial'] != null && 
+        medicoes['tempAmostraInicial'].toString().isNotEmpty &&
+        medicoes['tempAmostraInicial'].toString() != '-' &&
+        medicoes['densidadeInicial'] != null &&
+        medicoes['densidadeInicial'].toString().isNotEmpty &&
+        medicoes['densidadeInicial'].toString() != '-' &&
         produtoNome.isNotEmpty) {
       
-      final densidade20Manha = await _buscarDensidade20C(
-        temperaturaAmostra: medicoes['tempAmostraManha'].toString(),
-        densidadeObservada: medicoes['densidadeManha'].toString(),
+      final densidade20Inicial = await _buscarDensidade20C(
+        temperaturaAmostra: medicoes['tempAmostraInicial'].toString(),
+        densidadeObservada: medicoes['densidadeInicial'].toString(),
         produtoNome: produtoNome,
       );
       
-      widget.dadosFormulario['medicoes']['densidade20Manha'] = densidade20Manha;
+      widget.dadosFormulario['medicoes']['densidade20Inicial'] = densidade20Inicial;
     } else {
-      widget.dadosFormulario['medicoes']['densidade20Manha'] = '-';
+      widget.dadosFormulario['medicoes']['densidade20Inicial'] = '-';
     }
 
-    if (medicoes['tempAmostraTarde'] != null && 
-        medicoes['tempAmostraTarde'].toString().isNotEmpty &&
-        medicoes['tempAmostraTarde'].toString() != '-' &&
-        medicoes['densidadeTarde'] != null &&
-        medicoes['densidadeTarde'].toString().isNotEmpty &&
-        medicoes['densidadeTarde'].toString() != '-' &&
+    if (medicoes['tempAmostraFinal'] != null && 
+        medicoes['tempAmostraFinal'].toString().isNotEmpty &&
+        medicoes['tempAmostraFinal'].toString() != '-' &&
+        medicoes['densidadeFinal'] != null &&
+        medicoes['densidadeFinal'].toString().isNotEmpty &&
+        medicoes['densidadeFinal'].toString() != '-' &&
         produtoNome.isNotEmpty) {
       
-      final densidade20Tarde = await _buscarDensidade20C(
-        temperaturaAmostra: medicoes['tempAmostraTarde'].toString(),
-        densidadeObservada: medicoes['densidadeTarde'].toString(),
+      final densidade20Final = await _buscarDensidade20C(
+        temperaturaAmostra: medicoes['tempAmostraFinal'].toString(),
+        densidadeObservada: medicoes['densidadeFinal'].toString(),
         produtoNome: produtoNome,
       );
       
-      widget.dadosFormulario['medicoes']['densidade20Tarde'] = densidade20Tarde;
+      widget.dadosFormulario['medicoes']['densidade20Final'] = densidade20Final;
     } else {
-      widget.dadosFormulario['medicoes']['densidade20Tarde'] = '-';
+      widget.dadosFormulario['medicoes']['densidade20Final'] = '-';
     }
 
-    if (medicoes['tempTanqueManha'] != null &&
-        medicoes['tempTanqueManha'].toString().isNotEmpty &&
-        medicoes['tempTanqueManha'].toString() != '-' &&
-        widget.dadosFormulario['medicoes']['densidade20Manha'] != null &&
-        widget.dadosFormulario['medicoes']['densidade20Manha'].toString().isNotEmpty &&
-        widget.dadosFormulario['medicoes']['densidade20Manha'].toString() != '-') {
+    if (medicoes['tempTanqueInicial'] != null &&
+        medicoes['tempTanqueInicial'].toString().isNotEmpty &&
+        medicoes['tempTanqueInicial'].toString() != '-' &&
+        widget.dadosFormulario['medicoes']['densidade20Inicial'] != null &&
+        widget.dadosFormulario['medicoes']['densidade20Inicial'].toString().isNotEmpty &&
+        widget.dadosFormulario['medicoes']['densidade20Inicial'].toString() != '-') {
       
-      final fcvManha = await _buscarFCV(
-        temperaturaTanque: medicoes['tempTanqueManha'].toString(),
-        densidade20C: widget.dadosFormulario['medicoes']['densidade20Manha'].toString(),
+      final fcvInicial = await _buscarFCV(
+        temperaturaTanque: medicoes['tempTanqueInicial'].toString(),
+        densidade20C: widget.dadosFormulario['medicoes']['densidade20Inicial'].toString(),
         produtoNome: produtoNome,
       );
       
-      widget.dadosFormulario['medicoes']['fatorCorrecaoManha'] = fcvManha;
+      widget.dadosFormulario['medicoes']['fatorCorrecaoInicial'] = fcvInicial;
     } else {
-      widget.dadosFormulario['medicoes']['fatorCorrecaoManha'] = '-';
+      widget.dadosFormulario['medicoes']['fatorCorrecaoInicial'] = '-';
     }
 
-    if (medicoes['tempTanqueTarde'] != null &&
-        medicoes['tempTanqueTarde'].toString().isNotEmpty &&
-        medicoes['tempTanqueTarde'].toString() != '-' &&
-        widget.dadosFormulario['medicoes']['densidade20Tarde'] != null &&
-        widget.dadosFormulario['medicoes']['densidade20Tarde'].toString().isNotEmpty &&
-        widget.dadosFormulario['medicoes']['densidade20Tarde'].toString() != '-') {
+    if (medicoes['tempTanqueFinal'] != null &&
+        medicoes['tempTanqueFinal'].toString().isNotEmpty &&
+        medicoes['tempTanqueFinal'].toString() != '-' &&
+        widget.dadosFormulario['medicoes']['densidade20Final'] != null &&
+        widget.dadosFormulario['medicoes']['densidade20Final'].toString().isNotEmpty &&
+        widget.dadosFormulario['medicoes']['densidade20Final'].toString() != '-') {
       
-      final fcvTarde = await _buscarFCV(
-        temperaturaTanque: medicoes['tempTanqueTarde'].toString(),
-        densidade20C: widget.dadosFormulario['medicoes']['densidade20Tarde'].toString(),
+      final fcvFinal = await _buscarFCV(
+        temperaturaTanque: medicoes['tempTanqueFinal'].toString(),
+        densidade20C: widget.dadosFormulario['medicoes']['densidade20Final'].toString(),
         produtoNome: produtoNome,
       );
       
-      widget.dadosFormulario['medicoes']['fatorCorrecaoTarde'] = fcvTarde;
+      widget.dadosFormulario['medicoes']['fatorCorrecaoFinal'] = fcvFinal;
     } else {
-      widget.dadosFormulario['medicoes']['fatorCorrecaoTarde'] = '-';
+      widget.dadosFormulario['medicoes']['fatorCorrecaoFinal'] = '-';
     }
 
-    if (widget.dadosFormulario['medicoes']['fatorCorrecaoManha'] != null &&
-        widget.dadosFormulario['medicoes']['fatorCorrecaoManha'].toString().isNotEmpty &&
-        widget.dadosFormulario['medicoes']['fatorCorrecaoManha'].toString() != '-') {
+    if (widget.dadosFormulario['medicoes']['fatorCorrecaoInicial'] != null &&
+        widget.dadosFormulario['medicoes']['fatorCorrecaoInicial'].toString().isNotEmpty &&
+        widget.dadosFormulario['medicoes']['fatorCorrecaoInicial'].toString() != '-') {
       
       try {
-        final fcvManhaStr = widget.dadosFormulario['medicoes']['fatorCorrecaoManha'].toString();
-        final fcvManha = double.tryParse(fcvManhaStr.replaceAll(',', '.')) ?? 1.0;
-        final volume20Manha = volProdutoManha * fcvManha;
+        final fcvInicialStr = widget.dadosFormulario['medicoes']['fatorCorrecaoInicial'].toString();
+        final fcvInicial = double.tryParse(fcvInicialStr.replaceAll(',', '.')) ?? 1.0;
+        final volume20Inicial = volProdutoInicial * fcvInicial;
         
-        widget.dadosFormulario['medicoes']['volume20Manha'] = _formatarVolumeLitros(volume20Manha);
+        widget.dadosFormulario['medicoes']['volume20Inicial'] = _formatarVolumeLitros(volume20Inicial);
       } catch (e) {
-        widget.dadosFormulario['medicoes']['volume20Manha'] = '-';
+        widget.dadosFormulario['medicoes']['volume20Inicial'] = '-';
       }
     } else {
-      widget.dadosFormulario['medicoes']['volume20Manha'] = '-';
+      widget.dadosFormulario['medicoes']['volume20Inicial'] = '-';
     }
 
-    if (widget.dadosFormulario['medicoes']['fatorCorrecaoTarde'] != null &&
-        widget.dadosFormulario['medicoes']['fatorCorrecaoTarde'].toString().isNotEmpty &&
-        widget.dadosFormulario['medicoes']['fatorCorrecaoTarde'].toString() != '-') {
+    if (widget.dadosFormulario['medicoes']['fatorCorrecaoFinal'] != null &&
+        widget.dadosFormulario['medicoes']['fatorCorrecaoFinal'].toString().isNotEmpty &&
+        widget.dadosFormulario['medicoes']['fatorCorrecaoFinal'].toString() != '-') {
       
       try {
-        final fcvTardeStr = widget.dadosFormulario['medicoes']['fatorCorrecaoTarde'].toString();
-        final fcvTarde = double.tryParse(fcvTardeStr.replaceAll(',', '.')) ?? 1.0;
-        final volume20Tarde = volProdutoTarde * fcvTarde;
+        final fcvFinalStr = widget.dadosFormulario['medicoes']['fatorCorrecaoFinal'].toString();
+        final fcvFinal = double.tryParse(fcvFinalStr.replaceAll(',', '.')) ?? 1.0;
+        final volume20Final = volProdutoFinal * fcvFinal;
         
-        widget.dadosFormulario['medicoes']['volume20Tarde'] = _formatarVolumeLitros(volume20Tarde);
+        widget.dadosFormulario['medicoes']['volume20Final'] = _formatarVolumeLitros(volume20Final);
       } catch (e) {
-        widget.dadosFormulario['medicoes']['volume20Tarde'] = '-';
+        widget.dadosFormulario['medicoes']['volume20Final'] = '-';
       }
     } else {
-      widget.dadosFormulario['medicoes']['volume20Tarde'] = '-';
+      widget.dadosFormulario['medicoes']['volume20Final'] = '-';
     }
 
     await _calcularMassa();
@@ -470,63 +527,63 @@ class _CalcPageState extends State<CalcPage> {
         'tanque': widget.dadosFormulario['tanque']?.toString(),
         'filial_id': widget.dadosFormulario['filial_id']?.toString(),
         
-        // Medições da manhã
-        'horario_manha': formatarHorarioParaTime(medicoes['horarioManha']?.toString()),
-        'altura_total_liquido_manha': medicoes['alturaTotalManha']?.toString(),
-        'altura_total_cm_manha': medicoes['cmManha']?.toString(),
-        'altura_total_mm_manha': medicoes['mmManha']?.toString(),
-        'volume_total_liquido_manha': volumeTotalLiquidoManha,
-        'altura_agua_manha': medicoes['alturaAguaManha']?.toString(),
-        'volume_agua_manha': extrairNumeroFormatado(medicoes['volumeAguaManha']?.toString()),
-        'altura_produto_manha': medicoes['alturaProdutoManha']?.toString(),
-        'volume_produto_manha': volumeManha,
-        'temperatura_tanque_manha': medicoes['tempTanqueManha']?.toString(),
-        'densidade_observada_manha': medicoes['densidadeManha']?.toString(),
-        'temperatura_amostra_manha': medicoes['tempAmostraManha']?.toString(),
-        'densidade_20_manha': medicoes['densidade20Manha']?.toString(),
-        'fator_correcao_manha': medicoes['fatorCorrecaoManha']?.toString(),
-        'volume_20_manha': extrairNumeroFormatado(medicoes['volume20Manha']?.toString()),
-        'massa_manha': medicoes['massaManha']?.toString(),
+        // Medições INICIAL
+        'horario_inicial': formatarHorarioParaTime(medicoes['horarioInicial']?.toString()),
+        'altura_total_liquido_inicial': medicoes['alturaTotalInicial']?.toString(),
+        'altura_total_cm_inicial': medicoes['cmInicial']?.toString(),
+        'altura_total_mm_inicial': medicoes['mmInicial']?.toString(),
+        'volume_total_liquido_inicial': volumeTotalLiquidoInicial,
+        'altura_agua_inicial': medicoes['alturaAguaInicial']?.toString(),
+        'volume_agua_inicial': extrairNumeroFormatado(medicoes['volumeAguaInicial']?.toString()),
+        'altura_produto_inicial': medicoes['alturaProdutoInicial']?.toString(),
+        'volume_produto_inicial': volumeInicial,
+        'temperatura_tanque_inicial': medicoes['tempTanqueInicial']?.toString(),
+        'densidade_observada_inicial': medicoes['densidadeInicial']?.toString(),
+        'temperatura_amostra_inicial': medicoes['tempAmostraInicial']?.toString(),
+        'densidade_20_inicial': medicoes['densidade20Inicial']?.toString(),
+        'fator_correcao_inicial': medicoes['fatorCorrecaoInicial']?.toString(),
+        'volume_20_inicial': extrairNumeroFormatado(medicoes['volume20Inicial']?.toString()),
+        'massa_inicial': medicoes['massaInicial']?.toString(),
         
-        // Medições da tarde
-        'horario_tarde': formatarHorarioParaTime(medicoes['horarioTarde']?.toString()),
-        'altura_total_liquido_tarde': medicoes['alturaTotalTarde']?.toString(),
-        'altura_total_cm_tarde': medicoes['cmTarde']?.toString(),
-        'altura_total_mm_tarde': medicoes['mmTarde']?.toString(),
-        'volume_total_liquido_tarde': volumeTotalLiquidoTarde,
-        'altura_agua_tarde': medicoes['alturaAguaTarde']?.toString(),
-        'volume_agua_tarde': extrairNumeroFormatado(medicoes['volumeAguaTarde']?.toString()),
-        'altura_produto_tarde': medicoes['alturaProdutoTarde']?.toString(),
-        'volume_produto_tarde': volumeTarde,
-        'temperatura_tanque_tarde': medicoes['tempTanqueTarde']?.toString(),
-        'densidade_observada_tarde': medicoes['densidadeTarde']?.toString(),
-        'temperatura_amostra_tarde': medicoes['tempAmostraTarde']?.toString(),
-        'densidade_20_tarde': medicoes['densidade20Tarde']?.toString(),
-        'fator_correcao_tarde': medicoes['fatorCorrecaoTarde']?.toString(),
-        'volume_20_tarde': extrairNumeroFormatado(medicoes['volume20Tarde']?.toString()),
-        'massa_tarde': medicoes['massaTarde']?.toString(),
+        // Medições FINAL
+        'horario_final': formatarHorarioParaTime(medicoes['horarioFinal']?.toString()),
+        'altura_total_liquido_final': medicoes['alturaTotalFinal']?.toString(),
+        'altura_total_cm_final': medicoes['cmFinal']?.toString(),
+        'altura_total_mm_final': medicoes['mmFinal']?.toString(),
+        'volume_total_liquido_final': volumeTotalLiquidoFinal,
+        'altura_agua_final': medicoes['alturaAguaFinal']?.toString(),
+        'volume_agua_final': extrairNumeroFormatado(medicoes['volumeAguaFinal']?.toString()),
+        'altura_produto_final': medicoes['alturaProdutoFinal']?.toString(),
+        'volume_produto_final': volumeFinal,
+        'temperatura_tanque_final': medicoes['tempTanqueFinal']?.toString(),
+        'densidade_observada_final': medicoes['densidadeFinal']?.toString(),
+        'temperatura_amostra_final': medicoes['tempAmostraFinal']?.toString(),
+        'densidade_20_final': medicoes['densidade20Final']?.toString(),
+        'fator_correcao_final': medicoes['fatorCorrecaoFinal']?.toString(),
+        'volume_20_final': extrairNumeroFormatado(medicoes['volume20Final']?.toString()),
+        'massa_final': medicoes['massaFinal']?.toString(),
         
         // Cálculos comparativos
-        'volume_ambiente_manha': volumeManha,
-        'volume_ambiente_tarde': volumeTarde,
-        'entrada_saida_ambiente': volumeTarde - volumeManha,
-        'entrada_saida_20': (_extrairNumero(medicoes['volume20Tarde']?.toString()) - 
-                            _extrairNumero(medicoes['volume20Manha']?.toString())),
+        'volume_ambiente_inicial': volumeInicial,
+        'volume_ambiente_final': volumeFinal,
+        'entrada_saida_ambiente': volumeFinal - volumeInicial,
+        'entrada_saida_20': (_extrairNumero(medicoes['volume20Final']?.toString()) - 
+                            _extrairNumero(medicoes['volume20Inicial']?.toString())),
         
         // Informações de faturamento
-        'faturado_tarde': converterParaDouble(medicoes['faturadoTarde']?.toString()),
-        'diferenca_faturado': (extrairNumeroFormatado(medicoes['volume20Tarde']?.toString()) ?? 0) -
-                            (extrairNumeroFormatado(medicoes['volume20Manha']?.toString()) ?? 0) -
-                            (converterParaDouble(medicoes['faturadoTarde']?.toString()) ?? 0),
+        'faturado_final': converterParaDouble(medicoes['faturadoFinal']?.toString()),
+        'diferenca_faturado': (extrairNumeroFormatado(medicoes['volume20Final']?.toString()) ?? 0) -
+                            (extrairNumeroFormatado(medicoes['volume20Inicial']?.toString()) ?? 0) -
+                            (converterParaDouble(medicoes['faturadoFinal']?.toString()) ?? 0),
         
         // Auditoria
         'created_by': session.user.id,
       };
       
       // Calcular porcentagem da diferença
-      final entradaSaida20 = _extrairNumero(medicoes['volume20Tarde']?.toString()) - 
-                            _extrairNumero(medicoes['volume20Manha']?.toString());
-      final diferenca = entradaSaida20 - (converterParaDouble(medicoes['faturadoTarde']?.toString()) ?? 0);
+      final entradaSaida20 = _extrairNumero(medicoes['volume20Final']?.toString()) - 
+                            _extrairNumero(medicoes['volume20Inicial']?.toString());
+      final diferenca = entradaSaida20 - (converterParaDouble(medicoes['faturadoFinal']?.toString()) ?? 0);
       
       if (entradaSaida20 != 0) {
         final porcentagem = (diferenca / entradaSaida20) * 100;
@@ -713,43 +770,43 @@ class _CalcPageState extends State<CalcPage> {
 
                   _tabelaMedicoes([
                     _linhaMedicao("Altura total de líquido no tanque:", 
-                        _formatarAlturaTotal(medicoes['cmManha'], medicoes['mmManha']), 
-                        _formatarAlturaTotal(medicoes['cmTarde'], medicoes['mmTarde'])),
+                        _formatarAlturaTotal(medicoes['cmInicial'], medicoes['mmInicial']), 
+                        _formatarAlturaTotal(medicoes['cmFinal'], medicoes['mmFinal'])),
                     _linhaMedicao("Volume total de líquido no tanque (temp. ambiente):", 
-                        _formatarVolumeLitros(volumeTotalLiquidoManha), 
-                        _formatarVolumeLitros(volumeTotalLiquidoTarde)),
+                        _formatarVolumeLitros(volumeTotalLiquidoInicial), 
+                        _formatarVolumeLitros(volumeTotalLiquidoFinal)),
                     _linhaMedicao("Altura da água aferida no tanque:", 
-                        _obterValorMedicao(medicoes['alturaAguaManha']), 
-                        _obterValorMedicao(medicoes['alturaAguaTarde'])),
+                        _obterValorMedicao(medicoes['alturaAguaInicial']), 
+                        _obterValorMedicao(medicoes['alturaAguaFinal'])),
                     _linhaMedicao("Volume correspondente à água:", 
-                        _obterValorMedicao(medicoes['volumeAguaManha']), 
-                        _obterValorMedicao(medicoes['volumeAguaTarde'])),
+                        _obterValorMedicao(medicoes['volumeAguaInicial']), 
+                        _obterValorMedicao(medicoes['volumeAguaFinal'])),
                     _linhaMedicao("Altura do produto aferido no tanque:", 
-                        _obterValorMedicao(medicoes['alturaProdutoManha']), 
-                        _obterValorMedicao(medicoes['alturaProdutoTarde'])),
+                        _obterValorMedicao(medicoes['alturaProdutoInicial']), 
+                        _obterValorMedicao(medicoes['alturaProdutoFinal'])),
                     _linhaMedicao(
                       "Volume correspondente ao produto (temp. ambiente):",
-                      _formatarVolumeLitros(volumeManha),
-                      _formatarVolumeLitros(volumeTarde),
+                      _formatarVolumeLitros(volumeInicial),
+                      _formatarVolumeLitros(volumeFinal),
                     ),
                     _linhaMedicao("Temperatura do produto no tanque:", 
-                        _formatarTemperatura(medicoes['tempTanqueManha']), 
-                        _formatarTemperatura(medicoes['tempTanqueTarde'])),
+                        _formatarTemperatura(medicoes['tempTanqueInicial']), 
+                        _formatarTemperatura(medicoes['tempTanqueFinal'])),
                     _linhaMedicao("Densidade observada na amostra:", 
-                        _obterValorMedicao(medicoes['densidadeManha']), 
-                        _obterValorMedicao(medicoes['densidadeTarde'])),
+                        _obterValorMedicao(medicoes['densidadeInicial']), 
+                        _obterValorMedicao(medicoes['densidadeFinal'])),
                     _linhaMedicao("Temperatura da amostra:", 
-                        _formatarTemperatura(medicoes['tempAmostraManha']), 
-                        _formatarTemperatura(medicoes['tempAmostraTarde'])),
+                        _formatarTemperatura(medicoes['tempAmostraInicial']), 
+                        _formatarTemperatura(medicoes['tempAmostraFinal'])),
                     _linhaMedicao("Densidade da amostra, considerada à temperatura padrão (20 ºC):", 
-                        _obterValorMedicao(medicoes['densidade20Manha']), 
-                        _obterValorMedicao(medicoes['densidade20Tarde'])),                    
+                        _obterValorMedicao(medicoes['densidade20Inicial']), 
+                        _obterValorMedicao(medicoes['densidade20Final'])),                    
                     _linhaMedicao("Fator de correção de volume do produto (FCV):", 
-                        _obterValorMedicao(medicoes['fatorCorrecaoManha']), 
-                        _obterValorMedicao(medicoes['fatorCorrecaoTarde'])),                    
+                        _obterValorMedicao(medicoes['fatorCorrecaoInicial']), 
+                        _obterValorMedicao(medicoes['fatorCorrecaoFinal'])),                    
                     _linhaMedicao("Volume total do produto, considerada a temperatura padrão (20 ºC):", 
-                        _obterValorMedicao(medicoes['volume20Manha']), 
-                        _obterValorMedicao(medicoes['volume20Tarde'])),
+                        _obterValorMedicao(medicoes['volume20Inicial']), 
+                        _obterValorMedicao(medicoes['volume20Final'])),
                   ], medicoes),
 
                   const SizedBox(height: 25),
@@ -759,13 +816,13 @@ class _CalcPageState extends State<CalcPage> {
                   const SizedBox(height: 8),
 
                   _tabelaComparacaoResultados(
-                    volumeAmbienteManha: volumeManha,
-                    volumeAmbienteTarde: volumeTarde,
-                    volume20Manha: _extrairNumero(medicoes['volume20Manha']?.toString()),
-                    volume20Tarde: _extrairNumero(medicoes['volume20Tarde']?.toString()),
-                    entradaSaidaAmbiente: volumeTarde - volumeManha,
-                    entradaSaida20: _extrairNumero(medicoes['volume20Tarde']?.toString()) - 
-                                    _extrairNumero(medicoes['volume20Manha']?.toString()),
+                    volumeAmbienteInicial: volumeInicial,
+                    volumeAmbienteFinal: volumeFinal,
+                    volume20Inicial: _extrairNumero(medicoes['volume20Inicial']?.toString()),
+                    volume20Final: _extrairNumero(medicoes['volume20Final']?.toString()),
+                    entradaSaidaAmbiente: volumeFinal - volumeInicial,
+                    entradaSaida20: _extrairNumero(medicoes['volume20Final']?.toString()) - 
+                                    _extrairNumero(medicoes['volume20Inicial']?.toString()),
                   ),
 
                   // BLOCO FATURADO
@@ -969,7 +1026,7 @@ class _CalcPageState extends State<CalcPage> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
               child: Text(
-                "1ª MEDIÇÃO, ${_formatarHorarioCACL(medicoes['horarioManha'])}",
+                "1ª MEDIÇÃO, ${_formatarHorarioCACL(medicoes['horarioInicial'])}",
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
@@ -981,7 +1038,7 @@ class _CalcPageState extends State<CalcPage> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
               child: Text(
-                "2ª MEDIÇÃO, ${_formatarHorarioCACL(medicoes['horarioTarde'])}",
+                "2ª MEDIÇÃO, ${_formatarHorarioCACL(medicoes['horarioFinal'])}",
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
@@ -1006,7 +1063,7 @@ class _CalcPageState extends State<CalcPage> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
               child: Text(
-                _obterValorMedicao(medicoes['massaManha']),
+                _obterValorMedicao(medicoes['massaInicial']),
                 style: const TextStyle(fontSize: 11),
                 textAlign: TextAlign.center,
               ),
@@ -1014,7 +1071,7 @@ class _CalcPageState extends State<CalcPage> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
               child: Text(
-                _obterValorMedicao(medicoes['massaTarde']),
+                _obterValorMedicao(medicoes['massaFinal']),
                 style: const TextStyle(fontSize: 11),
                 textAlign: TextAlign.center,
               ),
@@ -1037,7 +1094,7 @@ class _CalcPageState extends State<CalcPage> {
     return '$horarioLimpo h';
   }
 
-  TableRow _linhaMedicao(String descricao, String valorManha, String valorTarde) {
+  TableRow _linhaMedicao(String descricao, String valorInicial, String valorFinal) {
     return TableRow(
       children: [
         Padding(
@@ -1050,7 +1107,7 @@ class _CalcPageState extends State<CalcPage> {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
           child: Text(
-            valorManha,
+            valorInicial,
             style: const TextStyle(fontSize: 11),
             textAlign: TextAlign.center,
           ),
@@ -1058,7 +1115,7 @@ class _CalcPageState extends State<CalcPage> {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
           child: Text(
-            valorTarde,
+            valorFinal,
             style: const TextStyle(fontSize: 11),
             textAlign: TextAlign.center,
           ),
@@ -1068,10 +1125,10 @@ class _CalcPageState extends State<CalcPage> {
   }
 
   Widget _tabelaComparacaoResultados({
-    required double volumeAmbienteManha,
-    required double volumeAmbienteTarde,
-    required double volume20Manha,
-    required double volume20Tarde,
+    required double volumeAmbienteInicial,
+    required double volumeAmbienteFinal,
+    required double volume20Inicial,
+    required double volume20Final,
     required double entradaSaidaAmbiente,
     required double entradaSaida20,
   }) {
@@ -1154,13 +1211,13 @@ class _CalcPageState extends State<CalcPage> {
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
-              child: Text(fmt(volumeAmbienteManha), 
+              child: Text(fmt(volumeAmbienteInicial), 
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10)),
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
-              child: Text(fmt(volumeAmbienteTarde), 
+              child: Text(fmt(volumeAmbienteFinal), 
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10)),
             ),
@@ -1182,13 +1239,13 @@ class _CalcPageState extends State<CalcPage> {
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
-              child: Text(fmt(volume20Manha), 
+              child: Text(fmt(volume20Inicial), 
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10)),
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
-              child: Text(fmt(volume20Tarde), 
+              child: Text(fmt(volume20Final), 
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10)),
             ),
@@ -1777,72 +1834,72 @@ class _CalcPageState extends State<CalcPage> {
   Future<void> _calcularMassa() async {
     final medicoes = widget.dadosFormulario['medicoes'];
     
-    // Para 1ª medição (Manhã) - Volume20 × Densidade20
-    if (medicoes['volume20Manha'] != null && 
-        medicoes['volume20Manha'].toString().isNotEmpty &&
-        medicoes['volume20Manha'].toString() != '-' &&
-        medicoes['densidade20Manha'] != null &&
-        medicoes['densidade20Manha'].toString().isNotEmpty &&
-        medicoes['densidade20Manha'].toString() != '-') {
+    // Para 1ª medição (Inicial) - Volume20 × Densidade20
+    if (medicoes['volume20Inicial'] != null && 
+        medicoes['volume20Inicial'].toString().isNotEmpty &&
+        medicoes['volume20Inicial'].toString() != '-' &&
+        medicoes['densidade20Inicial'] != null &&
+        medicoes['densidade20Inicial'].toString().isNotEmpty &&
+        medicoes['densidade20Inicial'].toString() != '-') {
       
       try {
         // Converter volume a 20ºC formatado para double
-        final volume20Manha = _converterVolumeParaDouble(medicoes['volume20Manha'].toString());
+        final volume20Inicial = _converterVolumeParaDouble(medicoes['volume20Inicial'].toString());
         
         // Converter densidade a 20ºC para double
-        final densidade20Manha = double.tryParse(
-          medicoes['densidade20Manha'].toString()
+        final densidade20Inicial = double.tryParse(
+          medicoes['densidade20Inicial'].toString()
               .replaceAll(' kg/L', '')
               .replaceAll(',', '.')
               .trim()
         ) ?? 0.0;
         
         // Cálculo da massa: Volume a 20ºC × Densidade a 20ºC
-        final massaManha = volume20Manha * densidade20Manha;
+        final massaInicial = volume20Inicial * densidade20Inicial;
         
         // Formatar massa: ponto como milhar, vírgula como decimal, 1 casa decimal
-        final massaManhaFormatada = _formatarMassa(massaManha);
+        final massaInicialFormatada = _formatarMassa(massaInicial);
         
-        widget.dadosFormulario['medicoes']['massaManha'] = massaManhaFormatada;
+        widget.dadosFormulario['medicoes']['massaInicial'] = massaInicialFormatada;
       } catch (e) {
-        widget.dadosFormulario['medicoes']['massaManha'] = '-';
+        widget.dadosFormulario['medicoes']['massaInicial'] = '-';
       }
     } else {
-      widget.dadosFormulario['medicoes']['massaManha'] = '-';
+      widget.dadosFormulario['medicoes']['massaInicial'] = '-';
     }
     
-    // Para 2ª medição (Tarde) - Volume20 × Densidade20
-    if (medicoes['volume20Tarde'] != null && 
-        medicoes['volume20Tarde'].toString().isNotEmpty &&
-        medicoes['volume20Tarde'].toString() != '-' &&
-        medicoes['densidade20Tarde'] != null &&
-        medicoes['densidade20Tarde'].toString().isNotEmpty &&
-        medicoes['densidade20Tarde'].toString() != '-') {
+    // Para 2ª medição (Final) - Volume20 × Densidade20
+    if (medicoes['volume20Final'] != null && 
+        medicoes['volume20Final'].toString().isNotEmpty &&
+        medicoes['volume20Final'].toString() != '-' &&
+        medicoes['densidade20Final'] != null &&
+        medicoes['densidade20Final'].toString().isNotEmpty &&
+        medicoes['densidade20Final'].toString() != '-') {
       
       try {
         // Converter volume a 20ºC formatado para double
-        final volume20Tarde = _converterVolumeParaDouble(medicoes['volume20Tarde'].toString());
+        final volume20Final = _converterVolumeParaDouble(medicoes['volume20Final'].toString());
         
         // Converter densidade a 20ºC para double
-        final densidade20Tarde = double.tryParse(
-          medicoes['densidade20Tarde'].toString()
+        final densidade20Final = double.tryParse(
+          medicoes['densidade20Final'].toString()
               .replaceAll(' kg/L', '')
               .replaceAll(',', '.')
               .trim()
         ) ?? 0.0;
         
         // Cálculo da massa: Volume a 20ºC × Densidade a 20ºC
-        final massaTarde = volume20Tarde * densidade20Tarde;
+        final massaFinal = volume20Final * densidade20Final;
         
         // Formatar massa: ponto como milhar, vírgula como decimal, 1 casa decimal
-        final massaTardeFormatada = _formatarMassa(massaTarde);
+        final massaFinalFormatada = _formatarMassa(massaFinal);
         
-        widget.dadosFormulario['medicoes']['massaTarde'] = massaTardeFormatada;
+        widget.dadosFormulario['medicoes']['massaFinal'] = massaFinalFormatada;
       } catch (e) {
-        widget.dadosFormulario['medicoes']['massaTarde'] = '-';
+        widget.dadosFormulario['medicoes']['massaFinal'] = '-';
       }
     } else {
-      widget.dadosFormulario['medicoes']['massaTarde'] = '-';
+      widget.dadosFormulario['medicoes']['massaFinal'] = '-';
     }
   }
 
@@ -1980,7 +2037,7 @@ class _CalcPageState extends State<CalcPage> {
     }
 
     // Pega o valor do usuário para "Faturado"
-    final faturadoUsuarioStr = medicoes['faturadoTarde']?.toString() ?? '';
+    final faturadoUsuarioStr = medicoes['faturadoFinal']?.toString() ?? '';
     
     // Converte para double (se não for vazio)
     double faturadoUsuario = 0.0;
@@ -1995,11 +2052,11 @@ class _CalcPageState extends State<CalcPage> {
     }
     
     // Pega os volumes
-    final volume20Tarde = _extrairNumero(medicoes['volume20Tarde']?.toString());
-    final volume20Manha = _extrairNumero(medicoes['volume20Manha']?.toString());
+    final volume20Final = _extrairNumero(medicoes['volume20Final']?.toString());
+    final volume20Inicial = _extrairNumero(medicoes['volume20Inicial']?.toString());
     
     // Cálculo da diferença: Volume a 20ºC - Faturado
-    final entradaSaida20 = volume20Tarde - volume20Manha;
+    final entradaSaida20 = volume20Final - volume20Inicial;
     final diferenca = entradaSaida20 - faturadoUsuario;
     
     // Formata
@@ -2239,11 +2296,11 @@ class _CalcPageState extends State<CalcPage> {
       
       // NOVA SINTAXE: Filtrar usando where
       final response = await supabase
-          .from('calculos_cacl')
+          .from('cacl')
           .select('id')
-          .eq('created_by', session.user.id) // Filtro direto
-          .eq('data', data)                   // Filtro direto  
-          .eq('produto', produto)             // Filtro direto
+          .eq('created_by', session.user.id)
+          .eq('data', data)
+          .eq('produto', produto)
           .limit(1);
       
       // A resposta já vem como List<dynamic>

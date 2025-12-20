@@ -120,47 +120,47 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
 
       for (int i = 0; i < tanques.length; i++) {
         _controllers.add([
-          TextEditingController(), // 0 - horário manhã
-          TextEditingController(), // 1 - cm manhã
-          TextEditingController(), // 2 - mm manhã
-          TextEditingController(), // 3 - temp tanque manhã
-          TextEditingController(), // 4 - densidade manhã
-          TextEditingController(), // 5 - temp amostra manhã
-          TextEditingController(), // 6 - água cm manhã
-          TextEditingController(), // 7 - água mm manhã
-          TextEditingController(), // 8 - faturado manhã  // NOVO CAMPO
-          TextEditingController(), // 9 - observações manhã // MOVED DOWN
-          TextEditingController(), // 10 - horário tarde
-          TextEditingController(), // 11 - cm tarde
-          TextEditingController(), // 12 - mm tarde
-          TextEditingController(), // 13 - temp tanque tarde
-          TextEditingController(), // 14 - densidade tarde
-          TextEditingController(), // 15 - temp amostra tarde
-          TextEditingController(), // 16 - água cm tarde
-          TextEditingController(), // 17 - água mm tarde
-          TextEditingController(), // 18 - faturado tarde  // NOVO CAMPO          
+          TextEditingController(), // 0 - horário Inicial
+          TextEditingController(), // 1 - cm Inicial
+          TextEditingController(), // 2 - mm Inicial
+          TextEditingController(), // 3 - temp tanque Inicial
+          TextEditingController(), // 4 - densidade Inicial
+          TextEditingController(), // 5 - temp amostra Inicial
+          TextEditingController(), // 6 - água cm Inicial
+          TextEditingController(), // 7 - água mm Inicial
+          TextEditingController(), // 8 - faturado Inicial  // NOVO CAMPO
+          TextEditingController(), // 9 - observações Inicial // MOVED DOWN
+          TextEditingController(), // 10 - horário Final
+          TextEditingController(), // 11 - cm Final
+          TextEditingController(), // 12 - mm Final
+          TextEditingController(), // 13 - temp tanque Final
+          TextEditingController(), // 14 - densidade Final
+          TextEditingController(), // 15 - temp amostra Final
+          TextEditingController(), // 16 - água cm Final
+          TextEditingController(), // 17 - água mm Final
+          TextEditingController(), // 18 - faturado Final  // NOVO CAMPO          
         ]);
 
         _focusNodes.add([
-          FocusNode(), // 0 - horário manhã
-          FocusNode(), // 1 - cm manhã
-          FocusNode(), // 2 - mm manhã
-          FocusNode(), // 3 - temp tanque manhã
-          FocusNode(), // 4 - densidade manhã
-          FocusNode(), // 5 - temp amostra manhã
-          FocusNode(), // 6 - água cm manhã
-          FocusNode(), // 7 - água mm manhã
-          FocusNode(), // 8 - faturado manhã  // NOVO
-          FocusNode(), // 9 - observações manhã
-          FocusNode(), // 10 - horário tarde
-          FocusNode(), // 11 - cm tarde
-          FocusNode(), // 12 - mm tarde
-          FocusNode(), // 13 - temp tanque tarde
-          FocusNode(), // 14 - densidade tarde
-          FocusNode(), // 15 - temp amostra tarde
-          FocusNode(), // 16 - água cm tarde
-          FocusNode(), // 17 - água mm tarde
-          FocusNode(), // 18 - faturado tarde  // NOVO          
+          FocusNode(), // 0 - horário Inicial
+          FocusNode(), // 1 - cm Inicial
+          FocusNode(), // 2 - mm Inicial
+          FocusNode(), // 3 - temp tanque Inicial
+          FocusNode(), // 4 - densidade Inicial
+          FocusNode(), // 5 - temp amostra Inicial
+          FocusNode(), // 6 - água cm Inicial
+          FocusNode(), // 7 - água mm Inicial
+          FocusNode(), // 8 - faturado Inicial  // NOVO
+          FocusNode(), // 9 - observações Inicial
+          FocusNode(), // 10 - horário Final
+          FocusNode(), // 11 - cm Final
+          FocusNode(), // 12 - mm Final
+          FocusNode(), // 13 - temp tanque Final
+          FocusNode(), // 14 - densidade Final
+          FocusNode(), // 15 - temp amostra Final
+          FocusNode(), // 16 - água cm Final
+          FocusNode(), // 17 - água mm Final
+          FocusNode(), // 18 - faturado Final  // NOVO          
         ]);
       }
 
@@ -235,33 +235,33 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     final tanqueAtual = tanques[_tanqueSelecionadoIndex];
     final controllers = _controllers[_tanqueSelecionadoIndex];
     
-    final cmTotalManha = controllers[1].text;
-    final mmTotalManha = controllers[2].text;
-    final cmTotalTarde = controllers[10].text;
-    final mmTotalTarde = controllers[11].text;
+    final cmTotalInicial = controllers[1].text;
+    final mmTotalInicial = controllers[2].text;
+    final cmTotalFinal = controllers[10].text;
+    final mmTotalFinal = controllers[11].text;
     
-    final cmAguaManha = controllers[6].text;
-    final mmAguaManha = controllers[7].text;
-    final cmAguaTarde = controllers[15].text;
-    final mmAguaTarde = controllers[16].text;
+    final cmAguaInicial = controllers[6].text;
+    final mmAguaInicial = controllers[7].text;
+    final cmAguaFinal = controllers[15].text;
+    final mmAguaFinal = controllers[16].text;
     
-    final totalCmManha = double.tryParse(cmTotalManha) ?? 0.0;
-    final totalMmManha = double.tryParse(mmTotalManha) ?? 0.0;
-    final aguaCmManha = double.tryParse(cmAguaManha) ?? 0.0;
-    final aguaMmManha = double.tryParse(mmAguaManha) ?? 0.0;
+    final totalCmInicial = double.tryParse(cmTotalInicial) ?? 0.0;
+    final totalMmInicial = double.tryParse(mmTotalInicial) ?? 0.0;
+    final aguaCmInicial = double.tryParse(cmAguaInicial) ?? 0.0;
+    final aguaMmInicial = double.tryParse(mmAguaInicial) ?? 0.0;
     
-    final totalCmTarde = double.tryParse(cmTotalTarde) ?? 0.0;
-    final totalMmTarde = double.tryParse(mmTotalTarde) ?? 0.0;
-    final aguaCmTarde = double.tryParse(cmAguaTarde) ?? 0.0;
-    final aguaMmTarde = double.tryParse(mmAguaTarde) ?? 0.0;
+    final totalCmFinal = double.tryParse(cmTotalFinal) ?? 0.0;
+    final totalMmFinal = double.tryParse(mmTotalFinal) ?? 0.0;
+    final aguaCmFinal = double.tryParse(cmAguaFinal) ?? 0.0;
+    final aguaMmFinal = double.tryParse(mmAguaFinal) ?? 0.0;
     
-    final alturaTotalManhaCm = totalCmManha + (totalMmManha / 10);
-    final alturaAguaManhaCm = aguaCmManha + (aguaMmManha / 10);
-    final alturaProdutoManhaCm = alturaTotalManhaCm - alturaAguaManhaCm;
+    final alturaTotalInicialCm = totalCmInicial + (totalMmInicial / 10);
+    final alturaAguaInicialCm = aguaCmInicial + (aguaMmInicial / 10);
+    final alturaProdutoInicialCm = alturaTotalInicialCm - alturaAguaInicialCm;
     
-    final alturaTotalTardeCm = totalCmTarde + (totalMmTarde / 10);
-    final alturaAguaTardeCm = aguaCmTarde + (aguaMmTarde / 10);
-    final alturaProdutoTardeCm = alturaTotalTardeCm - alturaAguaTardeCm;
+    final alturaTotalFinalCm = totalCmFinal + (totalMmFinal / 10);
+    final alturaAguaFinalCm = aguaCmFinal + (aguaMmFinal / 10);
+    final alturaProdutoFinalCm = alturaTotalFinalCm - alturaAguaFinalCm;
     
     String formatarParaCACL(double alturaCm) {
       final parteInteira = alturaCm.floor();
@@ -269,45 +269,45 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       return '$parteInteira,$parteDecimal cm';
     }
     
-    final alturaProdutoManhaFormatada = formatarParaCACL(alturaProdutoManhaCm);
-    final alturaProdutoTardeFormatada = formatarParaCACL(alturaProdutoTardeCm);
+    final alturaProdutoInicialFormatada = formatarParaCACL(alturaProdutoInicialCm);
+    final alturaProdutoFinalFormatada = formatarParaCACL(alturaProdutoFinalCm);
     
     final dadosMedicoes = {
-      'cmManha': cmTotalManha,
-      'mmManha': mmTotalManha,
-      'cmTarde': cmTotalTarde,
-      'mmTarde': mmTotalTarde,
+      'cmInicial': cmTotalInicial,
+      'mmInicial': mmTotalInicial,
+      'cmFinal': cmTotalFinal,
+      'mmFinal': mmTotalFinal,
       
-      'alturaAguaManha': '$cmAguaManha,$mmAguaManha cm',
-      'alturaAguaTarde': '$cmAguaTarde,$mmAguaTarde cm',
+      'alturaAguaInicial': '$cmAguaInicial,$mmAguaInicial cm',
+      'alturaAguaFinal': '$cmAguaFinal,$mmAguaFinal cm',
       
-      'alturaProdutoManha': alturaProdutoManhaFormatada,
-      'alturaProdutoTarde': alturaProdutoTardeFormatada,
+      'alturaProdutoInicial': alturaProdutoInicialFormatada,
+      'alturaProdutoFinal': alturaProdutoFinalFormatada,
       
-      'horarioManha': controllers[0].text,
-      'tempTanqueManha': controllers[3].text,
-      'densidadeManha': controllers[4].text,
-      'tempAmostraManha': controllers[5].text,
+      'horarioInicial': controllers[0].text,
+      'tempTanqueInicial': controllers[3].text,
+      'densidadeInicial': controllers[4].text,
+      'tempAmostraInicial': controllers[5].text,
       
-      'horarioTarde': controllers[9].text,
-      'tempTanqueTarde': controllers[12].text,
-      'densidadeTarde': controllers[13].text,
-      'tempAmostraTarde': controllers[14].text,
+      'horarioFinal': controllers[9].text,
+      'tempTanqueFinal': controllers[12].text,
+      'densidadeFinal': controllers[13].text,
+      'tempAmostraFinal': controllers[14].text,
       
-      'faturadoTarde': controllers[17].text,
+      'faturadoFinal': controllers[17].text,
       
-      'volumeProdutoManha': '0',
-      'volumeProdutoTarde': '0',
-      'volumeAguaManha': '0',
-      'volumeAguaTarde': '0',
-      'volumeTotalManha': '0',
-      'volumeTotalTarde': '0',
-      'fatorCorrecaoManha': '1.0',
-      'fatorCorrecaoTarde': '1.0',
-      'volume20Manha': '0',
-      'volume20Tarde': '0',
-      'densidade20Manha': '0.000',
-      'densidade20Tarde': '0.000',
+      'volumeProdutoInicial': '0',
+      'volumeProdutoFinal': '0',
+      'volumeAguaInicial': '0',
+      'volumeAguaFinal': '0',
+      'volumeTotalInicial': '0',
+      'volumeTotalFinal': '0',
+      'fatorCorrecaoInicial': '1.0',
+      'fatorCorrecaoFinal': '1.0',
+      'volume20Inicial': '0',
+      'volume20Final': '0',
+      'densidade20Inicial': '0.000',
+      'densidade20Final': '0.000',
     };
     
     final dadosFormulario = {
