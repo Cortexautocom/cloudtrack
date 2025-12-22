@@ -456,17 +456,7 @@ class _CalcPageState extends State<CalcPage> {
       String? dataFormatada;
       final dataOriginal = widget.dadosFormulario['data']?.toString() ?? '';
       if (dataOriginal.isNotEmpty) {
-        try {
-          // Tenta converter de "14/01/2024" para "2024-01-14"
-          final partes = dataOriginal.split('/');
-          if (partes.length == 3) {
-            dataFormatada = '${partes[2]}-${partes[1].padLeft(2, '0')}-${partes[0].padLeft(2, '0')}';
-          } else {
-            dataFormatada = dataOriginal;
-          }
-        } catch (e) {
-          dataFormatada = dataOriginal;
-        }
+        dataFormatada = _formatarDataParaSQL(dataOriginal);  // ← USE A MESMA FUNÇÃO
       }
       
       // Função auxiliar para converter horário
@@ -2299,7 +2289,7 @@ class _CalcPageState extends State<CalcPage> {
           .from('cacl')
           .select('id')
           .eq('created_by', session.user.id)
-          .eq('data', data)
+          .eq('data', _formatarDataParaSQL(data))
           .eq('produto', produto)
           .limit(1);
       
@@ -2317,6 +2307,24 @@ class _CalcPageState extends State<CalcPage> {
     } catch (e) {
       print('⚠️ Erro ao verificar se CACL já foi emitido: $e');
       // Não altera o estado em caso de erro
+    }
+  }
+
+  String _formatarDataParaSQL(String dataDisplay) {
+    try {
+      // Converte "22/12/2025" para "2025-12-22"
+      final partes = dataDisplay.split('/');
+      if (partes.length == 3) {
+        final dia = partes[0];
+        final mes = partes[1];
+        final ano = partes[2];
+        return '$ano-$mes-$dia';  // Formato SQL: yyyy-MM-dd
+      }
+      return dataDisplay;
+    } catch (e) {
+      // Fallback: data atual no formato SQL
+      final now = DateTime.now();
+      return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     }
   }
 }

@@ -13,7 +13,7 @@ class CACLPdf {
     final cinzaClaro = PdfColor.fromInt(0xFFF5F5F5);
     final medicoes = dadosFormulario['medicoes'] ?? {};
     final data = dadosFormulario['data']?.toString() ?? "";
-    final hora = dadosFormulario['horarioManha']?.toString() ?? "";
+    final hora = dadosFormulario['horarioInicial']?.toString() ?? "";
     
     pdf.addPage(
       pw.Page(
@@ -184,7 +184,7 @@ class CACLPdf {
               ),
               pw.SizedBox(height: 20),
               // SEÇÃO: FATURADO (se existir, em linha única)
-              if (medicoes['faturadoTarde'] != null && medicoes['faturadoTarde'].toString().isNotEmpty)
+              if (medicoes['faturadoFinal'] != null && medicoes['faturadoFinal'].toString().isNotEmpty)
                 pw.Container(
                   width: double.infinity,
                   margin: const pw.EdgeInsets.only(top: 8),
@@ -280,8 +280,8 @@ class CACLPdf {
   }
   
   static pw.Table _tabelaMedicoesPDFCompacta(Map<String, dynamic> medicoes) {
-    final horarioManha = _formatarHorarioCACL(medicoes['horarioManha']);
-    final horarioTarde = _formatarHorarioCACL(medicoes['horarioTarde']);
+    final horarioInicial = _formatarHorarioCACL(medicoes['horarioInicial']);
+    final horarioFinal = _formatarHorarioCACL(medicoes['horarioFinal']);
     
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.grey400, width: 0.3),
@@ -299,12 +299,12 @@ class CACLPdf {
           children: [
             _celulaTabelaMuitoCompacta("DESCRIÇÃO", true),
             _celulaTabelaMuitoCompacta(
-              "1ª MEDIÇÃO - $horarioManha",
+              "1ª MEDIÇÃO - $horarioInicial",
               true,
               centralizado: true,
             ),
             _celulaTabelaMuitoCompacta(
-              "2ª MEDIÇÃO - $horarioTarde",
+              "2ª MEDIÇÃO - $horarioFinal",
               true,
               centralizado: true,
             ),
@@ -315,68 +315,68 @@ class CACLPdf {
         // LINHAS DE MEDIÇÕES (apenas as principais para economizar espaço)
         _linhaMedicaoTabelaCompacta(
           "Altura total líquido:",
-          _formatarAlturaTotalPDF(medicoes['cmManha'], medicoes['mmManha']),
-          _formatarAlturaTotalPDF(medicoes['cmTarde'], medicoes['mmTarde']),
+          _formatarAlturaTotalPDF(medicoes['cmInicial'], medicoes['mmInicial']),
+          _formatarAlturaTotalPDF(medicoes['cmFinal'], medicoes['mmFinal']),
         ),
         
         _linhaMedicaoTabelaCompacta(
           "Volume total (ambiente):",
-          _obterValorMedicaoPDF(medicoes['volumeTotalLiquidoManha']),
-          _obterValorMedicaoPDF(medicoes['volumeTotalLiquidoTarde']),
+          _obterValorMedicaoPDF(medicoes['volumeTotalLiquidoInicial']),
+          _obterValorMedicaoPDF(medicoes['volumeTotalLiquidoFinal']),
         ),
         
         _linhaMedicaoTabelaCompacta(
           "Altura água:",
-          _obterValorMedicaoPDF(medicoes['alturaAguaManha']),
-          _obterValorMedicaoPDF(medicoes['alturaAguaTarde']),
+          _obterValorMedicaoPDF(medicoes['alturaAguaInicial']),
+          _obterValorMedicaoPDF(medicoes['alturaAguaFinal']),
         ),
         
         _linhaMedicaoTabelaCompacta(
           "Volume água:",
-          _obterValorMedicaoPDF(medicoes['volumeAguaManha']),
-          _obterValorMedicaoPDF(medicoes['volumeAguaTarde']),
+          _obterValorMedicaoPDF(medicoes['volumeAguaInicial']),
+          _obterValorMedicaoPDF(medicoes['volumeAguaFinal']),
         ),
         
         _linhaMedicaoTabelaCompacta(
           "Volume produto (ambiente):",
-          _obterValorMedicaoPDF(medicoes['volumeTotalManha']),
-          _obterValorMedicaoPDF(medicoes['volumeTotalTarde']),
+          _obterValorMedicaoPDF(medicoes['volumeTotalInicial']),
+          _obterValorMedicaoPDF(medicoes['volumeTotalFinal']),
         ),
         
         _linhaMedicaoTabelaCompacta(
           "Temp. tanque:",
-          _formatarTemperaturaPDF(medicoes['tempTanqueManha']),
-          _formatarTemperaturaPDF(medicoes['tempTanqueTarde']),
+          _formatarTemperaturaPDF(medicoes['tempTanqueInicial']),
+          _formatarTemperaturaPDF(medicoes['tempTanqueFinal']),
         ),
         
         _linhaMedicaoTabelaCompacta(
           "Densidade observada:",
-          _obterValorMedicaoPDF(medicoes['densidadeManha']),
-          _obterValorMedicaoPDF(medicoes['densidadeTarde']),
+          _obterValorMedicaoPDF(medicoes['densidadeInicial']),
+          _obterValorMedicaoPDF(medicoes['densidadeFinal']),
         ),
         
         _linhaMedicaoTabelaCompacta(
           "Temp. amostra:",
-          _formatarTemperaturaPDF(medicoes['tempAmostraManha']),
-          _formatarTemperaturaPDF(medicoes['tempAmostraTarde']),
+          _formatarTemperaturaPDF(medicoes['tempAmostraInicial']),
+          _formatarTemperaturaPDF(medicoes['tempAmostraFinal']),
         ),
         
         _linhaMedicaoTabelaCompacta(
           "Densidade 20ºC:",
-          _obterValorMedicaoPDF(medicoes['densidade20Manha']),
-          _obterValorMedicaoPDF(medicoes['densidade20Tarde']),
+          _obterValorMedicaoPDF(medicoes['densidade20Inicial']),
+          _obterValorMedicaoPDF(medicoes['densidade20Final']),
         ),
         
         _linhaMedicaoTabelaCompacta(
           "FCV:",
-          _obterValorMedicaoPDF(medicoes['fatorCorrecaoManha']),
-          _obterValorMedicaoPDF(medicoes['fatorCorrecaoTarde']),
+          _obterValorMedicaoPDF(medicoes['fatorCorrecaoInicial']),
+          _obterValorMedicaoPDF(medicoes['fatorCorrecaoFinal']),
         ),
         
         _linhaMedicaoTabelaCompacta(
           "Volume 20ºC:",
-          _obterValorMedicaoPDF(medicoes['volume20Manha']),
-          _obterValorMedicaoPDF(medicoes['volume20Tarde']),
+          _obterValorMedicaoPDF(medicoes['volume20Inicial']),
+          _obterValorMedicaoPDF(medicoes['volume20Final']),
         ),
         
         // MASSA DO PRODUTO
@@ -387,12 +387,12 @@ class CACLPdf {
               false,
             ),
             _celulaTabelaMuitoCompacta(
-              _obterValorMedicaoPDF(medicoes['massaManha']),
+              _obterValorMedicaoPDF(medicoes['massaInicial']),
               false,
               centralizado: true,
             ),
             _celulaTabelaMuitoCompacta(
-              _obterValorMedicaoPDF(medicoes['massaTarde']),
+              _obterValorMedicaoPDF(medicoes['massaFinal']),
               false,
               centralizado: true,
             ),
@@ -411,13 +411,13 @@ class CACLPdf {
       return double.tryParse(somenteNumeros) ?? 0;
     }
     
-    final volumeManha = extrairNumero(medicoes['volumeTotalManha']?.toString());
-    final volumeTarde = extrairNumero(medicoes['volumeTotalTarde']?.toString());
-    final volume20Manha = extrairNumero(medicoes['volume20Manha']?.toString());
-    final volume20Tarde = extrairNumero(medicoes['volume20Tarde']?.toString());
+    final volumeInicial = extrairNumero(medicoes['volumeTotalInicial']?.toString());
+    final volumeFinal = extrairNumero(medicoes['volumeTotalFinal']?.toString());
+    final volume20Inicial = extrairNumero(medicoes['volume20Inicial']?.toString());
+    final volume20Final = extrairNumero(medicoes['volume20Final']?.toString());
     
-    final entradaSaidaAmbiente = volumeTarde - volumeManha;
-    final entradaSaida20 = volume20Tarde - volume20Manha;
+    final entradaSaidaAmbiente = volumeFinal - volumeInicial;
+    final entradaSaida20 = volume20Final - volume20Inicial;
     
     // Função para formatar no padrão "999.999 L"
     String fmt(double v) {
@@ -471,8 +471,8 @@ class CACLPdf {
         pw.TableRow(
           children: [
             _celulaTabelaMuitoCompacta("Volume ambiente", false),
-            _celulaTabelaMuitoCompacta(fmt(volumeManha), false, centralizado: true),
-            _celulaTabelaMuitoCompacta(fmt(volumeTarde), false, centralizado: true),
+            _celulaTabelaMuitoCompacta(fmt(volumeInicial), false, centralizado: true),
+            _celulaTabelaMuitoCompacta(fmt(volumeFinal), false, centralizado: true),
             _celulaTabelaMuitoCompacta(fmt(entradaSaidaAmbiente), false, centralizado: true),
           ],
         ),
@@ -481,8 +481,8 @@ class CACLPdf {
         pw.TableRow(
           children: [
             _celulaTabelaMuitoCompacta("Volume a 20ºC", false),
-            _celulaTabelaMuitoCompacta(fmt(volume20Manha), false, centralizado: true),
-            _celulaTabelaMuitoCompacta(fmt(volume20Tarde), false, centralizado: true),
+            _celulaTabelaMuitoCompacta(fmt(volume20Inicial), false, centralizado: true),
+            _celulaTabelaMuitoCompacta(fmt(volume20Final), false, centralizado: true),
             _celulaTabelaMuitoCompacta(fmt(entradaSaida20), false, centralizado: true),
           ],
         ),
@@ -536,7 +536,7 @@ class CACLPdf {
     }
     
     // Cálculos
-    final faturadoUsuarioStr = medicoes['faturadoTarde']?.toString() ?? '';
+    final faturadoUsuarioStr = medicoes['faturadoFinal']?.toString() ?? '';
     double faturadoUsuario = 0.0;
     if (faturadoUsuarioStr.isNotEmpty && faturadoUsuarioStr != '-') {
       try {
@@ -547,9 +547,9 @@ class CACLPdf {
       }
     }
     
-    final volume20Tarde = extrairNumero(medicoes['volume20Tarde']?.toString());
-    final volume20Manha = extrairNumero(medicoes['volume20Manha']?.toString());
-    final entradaSaida20 = volume20Tarde - volume20Manha;
+    final volume20Final = extrairNumero(medicoes['volume20Final']?.toString());
+    final volume20Inicial = extrairNumero(medicoes['volume20Inicial']?.toString());
+    final entradaSaida20 = volume20Final - volume20Inicial;
     final diferenca = entradaSaida20 - faturadoUsuario;
     
     final faturadoFormatado = faturadoUsuario > 0 ? fmt(faturadoUsuario) : "-";
@@ -648,12 +648,12 @@ class CACLPdf {
     );
   }
   
-  static pw.TableRow _linhaMedicaoTabelaCompacta(String descricao, String valorManha, String valorTarde) {
+  static pw.TableRow _linhaMedicaoTabelaCompacta(String descricao, String valorInicial, String valorFinal) {
     return pw.TableRow(
       children: [
         _celulaTabelaMuitoCompacta(descricao, false),
-        _celulaTabelaMuitoCompacta(valorManha, false, centralizado: true),
-        _celulaTabelaMuitoCompacta(valorTarde, false, centralizado: true),
+        _celulaTabelaMuitoCompacta(valorInicial, false, centralizado: true),
+        _celulaTabelaMuitoCompacta(valorFinal, false, centralizado: true),
       ],
     );
   }
