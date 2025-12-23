@@ -553,6 +553,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   setState(() {
                     _mostrarListarCacls = false;
                     _mostrarMedicaoTanques = true;
+                    _mostrarApuracaoFilhos = true;
+                    _veioDaApuracao = true;
                   });
                 },
               )
@@ -654,6 +656,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                               // Não-admin volta para ListarCaclsPage também
                               _mostrarListarCacls = true;
                             }
+                          });
+                        },
+                        onFinalizarCACL: () {
+                          setState(() {
+                            _mostrarMedicaoTanques = false;
+                            _mostrarListarCacls = false;
+                            _mostrarApuracaoFilhos = true; // ← VOLTA PARA APURAÇÃO
+                            _veioDaApuracao = true;
                           });
                         },
                       )

@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'cacl.dart';
 import '../../login_page.dart';
+import 'emitir_cacl.dart';
 
 class ListarCaclsPage extends StatefulWidget {
   final VoidCallback onVoltar;
   final String filialId;
   final String filialNome;
   final VoidCallback onIrParaEmissao;
+  final VoidCallback? onFinalizarCACL;
 
   const ListarCaclsPage({
     super.key,
@@ -15,6 +17,7 @@ class ListarCaclsPage extends StatefulWidget {
     required this.filialId,
     required this.filialNome,
     required this.onIrParaEmissao,
+    this.onFinalizarCACL,
   });
 
   @override
@@ -179,7 +182,19 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: ElevatedButton(
             onPressed: () {
-              widget.onIrParaEmissao();
+              // Navega diretamente para MedicaoTanquesPage, passando o callback
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => MedicaoTanquesPage(
+                    onVoltar: () {
+                      Navigator.pop(context);
+                      widget.onVoltar(); // Volta para Home se necessário
+                    },
+                    filialSelecionadaId: widget.filialId,
+                    onFinalizarCACL: widget.onFinalizarCACL, // ← PASSA O CALLBACK
+                  ),
+                ),
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0D47A1),

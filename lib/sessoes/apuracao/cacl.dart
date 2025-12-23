@@ -14,12 +14,14 @@ enum CaclModo {
 
 class CalcPage extends StatefulWidget {
   final Map<String, dynamic> dadosFormulario;
-  final CaclModo modo; // ✅ ETAPA 2.1 — Adicionar parâmetro modo
+  final CaclModo modo;
+  final VoidCallback? onFinalizar; // ✅ ETAPA 2.1 — Adicionar parâmetro modo
 
   const CalcPage({
     super.key,
     required this.dadosFormulario,
-    this.modo = CaclModo.emissao, // ✅ Valor padrão é emissão
+    this.modo = CaclModo.emissao,
+    this.onFinalizar,
   });
 
   @override
@@ -42,7 +44,6 @@ class _CalcPageState extends State<CalcPage> {
     // ✅ ETAPA 2.2 — Ajustar initState
     if (widget.modo == CaclModo.emissao) {
       _calcularVolumesIniciais();
-      _verificarSeCaclJaFoiEmitido();
     } else {
       // Modo visualização: carrega os dados já calculados do banco
       _carregarDadosParaVisualizacao();
@@ -873,6 +874,7 @@ class _CalcPageState extends State<CalcPage> {
                   const SizedBox(height: 10),
                   
                   // ✅ ETAPA 5 — Ocultar botões de ação no modo visualização                  
+                  // ✅ ETAPA 5 — Ocultar botões de ação no modo visualização                  
                   Container(
                     margin: const EdgeInsets.only(top: 20),
                     width: double.infinity,
@@ -910,7 +912,7 @@ class _CalcPageState extends State<CalcPage> {
                           ),
                         ),
                         
-                        if (widget.modo == CaclModo.emissao)
+                        if (widget.modo == CaclModo.emissao && _caclJaEmitido)
                           const SizedBox(width: 20),
                         
                         // BOTÃO "GERAR PDF" - AGORA SEGUNDO
@@ -936,6 +938,25 @@ class _CalcPageState extends State<CalcPage> {
                             ),
                           ),
                         ),
+                        
+                        // NOVO BOTÃO "FINALIZAR" - APARECE APÓS EMISSÃO
+                        if (widget.modo == CaclModo.emissao && _caclJaEmitido)
+                          const SizedBox(width: 20),
+                        
+                        if (widget.modo == CaclModo.emissao && _caclJaEmitido)
+                          ElevatedButton.icon(
+                            onPressed: _irParaApuracao,
+                            icon: const Icon(Icons.arrow_forward, size: 18),
+                            label: const Text('Finalizar'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -2059,7 +2080,7 @@ class _CalcPageState extends State<CalcPage> {
     final porcentagemFormatada = fmtPercent(porcentagem);
     
     // Concatenação: "-114 L | -0,36%"
-    final concatenacao = '$diferencaFormatada   ║   $porcentagemFormatada';
+    final concatenacao = '$diferencaFormatada ║ $porcentagemFormatada';
 
     // REGRAS DE CORES:
     // 1. "Faturado": cor automática (preto) - REMOVER O VERDE
@@ -2266,50 +2287,6 @@ class _CalcPageState extends State<CalcPage> {
     }
   }
 
-  Future<void> _verificarSeCaclJaFoiEmitido() async {
-    try {
-      final supabase = Supabase.instance.client;
-      final session = supabase.auth.currentSession;
-      
-      if (session == null) {
-        return; // Usuário não logado, não verifica
-      }
-      
-      // Obter valores principais
-      final data = widget.dadosFormulario['data']?.toString();
-      final produto = widget.dadosFormulario['produto']?.toString();      
-      
-      // Se não tiver dados suficientes, não verifica
-      if (data == null || data.isEmpty || produto == null || produto.isEmpty) {
-        return;
-      }
-      
-      // NOVA SINTAXE: Filtrar usando where
-      final response = await supabase
-          .from('cacl')
-          .select('id')
-          .eq('created_by', session.user.id)
-          .eq('data', _formatarDataParaSQL(data))
-          .eq('produto', produto)
-          .limit(1);
-      
-      // A resposta já vem como List<dynamic>
-      if (response.isNotEmpty) {
-        // Encontrou um registro existente
-        if (mounted) {
-          setState(() {
-            _caclJaEmitido = true;
-          });
-        }
-        print('✅ CACL já foi emitido anteriormente por este usuário');
-      }
-      
-    } catch (e) {
-      print('⚠️ Erro ao verificar se CACL já foi emitido: $e');
-      // Não altera o estado em caso de erro
-    }
-  }
-
   String _formatarDataParaSQL(String dataDisplay) {
     try {
       // Converte "22/12/2025" para "2025-12-22"
@@ -2325,6 +2302,87 @@ class _CalcPageState extends State<CalcPage> {
       // Fallback: data atual no formato SQL
       final now = DateTime.now();
       return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    }
+  }
+
+  Future<void> _irParaApuracao() async {
+    try {
+      // Obter dados necessários para a Apuração
+      final supabase = Supabase.instance.client;
+      final session = supabase.auth.currentSession;
+      
+      if (session == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Você precisa estar logado para continuar'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      
+      // Obter dados do CACL recém-emitido
+      final dataFormatada = _formatarDataParaSQL(widget.dadosFormulario['data']?.toString() ?? '');
+      final produto = widget.dadosFormulario['produto']?.toString() ?? '';
+      
+      // Buscar o ID do CACL recém-criado
+      final response = await supabase
+          .from('cacl')
+          .select('id')
+          .eq('created_by', session.user.id)
+          .eq('data', dataFormatada)
+          .eq('produto', produto)
+          .order('created_at', ascending: false)
+          .limit(1);
+      
+      if (response.isNotEmpty) {
+        final caclId = response[0]['id']?.toString();
+        
+        // Mensagem de confirmação
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✓ CACL finalizado! Voltando para Apuração...'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        
+        // Aguardar um pouco para mostrar a mensagem
+        await Future.delayed(const Duration(milliseconds: 1500));
+        
+        if (widget.onFinalizar != null) {
+          widget.onFinalizar!();
+        }
+        Navigator.of(context).pop();
+
+
+        // NAVEGAÇÃO: Voltar para o HomePage que mostrará a Apuração
+        if (context.mounted) {
+          Navigator.of(context).pop(); // Fecha a página de cálculo
+          
+          // O HomePage voltará automaticamente para a seção de Apuração
+          // pois o estado _mostrarApuracaoFilhos será true
+        }
+        
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Não foi possível encontrar o CACL emitido'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      
+    } catch (e) {
+      print('Erro ao ir para apuração: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 }

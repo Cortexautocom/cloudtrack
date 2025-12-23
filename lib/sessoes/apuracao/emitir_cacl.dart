@@ -6,11 +6,13 @@ import 'cacl.dart';
 class MedicaoTanquesPage extends StatefulWidget {
   final VoidCallback onVoltar;
   final String? filialSelecionadaId;
+  final VoidCallback? onFinalizarCACL;
 
   const MedicaoTanquesPage({
     super.key,
     required this.onVoltar,
     this.filialSelecionadaId,
+    this.onFinalizarCACL,
   });
 
   @override
@@ -324,7 +326,10 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => CalcPage(dadosFormulario: dadosFormulario),
+        builder: (context) => CalcPage(
+          dadosFormulario: dadosFormulario,
+          onFinalizar: widget.onFinalizarCACL, // ← PASSA O CALLBACK
+        ),
       ),
     );
   }
