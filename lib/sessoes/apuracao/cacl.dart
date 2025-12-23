@@ -827,15 +827,25 @@ class _CalcPageState extends State<CalcPage> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE3F2FD),
-                      border: Border.all(color: const Color(0xFF2196F3)),
+                      color: widget.modo == CaclModo.emissao && !_dadosFinaisEstaoCompletos()
+                          ? const Color(0xFFFFF3E0)  // Laranja claro se pendente
+                          : const Color(0xFFE3F2FD),  // Azul claro se completo/visualização
+                      border: Border.all(
+                        color: widget.modo == CaclModo.emissao && !_dadosFinaisEstaoCompletos()
+                            ? Colors.orange
+                            : const Color(0xFF2196F3),
+                      ),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Row(
                       children: [
-                        const Icon(
-                          Icons.info_outline,
-                          color: Color(0xFF2196F3),
+                        Icon(
+                          widget.modo == CaclModo.emissao && !_dadosFinaisEstaoCompletos()
+                              ? Icons.pending
+                              : Icons.info_outline,
+                          color: widget.modo == CaclModo.emissao && !_dadosFinaisEstaoCompletos()
+                              ? Colors.orange
+                              : const Color(0xFF2196F3),
                           size: 20,
                         ),
                         const SizedBox(width: 10),
@@ -844,102 +854,116 @@ class _CalcPageState extends State<CalcPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                widget.modo == CaclModo.emissao
-                                  ? "Esta é uma pré-visualização do certificado"
-                                  : "Visualização do CACL já emitido",
-                                style: const TextStyle(
+                                widget.modo == CaclModo.emissao && !_dadosFinaisEstaoCompletos()
+                                  ? "CACL Pendente"
+                                  : widget.modo == CaclModo.emissao
+                                    ? "Pré-visualização do CACL"
+                                    : "Visualização do CACL",
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF0D47A1),
+                                  color: widget.modo == CaclModo.emissao && !_dadosFinaisEstaoCompletos()
+                                      ? Colors.orange[800]
+                                      : const Color(0xFF0D47A1),
                                   fontSize: 13,
                                 ),
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                widget.modo == CaclModo.emissao
-                                  ? "Os campos de assinatura serão incluídos no PDF final. "
-                                    "Verifique os dados antes de gerar o documento oficial."
-                                  : "Este CACL já foi emitido e está salvo no histórico. "
-                                    "Você pode gerar um novo PDF se necessário.",
+                                widget.modo == CaclModo.emissao && !_dadosFinaisEstaoCompletos()
+                                  ? "Faltam dados da medição final. Salve como pendente para completar depois."
+                                  : widget.modo == CaclModo.emissao
+                                    ? "Verifique os dados antes de emitir o documento oficial."
+                                    : "Este CACL já foi emitido e está salvo no histórico.",
                                 style: TextStyle(
-                                  color: Colors.grey[700],
+                                  color: widget.modo == CaclModo.emissao && !_dadosFinaisEstaoCompletos()
+                                      ? Colors.orange[700]
+                                      : Colors.grey[700],
                                   fontSize: 11,
                                 ),
                               ),
                             ],
                           ),
-                        ),                        
+                        ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 10),
                   
-                  // ✅ ETAPA 5 — Ocultar botões de ação no modo visualização                  
-                  // ✅ ETAPA 5 — Ocultar botões de ação no modo visualização                  
+                  // ✅ ETAPA 5 — Ocultar botões de ação no modo visualização
+                  // ✅ BOTÕES PRINCIPAIS
                   Container(
                     margin: const EdgeInsets.only(top: 20),
                     width: double.infinity,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // BOTÃO "EMITIR CACL" - AGORA PRIMEIRO
-                        if (widget.modo == CaclModo.emissao)
-                        ElevatedButton.icon(
-                          onPressed: _caclJaEmitido || _isEmittingCACL ? null : _emitirCACL,
-                          icon: _isEmittingCACL
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : _caclJaEmitido
-                                  ? const Icon(Icons.check_circle, size: 18)
-                                  : const Icon(Icons.send, size: 18),
-                          label: _isEmittingCACL
-                              ? const Text('Emitindo...')
-                              : _caclJaEmitido
-                                  ? const Text('Já Emitido')
-                                  : const Text('Emitir CACL'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _caclJaEmitido ? Colors.grey : Colors.green,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
+                        // VERIFICA SE OS DADOS FINAIS ESTÃO COMPLETOS
+                        if (widget.modo == CaclModo.emissao && !_caclJaEmitido)
+                          ElevatedButton.icon(
+                            onPressed: _isEmittingCACL 
+                                ? null 
+                                : (_dadosFinaisEstaoCompletos() 
+                                    ? _emitirCACL 
+                                    : _salvarComoPendente),
+                            icon: _isEmittingCACL
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : _dadosFinaisEstaoCompletos()
+                                    ? const Icon(Icons.send, size: 18)
+                                    : const Icon(Icons.pending_actions, size: 18),
+                            label: _isEmittingCACL
+                                ? const Text('Processando...')
+                                : _dadosFinaisEstaoCompletos()
+                                    ? const Text('Emitir CACL')
+                                    : const Text('Salvar como Pendente'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _dadosFinaisEstaoCompletos() 
+                                  ? Colors.green 
+                                  : Colors.orange,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
                             ),
                           ),
-                        ),
                         
-                        if (widget.modo == CaclModo.emissao && _caclJaEmitido)
+                        // ESPAÇO ENTRE BOTÕES
+                        if (_caclJaEmitido || widget.modo == CaclModo.visualizacao)
                           const SizedBox(width: 20),
                         
-                        // BOTÃO "GERAR PDF" - AGORA SEGUNDO
-                        ElevatedButton.icon(
-                          onPressed: _isGeneratingPDF ? null : _baixarPDFCACL,
-                          icon: _isGeneratingPDF
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Icons.picture_as_pdf, size: 18),
-                          label: Text(_isGeneratingPDF ? 'Gerando...' : 'Gerar PDF'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: !_caclJaEmitido ? Colors.grey : const Color(0xFF0D47A1),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
+                        // BOTÃO GERAR PDF (só se já emitido)
+                        if (_caclJaEmitido || widget.modo == CaclModo.visualizacao)
+                          ElevatedButton.icon(
+                            onPressed: _isGeneratingPDF ? null : _baixarPDFCACL,
+                            icon: _isGeneratingPDF
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.picture_as_pdf, size: 18),
+                            label: Text(_isGeneratingPDF ? 'Gerando...' : 'Gerar PDF'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0D47A1),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
                             ),
                           ),
-                        ),
                         
-                        // NOVO BOTÃO "FINALIZAR" - APARECE APÓS EMISSÃO
+                        // BOTÃO FINALIZAR (só se já emitido no modo emissão)
                         if (widget.modo == CaclModo.emissao && _caclJaEmitido)
                           const SizedBox(width: 20),
                         
@@ -2321,11 +2345,9 @@ class _CalcPageState extends State<CalcPage> {
         return;
       }
       
-      // Obter dados do CACL recém-emitido
       final dataFormatada = _formatarDataParaSQL(widget.dadosFormulario['data']?.toString() ?? '');
       final produto = widget.dadosFormulario['produto']?.toString() ?? '';
       
-      // Buscar o ID do CACL recém-criado
       final response = await supabase
           .from('cacl')
           .select('id')
@@ -2336,7 +2358,6 @@ class _CalcPageState extends State<CalcPage> {
           .limit(1);
       
       if (response.isNotEmpty) {
-        final caclId = response[0]['id']?.toString();
         
         // Mensagem de confirmação
         if (context.mounted) {
@@ -2384,5 +2405,185 @@ class _CalcPageState extends State<CalcPage> {
         ),
       );
     }
+  }
+  
+  Future<void> _salvarComoPendente() async {
+    if (_isEmittingCACL) return;
+    
+    setState(() {
+      _isEmittingCACL = true;
+    });
+    
+    try {
+      final supabase = Supabase.instance.client;
+      final medicoes = widget.dadosFormulario['medicoes'] ?? {};
+      
+      final session = supabase.auth.currentSession;
+      if (session == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Você precisa estar logado'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      
+      String? dataFormatada;
+      final dataOriginal = widget.dadosFormulario['data']?.toString() ?? '';
+      if (dataOriginal.isNotEmpty) {
+        dataFormatada = _formatarDataParaSQL(dataOriginal);
+      }
+      
+      String? formatarHorarioParaTime(String? horario) {
+        if (horario == null || horario.isEmpty || horario == '-') return null;
+        String limpo = horario.trim().replaceAll('h', '').replaceAll('H', '');
+        if (limpo.contains(':')) {
+          final partes = limpo.split(':');
+          if (partes.length == 2) {
+            final horas = int.tryParse(partes[0]) ?? 0;
+            final minutos = int.tryParse(partes[1]) ?? 0;
+            if (horas >= 0 && horas < 24 && minutos >= 0 && minutos < 60) {
+              return '${horas.toString().padLeft(2, '0')}:${minutos.toString().padLeft(2, '0')}:00';
+            }
+          }
+        }
+        return null;
+      }
+      
+      double? extrairNumeroFormatado(String? valor) {
+        if (valor == null || valor.isEmpty || valor == '-') return null;
+        try {
+          String somenteNumeros = valor.replaceAll(RegExp(r'[^0-9]'), '');
+          if (somenteNumeros.isEmpty) return null;
+          return double.tryParse(somenteNumeros);
+        } catch (e) {
+          return null;
+        }
+      }
+      
+      final dadosParaInserir = {
+        'data': dataFormatada,
+        'base': widget.dadosFormulario['base']?.toString(),
+        'produto': widget.dadosFormulario['produto']?.toString(),
+        'tanque': widget.dadosFormulario['tanque']?.toString(),
+        'filial_id': widget.dadosFormulario['filial_id']?.toString(),
+        'status': 'pendente',
+        
+        'horario_inicial': formatarHorarioParaTime(medicoes['horarioInicial']?.toString()),
+        'altura_total_cm_inicial': medicoes['cmInicial']?.toString(),
+        'altura_total_mm_inicial': medicoes['mmInicial']?.toString(),
+        'volume_total_liquido_inicial': volumeTotalLiquidoInicial,
+        'altura_agua_inicial': medicoes['alturaAguaInicial']?.toString(),
+        'volume_agua_inicial': extrairNumeroFormatado(medicoes['volumeAguaInicial']?.toString()),
+        'altura_produto_inicial': medicoes['alturaProdutoInicial']?.toString(),
+        'volume_produto_inicial': volumeInicial,
+        'temperatura_tanque_inicial': medicoes['tempTanqueInicial']?.toString(),
+        'densidade_observada_inicial': medicoes['densidadeInicial']?.toString(),
+        'temperatura_amostra_inicial': medicoes['tempAmostraInicial']?.toString(),
+        'densidade_20_inicial': medicoes['densidade20Inicial']?.toString(),
+        'fator_correcao_inicial': medicoes['fatorCorrecaoInicial']?.toString(),
+        'volume_20_inicial': extrairNumeroFormatado(medicoes['volume20Inicial']?.toString()),
+        'massa_inicial': medicoes['massaInicial']?.toString(),
+        
+        'horario_final': null,
+        'altura_total_cm_final': null,
+        'altura_total_mm_final': null,
+        'volume_total_liquido_final': null,
+        'altura_agua_final': null,
+        'volume_agua_final': null,
+        'altura_produto_final': null,
+        'volume_produto_final': null,
+        'temperatura_tanque_final': null,
+        'densidade_observada_final': null,
+        'temperatura_amostra_final': null,
+        'densidade_20_final': null,
+        'fator_correcao_final': null,
+        'volume_20_final': null,
+        'massa_final': null,
+        
+        'volume_ambiente_inicial': volumeInicial,
+        'volume_ambiente_final': null,
+        'entrada_saida_ambiente': null,
+        'entrada_saida_20': null,
+        'faturado_final': null,
+        'diferenca_faturado': null,
+        'porcentagem_diferenca': null,
+        
+        'created_by': session.user.id,
+        'created_at': DateTime.now().toIso8601String(),
+      };
+      
+      dadosParaInserir.removeWhere((key, value) => value == null);
+      
+      await supabase.from('cacl').insert(dadosParaInserir);
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✓ CACL salvo como pendente!'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        await Future.delayed(const Duration(milliseconds: 1500));
+        
+        int contadorPop = 0;
+        Navigator.of(context).popUntil((route) {
+          if (contadorPop >= 2) {
+            return true;
+          }
+          contadorPop++;
+          return false;
+        });
+      }
+      
+    } catch (e) {
+      print('ERRO ao salvar como pendente: $e');
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao salvar: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isEmittingCACL = false;
+        });
+      }
+    }
+  }
+
+  bool _dadosFinaisEstaoCompletos() {
+    final medicoes = widget.dadosFormulario['medicoes'] ?? {};
+    
+    // Lista dos campos OBRIGATÓRIOS para medição final
+    final camposObrigatorios = [
+      'cmFinal',          // Altura total cm
+      'mmFinal',          // Altura total mm  
+      'alturaAguaFinal',  // Altura da água
+      'tempTanqueFinal',  // Temperatura tanque
+      'densidadeFinal',   // Densidade observada
+      'tempAmostraFinal', // Temperatura amostra
+      'horarioFinal',     // Horário final
+    ];
+    
+    // Verifica cada campo
+    for (var campo in camposObrigatorios) {
+      final valor = medicoes[campo]?.toString() ?? '';
+      
+      // Se o campo estiver vazio, com "-" ou "0", considera incompleto
+      if (valor.isEmpty || valor == '-' || valor == '0') {
+        return false; // Dados finais incompletos
+      }
+    }
+    
+    return true; // Todos os dados finais estão preenchidos
   }
 }
