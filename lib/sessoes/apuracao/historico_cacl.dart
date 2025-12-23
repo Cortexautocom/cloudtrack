@@ -110,11 +110,11 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
       
       // Carregar tanques disponíveis (de acordo com permissão)
       if (nivel == 3) {
+        // Admin: todos os tanques
         final tanquesResponse = await supabase
             .from('tanques')
             .select('id, referencia, id_filial')
             .order('referencia');
-
         tanquesDisponiveis = List<Map<String, dynamic>>.from(tanquesResponse);
       } else if (filialId != null) {
         // Usuário normal: apenas tanques da sua filial
@@ -199,13 +199,9 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
       }
       
       // Primeiro, contar total de registros (para paginação)
-      final countResponse = await supabase
-          .from('cacl')
-          .select('id');
-
-      final totalCount = countResponse.length;
-
-
+      final countQuery = query;
+      final countData = await countQuery;
+      final totalCount = countData.length;
       
       // Depois, buscar com paginação
       final response = await query
@@ -261,19 +257,11 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
     }
   }
 
-  String _formatarNumero(dynamic valor) {
-    if (valor == null) return '-';
-    if (valor is double) {
-      return valor.toStringAsFixed(2);
-    }
-    return valor.toString();
-  }
-
   Widget _buildCardFiltros() {
     if (_usuarioData == null) return const SizedBox();
     
     final nivel = _usuarioData!['nivel'];
-    //final filialId = _usuarioData!['id_filial']?.toString();
+    final isAdmin = nivel == 3;
     
     return Card(
       elevation: 2,
@@ -293,18 +281,134 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
             ),
             const SizedBox(height: 16),
             
-            // Linha 1: Data Início e Fim
+            // Linha 1: Produto, Filial (se admin) e Tanque
             Row(
               children: [
+                // Produto
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: produtoSelecionado,
+                    decoration: InputDecoration(
+                      labelText: 'Produto',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.local_gas_station, size: 18),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    isExpanded: true,
+                    items: [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('Todos os produtos', overflow: TextOverflow.ellipsis),
+                      ),
+                      ...produtosDisponiveis.map((produto) {
+                        return DropdownMenuItem(
+                          value: produto['nome']?.toString(),
+                          child: Text(
+                            produto['nome']?.toString() ?? '',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        produtoSelecionado = value;
+                      });
+                    },
+                  ),
+                ),
+                
+                const SizedBox(width: 12),
+                
+                // Filial (apenas para admin)
+                if (isAdmin)
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: filialSelecionadaId,
+                      decoration: InputDecoration(
+                        labelText: 'Filial',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.business, size: 18),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      isExpanded: true,
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('Todas as filiais', overflow: TextOverflow.ellipsis),
+                        ),
+                        ...filiais.map((filial) {
+                          return DropdownMenuItem(
+                            value: filial['id']?.toString(),
+                            child: Text(
+                              filial['nome']?.toString() ?? '',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          filialSelecionadaId = value;
+                        });
+                      },
+                    ),
+                  ),
+                
+                if (isAdmin) const SizedBox(width: 12),
+                
+                // Tanque
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: tanqueSelecionado,
+                    decoration: InputDecoration(
+                      labelText: 'Tanque',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.storage, size: 18),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    isExpanded: true,
+                    items: [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('Todos os tanques', overflow: TextOverflow.ellipsis),
+                      ),
+                      ...tanquesDisponiveis.map((tanque) {
+                        return DropdownMenuItem(
+                          value: tanque['referencia']?.toString(),
+                          child: Text(
+                            tanque['referencia']?.toString() ?? '',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        tanqueSelecionado = value;
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Linha 2: Data Início, Data Fim e Botões
+            Row(
+              children: [
+                // Data Início
                 Expanded(
                   child: TextFormField(
                     controller: dataInicioController,
                     decoration: InputDecoration(
                       labelText: 'Data Início',
-                      prefixIcon: const Icon(Icons.calendar_today, size: 20),
+                      prefixIcon: const Icon(Icons.calendar_today, size: 18),
                       border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                       suffixIcon: IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
+                        icon: const Icon(Icons.clear, size: 16),
                         onPressed: () {
                           setState(() {
                             dataInicio = null;
@@ -330,16 +434,20 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
                     },
                   ),
                 ),
+                
                 const SizedBox(width: 12),
+                
+                // Data Fim
                 Expanded(
                   child: TextFormField(
                     controller: dataFimController,
                     decoration: InputDecoration(
                       labelText: 'Data Fim',
-                      prefixIcon: const Icon(Icons.calendar_today, size: 20),
+                      prefixIcon: const Icon(Icons.calendar_today, size: 18),
                       border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                       suffixIcon: IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
+                        icon: const Icon(Icons.clear, size: 16),
                         onPressed: () {
                           setState(() {
                             dataFim = null;
@@ -365,147 +473,51 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
                     },
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            
-            // Linha 2: Filial (apenas nível 3) e Tanque
-            Row(
-              children: [
-                if (nivel == 3) ...[
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: filialSelecionadaId,
-                      decoration: const InputDecoration(
-                        labelText: 'Filial',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.business, size: 20),
-                      ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('Todas as filiais'),
-                        ),
-                        ...filiais.map((filial) {
-                          return DropdownMenuItem(
-                            value: filial['id']?.toString(),
-                            child: Text(filial['nome']?.toString() ?? ''),
-                          );
-                        }).toList(),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          filialSelecionadaId = value;
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                ],
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: tanqueSelecionado,
-                    decoration: const InputDecoration(
-                      labelText: 'Tanque',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.storage, size: 20),
-                    ),
-                    items: [
-                      const DropdownMenuItem(
-                        value: null,
-                        child: Text('Todos os tanques'),
-                      ),
-                      ...tanquesDisponiveis.map((tanque) {
-                        return DropdownMenuItem(
-                          value: tanque['referencia']?.toString(),
-                          child: Text(tanque['referencia']?.toString() ?? ''),
-                        );
-                      }).toList(),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        tanqueSelecionado = value;
-                      });
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            
-            // Linha 3: Produto
-            DropdownButtonFormField<String>(
-              value: produtoSelecionado,
-              decoration: const InputDecoration(
-                labelText: 'Produto',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.local_gas_station, size: 20),
-              ),
-              items: [
-                const DropdownMenuItem(
-                  value: null,
-                  child: Text('Todos os produtos'),
-                ),
-                ...produtosDisponiveis.map((produto) {
-                  return DropdownMenuItem(
-                    value: produto['nome']?.toString(),
-                    child: Text(produto['nome']?.toString() ?? ''),
-                  );
-                }).toList(),
-              ],
-              onChanged: (value) {
-                setState(() {
-                  produtoSelecionado = value;
-                });
-              },
-            ),
-            const SizedBox(height: 20),
-            
-            // Botões
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _limparFiltros,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      side: const BorderSide(color: Color(0xFF0D47A1)),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.clear_all, size: 18),
-                        SizedBox(width: 8),
-                        Text('Limpar Filtros'),
-                      ],
-                    ),
-                  ),
-                ),
+                
                 const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => _aplicarFiltros(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0D47A1),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: buscando
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.search, size: 18),
-                              SizedBox(width: 8),
-                              Text('Buscar'),
-                            ],
+                
+                // Botões
+                SizedBox(
+                  width: 200,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _limparFiltros,
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            side: const BorderSide(color: Color(0xFF0D47A1)),
                           ),
+                          child: const Text(
+                            'Limpar',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => _aplicarFiltros(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D47A1),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          child: buscando
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  'Buscar',
+                                  style: TextStyle(fontSize: 13),
+                                ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -513,74 +525,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildCardEstatisticas() {
-    // Calcular estatísticas básicas
-    int total = cacles.length;
-    int comDiferenca = cacles.where((c) {
-      final diff = (c['diferenca_faturado'] as num?)?.toDouble() ?? 0;
-      return diff != 0;
-    }).length;
-    
-    double somaEntradaSaida = cacles.fold(0.0, (sum, c) {
-      return sum + ((c['entrada_saida_20'] as num?)?.toDouble() ?? 0);
-    });
-    
-    double somaFaturado = cacles.fold(0.0, (sum, c) {
-      return sum + ((c['faturado_final'] as num?)?.toDouble() ?? 0);
-    });
-
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildEstatisticaCompacta('Total', total.toString(), Icons.receipt),
-            Container(height: 30, width: 1, color: Colors.grey.shade300),
-            _buildEstatisticaCompacta('Com Dif.', comDiferenca.toString(), Icons.compare_arrows),
-            Container(height: 30, width: 1, color: Colors.grey.shade300),
-            _buildEstatisticaCompacta('Entrada/Saída', '${somaEntradaSaida.toStringAsFixed(2)}L', Icons.swap_horiz),
-            Container(height: 30, width: 1, color: Colors.grey.shade300),
-            _buildEstatisticaCompacta('Faturado', '${somaFaturado.toStringAsFixed(2)}L', Icons.attach_money),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEstatisticaCompacta(String titulo, String valor, IconData icone) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icone, size: 16, color: const Color(0xFF0D47A1)),
-            const SizedBox(width: 4),
-            Text(
-              valor,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF0D47A1),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 2),
-        Text(
-          titulo,
-          style: const TextStyle(
-            fontSize: 11,
-            color: Colors.grey,
-          ),
-        ),
-      ],
     );
   }
 
@@ -594,7 +538,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             IconButton(
-              icon: const Icon(Icons.arrow_back_ios, size: 18),
+              icon: const Icon(Icons.arrow_back_ios, size: 16),
               onPressed: paginaAtual > 1
                   ? () {
                       setState(() => paginaAtual--);
@@ -606,16 +550,16 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
             const SizedBox(width: 12),
             Text(
               'Página $paginaAtual de $totalPaginas',
-              style: const TextStyle(fontWeight: FontWeight.w500),
+              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
             ),
             const SizedBox(width: 12),
             Text(
               '($totalRegistros registros)',
-              style: const TextStyle(color: Colors.grey, fontSize: 13),
+              style: const TextStyle(color: Colors.grey, fontSize: 12),
             ),
             const SizedBox(width: 12),
             IconButton(
-              icon: const Icon(Icons.arrow_forward_ios, size: 18),
+              icon: const Icon(Icons.arrow_forward_ios, size: 16),
               onPressed: paginaAtual < totalPaginas
                   ? () {
                       setState(() => paginaAtual++);
@@ -740,9 +684,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
                       // Filtros
                       _buildCardFiltros(),
                       
-                      // Estatísticas (se houver registros)
-                      if (cacles.isNotEmpty) _buildCardEstatisticas(),
-                      
                       // Lista de resultados
                       Expanded(
                         child: cacles.isEmpty
@@ -766,7 +707,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
                               )
                             : ListView.builder(
                                 itemCount: cacles.length,
-                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                                 itemBuilder: (context, index) {
                                   final cacl = cacles[index];
                                   final diferenca = (cacl['diferenca_faturado'] as num?)?.toDouble() ?? 0;
@@ -775,154 +716,119 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
                                   return Card(
                                     margin: const EdgeInsets.only(bottom: 8),
                                     elevation: 1,
+                                    color: const Color.fromARGB(255, 246, 255, 241),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                      side: BorderSide(
+                                        color: diferenca == 0 
+                                            ? Colors.green.shade200 
+                                            : Colors.orange.shade200,
+                                        width: 1,
+                                      ),
+                                    ),
                                     child: ListTile(
                                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                       leading: Container(
-                                        width: 40,
-                                        height: 40,
+                                        width: 36,
+                                        height: 36,
                                         decoration: BoxDecoration(
                                           color: diferenca == 0 
                                               ? Colors.green.shade50 
                                               : Colors.orange.shade50,
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(6),
                                         ),
                                         child: Icon(
                                           diferenca == 0 ? Icons.check_circle : Icons.warning,
                                           color: diferenca == 0 ? Colors.green : Colors.orange,
-                                          size: 20,
+                                          size: 18,
                                         ),
                                       ),
-                                      title: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                      title: Row(
                                         children: [
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  cacl['produto']?.toString() ?? 'Produto não informado',
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 15,
-                                                  ),
-                                                ),
+                                          Expanded(
+                                            child: Text(
+                                              cacl['produto']?.toString() ?? 'Produto não informado',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
                                               ),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                decoration: BoxDecoration(
-                                                  color: diferenca == 0 
-                                                      ? Colors.green.shade50 
-                                                      : Colors.orange.shade50,
-                                                  borderRadius: BorderRadius.circular(12),
-                                                  border: Border.all(
-                                                    color: diferenca == 0 
-                                                        ? Colors.green.shade200 
-                                                        : Colors.orange.shade200,
-                                                  ),
-                                                ),
-                                                child: Text(
-                                                  diferenca == 0 ? 'OK' : '$porcentagem%',
-                                                  style: TextStyle(
-                                                    color: diferenca == 0 
-                                                        ? Colors.green.shade800 
-                                                        : Colors.orange.shade800,
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Tanque: ${cacl['tanque']?.toString() ?? '-'} | '
-                                            'Data: ${_formatarData(cacl['data'])}',
-                                            style: TextStyle(
-                                              color: Colors.grey.shade600,
-                                              fontSize: 12,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                          if (cacl['base'] != null)
-                                            Text(
-                                              'Filial: ${cacl['base']}',
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: diferenca == 0 
+                                                  ? Colors.green.shade50 
+                                                  : Colors.orange.shade50,
+                                              borderRadius: BorderRadius.circular(10),
+                                              border: Border.all(
+                                                color: diferenca == 0 
+                                                    ? Colors.green.shade200 
+                                                    : Colors.orange.shade200,
+                                                width: 1,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              diferenca == 0 ? 'OK' : '$porcentagem%',
                                               style: TextStyle(
-                                                fontSize: 11,
-                                                color: Colors.grey.shade500,
+                                                color: diferenca == 0 
+                                                    ? Colors.green.shade800 
+                                                    : Colors.orange.shade800,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w500,
                                               ),
                                             ),
+                                          ),
                                         ],
                                       ),
-                                      subtitle: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            children: [
+                                      subtitle: Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                'Tanque: ${cacl['tanque']?.toString() ?? '-'}',
+                                                style: TextStyle(
+                                                  color: Colors.grey.shade700,
+                                                  fontSize: 12,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 16),
+                                            Expanded(
+                                              child: Text(
+                                                'Data: ${_formatarData(cacl['data'])}',
+                                                style: TextStyle(
+                                                  color: Colors.grey.shade700,
+                                                  fontSize: 12,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 16),
+                                            if (cacl['base'] != null)
                                               Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      'Entrada/Saída: ${_formatarNumero(cacl['entrada_saida_20'])} L',
-                                                      style: const TextStyle(fontSize: 12),
-                                                    ),
-                                                    Text(
-                                                      'Faturado: ${_formatarNumero(cacl['faturado_final'])} L',
-                                                      style: const TextStyle(fontSize: 12),
-                                                    ),
-                                                  ],
+                                                child: Text(
+                                                  'Filial: ${cacl['base']}',
+                                                  style: TextStyle(
+                                                    color: Colors.grey.shade700,
+                                                    fontSize: 12,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
                                                 ),
                                               ),
-                                              Column(
-                                                crossAxisAlignment: CrossAxisAlignment.end,
-                                                children: [
-                                                  Text(
-                                                    'Diferença: ${_formatarNumero(cacl['diferenca_faturado'])} L',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.w500,
-                                                      color: diferenca == 0 ? Colors.green : Colors.orange,
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    'Criado em: ${_formatarData(cacl['created_at'])}',
-                                                    style: TextStyle(
-                                                      fontSize: 10,
-                                                      color: Colors.grey.shade500,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
                                       onTap: () async {
                                         final supabase = Supabase.instance.client;
-                                        final nivel = _usuarioData!['nivel'];
-                                        final filialId = _usuarioData!['id_filial']?.toString();
-
-                                        var query = supabase
+                                        final caclCompleto = await supabase
                                             .from('cacl')
                                             .select('*')
-                                            .eq('id', cacl['id']);
-
-                                        // 🔒 BLOQUEIO POR FILIAL
-                                        if (nivel < 3 && filialId != null) {
-                                          query = query.eq('filial_id', filialId);
-                                        }
-
-                                        final caclCompleto = await query.maybeSingle();
-
-                                        if (caclCompleto == null) {
-                                          if (!context.mounted) return;
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(
-                                              content: Text('Você não tem permissão reminding este registro'),
-                                              backgroundColor: Colors.red,
-                                            ),
-                                          );
-                                          return;
-                                        }
+                                            .eq('id', cacl['id'])
+                                            .single();
 
                                         final dadosFormulario = _mapearCaclParaFormulario(caclCompleto);
 
