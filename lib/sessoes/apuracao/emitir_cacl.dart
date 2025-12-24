@@ -30,6 +30,10 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
   int _tanqueSelecionadoIndex = 0;
   bool _carregando = true;
   String? _nomeFilial;
+  
+  // Novas variáveis para os tipos de CACL
+  bool _caclVerificacao = false;
+  bool _caclMovimentacao = false;
 
   @override
   void initState() {
@@ -322,13 +326,16 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'filial_id': UsuarioAtual.instance!.nivel == 3 && widget.filialSelecionadaId != null 
           ? widget.filialSelecionadaId 
           : UsuarioAtual.instance!.filialId,
+      // Passa os tipos de CACL selecionados
+      'cacl_verificacao': _caclVerificacao,
+      'cacl_movimentacao': _caclMovimentacao,
     };
     
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => CalcPage(
           dadosFormulario: dadosFormulario,
-          onFinalizar: widget.onFinalizarCACL, // ← PASSA O CALLBACK
+          onFinalizar: widget.onFinalizarCACL,
         ),
       ),
     );
@@ -537,6 +544,67 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
             ),
           ),
 
+          // CAIXAS DE SELEÇÃO NOVAS - adicionadas aqui
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Caixa de seleção "CACL verificação"
+                Container(
+                  margin: const EdgeInsets.only(right: 16),
+                  child: Row(
+                    children: [
+                      Checkbox(
+                        value: _caclVerificacao,
+                        onChanged: (value) {
+                          setState(() {
+                            _caclVerificacao = value ?? false;
+                            // Se marcar verificação, desmarca movimentação
+                            if (_caclVerificacao) {
+                              _caclMovimentacao = false;
+                            }
+                          });
+                        },
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      const Text(
+                        'CACL verificação',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Caixa de seleção "CACL movimentação"
+                Row(
+                  children: [
+                    Checkbox(
+                      value: _caclMovimentacao,
+                      onChanged: (value) {
+                        setState(() {
+                          _caclMovimentacao = value ?? false;
+                          // Se marcar movimentação, desmarca verificação
+                          if (_caclMovimentacao) {
+                            _caclVerificacao = false;
+                          }
+                        });
+                      },
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    const Text(
+                      'CACL movimentação',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Botão Pré-visualização
           Container(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: ElevatedButton(
@@ -1107,5 +1175,4 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       ],
     );
   }
-
 }
