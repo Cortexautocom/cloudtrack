@@ -611,6 +611,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                                     _caclMovimentacao = false;
                                                   }
                                                 });
+                                                _verificarCamposObrigatorios();
                                               },
                                               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                               visualDensity: VisualDensity.compact,
@@ -622,8 +623,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                           ],
                                         ),
                                       ),
-                                      
-                                      // Caixa de seleção "CACL movimentação"
+
+                                      // Caixa de seleção "CACL movimentação" (APENAS UMA VEZ)
                                       Row(
                                         children: [
                                           Checkbox(
@@ -636,6 +637,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                                   _caclVerificacao = false;
                                                 }
                                               });
+                                              _verificarCamposObrigatorios();
                                             },
                                             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                             visualDensity: VisualDensity.compact,
@@ -646,6 +648,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                           ),
                                         ],
                                       ),
+                                      // REMOVA ESTA SEGUNDA INSTÂNCIA DUPLICADA AQUI
                                     ],
                                   ),
                                   
@@ -705,6 +708,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                 ],
                               ),
                             ),
+                            const SizedBox(height: 50),
                             const SizedBox(height: 50),
                           ],
                         ),
@@ -1252,15 +1256,31 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
   }
 
   void _verificarCamposObrigatorios() {
-    if (tanques.isEmpty) {
+    if (tanques.isEmpty || _controllers.isEmpty) {
       setState(() => _botaoHabilitado = false);
       return;
     }
     
-    final camposObrigatorios = _controllers[_tanqueSelecionadoIndex].sublist(0, 6);
-    final todosPreenchidos = camposObrigatorios.every((controller) => 
-        controller.text.trim().isNotEmpty);
-    
-    setState(() => _botaoHabilitado = todosPreenchidos);
+    try {
+      // Verifica os 6 campos obrigatórios da primeira medição
+      final camposObrigatorios = _controllers[_tanqueSelecionadoIndex].sublist(0, 6);
+      final camposPreenchidos = camposObrigatorios.every((controller) => 
+          controller.text.trim().isNotEmpty);
+      
+      // Verifica se pelo menos uma checkbox está marcada
+      final checkboxMarcada = _caclVerificacao || _caclMovimentacao;
+      
+      // Botão só habilita se ambos forem verdadeiros
+      final botaoPodeHabilitar = camposPreenchidos && checkboxMarcada;
+      
+      if (mounted) {
+        setState(() => _botaoHabilitado = botaoPodeHabilitar);
+      }
+    } catch (e) {
+      print('Erro na verificação: $e');
+      if (mounted) {
+        setState(() => _botaoHabilitado = false);
+      }
+    }
   }
 }

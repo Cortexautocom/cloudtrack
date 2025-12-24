@@ -453,6 +453,18 @@ class _CalcPageState extends State<CalcPage> {
         return;
       }
       
+      // ✅ DETERMINAR O TIPO DO CACL BASEADO NAS CHECKBOXES
+      String? tipoCACL;
+      final bool caclVerificacao = widget.dadosFormulario['cacl_verificacao'] ?? false;
+      final bool caclMovimentacao = widget.dadosFormulario['cacl_movimentacao'] ?? false;
+      
+      if (caclVerificacao) {
+        tipoCACL = 'verificacao';
+      } else if (caclMovimentacao) {
+        tipoCACL = 'movimentacao';
+      }
+      // Se nenhum estiver marcado (apesar da trava), tipoCACL ficará null
+      
       // Formatar data para o padrão YYYY-MM-DD
       String? dataFormatada;
       final dataOriginal = widget.dadosFormulario['data']?.toString() ?? '';
@@ -518,6 +530,9 @@ class _CalcPageState extends State<CalcPage> {
         'tanque': widget.dadosFormulario['tanque']?.toString(),
         'filial_id': widget.dadosFormulario['filial_id']?.toString(),
         'status': 'emitido',
+        
+        // ✅ ADICIONAR O CAMPO TIPO
+        'tipo': tipoCACL,
         
         // Medições INICIAL
         'horario_inicial': formatarHorarioParaTime(medicoes['horarioInicial']?.toString()),
@@ -2425,6 +2440,17 @@ class _CalcPageState extends State<CalcPage> {
         return;
       }
       
+      // ✅ DETERMINAR O TIPO DO CACL BASEADO NAS CHECKBOXES (MESMA LÓGICA)
+      String? tipoCACL;
+      final bool caclVerificacao = widget.dadosFormulario['cacl_verificacao'] ?? false;
+      final bool caclMovimentacao = widget.dadosFormulario['cacl_movimentacao'] ?? false;
+      
+      if (caclVerificacao) {
+        tipoCACL = 'verificacao';
+      } else if (caclMovimentacao) {
+        tipoCACL = 'movimentacao';
+      }
+      
       String? dataFormatada;
       final dataOriginal = widget.dadosFormulario['data']?.toString() ?? '';
       if (dataOriginal.isNotEmpty) {
@@ -2465,6 +2491,9 @@ class _CalcPageState extends State<CalcPage> {
         'tanque': widget.dadosFormulario['tanque']?.toString(),
         'filial_id': widget.dadosFormulario['filial_id']?.toString(),
         'status': 'pendente',
+        
+        // ✅ ADICIONAR O CAMPO TIPO TAMBÉM NO PENDENTE
+        'tipo': tipoCACL,
         
         'horario_inicial': formatarHorarioParaTime(medicoes['horarioInicial']?.toString()),
         'altura_total_cm_inicial': medicoes['cmInicial']?.toString(),
