@@ -644,7 +644,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                   Expanded(
                     child: _buildSection(
                       '1ª Medição',
-                      'Abertura',
+                      'Inicial',
                       Colors.blue[50]!,
                       Colors.blue,
                       ctrls.sublist(0, 9), // PRIMEIRA MEDIÇÃO: 9 campos (0-8)
@@ -655,7 +655,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                   Expanded(
                     child: _buildSection(
                       '2ª Medição',
-                      'Fechamento',
+                      'Final',
                       Colors.green[50]!,
                       Colors.green,
                       ctrls.sublist(9, 19), // SEGUNDA MEDIÇÃO: 10 campos (9-18)
