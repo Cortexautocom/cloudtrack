@@ -540,70 +540,85 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                             ),
                           ),
                         )
-                      : _buildTanqueCard(tanques[_tanqueSelecionadoIndex], _tanqueSelecionadoIndex),
+                      : Column(
+                          children: [
+                            // Formulário principal
+                            Expanded(
+                              child: _buildTanqueCard(tanques[_tanqueSelecionadoIndex], _tanqueSelecionadoIndex),
+                            ),
+                            
+                            // Espaço antes das caixas de seleção
+                            const SizedBox(height: 8),
+                            
+                            // CAIXAS DE SELEÇÃO - Agora no meio do espaço
+                            Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[50],
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.grey[300]!),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  // Caixa de seleção "CACL verificação"
+                                  Container(
+                                    margin: const EdgeInsets.only(right: 24),
+                                    child: Row(
+                                      children: [
+                                        Checkbox(
+                                          value: _caclVerificacao,
+                                          onChanged: (value) {
+                                            setState(() {
+                                              _caclVerificacao = value ?? false;
+                                              // Se marcar verificação, desmarca movimentação
+                                              if (_caclVerificacao) {
+                                                _caclMovimentacao = false;
+                                              }
+                                            });
+                                          },
+                                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          visualDensity: VisualDensity.compact,
+                                        ),
+                                        const Text(
+                                          'CACL verificação',
+                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  
+                                  // Caixa de seleção "CACL movimentação"
+                                  Row(
+                                    children: [
+                                      Checkbox(
+                                        value: _caclMovimentacao,
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _caclMovimentacao = value ?? false;
+                                            // Se marcar movimentação, desmarca verificação
+                                            if (_caclMovimentacao) {
+                                              _caclVerificacao = false;
+                                            }
+                                          });
+                                        },
+                                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                      const Text(
+                                        'CACL movimentação',
+                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
             ),
-          ),
-
-          // CAIXAS DE SELEÇÃO NOVAS - adicionadas aqui
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Caixa de seleção "CACL verificação"
-                Container(
-                  margin: const EdgeInsets.only(right: 16),
-                  child: Row(
-                    children: [
-                      Checkbox(
-                        value: _caclVerificacao,
-                        onChanged: (value) {
-                          setState(() {
-                            _caclVerificacao = value ?? false;
-                            // Se marcar verificação, desmarca movimentação
-                            if (_caclVerificacao) {
-                              _caclMovimentacao = false;
-                            }
-                          });
-                        },
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      const Text(
-                        'CACL verificação',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                // Caixa de seleção "CACL movimentação"
-                Row(
-                  children: [
-                    Checkbox(
-                      value: _caclMovimentacao,
-                      onChanged: (value) {
-                        setState(() {
-                          _caclMovimentacao = value ?? false;
-                          // Se marcar movimentação, desmarca verificação
-                          if (_caclMovimentacao) {
-                            _caclVerificacao = false;
-                          }
-                        });
-                      },
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    const Text(
-                      'CACL movimentação',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
+          ),          
+          SizedBox(height: 130),
           // Botão Pré-visualização
           Container(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),

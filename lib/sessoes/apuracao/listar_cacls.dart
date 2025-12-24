@@ -26,10 +26,7 @@ class ListarCaclsPage extends StatefulWidget {
 
 class _ListarCaclsPageState extends State<ListarCaclsPage> {
   bool _carregando = true;
-  List<Map<String, dynamic>> _cacles = [];
-  final TextEditingController _dataController = TextEditingController(
-    text: '${DateTime.now().day.toString().padLeft(2, '0')}/${DateTime.now().month.toString().padLeft(2, '0')}/${DateTime.now().year}',
-  );
+  List<Map<String, dynamic>> _cacles = [];  
 
   @override
   void initState() {
@@ -152,23 +149,8 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
             const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  _dataController.text,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  UsuarioAtual.instance?.nome ?? 'Usuário',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey,
-                  ),
-                ),
+              children: [                
+                const SizedBox(height: 2),                
               ],
             ),
           ],
