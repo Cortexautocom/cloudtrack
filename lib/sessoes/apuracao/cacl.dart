@@ -15,7 +15,7 @@ enum CaclModo {
 class CalcPage extends StatefulWidget {
   final Map<String, dynamic> dadosFormulario;
   final CaclModo modo;
-  final VoidCallback? onFinalizar; // ✅ ETAPA 2.1 — Adicionar parâmetro modo
+  final VoidCallback? onFinalizar;
 
   const CalcPage({
     super.key,
@@ -52,79 +52,47 @@ class _CalcPageState extends State<CalcPage> {
 
   Future<void> _carregarDadosParaVisualizacao() async {
     try {
-      // Se já vierem preenchidos do banco, usa-os diretamente
+      // Verifica se já temos dados completos
+      final medicoes = widget.dadosFormulario['medicoes'] ?? {};
+      
+      // Se os dados já estão completos (vindos do mapeamento), usa-os
+      if (medicoes.isNotEmpty && medicoes.containsKey('volumeProdutoInicial')) {
+        volumeInicial = _extrairNumero(medicoes['volumeProdutoInicial']?.toString());
+        volumeFinal = _extrairNumero(medicoes['volumeProdutoFinal']?.toString());
+        
+        setState(() {
+          _caclJaEmitido = true;
+        });
+        return;
+      }
+      
+      // Se não, busca valores diretos do banco
       final dadosDoBanco = widget.dadosFormulario;
       
-      // Extrai valores para exibição
       volumeInicial = dadosDoBanco['volume_produto_inicial']?.toDouble() ?? 0.0;
       volumeFinal = dadosDoBanco['volume_produto_final']?.toDouble() ?? 0.0;
       volumeTotalLiquidoInicial = dadosDoBanco['volume_total_liquido_inicial']?.toDouble() ?? 0.0;
       volumeTotalLiquidoFinal = dadosDoBanco['volume_total_liquido_final']?.toDouble() ?? 0.0;
       
-      // Preenche os campos de medições para a interface
-      final medicoes = widget.dadosFormulario['medicoes'] ?? {};
-      medicoes['volumeProdutoInicial'] = _formatarVolumeLitros(volumeInicial);
-      medicoes['volumeProdutoFinal'] = _formatarVolumeLitros(volumeFinal);
-      medicoes['volumeTotalLiquidoInicial'] = _formatarVolumeLitros(volumeTotalLiquidoInicial);
-      medicoes['volumeTotalLiquidoFinal'] = _formatarVolumeLitros(volumeTotalLiquidoFinal);
+      // Mantém os dados existentes e adiciona os faltantes
+      final medicoesAtualizadas = <String, dynamic>{
+        ...medicoes,
+        'volumeProdutoInicial': _formatarVolumeLitros(volumeInicial),
+        'volumeProdutoFinal': _formatarVolumeLitros(volumeFinal),
+        'volumeTotalLiquidoInicial': _formatarVolumeLitros(volumeTotalLiquidoInicial),
+        'volumeTotalLiquidoFinal': _formatarVolumeLitros(volumeTotalLiquidoFinal),
+      };
       
-      // Preenche outros campos do banco para a interface
-      medicoes['cmInicial'] = dadosDoBanco['altura_total_cm_inicial']?.toString();
-      medicoes['mmInicial'] = dadosDoBanco['altura_total_mm_inicial']?.toString();
-      medicoes['cmFinal'] = dadosDoBanco['altura_total_cm_final']?.toString();
-      medicoes['mmFinal'] = dadosDoBanco['altura_total_mm_final']?.toString();
-      medicoes['alturaAguaInicial'] = dadosDoBanco['altura_agua_inicial']?.toString();
-      medicoes['alturaAguaFinal'] = dadosDoBanco['altura_agua_final']?.toString();
-      medicoes['alturaProdutoInicial'] = dadosDoBanco['altura_produto_inicial']?.toString();
-      medicoes['alturaProdutoFinal'] = dadosDoBanco['altura_produto_final']?.toString();
-      medicoes['tempTanqueInicial'] = dadosDoBanco['temperatura_tanque_inicial']?.toString();
-      medicoes['tempTanqueFinal'] = dadosDoBanco['temperatura_tanque_final']?.toString();
-      medicoes['densidadeInicial'] = dadosDoBanco['densidade_observada_inicial']?.toString();
-      medicoes['densidadeFinal'] = dadosDoBanco['densidade_observada_final']?.toString();
-      medicoes['tempAmostraInicial'] = dadosDoBanco['temperatura_amostra_inicial']?.toString();
-      medicoes['tempAmostraFinal'] = dadosDoBanco['temperatura_amostra_final']?.toString();
-      medicoes['densidade20Inicial'] = dadosDoBanco['densidade_20_inicial']?.toString();
-      medicoes['densidade20Final'] = dadosDoBanco['densidade_20_final']?.toString();
-      medicoes['fatorCorrecaoInicial'] = dadosDoBanco['fator_correcao_inicial']?.toString();
-      medicoes['fatorCorrecaoFinal'] = dadosDoBanco['fator_correcao_final']?.toString();
-      medicoes['volume20Inicial'] = dadosDoBanco['volume_20_inicial']?.toString() != null 
-          ? _formatarVolumeLitros(dadosDoBanco['volume_20_inicial']?.toDouble() ?? 0)
-          : '-';
-      medicoes['volume20Final'] = dadosDoBanco['volume_20_final']?.toString() != null
-          ? _formatarVolumeLitros(dadosDoBanco['volume_20_final']?.toDouble() ?? 0)
-          : '-';
-      medicoes['massaInicial'] = dadosDoBanco['massa_inicial']?.toString();
-      medicoes['massaFinal'] = dadosDoBanco['massa_final']?.toString();
-      medicoes['faturadoFinal'] = dadosDoBanco['faturado_final']?.toString() != null
-          ? _formatarVolumeLitros(dadosDoBanco['faturado_final']?.toDouble() ?? 0)
-          : '-';
-      medicoes['horarioInicial'] = _formatarHorarioParaExibicao(dadosDoBanco['horario_inicial']?.toString());
-      medicoes['horarioFinal'] = _formatarHorarioParaExibicao(dadosDoBanco['horario_final']?.toString());
+      widget.dadosFormulario['medicoes'] = medicoesAtualizadas;
       
       setState(() {
-        _caclJaEmitido = true; // No modo visualização, sempre já foi emitido
+        _caclJaEmitido = true;
       });
+      
     } catch (e) {
       debugPrint('Erro ao carregar dados para visualização: $e');
     }
-  }
-
-  String _formatarHorarioParaExibicao(String? horarioTime) {
-    if (horarioTime == null || horarioTime.isEmpty) return '--:-- h';
-    
-    try {
-      // Formato esperado: "08:30:00"
-      if (horarioTime.contains(':')) {
-        final partes = horarioTime.split(':');
-        if (partes.length >= 2) {
-          return '${partes[0]}:${partes[1]} h';
-        }
-      }
-      return '$horarioTime h';
-    } catch (e) {
-      return '--:-- h';
-    }
-  }
+  }  
 
   Future<void> _calcularVolumesIniciais() async {
     final medicoes = widget.dadosFormulario['medicoes'];

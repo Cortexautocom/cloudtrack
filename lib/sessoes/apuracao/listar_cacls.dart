@@ -364,7 +364,8 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
                                           .eq('id', cacl['id'])
                                           .single();
 
-                                      final dadosFormulario = _mapearCaclParaFormulario(caclCompleto);
+                                      final dadosFormularioBruto = _mapearCaclParaFormulario(caclCompleto);
+                                      final dadosFormulario = Map<String, dynamic>.from(dadosFormularioBruto);
 
                                       // Aqui usaria seu mecanismo de troca de páginas
                                       // Por enquanto, deixamos o mesmo comportamento do histórico
@@ -398,7 +399,8 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
                                   .eq('id', cacl['id'])
                                   .single();
 
-                              final dadosFormulario = _mapearCaclParaFormulario(caclCompleto);
+                              final dadosFormularioBruto = _mapearCaclParaFormulario(caclCompleto);
+                              final dadosFormulario = Map<String, dynamic>.from(dadosFormularioBruto);
 
                               if (!context.mounted) return;
 
@@ -422,7 +424,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
   }
 
   Map<String, dynamic> _mapearCaclParaFormulario(Map<String, dynamic> cacl) {
-    return {
+    return <String, dynamic>{
       'data': cacl['data']?.toString(),
       'base': cacl['base'],
       'produto': cacl['produto'],
@@ -430,7 +432,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
       'filial_id': cacl['filial_id'],
       'responsavel': UsuarioAtual.instance?.nome ?? 'Usuário',
 
-      'medicoes': {
+      'medicoes': <String, dynamic>{
         // INICIAL (1ª Medição)
         'horarioInicial': cacl['horario_inicial']?.toString(),
         'cmInicial': cacl['altura_total_cm_inicial']?.toString(),
