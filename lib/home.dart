@@ -78,18 +78,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       {
         'icon': Icons.analytics,
         'label': 'CACL',
-        'descricao': 'Emitir CACLs',
+        'descricao': 'Emitir CACL',
       },      
       {
         'icon': Icons.storage,
         'label': 'Tanques',
-        'descricao': 'Gerenciamento de tanques de combustível',
+        'descricao': 'Gerenciamento de tanques',
       },
       // NOVO ITEM ADICIONADO
       {
         'icon': Icons.assignment, // Ou outro ícone apropriado
         'label': 'Ordens / Análise',
-        'descricao': 'Geração e gestão de ordens de análise',
+        'descricao': 'Geração e gestão de ordens',
       },
       {
         'icon': Icons.history, // Ícone apropriado para histórico
@@ -100,7 +100,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       {
         'icon': Icons.table_chart,
         'label': 'Tabelas de Conversão',
-        'descricao': 'Tabelas de conversão de unidades',
+        'descricao': 'Tabelas de conversão de densidade e temperatura',
       },
     ];
   }
