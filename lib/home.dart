@@ -411,6 +411,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   _mostrarOrdensAnalise = false;
                                   _mostrarHistorico = false;
                                   _mostrarEstoquePorEmpresa = false;
+                                  _mostrarEstoquesFilhos = false;
+                                  _mostrarListarCacls = false;
                                 });
 
                                 if (menuItems[index] == 'Sessões') {
