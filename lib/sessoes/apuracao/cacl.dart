@@ -517,6 +517,7 @@ class _CalcPageState extends State<CalcPage> {
         'produto': widget.dadosFormulario['produto']?.toString(),
         'tanque': widget.dadosFormulario['tanque']?.toString(),
         'filial_id': widget.dadosFormulario['filial_id']?.toString(),
+        'status': 'emitido',
         
         // Medições INICIAL
         'horario_inicial': formatarHorarioParaTime(medicoes['horarioInicial']?.toString()),
@@ -669,36 +670,7 @@ class _CalcPageState extends State<CalcPage> {
                             ),                           
                           ],
                         ),
-                      ),
-                      Positioned(
-                        left: 8,
-                        top: 8,
-                        child: Tooltip(
-                          // ✅ ETAPA 4 — Ajustar tooltip do botão voltar
-                          message: widget.modo == CaclModo.emissao
-                            ? 'Voltar para medições'
-                            : 'Voltar para histórico',
-                          child: GestureDetector(
-                            onTap: () {
-                              Navigator.of(context).pop();
-                            },
-                            child: Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: const Color.fromARGB(255, 197, 255, 195),
-                                border: Border.all(color: const Color.fromARGB(255, 141, 141, 141), width: 1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Icon(
-                                Icons.arrow_back,
-                                size: 20,
-                                color: Color.fromARGB(255, 73, 107, 255),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),                      
+                      ),                                            
                     ],
                   ),
 
@@ -889,7 +861,6 @@ class _CalcPageState extends State<CalcPage> {
                   ),
                   const SizedBox(height: 10),
                   
-                  // ✅ ETAPA 5 — Ocultar botões de ação no modo visualização
                   // ✅ BOTÕES PRINCIPAIS
                   Container(
                     margin: const EdgeInsets.only(top: 20),
@@ -897,6 +868,27 @@ class _CalcPageState extends State<CalcPage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
+                        // BOTÃO VOLTAR (AZUL) - DESABILITADO SE CACL JÁ FOI EMITIDO
+                        ElevatedButton.icon(
+                          onPressed: (_caclJaEmitido && widget.modo == CaclModo.emissao) 
+                              ? null  // Desabilita se já foi emitido
+                              : () {
+                                  Navigator.of(context).pop();
+                                },
+                          icon: const Icon(Icons.arrow_back, size: 18),
+                          label: const Text('Voltar'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D47A1), // Azul
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                        ),
+                        
+                        const SizedBox(width: 20), // Espaço entre botões
+                        
                         // VERIFICA SE OS DADOS FINAIS ESTÃO COMPLETOS
                         if (widget.modo == CaclModo.emissao && !_caclJaEmitido)
                           ElevatedButton.icon(
@@ -2363,7 +2355,7 @@ class _CalcPageState extends State<CalcPage> {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('✓ CACL finalizado! Voltando para Apuração...'),
+              content: Text('✓ CACL finalizado! Voltando para a lista...'),
               backgroundColor: Colors.green,
               duration: Duration(seconds: 2),
             ),
