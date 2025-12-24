@@ -34,7 +34,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
   // Novas variáveis para os tipos de CACL
   bool _caclVerificacao = false;
   bool _caclMovimentacao = false;
-
+  bool _botaoHabilitado = false;
   @override
   void initState() {
     super.initState();
@@ -124,6 +124,17 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         _carregando = false;
       });
 
+      // Limpa controladores e focus nodes antigos se existirem
+      for (var list in _controllers) { 
+        for (var c in list) c.dispose(); 
+      }
+      for (var list in _focusNodes) { 
+        for (var f in list) f.dispose(); 
+      }
+      
+      _controllers.clear();
+      _focusNodes.clear();
+
       for (int i = 0; i < tanques.length; i++) {
         _controllers.add([
           TextEditingController(), // 0 - horário Inicial
@@ -134,8 +145,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           TextEditingController(), // 5 - temp amostra Inicial
           TextEditingController(), // 6 - água cm Inicial
           TextEditingController(), // 7 - água mm Inicial
-          TextEditingController(), // 8 - faturado Inicial  // NOVO CAMPO
-          TextEditingController(), // 9 - observações Inicial // MOVED DOWN
+          TextEditingController(), // 8 - faturado Inicial
+          TextEditingController(), // 9 - observações Inicial
           TextEditingController(), // 10 - horário Final
           TextEditingController(), // 11 - cm Final
           TextEditingController(), // 12 - mm Final
@@ -144,7 +155,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           TextEditingController(), // 15 - temp amostra Final
           TextEditingController(), // 16 - água cm Final
           TextEditingController(), // 17 - água mm Final
-          TextEditingController(), // 18 - faturado Final  // NOVO CAMPO          
+          TextEditingController(), // 18 - faturado Final          
         ]);
 
         _focusNodes.add([
@@ -156,7 +167,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           FocusNode(), // 5 - temp amostra Inicial
           FocusNode(), // 6 - água cm Inicial
           FocusNode(), // 7 - água mm Inicial
-          FocusNode(), // 8 - faturado Inicial  // NOVO
+          FocusNode(), // 8 - faturado Inicial
           FocusNode(), // 9 - observações Inicial
           FocusNode(), // 10 - horário Final
           FocusNode(), // 11 - cm Final
@@ -166,11 +177,32 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           FocusNode(), // 15 - temp amostra Final
           FocusNode(), // 16 - água cm Final
           FocusNode(), // 17 - água mm Final
-          FocusNode(), // 18 - faturado Final  // NOVO          
+          FocusNode(), // 18 - faturado Final          
         ]);
+        
+        // Configura listeners para os 6 campos obrigatórios da primeira medição
+        for (int j = 0; j < 6; j++) {
+          // Listener para quando o campo perde o foco
+          _focusNodes[i][j].addListener(() {
+            if (!_focusNodes[i][j].hasFocus && mounted) {
+              _verificarCamposObrigatorios();
+            }
+          });
+          
+          // Listener para mudanças no texto (para capturar edições rápidas)
+          _controllers[i][j].addListener(() {
+            if (mounted) {
+              _verificarCamposObrigatorios();
+            }
+          });
+        }
       }
 
+      // Verifica o estado inicial dos campos
+      _verificarCamposObrigatorios();
+
     } catch (e) {
+      print('Erro ao carregar tanques: $e');
       setState(() => _carregando = false);
     }
   }
@@ -552,102 +584,130 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                             
                             // CAIXAS DE SELEÇÃO - Agora no meio do espaço
                             Container(
-                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                               decoration: BoxDecoration(
                                 color: Colors.grey[50],
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(color: Colors.grey[300]!),
                               ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                              child: Column(
                                 children: [
-                                  // Caixa de seleção "CACL verificação"
-                                  Container(
-                                    margin: const EdgeInsets.only(right: 24),
-                                    child: Row(
-                                      children: [
-                                        Checkbox(
-                                          value: _caclVerificacao,
-                                          onChanged: (value) {
-                                            setState(() {
-                                              _caclVerificacao = value ?? false;
-                                              // Se marcar verificação, desmarca movimentação
-                                              if (_caclVerificacao) {
-                                                _caclMovimentacao = false;
-                                              }
-                                            });
-                                          },
-                                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                          visualDensity: VisualDensity.compact,
-                                        ),
-                                        const Text(
-                                          'CACL verificação',
-                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  
-                                  // Caixa de seleção "CACL movimentação"
+                                  // Checkboxes
                                   Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Checkbox(
-                                        value: _caclMovimentacao,
-                                        onChanged: (value) {
-                                          setState(() {
-                                            _caclMovimentacao = value ?? false;
-                                            // Se marcar movimentação, desmarca verificação
-                                            if (_caclMovimentacao) {
-                                              _caclVerificacao = false;
-                                            }
-                                          });
-                                        },
-                                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                        visualDensity: VisualDensity.compact,
+                                      // Caixa de seleção "CACL verificação"
+                                      Container(
+                                        margin: const EdgeInsets.only(right: 24),
+                                        child: Row(
+                                          children: [
+                                            Checkbox(
+                                              value: _caclVerificacao,
+                                              onChanged: (value) {
+                                                setState(() {
+                                                  _caclVerificacao = value ?? false;
+                                                  // Se marcar verificação, desmarca movimentação
+                                                  if (_caclVerificacao) {
+                                                    _caclMovimentacao = false;
+                                                  }
+                                                });
+                                              },
+                                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                              visualDensity: VisualDensity.compact,
+                                            ),
+                                            const Text(
+                                              'CACL verificação',
+                                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                      const Text(
-                                        'CACL movimentação',
-                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                      
+                                      // Caixa de seleção "CACL movimentação"
+                                      Row(
+                                        children: [
+                                          Checkbox(
+                                            value: _caclMovimentacao,
+                                            onChanged: (value) {
+                                              setState(() {
+                                                _caclMovimentacao = value ?? false;
+                                                // Se marcar movimentação, desmarca verificação
+                                                if (_caclMovimentacao) {
+                                                  _caclVerificacao = false;
+                                                }
+                                              });
+                                            },
+                                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            visualDensity: VisualDensity.compact,
+                                          ),
+                                          const Text(
+                                            'CACL movimentação',
+                                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
+                                  
+                                  const SizedBox(height: 12), // Espaço entre checkboxes e botão
+                                  
+                                  // Botão Pré-visualização
+                                  SizedBox(
+                                    width: 200,
+                                    child: ElevatedButton(
+                                      onPressed: _botaoHabilitado ? _gerarCACL : null,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: _botaoHabilitado 
+                                            ? const Color(0xFF0D47A1)
+                                            : Colors.grey[400],
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        elevation: 2,
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.description, 
+                                            size: 18,
+                                            color: _botaoHabilitado ? Colors.white : Colors.grey[600],
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Pré-visualização',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: _botaoHabilitado ? Colors.white : Colors.grey[600],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  
+                                  // Mensagem de ajuda (opcional)
+                                  if (!_botaoHabilitado && tanques.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 8),
+                                      child: Text(
+                                        'Preencha todos os campos da 1ª medição',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.orange[700],
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
+                            const SizedBox(height: 50),
                           ],
                         ),
-            ),
-          ),          
-          SizedBox(height: 130),
-          // Botão Pré-visualização
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: ElevatedButton(
-              onPressed: _gerarCACL,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0D47A1),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                elevation: 2,
-                minimumSize: const Size(0, 40),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.description, size: 18),
-                  SizedBox(width: 6),
-                  Text(
-                    'Pré-visualização',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         ],
@@ -1189,5 +1249,18 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         ),
       ],
     );
+  }
+
+  void _verificarCamposObrigatorios() {
+    if (tanques.isEmpty) {
+      setState(() => _botaoHabilitado = false);
+      return;
+    }
+    
+    final camposObrigatorios = _controllers[_tanqueSelecionadoIndex].sublist(0, 6);
+    final todosPreenchidos = camposObrigatorios.every((controller) => 
+        controller.text.trim().isNotEmpty);
+    
+    setState(() => _botaoHabilitado = todosPreenchidos);
   }
 }
