@@ -16,12 +16,14 @@ class CalcPage extends StatefulWidget {
   final Map<String, dynamic> dadosFormulario;
   final CaclModo modo;
   final VoidCallback? onFinalizar;
+  final VoidCallback? onVoltar;
 
   const CalcPage({
     super.key,
     required this.dadosFormulario,
     this.modo = CaclModo.emissao,
     this.onFinalizar,
+    this.onVoltar,
   });
 
   @override
@@ -856,7 +858,12 @@ class _CalcPageState extends State<CalcPage> {
                           onPressed: (_caclJaEmitido && widget.modo == CaclModo.emissao) 
                               ? null  // Desabilita se já foi emitido
                               : () {
-                                  Navigator.of(context).pop();
+                                  // Verifica se tem callback personalizado para voltar
+                                  if (widget.onVoltar != null) {
+                                    widget.onVoltar!(); // Usa o callback fornecido
+                                  } else {
+                                    Navigator.of(context).pop(); // Fallback padrão
+                                  }
                                 },
                           icon: const Icon(Icons.arrow_back, size: 18),
                           label: const Text('Voltar'),

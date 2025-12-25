@@ -275,13 +275,13 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     
     final cmTotalInicial = controllers[1].text;
     final mmTotalInicial = controllers[2].text;
-    final cmTotalFinal = controllers[10].text;
-    final mmTotalFinal = controllers[11].text;
+    final cmTotalFinal = controllers[11].text;  // Correção: índice 11, não 10
+    final mmTotalFinal = controllers[12].text;  // Correção: índice 12, não 11
     
     final cmAguaInicial = controllers[6].text;
     final mmAguaInicial = controllers[7].text;
-    final cmAguaFinal = controllers[15].text;
-    final mmAguaFinal = controllers[16].text;
+    final cmAguaFinal = controllers[16].text;   // Correção: índice 16, não 15
+    final mmAguaFinal = controllers[17].text;   // Correção: índice 17, não 16
     
     final totalCmInicial = double.tryParse(cmTotalInicial) ?? 0.0;
     final totalMmInicial = double.tryParse(mmTotalInicial) ?? 0.0;
@@ -327,12 +327,12 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'densidadeInicial': controllers[4].text,
       'tempAmostraInicial': controllers[5].text,
       
-      'horarioFinal': controllers[9].text,
-      'tempTanqueFinal': controllers[12].text,
-      'densidadeFinal': controllers[13].text,
-      'tempAmostraFinal': controllers[14].text,
+      'horarioFinal': controllers[10].text,    // Correção: índice 10, não 9
+      'tempTanqueFinal': controllers[13].text,  // Correção: índice 13, não 12
+      'densidadeFinal': controllers[14].text,   // Correção: índice 14, não 13
+      'tempAmostraFinal': controllers[15].text, // Correção: índice 15, não 14
       
-      'faturadoFinal': controllers[17].text,
+      'faturadoFinal': controllers[18].text,    // Correção: índice 18, não 17
       
       'volumeProdutoInicial': '0',
       'volumeProdutoFinal': '0',
@@ -358,7 +358,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'filial_id': UsuarioAtual.instance!.nivel == 3 && widget.filialSelecionadaId != null 
           ? widget.filialSelecionadaId 
           : UsuarioAtual.instance!.filialId,
-      // Passa os tipos de CACL selecionados
       'cacl_verificacao': _caclVerificacao,
       'cacl_movimentacao': _caclMovimentacao,
     };
@@ -368,6 +367,10 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         builder: (context) => CalcPage(
           dadosFormulario: dadosFormulario,
           onFinalizar: widget.onFinalizarCACL,
+          // Adicione este callback para voltar corretamente
+          onVoltar: () {
+            Navigator.pop(context); // Volta para MedicaoTanquesPage
+          },
         ),
       ),
     );

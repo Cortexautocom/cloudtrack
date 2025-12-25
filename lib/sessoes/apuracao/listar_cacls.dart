@@ -204,17 +204,18 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: ElevatedButton(
+            // No botão "Emitir CACL" dentro de ListarCaclsPage, altere para:
             onPressed: () {
-              // Navega diretamente para MedicaoTanquesPage, passando o callback
+              // Navega para MedicaoTanquesPage
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (context) => MedicaoTanquesPage(
+                    // Remove o widget.onVoltar() e usa apenas Navigator.pop
                     onVoltar: () {
-                      Navigator.pop(context);
-                      widget.onVoltar(); // Volta para Home se necessário
+                      Navigator.pop(context); // Volta apenas para ListarCaclsPage
                     },
                     filialSelecionadaId: widget.filialId,
-                    onFinalizarCACL: widget.onFinalizarCACL, // ← PASSA O CALLBACK
+                    onFinalizarCACL: widget.onFinalizarCACL,
                   ),
                 ),
               );
