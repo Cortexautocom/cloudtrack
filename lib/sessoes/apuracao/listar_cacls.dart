@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'cacl.dart';
 import '../../login_page.dart';
 import 'emitir_cacl.dart';
+import 'editar_cacl.dart';
 
 class ListarCaclsPage extends StatefulWidget {
   final VoidCallback onVoltar;
@@ -31,10 +32,10 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
   @override
   void initState() {
     super.initState();
-    _carregarCacls();
+    _carregarCaclsSimples();
   }
 
-  Future<void> _carregarCacls() async {
+  Future<void> _carregarCaclsSimples() async {
     setState(() => _carregando = true);
 
     try {
@@ -42,28 +43,42 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
       final dataAtual = DateTime.now();
       final dataFormatada = '${dataAtual.year}-${dataAtual.month.toString().padLeft(2, '0')}-${dataAtual.day.toString().padLeft(2, '0')}';
 
-      // Buscar CACLs do dia atual para esta filial
-      final dados = await supabase
+      // 1. Buscar TODOS os CACLs da filial
+      final todosCacls = await supabase
           .from('cacl')
           .select('''
-            id, 
-            data, 
-            produto, 
-            tanque,
-            status,
-            horario_inicial,
-            horario_final,
-            volume_produto_inicial,
-            volume_produto_final,
-            base
+            id, data, produto, tanque, status,
+            horario_inicial, horario_final,
+            volume_produto_inicial, volume_produto_final, base
           ''')
           .eq('filial_id', widget.filialId)
-          .eq('data', dataFormatada)
           .order('created_at', ascending: false);
 
+      // 2. Filtrar manualmente no código
+      final caclsFiltrados = todosCacls.where((cacl) {
+        final status = cacl['status']?.toString().toLowerCase() ?? '';
+        final data = cacl['data']?.toString() ?? '';
+        
+        // Regra 1: É pendente ou aguardando?
+        if (status.contains('pendente') || status.contains('aguardando')) {
+          return true;
+        }
+        
+        // Regra 2: É emitido E data é hoje?
+        if (status.contains('emitido') && data == dataFormatada) {
+          return true;
+        }
+        
+        return false;
+      }).toList();
+
+      print('📊 Total no banco: ${todosCacls.length}');
+      print('📊 Após filtro: ${caclsFiltrados.length}');
+      
       setState(() {
-        _cacles = List<Map<String, dynamic>>.from(dados);
+        _cacles = List<Map<String, dynamic>>.from(caclsFiltrados);
       });
+      
     } catch (e) {
       debugPrint('❌ Erro ao carregar CACLs: $e');
     } finally {
@@ -284,7 +299,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
                       ),
                     )
                   : RefreshIndicator(
-                      onRefresh: _carregarCacls,
+                      onRefresh: _carregarCaclsSimples,
                       color: const Color(0xFF0D47A1),
                       child: ListView.separated(
                         itemCount: _cacles.length,
@@ -482,15 +497,40 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
                                           const SizedBox(height: 8),
                                           
                                           // APENAS Botão Editar (removemos o de visualizar)
+                                          // Botão Editar - AGORA FUNCIONAL!
                                           IconButton(
                                             icon: const Icon(
                                               Icons.edit,
-                                              size: 22, // Aumentado de 18 para 22
-                                              color: Color(0xFF0D47A1), // Cor azul para destacar
+                                              size: 22,
+                                              color: Color(0xFF0D47A1),
                                             ),
                                             onPressed: () {
-                                              print('Editar CACL ${cacl['id']}');
-                                              // TODO: Implementar funcionalidade de edição
+                                              // Verificar se o CACL está pendente
+                                              final status = cacl['status']?.toString().toLowerCase();
+                                              
+                                              if (status == 'pendente' || status == 'aguardando') {
+                                                // CACL pendente: abrir tela de edição
+                                                Navigator.of(context).push(
+                                                  MaterialPageRoute(
+                                                    builder: (context) => EditarCaclPage(
+                                                      onVoltar: () {
+                                                        Navigator.pop(context);
+                                                        _carregarCaclsSimples(); // Recarregar a lista ao voltar
+                                                      },
+                                                      caclId: cacl['id'].toString(),
+                                                    ),
+                                                  ),
+                                                );
+                                              } else {
+                                                // CACL já emitido: mostrar mensagem
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text('Este CACL já foi ${status == 'emitido' ? 'emitido' : 'cancelado'}'),
+                                                    backgroundColor: status == 'emitido' ? Colors.green : Colors.red,
+                                                    duration: const Duration(seconds: 2),
+                                                  ),
+                                                );
+                                              }
                                             },
                                             padding: EdgeInsets.zero,
                                             constraints: const BoxConstraints(),

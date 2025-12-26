@@ -10,11 +10,13 @@ import 'dart:js' as js;
 enum CaclModo {
   emissao,
   visualizacao,
+  edicao,
 }
 
 class CalcPage extends StatefulWidget {
   final Map<String, dynamic> dadosFormulario;
   final CaclModo modo;
+  final String? caclId;
   final VoidCallback? onFinalizar;
   final VoidCallback? onVoltar;
 
@@ -22,6 +24,7 @@ class CalcPage extends StatefulWidget {
     super.key,
     required this.dadosFormulario,
     this.modo = CaclModo.emissao,
+    this.caclId,
     this.onFinalizar,
     this.onVoltar,
   });
@@ -499,7 +502,7 @@ class _CalcPageState extends State<CalcPage> {
         'produto': widget.dadosFormulario['produto']?.toString(),
         'tanque': widget.dadosFormulario['tanque']?.toString(),
         'filial_id': widget.dadosFormulario['filial_id']?.toString(),
-        'status': 'emitido',
+        'status': widget.modo == CaclModo.edicao ? 'emitido' : 'emitido',
         
         // ✅ ADICIONAR O CAMPO TIPO
         'tipo': tipoCACL,
@@ -573,9 +576,21 @@ class _CalcPageState extends State<CalcPage> {
       dadosParaInserir.removeWhere((key, value) => value == null);
       
       // CORREÇÃO AQUI: Nova sintaxe do Supabase
-      await supabase
-          .from('cacl')
-          .insert(dadosParaInserir);
+      // VERIFICAR SE É MODO EDIÇÃO
+      if (widget.modo == CaclModo.edicao && widget.caclId != null) {
+        // ✅ MODO EDIÇÃO: Atualizar CACL existente
+        await supabase
+            .from('cacl')
+            .update(dadosParaInserir)
+            .eq('id', widget.caclId!);
+        
+        print('✓ CACL atualizado no banco: ${widget.caclId}');
+      } else {
+        // ✅ MODO NORMAL: Inserir novo CACL
+        await supabase
+            .from('cacl')
+            .insert(dadosParaInserir);
+      }
       
       // Sucesso!
       if (context.mounted) {
@@ -642,10 +657,11 @@ class _CalcPageState extends State<CalcPage> {
                         child: Column(
                           children: [
                             Text(
-                              // ✅ ETAPA 3 — Ajustar título do cabeçalho
                               widget.modo == CaclModo.emissao
                                 ? "CACL - PRÉ-VISUALIZAÇÃO"
-                                : "CACL - HISTÓRICO",
+                                : widget.modo == CaclModo.edicao
+                                  ? "CACL - EDIÇÃO"  // ← NOVO TÍTULO PARA MODO EDIÇÃO
+                                  : "CACL - HISTÓRICO",
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -828,13 +844,17 @@ class _CalcPageState extends State<CalcPage> {
                               Text(
                                 widget.modo == CaclModo.emissao && !_dadosFinaisEstaoCompletos()
                                   ? "Faltam dados da medição final. Salve como pendente para completar depois."
-                                  : widget.modo == CaclModo.emissao
-                                    ? "Verifique os dados antes de emitir o documento oficial."
-                                    : "Este CACL já foi emitido e está salvo no histórico.",
+                                  : widget.modo == CaclModo.edicao
+                                    ? "Editando CACL pendente. Verifique os dados antes de finalizar."
+                                    : widget.modo == CaclModo.emissao
+                                      ? "Verifique os dados antes de emitir o documento oficial."
+                                      : "Este CACL já foi emitido e está salvo no histórico.",
                                 style: TextStyle(
                                   color: widget.modo == CaclModo.emissao && !_dadosFinaisEstaoCompletos()
                                       ? Colors.orange[700]
-                                      : Colors.grey[700],
+                                      : widget.modo == CaclModo.edicao
+                                        ? Colors.blue[700]  // ← COR DIFERENTE PARA EDIÇÃO
+                                        : Colors.grey[700],
                                   fontSize: 11,
                                 ),
                               ),
@@ -880,7 +900,7 @@ class _CalcPageState extends State<CalcPage> {
                         const SizedBox(width: 20), // Espaço entre botões
                         
                         // VERIFICA SE OS DADOS FINAIS ESTÃO COMPLETOS
-                        if (widget.modo == CaclModo.emissao && !_caclJaEmitido)
+                        if ((widget.modo == CaclModo.emissao || widget.modo == CaclModo.edicao) && !_caclJaEmitido)
                           ElevatedButton.icon(
                             onPressed: _isEmittingCACL 
                                 ? null 
@@ -2465,9 +2485,7 @@ class _CalcPageState extends State<CalcPage> {
         'produto': widget.dadosFormulario['produto']?.toString(),
         'tanque': widget.dadosFormulario['tanque']?.toString(),
         'filial_id': widget.dadosFormulario['filial_id']?.toString(),
-        'status': 'pendente',
-        
-        // ✅ ADICIONAR O CAMPO TIPO TAMBÉM NO PENDENTE
+        'status': 'pendente',      
         'tipo': tipoCACL,
         
         'horario_inicial': formatarHorarioParaTime(medicoes['horarioInicial']?.toString()),
