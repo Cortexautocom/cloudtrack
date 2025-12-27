@@ -60,10 +60,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   List<Map<String, dynamic>> sessoes = [];
   List<Map<String, dynamic>> apuracaoFilhos = [];
   List<Map<String, dynamic>> estoquesFilhos = [];
-  List<Map<String, dynamic>> filiais = []; // Nova lista para armazenar filiais
+  List<Map<String, dynamic>> empresas = []; // Nova lista para armazenar empresas
+  List<Map<String, dynamic>> filiaisDaEmpresa = []; // Filiais da empresa selecionada
   bool _mostrarEstoquesFilhos = false;
-  bool _mostrarEstoquePorEmpresa = false; // Nova flag para mostrar estoque por empresa
-  bool carregandoFiliais = false; // Nova flag para carregamento de filiais
+  bool _mostrarEstoquePorEmpresa = false;
+  bool _mostrarFiliaisDaEmpresa = false; // Nova flag para mostrar filiais da empresa
+  bool carregandoEmpresas = false;
+  bool carregandoFiliaisEmpresa = false;
+  String? _empresaSelecionadaNome;
+  String? _empresaSelecionadaId;
 
   @override
   void initState() {
@@ -130,38 +135,79 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     ];
   }
 
-  Future<void> _carregarFiliais() async {
-    setState(() => carregandoFiliais = true);
+  Future<void> _carregarEmpresas() async {
+    setState(() => carregandoEmpresas = true);
     final supabase = Supabase.instance.client;
     
     try {
       final dados = await supabase
-          .from('filiais')
-          .select('id, nome, cidade')
+          .from('empresas')
+          .select('id, nome, nome_abrev, cnpj')  // ADICIONE 'nome_abrev' aqui
           .order('nome');
       
       setState(() {
-        filiais = dados.map((filial) {
+        empresas = dados.map((empresa) {
           return {
-            'id': filial['id'],
-            'label': filial['nome'],
-            'descricao': filial['cidade'],
-            'icon': Icons.store,
+            'id': empresa['id'],
+            'label': empresa['nome_abrev'] ?? empresa['nome'],  // USE nome_abrev primeiro
+            'descricao': empresa['cnpj'] ?? 'Sem CNPJ',
+            'icon': Icons.business,
           };
         }).toList();
       });
     } catch (e) {
-      debugPrint("❌ Erro ao carregar filiais: $e");
+      debugPrint("❌ Erro ao carregar empresas: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Erro ao carregar filiais."),
+            content: Text("Erro ao carregar empresas."),
             backgroundColor: Colors.red,
           ),
         );
       }
     } finally {
-      setState(() => carregandoFiliais = false);
+      setState(() => carregandoEmpresas = false);
+    }
+  }
+
+  Future<void> _carregarFiliaisDaEmpresa(String empresaId) async {
+    setState(() {
+      carregandoFiliaisEmpresa = true;
+      filiaisDaEmpresa.clear();
+    });
+    
+    final supabase = Supabase.instance.client;
+    
+    try {
+      final dados = await supabase
+          .from('filiais')
+          .select('id, nome, cidade, cnpj')
+          .eq('empresa_id', empresaId)
+          .order('nome');
+      
+      setState(() {
+        filiaisDaEmpresa = dados.map((filial) {
+          return {
+            'id': filial['id'],
+            'label': filial['nome'],
+            'descricao': filial['cidade'],
+            'cnpj': filial['cnpj'],
+            'icon': Icons.store,
+          };
+        }).toList();
+      });
+    } catch (e) {
+      debugPrint("❌ Erro ao carregar filiais da empresa: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Erro ao carregar filiais da empresa."),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() => carregandoFiliaisEmpresa = false);
     }
   }
 
@@ -271,12 +317,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarTanques = false;
       _mostrarEscolherFilial = false;
       _filialSelecionadaId = null;
-      _filialSelecionadaNome = null;  // ← ADICIONAR
+      _filialSelecionadaNome = null;
       _contextoEscolhaFilial = '';
       _mostrarOrdensAnalise = false;
       _mostrarHistorico = false;
       _mostrarEstoquePorEmpresa = false;
-      _mostrarListarCacls = false;    // ← ADICIONAR
+      _mostrarEstoquesFilhos = false;
+      _mostrarFiliaisDaEmpresa = false;
+      _mostrarListarCacls = false;
+      _empresaSelecionadaId = null;
+      _empresaSelecionadaNome = null;
     });
   }
 
@@ -412,6 +462,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   _mostrarHistorico = false;
                                   _mostrarEstoquePorEmpresa = false;
                                   _mostrarEstoquesFilhos = false;
+                                  _mostrarFiliaisDaEmpresa = false;
                                   _mostrarListarCacls = false;
                                 });
 
@@ -576,7 +627,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     },
                     filialId: _filialSelecionadaId!,
                     filialNome: _filialSelecionadaNome ?? 'Filial',
-                    onIrParaEmissao: () {  // ← ADICIONE ESTE PARÂMETRO
+                    onIrParaEmissao: () {
                       setState(() {
                         _mostrarListarCacls = false;
                         _mostrarMedicaoTanques = true;
@@ -720,6 +771,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                             },
                             filialSelecionadaId: _filialSelecionadaId,
                           )
+                    : _mostrarFiliaisDaEmpresa
+                        ? _buildFiliaisDaEmpresaPage()
                     : _mostrarEstoquePorEmpresa
                         ? _buildEstoquePorEmpresaPage()
                     : _mostrarEstoquesFilhos
@@ -843,14 +896,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         const Divider(),
         const SizedBox(height: 20),
 
-        if (carregandoFiliais)
+        if (carregandoEmpresas)
           const Center(
             child: CircularProgressIndicator(color: Color(0xFF0D47A1)),
           )
-        else if (filiais.isEmpty)
+        else if (empresas.isEmpty)
           const Center(
             child: Text(
-              'Nenhuma filial encontrada.',
+              'Nenhuma empresa encontrada.',
               style: TextStyle(color: Colors.grey),
             ),
           )
@@ -861,8 +914,64 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               crossAxisSpacing: 15,
               mainAxisSpacing: 15,
               childAspectRatio: 1,
-              children: filiais.map((filial) => _buildCardFilial(filial)).toList(),
+              children: empresas.map((empresa) => _buildCardEmpresa(empresa)).toList(),
+            ),
+          ),
+      ],
+    );
+  }
 
+  Widget _buildFiliaisDaEmpresaPage() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
+              onPressed: () {
+                setState(() {
+                  _mostrarFiliaisDaEmpresa = false;
+                  _mostrarEstoquePorEmpresa = true;
+                  _empresaSelecionadaId = null;
+                  _empresaSelecionadaNome = null;
+                });
+              },
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Filiais - $_empresaSelecionadaNome',
+              style: const TextStyle(
+                fontSize: 24,
+                color: Color(0xFF0D47A1),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        const Divider(),
+        const SizedBox(height: 20),
+
+        if (carregandoFiliaisEmpresa)
+          const Center(
+            child: CircularProgressIndicator(color: Color(0xFF0D47A1)),
+          )
+        else if (filiaisDaEmpresa.isEmpty)
+          const Center(
+            child: Text(
+              'Nenhuma filial encontrada para esta empresa.',
+              style: TextStyle(color: Colors.grey),
+            ),
+          )
+        else
+          Expanded(
+            child: GridView.count(
+              crossAxisCount: 7,
+              crossAxisSpacing: 15,
+              mainAxisSpacing: 15,
+              childAspectRatio: 1,
+              children: filiaisDaEmpresa.map((filial) => _buildCardFilial(filial)).toList(),
             ),
           ),
       ],
@@ -935,6 +1044,135 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
+  Widget _buildCardEmpresa(Map<String, dynamic> empresa) {
+    return Material(
+      elevation: 2,
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.hardEdge,
+      child: InkWell(
+        onTap: () async {
+          final empresaId = empresa['id'];
+          setState(() {
+            _empresaSelecionadaId = empresaId;
+            _empresaSelecionadaNome = empresa['label'];
+          });
+          
+          // Carrega as filiais da empresa selecionada usando a variável
+          await _carregarFiliaisDaEmpresa(_empresaSelecionadaId!);
+          
+          setState(() {
+            _mostrarEstoquePorEmpresa = false;
+            _mostrarFiliaisDaEmpresa = true;
+          });
+        },
+        hoverColor: const Color(0xFFE8F5E9),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                empresa['icon'],
+                color: const Color.fromARGB(255, 48, 153, 35),
+                size: 50,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                empresa['label'],
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF0D47A1),
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                empresa['descricao'] ?? '',
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardFilial(Map<String, dynamic> filial) {
+    return Material(
+      elevation: 2,
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.hardEdge,
+      child: InkWell(
+        onTap: () {
+          // Navegar para a página de estoque do mês da filial
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => EstoqueMesPage(
+                filialId: filial['id'],
+                nomeFilial: filial['label'],
+              ),
+            ),
+          );
+        },
+        hoverColor: const Color(0xFFE8F5E9),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                filial['icon'],
+                color: const Color.fromARGB(255, 48, 153, 35),
+                size: 50,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                filial['label'],
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF0D47A1),
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                filial['descricao'] ?? '',
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _navegarParaCardFilho(String nomeCard) {
     final usuario = UsuarioAtual.instance;
 
@@ -987,7 +1225,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         setState(() {
           _veioDaApuracao = true;
           _mostrarApuracaoFilhos = false;
-          showConversaoList = true; // ← ATIVA A PÁGINA DE TABELAS
+          showConversaoList = true;
         });
         break;
         
@@ -1004,7 +1242,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         setState(() {
           _mostrarEstoquePorEmpresa = true;
           _mostrarEstoquesFilhos = false;
-          _carregarFiliais(); // Carrega as filiais do banco
+          _carregarEmpresas(); // Carrega as empresas do banco
         });
         break;
     }
@@ -1176,9 +1414,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
           final usuario = UsuarioAtual.instance;
 
-          // REMOVIDO: tratamento de "Tabelas de conversão" como card principal
-          // Agora só será acessado como filho da Apuração
-          
           if (nome == 'Apuração') {
             setState(() {
               showConversaoList = false;
@@ -1340,64 +1575,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildCardFilial(Map<String, dynamic> filial) {
-    return Material(
-      elevation: 2,
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      clipBehavior: Clip.hardEdge,
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => EstoqueMesPage(
-                filialId: filial['id'],
-                nomeFilial: filial['label'],
-              ),
-            ),
-          );
-        },
-        hoverColor: const Color(0xFFE8F5E9),
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                filial['icon'],
-                color: const Color.fromARGB(255, 48, 153, 35),
-                size: 50,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                filial['label'],
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF0D47A1),
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                filial['descricao'] ?? '',
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Colors.grey,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
