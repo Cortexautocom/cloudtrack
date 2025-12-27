@@ -25,17 +25,58 @@ class ListarCaclsPage extends StatefulWidget {
   State<ListarCaclsPage> createState() => _ListarCaclsPageState();
 }
 
-class _ListarCaclsPageState extends State<ListarCaclsPage> {
+class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingObserver {
   bool _carregando = true;
   List<Map<String, dynamic>> _cacles = [];
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _carregarCaclsSimples();
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshData();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Recarrega dados sempre que as dependências mudam
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _refreshData();
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(ListarCaclsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Se a filial mudou, recarrega os dados
+    if (oldWidget.filialId != widget.filialId) {
+      _refreshData();
+    }
+  }
+
+  Future<void> _refreshData() async {
+    await _carregarCaclsSimples();
+  }
+
   Future<void> _carregarCaclsSimples() async {
+    // Não recarrega se já estiver carregando
+    if (_carregando && _cacles.isNotEmpty) return;
+    
     setState(() => _carregando = true);
 
     try {
@@ -83,8 +124,19 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
       });
     } catch (e) {
       debugPrint('❌ Erro ao carregar CACLs: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar dados: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     } finally {
-      setState(() => _carregando = false);
+      if (mounted) {
+        setState(() => _carregando = false);
+      }
     }
   }
 
@@ -205,13 +257,13 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
                 ],
               ),
             ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                const SizedBox(height: 2),
-              ],
+            // Botão de refresh
+            IconButton(
+              icon: const Icon(Icons.refresh, color: Color(0xFF0D47A1)),
+              onPressed: _refreshData,
+              tooltip: 'Atualizar lista',
             ),
+            const SizedBox(width: 10),
           ],
         ),
         const SizedBox(height: 10),
@@ -222,21 +274,27 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: ElevatedButton(
-            // No botão "Emitir CACL" dentro de ListarCaclsPage, altere para:
             onPressed: () {
-              // Navega para MedicaoTanquesPage
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (context) => MedicaoTanquesPage(
-                    // Remove o widget.onVoltar() e usa apenas Navigator.pop
                     onVoltar: () {
-                      Navigator.pop(context); // Volta apenas para ListarCaclsPage
+                      Navigator.pop(context);
+                      // Recarrega os dados ao voltar
+                      _refreshData();
                     },
                     filialSelecionadaId: widget.filialId,
-                    onFinalizarCACL: widget.onFinalizarCACL,
+                    onFinalizarCACL: () {
+                      widget.onFinalizarCACL?.call();
+                      // Recarrega os dados após finalizar CACL
+                      _refreshData();
+                    },
                   ),
                 ),
-              );
+              ).then((_) {
+                // Garante recarregamento mesmo se navegar de outras formas
+                _refreshData();
+              });
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0D47A1),
@@ -266,7 +324,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
 
         // ===== LISTA DE CACLS (LAYOUT COMPACTO) =====
         Expanded(
-          child: _carregando
+          child: _carregando && _cacles.isEmpty
               ? const Center(
                   child: CircularProgressIndicator(
                     color: Color(0xFF0D47A1),
@@ -302,7 +360,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
                       ),
                     )
                   : RefreshIndicator(
-                      onRefresh: _carregarCaclsSimples,
+                      onRefresh: _refreshData,
                       color: const Color(0xFF0D47A1),
                       child: ListView.separated(
                         itemCount: _cacles.length,
@@ -327,7 +385,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
                           );
 
                           return MouseRegion(
-                            cursor: SystemMouseCursors.click, // Isso mostra a mãozinha no web/desktop
+                            cursor: SystemMouseCursors.click,
                             child: GestureDetector(
                               onTap: () async {
                                 final supabase = Supabase.instance.client;
@@ -342,7 +400,8 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
 
                                 if (!context.mounted) return;
 
-                                Navigator.push(
+                                // Navega e recarrega ao voltar
+                                await Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) => CalcPage(
@@ -351,6 +410,9 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
                                     ),
                                   ),
                                 );
+                                
+                                // Recarrega os dados após voltar
+                                _refreshData();
                               },
                               child: Container(
                                 decoration: BoxDecoration(
@@ -499,8 +561,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
                                           ),
                                           const SizedBox(height: 8),
                                           
-                                          // APENAS Botão Editar (removemos o de visualizar)
-                                          // Botão Editar - AGORA FUNCIONAL!
+                                          // Botão Editar
                                           IconButton(
                                             icon: const Icon(
                                               Icons.edit,
@@ -508,24 +569,24 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
                                               color: Color(0xFF0D47A1),
                                             ),
                                             onPressed: () {
-                                              // Verificar se o CACL está pendente
                                               final status = cacl['status']?.toString().toLowerCase();
                                               
                                               if (status == 'pendente' || status == 'aguardando') {
-                                                // CACL pendente: abrir tela de edição
                                                 Navigator.of(context).push(
                                                   MaterialPageRoute(
                                                     builder: (context) => EditarCaclPage(
                                                       onVoltar: () {
                                                         Navigator.pop(context);
-                                                        _carregarCaclsSimples(); // Recarregar a lista ao voltar
+                                                        _refreshData();
                                                       },
                                                       caclId: cacl['id'].toString(),
                                                     ),
                                                   ),
-                                                );
+                                                ).then((_) {
+                                                  // Recarrega dados após voltar da edição
+                                                  _refreshData();
+                                                });
                                               } else {
-                                                // CACL já emitido: mostrar mensagem
                                                 ScaffoldMessenger.of(context).showSnackBar(
                                                   SnackBar(
                                                     content: Text('Este CACL já foi ${status == 'emitido' ? 'emitido' : 'cancelado'}'),
@@ -643,5 +704,4 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
       }
     };
   }
-
 }
