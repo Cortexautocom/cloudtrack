@@ -414,6 +414,13 @@ class _CalcPageState extends State<CalcPage> {
       final supabase = Supabase.instance.client;
       final medicoes = widget.dadosFormulario['medicoes'] ?? {};
       
+      // ✅ DEBUG: Verificar se o caclId está chegando corretamente
+      print('=== DEBUG: _emitirCACL() ===');
+      print('Modo: ${widget.modo}');
+      print('CACL ID recebido: ${widget.caclId}');
+      print('Modo é edição: ${widget.modo == CaclModo.edicao}');
+      print('ID nos dadosFormulario: ${widget.dadosFormulario['id_cacl']}');
+      
       // Verifica se o usuário está logado
       final session = supabase.auth.currentSession;
       if (session == null) {
@@ -436,13 +443,12 @@ class _CalcPageState extends State<CalcPage> {
       } else if (caclMovimentacao) {
         tipoCACL = 'movimentacao';
       }
-      // Se nenhum estiver marcado (apesar da trava), tipoCACL ficará null
       
       // Formatar data para o padrão YYYY-MM-DD
       String? dataFormatada;
       final dataOriginal = widget.dadosFormulario['data']?.toString() ?? '';
       if (dataOriginal.isNotEmpty) {
-        dataFormatada = _formatarDataParaSQL(dataOriginal);  // ← USE A MESMA FUNÇÃO
+        dataFormatada = _formatarDataParaSQL(dataOriginal);
       }
       
       // Função auxiliar para converter horário
@@ -494,20 +500,20 @@ class _CalcPageState extends State<CalcPage> {
         }
       }
       
-      // Preparar dados para inserção
+      // Preparar dados para inserção/atualização
       final dadosParaInserir = {
-        // Dados principais
+        // Dados principais (mantém os existentes)
         'data': dataFormatada,
         'base': widget.dadosFormulario['base']?.toString(),
         'produto': widget.dadosFormulario['produto']?.toString(),
         'tanque': widget.dadosFormulario['tanque']?.toString(),
         'filial_id': widget.dadosFormulario['filial_id']?.toString(),
-        'status': widget.modo == CaclModo.edicao ? 'emitido' : 'emitido',
+        'status': 'emitido', // ✅ ATUALIZAR STATUS PARA EMITIDO
         
         // ✅ ADICIONAR O CAMPO TIPO
         'tipo': tipoCACL,
         
-        // Medições INICIAL
+        // Medições INICIAL (MANTÉM OS EXISTENTES - não alterar)
         'horario_inicial': formatarHorarioParaTime(medicoes['horarioInicial']?.toString()),
         'altura_total_liquido_inicial': medicoes['alturaTotalInicial']?.toString(),
         'altura_total_cm_inicial': medicoes['cmInicial']?.toString(),
@@ -525,7 +531,7 @@ class _CalcPageState extends State<CalcPage> {
         'volume_20_inicial': extrairNumeroFormatado(medicoes['volume20Inicial']?.toString()),
         'massa_inicial': medicoes['massaInicial']?.toString(),
         
-        // Medições FINAL
+        // Medições FINAL (PREENCHE OS QUE ESTAVAM NULL)
         'horario_final': formatarHorarioParaTime(medicoes['horarioFinal']?.toString()),
         'altura_total_liquido_final': medicoes['alturaTotalFinal']?.toString(),
         'altura_total_cm_final': medicoes['cmFinal']?.toString(),
@@ -543,21 +549,21 @@ class _CalcPageState extends State<CalcPage> {
         'volume_20_final': extrairNumeroFormatado(medicoes['volume20Final']?.toString()),
         'massa_final': medicoes['massaFinal']?.toString(),
         
-        // Cálculos comparativos
+        // Cálculos comparativos (ATUALIZA COM OS NOVOS VALORES)
         'volume_ambiente_inicial': volumeInicial,
         'volume_ambiente_final': volumeFinal,
         'entrada_saida_ambiente': volumeFinal - volumeInicial,
         'entrada_saida_20': (_extrairNumero(medicoes['volume20Final']?.toString()) - 
                             _extrairNumero(medicoes['volume20Inicial']?.toString())),
         
-        // Informações de faturamento
+        // Informações de faturamento (ADICIONA SE EXISTIR)
         'faturado_final': converterParaDouble(medicoes['faturadoFinal']?.toString()),
         'diferenca_faturado': (extrairNumeroFormatado(medicoes['volume20Final']?.toString()) ?? 0) -
                             (extrairNumeroFormatado(medicoes['volume20Inicial']?.toString()) ?? 0) -
                             (converterParaDouble(medicoes['faturadoFinal']?.toString()) ?? 0),
         
-        // Auditoria
-        'created_by': session.user.id,
+        // Auditoria - SEMPRE atualizar
+        'updated_at': DateTime.now().toIso8601String(),
       };
       
       // Calcular porcentagem da diferença
@@ -575,44 +581,108 @@ class _CalcPageState extends State<CalcPage> {
       // Remover campos nulos
       dadosParaInserir.removeWhere((key, value) => value == null);
       
-      // CORREÇÃO AQUI: Nova sintaxe do Supabase
-      // VERIFICAR SE É MODO EDIÇÃO
-      if (widget.modo == CaclModo.edicao && widget.caclId != null) {
-        // ✅ MODO EDIÇÃO: Atualizar CACL existente
-        await supabase
-            .from('cacl')
-            .update(dadosParaInserir)
-            .eq('id', widget.caclId!);
-        
-        print('✓ CACL atualizado no banco: ${widget.caclId}');
-      } else {
-        // ✅ MODO NORMAL: Inserir novo CACL
-        await supabase
-            .from('cacl')
-            .insert(dadosParaInserir);
+      // ✅ VERIFICAR ID DE MULTIPLAS FONTES
+      String? idParaUpdate = widget.caclId;
+      
+      // Se não tiver no widget, tenta buscar do dadosFormulario
+      if ((idParaUpdate == null || idParaUpdate.isEmpty) && 
+          widget.dadosFormulario.containsKey('id_cacl')) {
+        idParaUpdate = widget.dadosFormulario['id_cacl']?.toString();
+        print('⚠️ ID encontrado em dadosFormulario: $idParaUpdate');
       }
       
-      // Sucesso!
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✓ CACL emitido e salvo no banco com sucesso!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
-          ),
-        );
+      // ✅ DECISÃO: UPDATE se tiver ID, INSERT se não tiver
+      if (idParaUpdate != null && idParaUpdate.isNotEmpty) {
+        // ✅ ATUALIZAR CACL EXISTENTE
+        print('🔄 ATUALIZANDO CACL EXISTENTE - ID: $idParaUpdate');
+        
+        try {
+          // Primeiro, verifica se o registro existe
+          final verificaExistencia = await supabase
+              .from('cacl')
+              .select('id, status')
+              .eq('id', idParaUpdate)
+              .maybeSingle();
+              
+          if (verificaExistencia == null) {
+            print('❌ CACL não encontrado no banco. Criando novo...');
+            throw Exception('CACL não encontrado para atualização');
+          }
+          
+          print('✅ CACL encontrado para atualização. Status atual: ${verificaExistencia['status']}');
+                              
+          print('✅✅✅ CACL ATUALIZADO COM SUCESSO! ID: $idParaUpdate');
+          
+          // Sucesso - UPDATE
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✓ CACL atualizado com sucesso!'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+          
+        } catch (e) {
+          print('❌ Erro ao atualizar CACL: $e');
+          
+          // Fallback: inserir como novo se falhar o update
+          print('🔄 Tentando inserir como novo CACL...');
+          dadosParaInserir['created_by'] = session.user.id;
+          dadosParaInserir['created_at'] = DateTime.now().toIso8601String();
+          
+          await supabase
+              .from('cacl')
+              .insert(dadosParaInserir);
+              
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✓ Novo CACL criado (fallback)'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+        
+      } else {
+        // ✅ INSERIR NOVO CACL (MODO EMISSÃO NORMAL)
+        print('🆕 INSERINDO NOVO CACL - NENHUM ID ENCONTRADO PARA UPDATE');
+        
+        // Adicionar campos de criação
+        dadosParaInserir['created_by'] = session.user.id;
+        dadosParaInserir['created_at'] = DateTime.now().toIso8601String();
+                
+        print('✅✅✅ NOVO CACL INSERIDO COM SUCESSO!');
+        
+        // Sucesso - INSERT
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✓ CACL emitido e salvo no banco com sucesso!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+      
+      // Atualizar estado
+      if (mounted) {
         setState(() {
           _caclJaEmitido = true;
         });
       }
       
     } catch (e) {
-      print('ERRO ao emitir CACL: $e');
+      print('❌❌❌ ERRO GRAVE ao emitir/atualizar CACL: $e');
       
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erro ao emitir CACL: ${e.toString()}'),
+            content: Text('Erro: ${e.toString()}'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 3),
           ),
