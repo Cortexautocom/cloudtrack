@@ -2369,7 +2369,7 @@ class _CalcPageState extends State<CalcPage> {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('✓ CACL finalizado! Voltando para a lista...'),
+              content: Text('✓ CACL finalizado com sucesso!'),
               backgroundColor: Colors.green,
               duration: Duration(seconds: 2),
             ),
@@ -2379,18 +2379,21 @@ class _CalcPageState extends State<CalcPage> {
         // Aguardar um pouco para mostrar a mensagem
         await Future.delayed(const Duration(milliseconds: 1500));
         
-        if (widget.onFinalizar != null) {
-          widget.onFinalizar!();
-        }
-        Navigator.of(context).pop();
-
-
-        // NAVEGAÇÃO: Voltar para o HomePage que mostrará a Apuração
+        // **CORREÇÃO PRINCIPAL**: Lógica simplificada e segura
         if (context.mounted) {
-          Navigator.of(context).pop(); // Fecha a página de cálculo
+          // Para qualquer modo (edição ou emissão), usar Navigator.popUntil
+          // Isso garante que voltaremos para a HomePage de forma segura
           
-          // O HomePage voltará automaticamente para a seção de Apuração
-          // pois o estado _mostrarApuracaoFilhos será true
+          // Primeiro, verifica se há um callback personalizado
+          if (widget.onFinalizar != null) {
+            widget.onFinalizar!(); // Executa o callback se existir
+          } else {
+            // Navegação segura para voltar à HomePage
+            Navigator.of(context).popUntil((route) {
+              // Volta até encontrar a HomePage (ou até a primeira rota)
+              return route.isFirst;
+            });
+          }
         }
         
       } else {
@@ -2403,13 +2406,15 @@ class _CalcPageState extends State<CalcPage> {
       }
       
     } catch (e) {
-      print('Erro ao ir para apuração: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      print('Erro ao finalizar CACL: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
   
