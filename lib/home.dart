@@ -1125,6 +1125,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               builder: (_) => EstoqueMesPage(
                 filialId: filial['id'],
                 nomeFilial: filial['label'],
+                empresaId: _empresaSelecionadaId,
               ),
             ),
           );
