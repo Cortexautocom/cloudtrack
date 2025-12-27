@@ -414,26 +414,43 @@ class _CalcPageState extends State<CalcPage> {
       final supabase = Supabase.instance.client;
       final medicoes = widget.dadosFormulario['medicoes'] ?? {};
       
-      // ✅ DEBUG: Verificar se o caclId está chegando corretamente
-      print('=== DEBUG: _emitirCACL() ===');
-      print('Modo: ${widget.modo}');
-      print('CACL ID recebido: ${widget.caclId}');
-      print('Modo é edição: ${widget.modo == CaclModo.edicao}');
-      print('ID nos dadosFormulario: ${widget.dadosFormulario['id_cacl']}');
+      print('=== 🚀 INÍCIO _emitirCACL() ===');
+      print('📋 Modo: ${widget.modo}');
+      print('🔑 CACL ID recebido: ${widget.caclId}');
+      print('✏️ Modo é edição: ${widget.modo == CaclModo.edicao}');
+      print('🗃️ ID nos dadosFormulario: ${widget.dadosFormulario['id_cacl']}');
+      print('📊 Quantidade de medições: ${medicoes.length}');
       
-      // Verifica se o usuário está logado
+      // ✅ DEBUG: Mostrar TODOS os dados da 2ª medição
+      print('=== 📝 DADOS DA 2ª MEDIÇÃO ===');
+      final campos2aMedicao = ['cmFinal', 'mmFinal', 'alturaAguaFinal', 'tempTanqueFinal', 
+                              'densidadeFinal', 'tempAmostraFinal', 'horarioFinal'];
+      
+      for (var campo in campos2aMedicao) {
+        print('   $campo: ${medicoes[campo] ?? "NÃO PREENCHIDO"}');
+      }
+      
+      print('=== 🔢 VALORES CALCULADOS ===');
+      print('   volumeFinal: $volumeFinal');
+      print('   volumeTotalLiquidoFinal: $volumeTotalLiquidoFinal');
+      
       final session = supabase.auth.currentSession;
       if (session == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Você precisa estar logado para emitir o CACL'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        print('❌ SEM SESSÃO - Usuário não logado');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Você precisa estar logado para emitir o CACL'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
         return;
       }
       
-      // ✅ DETERMINAR O TIPO DO CACL BASEADO NAS CHECKBOXES
+      print('✅ Usuário logado: ${session.user.id}');
+      
+      // ✅ DETERMINAR O TIPO DO CACL
       String? tipoCACL;
       final bool caclVerificacao = widget.dadosFormulario['cacl_verificacao'] ?? false;
       final bool caclMovimentacao = widget.dadosFormulario['cacl_movimentacao'] ?? false;
@@ -444,83 +461,35 @@ class _CalcPageState extends State<CalcPage> {
         tipoCACL = 'movimentacao';
       }
       
-      // Formatar data para o padrão YYYY-MM-DD
+      print('📌 Tipo CACL: $tipoCACL');
+      
+      // Formatar data
       String? dataFormatada;
       final dataOriginal = widget.dadosFormulario['data']?.toString() ?? '';
       if (dataOriginal.isNotEmpty) {
         dataFormatada = _formatarDataParaSQL(dataOriginal);
       }
       
-      // Função auxiliar para converter horário
-      String? formatarHorarioParaTime(String? horario) {
-        if (horario == null || horario.isEmpty || horario == '-') return null;
-        
-        String limpo = horario.trim().replaceAll('h', '').replaceAll('H', '');
-        
-        if (limpo.contains(':')) {
-          final partes = limpo.split(':');
-          if (partes.length == 2) {
-            final horas = int.tryParse(partes[0]) ?? 0;
-            final minutos = int.tryParse(partes[1]) ?? 0;
-            
-            if (horas >= 0 && horas < 24 && minutos >= 0 && minutos < 60) {
-              return '${horas.toString().padLeft(2, '0')}:${minutos.toString().padLeft(2, '0')}:00';
-            }
-          }
-        }
-        
-        return null;
-      }
-      
-      // Função auxiliar para converter texto para double (tratando "-" como null)
-      double? converterParaDouble(String? valor) {
-        if (valor == null || valor.isEmpty || valor == '-') return null;
-        
-        try {
-          String limpo = valor.replaceAll(' L', '').replaceAll(' cm', '')
-              .replaceAll(' ºC', '').replaceAll('°C', '')
-              .replaceAll(',', '.').replaceAll('.', '');
-          return double.tryParse(limpo);
-        } catch (e) {
-          return null;
-        }
-      }
-      
-      // Função auxiliar para extrair números de valores formatados (como "1.500 L")
-      double? extrairNumeroFormatado(String? valor) {
-        if (valor == null || valor.isEmpty || valor == '-') return null;
-        
-        try {
-          // Remove tudo que não é número
-          String somenteNumeros = valor.replaceAll(RegExp(r'[^0-9]'), '');
-          if (somenteNumeros.isEmpty) return null;
-          return double.tryParse(somenteNumeros);
-        } catch (e) {
-          return null;
-        }
-      }
+      print('📅 Data formatada: $dataFormatada');
       
       // Preparar dados para inserção/atualização
       final dadosParaInserir = {
-        // Dados principais (mantém os existentes)
         'data': dataFormatada,
         'base': widget.dadosFormulario['base']?.toString(),
         'produto': widget.dadosFormulario['produto']?.toString(),
         'tanque': widget.dadosFormulario['tanque']?.toString(),
         'filial_id': widget.dadosFormulario['filial_id']?.toString(),
-        'status': 'emitido', // ✅ ATUALIZAR STATUS PARA EMITIDO
-        
-        // ✅ ADICIONAR O CAMPO TIPO
+        'status': 'emitido',
         'tipo': tipoCACL,
         
-        // Medições INICIAL (MANTÉM OS EXISTENTES - não alterar)
-        'horario_inicial': formatarHorarioParaTime(medicoes['horarioInicial']?.toString()),
+        // Medições INICIAL
+        'horario_inicial': _formatarHorarioParaTime(medicoes['horarioInicial']?.toString()),
         'altura_total_liquido_inicial': medicoes['alturaTotalInicial']?.toString(),
         'altura_total_cm_inicial': medicoes['cmInicial']?.toString(),
         'altura_total_mm_inicial': medicoes['mmInicial']?.toString(),
         'volume_total_liquido_inicial': volumeTotalLiquidoInicial,
         'altura_agua_inicial': medicoes['alturaAguaInicial']?.toString(),
-        'volume_agua_inicial': extrairNumeroFormatado(medicoes['volumeAguaInicial']?.toString()),
+        'volume_agua_inicial': _extrairNumeroFormatado(medicoes['volumeAguaInicial']?.toString()),
         'altura_produto_inicial': medicoes['alturaProdutoInicial']?.toString(),
         'volume_produto_inicial': volumeInicial,
         'temperatura_tanque_inicial': medicoes['tempTanqueInicial']?.toString(),
@@ -528,48 +497,55 @@ class _CalcPageState extends State<CalcPage> {
         'temperatura_amostra_inicial': medicoes['tempAmostraInicial']?.toString(),
         'densidade_20_inicial': medicoes['densidade20Inicial']?.toString(),
         'fator_correcao_inicial': medicoes['fatorCorrecaoInicial']?.toString(),
-        'volume_20_inicial': extrairNumeroFormatado(medicoes['volume20Inicial']?.toString()),
+        'volume_20_inicial': _extrairNumeroFormatado(medicoes['volume20Inicial']?.toString()),
         'massa_inicial': medicoes['massaInicial']?.toString(),
         
-        // Medições FINAL (PREENCHE OS QUE ESTAVAM NULL)
-        'horario_final': formatarHorarioParaTime(medicoes['horarioFinal']?.toString()),
+        // Medições FINAL - ATUALIZAR TODOS OS CAMPOS (CRÍTICO!)
+        'horario_final': _formatarHorarioParaTime(medicoes['horarioFinal']?.toString()),
         'altura_total_liquido_final': medicoes['alturaTotalFinal']?.toString(),
         'altura_total_cm_final': medicoes['cmFinal']?.toString(),
         'altura_total_mm_final': medicoes['mmFinal']?.toString(),
         'volume_total_liquido_final': volumeTotalLiquidoFinal,
         'altura_agua_final': medicoes['alturaAguaFinal']?.toString(),
-        'volume_agua_final': extrairNumeroFormatado(medicoes['volumeAguaFinal']?.toString()),
+        'volume_agua_final': _extrairNumeroFormatado(medicoes['volumeAguaFinal']?.toString()),
         'altura_produto_final': medicoes['alturaProdutoFinal']?.toString(),
-        'volume_produto_final': volumeFinal,
+        'volume_produto_final': volumeFinal, // CAMPO IMPORTANTE!
         'temperatura_tanque_final': medicoes['tempTanqueFinal']?.toString(),
         'densidade_observada_final': medicoes['densidadeFinal']?.toString(),
         'temperatura_amostra_final': medicoes['tempAmostraFinal']?.toString(),
         'densidade_20_final': medicoes['densidade20Final']?.toString(),
         'fator_correcao_final': medicoes['fatorCorrecaoFinal']?.toString(),
-        'volume_20_final': extrairNumeroFormatado(medicoes['volume20Final']?.toString()),
+        'volume_20_final': _extrairNumeroFormatado(medicoes['volume20Final']?.toString()),
         'massa_final': medicoes['massaFinal']?.toString(),
         
-        // Cálculos comparativos (ATUALIZA COM OS NOVOS VALORES)
+        // Cálculos comparativos
         'volume_ambiente_inicial': volumeInicial,
         'volume_ambiente_final': volumeFinal,
         'entrada_saida_ambiente': volumeFinal - volumeInicial,
         'entrada_saida_20': (_extrairNumero(medicoes['volume20Final']?.toString()) - 
                             _extrairNumero(medicoes['volume20Inicial']?.toString())),
         
-        // Informações de faturamento (ADICIONA SE EXISTIR)
-        'faturado_final': converterParaDouble(medicoes['faturadoFinal']?.toString()),
-        'diferenca_faturado': (extrairNumeroFormatado(medicoes['volume20Final']?.toString()) ?? 0) -
-                            (extrairNumeroFormatado(medicoes['volume20Inicial']?.toString()) ?? 0) -
-                            (converterParaDouble(medicoes['faturadoFinal']?.toString()) ?? 0),
+        // Informações de faturamento
+        'faturado_final': _converterParaDouble(medicoes['faturadoFinal']?.toString()),
+        'diferenca_faturado': (_extrairNumeroFormatado(medicoes['volume20Final']?.toString()) ?? 0) -
+                            (_extrairNumeroFormatado(medicoes['volume20Inicial']?.toString()) ?? 0) -
+                            (_converterParaDouble(medicoes['faturadoFinal']?.toString()) ?? 0),
         
-        // Auditoria - SEMPRE atualizar
+        // Auditoria
         'updated_at': DateTime.now().toIso8601String(),
       };
+      
+      // DEBUG: Mostrar valores que estão sendo calculados
+      print('=== 🧮 VALORES CALCULADOS PARA INSERÇÃO ===');
+      print('   horario_final: ${_formatarHorarioParaTime(medicoes['horarioFinal']?.toString())}');
+      print('   volume_agua_final extraído: ${_extrairNumeroFormatado(medicoes['volumeAguaFinal']?.toString())}');
+      print('   volume_20_final extraído: ${_extrairNumeroFormatado(medicoes['volume20Final']?.toString())}');
+      print('   faturado_final convertido: ${_converterParaDouble(medicoes['faturadoFinal']?.toString())}');
       
       // Calcular porcentagem da diferença
       final entradaSaida20 = _extrairNumero(medicoes['volume20Final']?.toString()) - 
                             _extrairNumero(medicoes['volume20Inicial']?.toString());
-      final diferenca = entradaSaida20 - (converterParaDouble(medicoes['faturadoFinal']?.toString()) ?? 0);
+      final diferenca = entradaSaida20 - (_converterParaDouble(medicoes['faturadoFinal']?.toString()) ?? 0);
       
       if (entradaSaida20 != 0) {
         final porcentagem = (diferenca / entradaSaida20) * 100;
@@ -578,18 +554,40 @@ class _CalcPageState extends State<CalcPage> {
         dadosParaInserir['porcentagem_diferenca'] = '0.00%';
       }
       
+      // DEBUG: Mostrar dados que serão enviados
+      print('=== 📤 DADOS PARA INSERIR/ATUALIZAR ===');
+      print('📦 Total de campos: ${dadosParaInserir.length}');
+      
+      // Mostrar campos da 2ª medição especificamente
+      final camposFinais = [
+        'horario_final', 'altura_total_cm_final', 'altura_total_mm_final',
+        'volume_total_liquido_final', 'volume_produto_final', 
+        'temperatura_tanque_final', 'densidade_observada_final',
+        'temperatura_amostra_final', 'densidade_20_final',
+        'fator_correcao_final', 'volume_20_final', 'massa_final'
+      ];
+      
+      for (var campo in camposFinais) {
+        print('   $campo: ${dadosParaInserir[campo] ?? "NULL"}');
+      }
+      
       // Remover campos nulos
+      final antes = dadosParaInserir.length;
       dadosParaInserir.removeWhere((key, value) => value == null);
+      final depois = dadosParaInserir.length;
+      
+      print('📊 Campos removidos (null): ${antes - depois}');
       
       // ✅ VERIFICAR ID DE MULTIPLAS FONTES
       String? idParaUpdate = widget.caclId;
       
-      // Se não tiver no widget, tenta buscar do dadosFormulario
       if ((idParaUpdate == null || idParaUpdate.isEmpty) && 
           widget.dadosFormulario.containsKey('id_cacl')) {
         idParaUpdate = widget.dadosFormulario['id_cacl']?.toString();
         print('⚠️ ID encontrado em dadosFormulario: $idParaUpdate');
       }
+      
+      print('🎯 ID para operação: $idParaUpdate');
       
       // ✅ DECISÃO: UPDATE se tiver ID, INSERT se não tiver
       if (idParaUpdate != null && idParaUpdate.isNotEmpty) {
@@ -597,10 +595,11 @@ class _CalcPageState extends State<CalcPage> {
         print('🔄 ATUALIZANDO CACL EXISTENTE - ID: $idParaUpdate');
         
         try {
-          // Primeiro, verifica se o registro existe
+          // VERIFICAR SE O REGISTRO EXISTE
+          print('🔍 Verificando existência do CACL no banco...');
           final verificaExistencia = await supabase
               .from('cacl')
-              .select('id, status')
+              .select('id, status, volume_produto_final, updated_at')
               .eq('id', idParaUpdate)
               .maybeSingle();
               
@@ -609,9 +608,45 @@ class _CalcPageState extends State<CalcPage> {
             throw Exception('CACL não encontrado para atualização');
           }
           
-          print('✅ CACL encontrado para atualização. Status atual: ${verificaExistencia['status']}');
-                              
-          print('✅✅✅ CACL ATUALIZADO COM SUCESSO! ID: $idParaUpdate');
+          print('✅ CACL encontrado para atualização');
+          print('   Status atual: ${verificaExistencia['status']}');
+          print('   Volume produto final atual: ${verificaExistencia['volume_produto_final']}');
+          print('   Updated at atual: ${verificaExistencia['updated_at']}');
+          
+          // EXECUTAR UPDATE
+          print('💾 Executando UPDATE...');
+          await supabase
+              .from('cacl')
+              .update(dadosParaInserir)
+              .eq('id', idParaUpdate);
+              
+          print('✅✅✅ UPDATE EXECUTADO!');
+          
+          // VERIFICAR SE FOI ATUALIZADO
+          print('🔍 Verificando atualização...');
+          final verificaAtualizacao = await supabase
+              .from('cacl')
+              .select('status, volume_produto_final, updated_at')
+              .eq('id', idParaUpdate)
+              .single();
+              
+          print('📊 Resultado pós-update:');
+          print('   Status: ${verificaAtualizacao['status']}');
+          print('   Volume produto final: ${verificaAtualizacao['volume_produto_final']}');
+          print('   Updated at: ${verificaAtualizacao['updated_at']}');
+          
+          // Verificar se os valores foram atualizados
+          final volumeAntes = verificaExistencia['volume_produto_final'];
+          final volumeDepois = verificaAtualizacao['volume_produto_final'];
+          
+          if (volumeAntes != volumeDepois) {
+            print('🎉 VOLUME ATUALIZADO COM SUCESSO!');
+            print('   Antes: $volumeAntes');
+            print('   Depois: $volumeDepois');
+          } else {
+            print('⚠️ AVISO: Volume não parece ter mudado');
+            print('⚠️ POSSÍVEL PROBLEMA: Os dados podem não estar sendo mapeados corretamente');
+          }
           
           // Sucesso - UPDATE
           if (context.mounted) {
@@ -626,24 +661,32 @@ class _CalcPageState extends State<CalcPage> {
           
         } catch (e) {
           print('❌ Erro ao atualizar CACL: $e');
+          print('📋 Stack trace: ${e.toString()}');
           
           // Fallback: inserir como novo se falhar o update
-          print('🔄 Tentando inserir como novo CACL...');
+          print('🔄 Tentando inserir como novo CACL (fallback)...');
           dadosParaInserir['created_by'] = session.user.id;
           dadosParaInserir['created_at'] = DateTime.now().toIso8601String();
           
-          await supabase
-              .from('cacl')
-              .insert(dadosParaInserir);
-              
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('✓ Novo CACL criado (fallback)'),
-                backgroundColor: Colors.orange,
-                duration: Duration(seconds: 3),
-              ),
-            );
+          try {
+            await supabase
+                .from('cacl')
+                .insert(dadosParaInserir);
+                
+            print('✅✅✅ NOVO CACL CRIADO (fallback)');
+            
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('✓ Novo CACL criado (fallback)'),
+                  backgroundColor: Colors.orange,
+                  duration: Duration(seconds: 3),
+                ),
+              );
+            }
+          } catch (insertError) {
+            print('❌❌❌ ERRO NO FALLBACK: $insertError');
+            rethrow;
           }
         }
         
@@ -654,7 +697,12 @@ class _CalcPageState extends State<CalcPage> {
         // Adicionar campos de criação
         dadosParaInserir['created_by'] = session.user.id;
         dadosParaInserir['created_at'] = DateTime.now().toIso8601String();
-                
+        
+        print('💾 Executando INSERT...');
+        await supabase
+            .from('cacl')
+            .insert(dadosParaInserir);
+            
         print('✅✅✅ NOVO CACL INSERIDO COM SUCESSO!');
         
         // Sucesso - INSERT
@@ -676,8 +724,13 @@ class _CalcPageState extends State<CalcPage> {
         });
       }
       
+      print('=== ✅ FIM _emitirCACL() ===');
+      
     } catch (e) {
-      print('❌❌❌ ERRO GRAVE ao emitir/atualizar CACL: $e');
+      print('❌❌❌ ERRO GRAVE ao emitir/atualizar CACL ===');
+      print('Erro: $e');
+      print('Stack trace: ${e.toString()}');
+      print('======================================');
       
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2678,5 +2731,44 @@ class _CalcPageState extends State<CalcPage> {
     }
     
     return true; // Todos os dados finais estão preenchidos
+  }
+
+  String? _formatarHorarioParaTime(String? horario) {
+    if (horario == null || horario.isEmpty || horario == '-') return null;
+    String limpo = horario.trim().replaceAll('h', '').replaceAll('H', '');
+    if (limpo.contains(':')) {
+      final partes = limpo.split(':');
+      if (partes.length == 2) {
+        final horas = int.tryParse(partes[0]) ?? 0;
+        final minutos = int.tryParse(partes[1]) ?? 0;
+        if (horas >= 0 && horas < 24 && minutos >= 0 && minutos < 60) {
+          return '${horas.toString().padLeft(2, '0')}:${minutos.toString().padLeft(2, '0')}:00';
+        }
+      }
+    }
+    return null;
+  }
+
+  double? _extrairNumeroFormatado(String? valor) {
+    if (valor == null || valor.isEmpty || valor == '-') return null;
+    try {
+      String somenteNumeros = valor.replaceAll(RegExp(r'[^0-9]'), '');
+      if (somenteNumeros.isEmpty) return null;
+      return double.tryParse(somenteNumeros);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  double? _converterParaDouble(String? valor) {
+    if (valor == null || valor.isEmpty || valor == '-') return null;
+    try {
+      String limpo = valor.replaceAll(' L', '').replaceAll(' cm', '')
+          .replaceAll(' ºC', '').replaceAll('°C', '')
+          .replaceAll(',', '.').replaceAll('.', '');
+      return double.tryParse(limpo);
+    } catch (e) {
+      return null;
+    }
   }
 }
