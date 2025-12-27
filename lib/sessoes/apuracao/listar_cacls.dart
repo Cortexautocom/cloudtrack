@@ -41,50 +41,53 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
     try {
       final supabase = Supabase.instance.client;
       final dataAtual = DateTime.now();
-      final dataFormatada = '${dataAtual.year}-${dataAtual.month.toString().padLeft(2, '0')}-${dataAtual.day.toString().padLeft(2, '0')}';
+      final dataFormatada =
+          '${dataAtual.year}-${dataAtual.month.toString().padLeft(2, '0')}-${dataAtual.day.toString().padLeft(2, '0')}';
 
-      // 1. Buscar TODOS os CACLs da filial
       final todosCacls = await supabase
           .from('cacl')
           .select('''
-            id, data, produto, tanque, status,
-            horario_inicial, horario_final,
-            volume_produto_inicial, volume_produto_final, base
+            id,
+            data,
+            produto,
+            tanque,
+            status,
+            horario_inicial,
+            horario_final,
+            volume_produto_inicial,
+            volume_produto_final,
+            volume_total_liquido_inicial,
+            volume_total_liquido_final,
+            base
           ''')
           .eq('filial_id', widget.filialId)
           .order('created_at', ascending: false);
 
-      // 2. Filtrar manualmente no código
       final caclsFiltrados = todosCacls.where((cacl) {
         final status = cacl['status']?.toString().toLowerCase() ?? '';
         final data = cacl['data']?.toString() ?? '';
-        
-        // Regra 1: É pendente ou aguardando?
+
         if (status.contains('pendente') || status.contains('aguardando')) {
           return true;
         }
-        
-        // Regra 2: É emitido E data é hoje?
+
         if (status.contains('emitido') && data == dataFormatada) {
           return true;
         }
-        
+
         return false;
       }).toList();
 
-      print('📊 Total no banco: ${todosCacls.length}');
-      print('📊 Após filtro: ${caclsFiltrados.length}');
-      
       setState(() {
         _cacles = List<Map<String, dynamic>>.from(caclsFiltrados);
       });
-      
     } catch (e) {
       debugPrint('❌ Erro ao carregar CACLs: $e');
     } finally {
       setState(() => _carregando = false);
     }
   }
+
 
   String _formatarData(dynamic data) {
     if (data == null) return '-';
@@ -552,6 +555,24 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
   }
 
   Map<String, dynamic> _mapearCaclParaFormulario(Map<String, dynamic> cacl) {
+    String fmt(double? v) {
+      if (v == null) return '-';
+      final i = v.round().toString();
+      if (i.length <= 3) return '$i L';
+
+      final buffer = StringBuffer();
+      int c = 0;
+      for (int x = i.length - 1; x >= 0; x--) {
+        buffer.write(i[x]);
+        c++;
+        if (c == 3 && x > 0) {
+          buffer.write('.');
+          c = 0;
+        }
+      }
+      return '${buffer.toString().split('').reversed.join()} L';
+    }
+
     return <String, dynamic>{
       'data': cacl['data']?.toString(),
       'base': cacl['base'],
@@ -561,13 +582,13 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
       'responsavel': UsuarioAtual.instance?.nome ?? 'Usuário',
 
       'medicoes': <String, dynamic>{
-        // INICIAL (1ª Medição)
+        // ===== INICIAL =====
         'horarioInicial': cacl['horario_inicial']?.toString(),
         'cmInicial': cacl['altura_total_cm_inicial']?.toString(),
         'mmInicial': cacl['altura_total_mm_inicial']?.toString(),
         'alturaAguaInicial': cacl['altura_agua_inicial']?.toString(),
         'volumeAguaInicial': cacl['volume_agua_inicial'] != null
-            ? '${cacl['volume_agua_inicial']} L'
+            ? fmt(cacl['volume_agua_inicial'])
             : '-',
         'alturaProdutoInicial': cacl['altura_produto_inicial']?.toString(),
         'tempTanqueInicial': cacl['temperatura_tanque_inicial']?.toString(),
@@ -576,17 +597,26 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
         'densidade20Inicial': cacl['densidade_20_inicial']?.toString(),
         'fatorCorrecaoInicial': cacl['fator_correcao_inicial']?.toString(),
         'volume20Inicial': cacl['volume_20_inicial'] != null
-            ? '${cacl['volume_20_inicial']} L'
+            ? fmt(cacl['volume_20_inicial'])
             : '-',
         'massaInicial': cacl['massa_inicial']?.toString(),
 
-        // FINAL (2ª Medição)
+        // 🔴 CORREÇÃO PRINCIPAL
+        'volumeProdutoInicial': cacl['volume_produto_inicial'] != null
+            ? fmt(cacl['volume_produto_inicial'])
+            : '-',
+        'volumeTotalLiquidoInicial':
+            cacl['volume_total_liquido_inicial'] != null
+                ? fmt(cacl['volume_total_liquido_inicial'])
+                : '-',
+
+        // ===== FINAL =====
         'horarioFinal': cacl['horario_final']?.toString(),
         'cmFinal': cacl['altura_total_cm_final']?.toString(),
         'mmFinal': cacl['altura_total_mm_final']?.toString(),
         'alturaAguaFinal': cacl['altura_agua_final']?.toString(),
         'volumeAguaFinal': cacl['volume_agua_final'] != null
-            ? '${cacl['volume_agua_final']} L'
+            ? fmt(cacl['volume_agua_final'])
             : '-',
         'alturaProdutoFinal': cacl['altura_produto_final']?.toString(),
         'tempTanqueFinal': cacl['temperatura_tanque_final']?.toString(),
@@ -595,13 +625,23 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> {
         'densidade20Final': cacl['densidade_20_final']?.toString(),
         'fatorCorrecaoFinal': cacl['fator_correcao_final']?.toString(),
         'volume20Final': cacl['volume_20_final'] != null
-            ? '${cacl['volume_20_final']} L'
+            ? fmt(cacl['volume_20_final'])
             : '-',
         'massaFinal': cacl['massa_final']?.toString(),
+
+        // 🔴 CORREÇÃO PRINCIPAL
+        'volumeProdutoFinal': cacl['volume_produto_final'] != null
+            ? fmt(cacl['volume_produto_final'])
+            : '-',
+        'volumeTotalLiquidoFinal':
+            cacl['volume_total_liquido_final'] != null
+                ? fmt(cacl['volume_total_liquido_final'])
+                : '-',
 
         // FATURAMENTO
         'faturadoFinal': cacl['faturado_final']?.toString(),
       }
     };
   }
+
 }

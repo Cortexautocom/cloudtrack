@@ -62,9 +62,17 @@ class _CalcPageState extends State<CalcPage> {
       
       // Se os dados já estão completos (vindos do mapeamento), usa-os
       if (medicoes.isNotEmpty && medicoes.containsKey('volumeProdutoInicial')) {
-        volumeInicial = _extrairNumero(medicoes['volumeProdutoInicial']?.toString());
-        volumeFinal = _extrairNumero(medicoes['volumeProdutoFinal']?.toString());
-        
+        volumeInicial =
+            _extrairNumero(medicoes['volumeProdutoInicial']?.toString());
+        volumeFinal =
+            _extrairNumero(medicoes['volumeProdutoFinal']?.toString());
+
+        // 🔴 CORREÇÃO PRINCIPAL
+        volumeTotalLiquidoInicial =
+            _extrairNumero(medicoes['volumeTotalLiquidoInicial']?.toString());
+        volumeTotalLiquidoFinal =
+            _extrairNumero(medicoes['volumeTotalLiquidoFinal']?.toString());
+
         setState(() {
           _caclJaEmitido = true;
         });

@@ -22,24 +22,20 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
   List<Map<String, dynamic>> tanquesDisponiveis = [];
   List<Map<String, dynamic>> produtosDisponiveis = [];
   
-  // Controles de paginação
   int paginaAtual = 1;
   int totalPaginas = 1;
   int totalRegistros = 0;
   final int limitePorPagina = 50;
   
-  // Filtros
   DateTime? dataInicio;
   DateTime? dataFim;
   String? filialSelecionadaId;
   String? tanqueSelecionado;
   String? produtoSelecionado;
   
-  // Controladores para UI
   final TextEditingController dataInicioController = TextEditingController();
   final TextEditingController dataFimController = TextEditingController();
 
-  // Para armazenar dados do usuário
   Map<String, dynamic>? _usuarioData;
 
   @override
@@ -52,21 +48,19 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
     try {
       final supabase = Supabase.instance.client;
       final user = supabase.auth.currentUser;
-      
+
       if (user == null) return null;
-      
-      final usuarioData = await supabase
+
+      return await supabase
           .from('usuarios')
           .select('id, nome, nivel, id_filial, senha_temporaria, Nome_apelido')
           .eq('id', user.id)
           .maybeSingle();
-      
-      return usuarioData;
-    } catch (e) {
-      debugPrint('❌ Erro ao obter dados do usuário: $e');
+    } catch (_) {
       return null;
     }
   }
+
 
   Future<void> _carregarDadosIniciais() async {
     setState(() => carregando = true);
@@ -88,7 +82,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
       final nivel = _usuarioData!['nivel'];
       final filialId = _usuarioData!['id_filial']?.toString();
       
-      // Carregar produtos disponíveis
       final produtosResponse = await supabase
           .from('produtos')
           .select('id, nome')
@@ -97,7 +90,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
         produtosDisponiveis = List<Map<String, dynamic>>.from(produtosResponse);
       });
       
-      // Carregar filiais (apenas para nível 3)
       if (nivel == 3) {
         final filiaisResponse = await supabase
             .from('filiais')
@@ -108,16 +100,13 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
         });
       }
       
-      // Carregar tanques disponíveis (de acordo com permissão)
       if (nivel == 3) {
-        // Admin: todos os tanques
         final tanquesResponse = await supabase
             .from('tanques')
             .select('id, referencia, id_filial')
             .order('referencia');
         tanquesDisponiveis = List<Map<String, dynamic>>.from(tanquesResponse);
       } else if (filialId != null) {
-        // Usuário normal: apenas tanques da sua filial
         final tanquesResponse = await supabase
             .from('tanques')
             .select('id, referencia')
@@ -126,11 +115,9 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
         tanquesDisponiveis = List<Map<String, dynamic>>.from(tanquesResponse);
       }
       
-      // Carregar dados iniciais
       await _aplicarFiltros();
       
     } catch (e) {
-      debugPrint('❌ Erro ao carregar dados iniciais: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Erro ao carregar dados: $e'),
@@ -146,64 +133,71 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
     if (resetarPagina) {
       paginaAtual = 1;
     }
-    
+
     setState(() => buscando = true);
-    
+
     try {
       final supabase = Supabase.instance.client;
-      
+
+      _usuarioData ??= await _obterDadosUsuario();
+
       if (_usuarioData == null) {
-        _usuarioData = await _obterDadosUsuario();
+        return;
       }
-      
+
       final nivel = _usuarioData!['nivel'];
       final filialId = _usuarioData!['id_filial']?.toString();
-      
-      // Construir query base
-      var query = supabase
-          .from('cacl')
-          .select('''
-            id, 
-            data, 
-            base, 
-            produto, 
-            tanque,
-            filial_id,
-            created_at,
-            entrada_saida_20,
-            faturado_final,
-            diferenca_faturado,
-            porcentagem_diferenca
-          ''');
-      
-      // Aplicar filtro de nível de acesso
+
+      var query = supabase.from('cacl').select('''
+        id,
+        data,
+        base,
+        produto,
+        tanque,
+        filial_id,
+        created_at,
+
+        volume_total_liquido_inicial,
+        volume_produto_inicial,
+
+        entrada_saida_20,
+        faturado_final,
+        diferenca_faturado,
+        porcentagem_diferenca
+      ''');
+
       if (nivel < 3 && filialId != null) {
         query = query.eq('filial_id', filialId);
       }
-      
-      // Aplicar filtros personalizados
+
       if (dataInicio != null) {
-        query = query.gte('data', dataInicio!.toIso8601String().split('T')[0]);
+        query = query.gte(
+          'data',
+          dataInicio!.toIso8601String().split('T')[0],
+        );
       }
+
       if (dataFim != null) {
-        query = query.lte('data', dataFim!.toIso8601String().split('T')[0]);
+        query = query.lte(
+          'data',
+          dataFim!.toIso8601String().split('T')[0],
+        );
       }
+
       if (filialSelecionadaId != null && nivel == 3) {
         query = query.eq('filial_id', filialSelecionadaId!);
       }
+
       if (tanqueSelecionado != null && tanqueSelecionado!.isNotEmpty) {
         query = query.ilike('tanque', '%$tanqueSelecionado%');
       }
+
       if (produtoSelecionado != null && produtoSelecionado!.isNotEmpty) {
         query = query.eq('produto', produtoSelecionado!);
       }
-      
-      // Primeiro, contar total de registros (para paginação)
-      final countQuery = query;
-      final countData = await countQuery;
-      final totalCount = countData.length;
-      
-      // Depois, buscar com paginação
+
+      final countResponse = await query;
+
       final response = await query
           .order('data', ascending: false)
           .order('created_at', ascending: false)
@@ -211,16 +205,15 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
             (paginaAtual - 1) * limitePorPagina,
             (paginaAtual * limitePorPagina) - 1,
           );
-      
+
       setState(() {
         cacles = List<Map<String, dynamic>>.from(response);
-        totalRegistros = totalCount;
+        totalRegistros = countResponse.length;
         totalPaginas = (totalRegistros / limitePorPagina).ceil();
         if (totalPaginas == 0) totalPaginas = 1;
       });
-      
+
     } catch (e) {
-      debugPrint('❌ Erro ao buscar CACLs: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Erro na busca: $e'),
@@ -281,10 +274,8 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
             ),
             const SizedBox(height: 16),
             
-            // Linha 1: Produto, Filial (se admin) e Tanque
             Row(
               children: [
-                // Produto
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     value: produtoSelecionado,
@@ -320,7 +311,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
                 
                 const SizedBox(width: 12),
                 
-                // Filial (apenas para admin)
                 if (isAdmin)
                   Expanded(
                     child: DropdownButtonFormField<String>(
@@ -357,7 +347,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
                 
                 if (isAdmin) const SizedBox(width: 12),
                 
-                // Tanque
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     value: tanqueSelecionado,
@@ -395,10 +384,8 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
             
             const SizedBox(height: 12),
             
-            // Linha 2: Data Início, Data Fim e Botões
             Row(
               children: [
-                // Data Início
                 Expanded(
                   child: TextFormField(
                     controller: dataInicioController,
@@ -437,7 +424,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
                 
                 const SizedBox(width: 12),
                 
-                // Data Fim
                 Expanded(
                   child: TextFormField(
                     controller: dataFimController,
@@ -476,7 +462,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
                 
                 const SizedBox(width: 12),
                 
-                // Botões
                 SizedBox(
                   width: 200,
                   child: Row(
@@ -601,7 +586,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
       backgroundColor: const Color(0xFFF8F9FA),
       body: Column(
         children: [
-          // Cabeçalho
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -666,7 +650,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
             ),
           ),
 
-          // Conteúdo
           Expanded(
             child: carregando
                 ? const Center(
@@ -681,10 +664,8 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
                   )
                 : Column(
                     children: [
-                      // Filtros
                       _buildCardFiltros(),
                       
-                      // Lista de resultados
                       Expanded(
                         child: cacles.isEmpty
                             ? Center(
@@ -824,6 +805,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
                                       ),
                                       onTap: () async {
                                         final supabase = Supabase.instance.client;
+
                                         final caclCompleto = await supabase
                                             .from('cacl')
                                             .select('*')
@@ -850,7 +832,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
                               ),
                       ),
                       
-                      // Paginação (se houver mais de uma página)
                       if (totalPaginas > 1) _buildPaginacao(),
                     ],
                   ),
@@ -861,7 +842,36 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
   }
 
   Map<String, dynamic> _mapearCaclParaFormulario(Map<String, dynamic> cacl) {
+    String _formatarVolumeLitros(double? volume) {
+      if (volume == null) return '-';
+      
+      final volumeInteiro = volume.round();
+      
+      String inteiroFormatado = volumeInteiro.toString();
+      
+      if (inteiroFormatado.length > 3) {
+        final buffer = StringBuffer();
+        int contador = 0;
+        
+        for (int i = inteiroFormatado.length - 1; i >= 0; i--) {
+          buffer.write(inteiroFormatado[i]);
+          contador++;
+          
+          if (contador == 3 && i > 0) {
+            buffer.write('.');
+            contador = 0;
+          }
+        }
+        
+        final chars = buffer.toString().split('').reversed.toList();
+        inteiroFormatado = chars.join('');
+      }
+      
+      return '$inteiroFormatado L';
+    }
+
     return {
+      'id': cacl['id']?.toString(),
       'data': cacl['data']?.toString(),
       'base': cacl['base'],
       'produto': cacl['produto'],
@@ -869,46 +879,67 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
       'filial_id': cacl['filial_id'],
 
       'medicoes': {
-        // MANHÃ (inicial)
-        'horarioManha': cacl['horario_inicial'],
-        'cmManha': cacl['altura_total_cm_inicial'],
-        'mmManha': cacl['altura_total_mm_inicial'],
-        'alturaAguaManha': cacl['altura_agua_inicial'],
-        'volumeAguaManha': cacl['volume_agua_inicial'] != null
-            ? '${cacl['volume_agua_inicial']} L'
+        'horarioInicial': cacl['horario_inicial'],
+        'cmInicial': cacl['altura_total_cm_inicial']?.toString(),
+        'mmInicial': cacl['altura_total_mm_inicial']?.toString(),
+        'alturaAguaInicial': cacl['altura_agua_inicial'],
+        'volumeAguaInicial': cacl['volume_agua_inicial'] != null
+            ? _formatarVolumeLitros(cacl['volume_agua_inicial'] as double?)
             : '-',
-        'alturaProdutoManha': cacl['altura_produto_inicial'],
-        'tempTanqueManha': cacl['temperatura_tanque_inicial'],
-        'densidadeManha': cacl['densidade_observada_inicial'],
-        'tempAmostraManha': cacl['temperatura_amostra_inicial'],
-        'densidade20Manha': cacl['densidade_20_inicial'],
-        'fatorCorrecaoManha': cacl['fator_correcao_inicial'],
-        'volume20Manha': cacl['volume_20_inicial'] != null
-            ? '${cacl['volume_20_inicial']} L'
+        'alturaProdutoInicial': cacl['altura_produto_inicial'],
+        'tempTanqueInicial': cacl['temperatura_tanque_inicial'],
+        'densidadeInicial': cacl['densidade_observada_inicial'],
+        'tempAmostraInicial': cacl['temperatura_amostra_inicial'],
+        'densidade20Inicial': cacl['densidade_20_inicial'],
+        'fatorCorrecaoInicial': cacl['fator_correcao_inicial'],
+        'volume20Inicial': cacl['volume_20_inicial'] != null
+            ? _formatarVolumeLitros(cacl['volume_20_inicial'] as double?)
             : '-',
-        'massaManha': cacl['massa_inicial'],
+        'massaInicial': cacl['massa_inicial'],
+        
+        'volumeTotalLiquidoInicial': cacl['volume_total_liquido_inicial'] != null
+            ? _formatarVolumeLitros(cacl['volume_total_liquido_inicial'] as double?)
+            : '-',
+        'volumeProdutoInicial': cacl['volume_produto_inicial'] != null
+            ? _formatarVolumeLitros(cacl['volume_produto_inicial'] as double?)
+            : '-',
 
-        // TARDE (final)
-        'horarioTarde': cacl['horario_final'],
-        'cmTarde': cacl['altura_total_cm_final'],
-        'mmTarde': cacl['altura_total_mm_final'],
-        'alturaAguaTarde': cacl['altura_agua_final'],
-        'volumeAguaTarde': cacl['volume_agua_final'] != null
-            ? '${cacl['volume_agua_final']} L'
+        'horarioFinal': cacl['horario_final'],
+        'cmFinal': cacl['altura_total_cm_final']?.toString(),
+        'mmFinal': cacl['altura_total_mm_final']?.toString(),
+        'alturaAguaFinal': cacl['altura_agua_final'],
+        'volumeAguaFinal': cacl['volume_agua_final'] != null
+            ? _formatarVolumeLitros(cacl['volume_agua_final'] as double?)
             : '-',
-        'alturaProdutoTarde': cacl['altura_produto_final'],
-        'tempTanqueTarde': cacl['temperatura_tanque_final'],
-        'densidadeTarde': cacl['densidade_observada_final'],
-        'tempAmostraTarde': cacl['temperatura_amostra_final'],
-        'densidade20Tarde': cacl['densidade_20_final'],
-        'fatorCorrecaoTarde': cacl['fator_correcao_final'],
-        'volume20Tarde': cacl['volume_20_final'] != null
-            ? '${cacl['volume_20_final']} L'
+        'alturaProdutoFinal': cacl['altura_produto_final'],
+        'tempTanqueFinal': cacl['temperatura_tanque_final'],
+        'densidadeFinal': cacl['densidade_observada_final'],
+        'tempAmostraFinal': cacl['temperatura_amostra_final'],
+        'densidade20Final': cacl['densidade_20_final'],
+        'fatorCorrecaoFinal': cacl['fator_correcao_final'],
+        'volume20Final': cacl['volume_20_final'] != null
+            ? _formatarVolumeLitros(cacl['volume_20_final'] as double?)
             : '-',
-        'massaTarde': cacl['massa_final'],
+        'massaFinal': cacl['massa_final'],
+        
+        'volumeTotalLiquidoFinal': cacl['volume_total_liquido_final'] != null
+            ? _formatarVolumeLitros(cacl['volume_total_liquido_final'] as double?)
+            : '-',
+        'volumeProdutoFinal': cacl['volume_produto_final'] != null
+            ? _formatarVolumeLitros(cacl['volume_produto_final'] as double?)
+            : '-',
 
-        // FATURAMENTO
-        'faturadoTarde': cacl['faturado_final'],
+        'alturaTotalInicial': cacl['altura_total_liquido_inicial'],
+        'alturaTotalFinal': cacl['altura_total_liquido_final'],
+
+        'faturadoFinal': cacl['faturado_final']?.toString(),
+        
+        'volumeAmbienteInicial': cacl['volume_ambiente_inicial'] != null
+            ? _formatarVolumeLitros(cacl['volume_ambiente_inicial'] as double?)
+            : '-',
+        'volumeAmbienteFinal': cacl['volume_ambiente_final'] != null
+            ? _formatarVolumeLitros(cacl['volume_ambiente_final'] as double?)
+            : '-',
       }
     };
   }
