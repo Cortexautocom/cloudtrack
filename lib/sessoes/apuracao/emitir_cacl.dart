@@ -35,6 +35,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
   bool _caclVerificacao = false;
   bool _caclMovimentacao = false;
   bool _botaoHabilitado = false;
+
   @override
   void initState() {
     super.initState();
@@ -45,7 +46,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     try {
       final supabase = Supabase.instance.client;
       final usuario = UsuarioAtual.instance!;
-      
+
       final PostgrestTransformBuilder<dynamic> query;
 
       String? nomeFilial;
@@ -65,9 +66,11 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         nomeFilial = filialData['nome'];
       }
 
-      setState(() {
-        _nomeFilial = nomeFilial;
-      });
+      if (mounted) {
+        setState(() {
+          _nomeFilial = nomeFilial;
+        });
+      }
 
       if (usuario.nivel == 3) {
         if (widget.filialSelecionadaId == null) {
@@ -119,24 +122,31 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         });
       }
 
-      setState(() {
-        tanques = tanquesFormatados;
-        _carregando = false;
-      });
+      if (mounted) {
+        setState(() {
+          tanques = tanquesFormatados;
+          _carregando = false;
+        });
+      }
 
-      // Limpa controladores e focus nodes antigos se existirem
-      for (var list in _controllers) { 
-        for (var c in list) c.dispose(); 
+      // Limpa controllers e focusNodes antigos
+      for (var list in _controllers) {
+        for (var c in list) {
+          c.dispose();
+        }
       }
-      for (var list in _focusNodes) { 
-        for (var f in list) f.dispose(); 
+      for (var list in _focusNodes) {
+        for (var f in list) {
+          f.dispose();
+        }
       }
-      
+
       _controllers.clear();
       _focusNodes.clear();
 
       for (int i = 0; i < tanques.length; i++) {
         _controllers.add([
+          // ===== 1ª MEDIÇÃO =====
           TextEditingController(), // 0 - horário Inicial
           TextEditingController(), // 1 - cm Inicial
           TextEditingController(), // 2 - mm Inicial
@@ -145,51 +155,31 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           TextEditingController(), // 5 - temp amostra Inicial
           TextEditingController(), // 6 - água cm Inicial
           TextEditingController(), // 7 - água mm Inicial
-          TextEditingController(), // 8 - faturado Inicial
-          TextEditingController(), // 9 - observações Inicial
-          TextEditingController(), // 10 - horário Final
-          TextEditingController(), // 11 - cm Final
-          TextEditingController(), // 12 - mm Final
-          TextEditingController(), // 13 - temp tanque Final
-          TextEditingController(), // 14 - densidade Final
-          TextEditingController(), // 15 - temp amostra Final
-          TextEditingController(), // 16 - água cm Final
-          TextEditingController(), // 17 - água mm Final
-          TextEditingController(), // 18 - faturado Final          
+          TextEditingController(), // 8 - observações Inicial (NOVA POSIÇÃO)
+
+          // ===== 2ª MEDIÇÃO =====
+          TextEditingController(), // 9  - horário Final
+          TextEditingController(), // 10 - cm Final
+          TextEditingController(), // 11 - mm Final
+          TextEditingController(), // 12 - temp tanque Final
+          TextEditingController(), // 13 - densidade Final
+          TextEditingController(), // 14 - temp amostra Final
+          TextEditingController(), // 15 - água cm Final
+          TextEditingController(), // 16 - água mm Final
+          TextEditingController(), // 17 - faturado Final
+          TextEditingController(), // 18 - observações Final
         ]);
 
-        _focusNodes.add([
-          FocusNode(), // 0 - horário Inicial
-          FocusNode(), // 1 - cm Inicial
-          FocusNode(), // 2 - mm Inicial
-          FocusNode(), // 3 - temp tanque Inicial
-          FocusNode(), // 4 - densidade Inicial
-          FocusNode(), // 5 - temp amostra Inicial
-          FocusNode(), // 6 - água cm Inicial
-          FocusNode(), // 7 - água mm Inicial
-          FocusNode(), // 8 - faturado Inicial
-          FocusNode(), // 9 - observações Inicial
-          FocusNode(), // 10 - horário Final
-          FocusNode(), // 11 - cm Final
-          FocusNode(), // 12 - mm Final
-          FocusNode(), // 13 - temp tanque Final
-          FocusNode(), // 14 - densidade Final
-          FocusNode(), // 15 - temp amostra Final
-          FocusNode(), // 16 - água cm Final
-          FocusNode(), // 17 - água mm Final
-          FocusNode(), // 18 - faturado Final          
-        ]);
-        
-        // Configura listeners para os 6 campos obrigatórios da primeira medição
+        _focusNodes.add(List.generate(19, (_) => FocusNode()));
+
+        // Listeners para os 6 campos obrigatórios da 1ª medição (0-5)
         for (int j = 0; j < 6; j++) {
-          // Listener para quando o campo perde o foco
           _focusNodes[i][j].addListener(() {
             if (!_focusNodes[i][j].hasFocus && mounted) {
               _verificarCamposObrigatorios();
             }
           });
-          
-          // Listener para mudanças no texto (para capturar edições rápidas)
+
           _controllers[i][j].addListener(() {
             if (mounted) {
               _verificarCamposObrigatorios();
@@ -198,12 +188,12 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         }
       }
 
-      // Verifica o estado inicial dos campos
       _verificarCamposObrigatorios();
-
     } catch (e) {
       print('Erro ao carregar tanques: $e');
-      setState(() => _carregando = false);
+      if (mounted) {
+        setState(() => _carregando = false);
+      }
     }
   }
 
@@ -269,71 +259,80 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
 
   void _gerarCACL() {
     if (tanques.isEmpty) return;
-    
+
     final tanqueAtual = tanques[_tanqueSelecionadoIndex];
     final controllers = _controllers[_tanqueSelecionadoIndex];
-    
+
+    const int segunda = 9; // Ajustado porque agora temos 9 campos na primeira medição
+
+    // -------- 1ª MEDIÇÃO --------
     final cmTotalInicial = controllers[1].text;
     final mmTotalInicial = controllers[2].text;
-    final cmTotalFinal = controllers[11].text;  // Correção: índice 11, não 10
-    final mmTotalFinal = controllers[12].text;  // Correção: índice 12, não 11
-    
+
     final cmAguaInicial = controllers[6].text;
     final mmAguaInicial = controllers[7].text;
-    final cmAguaFinal = controllers[16].text;   // Correção: índice 16, não 15
-    final mmAguaFinal = controllers[17].text;   // Correção: índice 17, não 16
-    
+
+    // -------- 2ª MEDIÇÃO --------
+    final cmTotalFinal = controllers[segunda + 1].text;
+    final mmTotalFinal = controllers[segunda + 2].text;
+
+    final cmAguaFinal = controllers[segunda + 6].text;
+    final mmAguaFinal = controllers[segunda + 7].text;
+
+    // -------- CONVERSÕES --------
     final totalCmInicial = double.tryParse(cmTotalInicial) ?? 0.0;
     final totalMmInicial = double.tryParse(mmTotalInicial) ?? 0.0;
     final aguaCmInicial = double.tryParse(cmAguaInicial) ?? 0.0;
     final aguaMmInicial = double.tryParse(mmAguaInicial) ?? 0.0;
-    
+
     final totalCmFinal = double.tryParse(cmTotalFinal) ?? 0.0;
     final totalMmFinal = double.tryParse(mmTotalFinal) ?? 0.0;
     final aguaCmFinal = double.tryParse(cmAguaFinal) ?? 0.0;
     final aguaMmFinal = double.tryParse(mmAguaFinal) ?? 0.0;
-    
+
     final alturaTotalInicialCm = totalCmInicial + (totalMmInicial / 10);
     final alturaAguaInicialCm = aguaCmInicial + (aguaMmInicial / 10);
     final alturaProdutoInicialCm = alturaTotalInicialCm - alturaAguaInicialCm;
-    
+
     final alturaTotalFinalCm = totalCmFinal + (totalMmFinal / 10);
     final alturaAguaFinalCm = aguaCmFinal + (aguaMmFinal / 10);
     final alturaProdutoFinalCm = alturaTotalFinalCm - alturaAguaFinalCm;
-    
+
     String formatarParaCACL(double alturaCm) {
       final parteInteira = alturaCm.floor();
       final parteDecimal = ((alturaCm - parteInteira) * 10).round();
       return '$parteInteira,$parteDecimal cm';
     }
-    
-    final alturaProdutoInicialFormatada = formatarParaCACL(alturaProdutoInicialCm);
-    final alturaProdutoFinalFormatada = formatarParaCACL(alturaProdutoFinalCm);
-    
+
     final dadosMedicoes = {
+      // Altura total
       'cmInicial': cmTotalInicial,
       'mmInicial': mmTotalInicial,
       'cmFinal': cmTotalFinal,
       'mmFinal': mmTotalFinal,
-      
+
+      // Água
       'alturaAguaInicial': '$cmAguaInicial,$mmAguaInicial cm',
       'alturaAguaFinal': '$cmAguaFinal,$mmAguaFinal cm',
-      
-      'alturaProdutoInicial': alturaProdutoInicialFormatada,
-      'alturaProdutoFinal': alturaProdutoFinalFormatada,
-      
+
+      // Produto
+      'alturaProdutoInicial': formatarParaCACL(alturaProdutoInicialCm),
+      'alturaProdutoFinal': formatarParaCACL(alturaProdutoFinalCm),
+
+      // 1ª medição
       'horarioInicial': controllers[0].text,
       'tempTanqueInicial': controllers[3].text,
       'densidadeInicial': controllers[4].text,
       'tempAmostraInicial': controllers[5].text,
-      
-      'horarioFinal': controllers[10].text,    // Correção: índice 10, não 9
-      'tempTanqueFinal': controllers[13].text,  // Correção: índice 13, não 12
-      'densidadeFinal': controllers[14].text,   // Correção: índice 14, não 13
-      'tempAmostraFinal': controllers[15].text, // Correção: índice 15, não 14
-      
-      'faturadoFinal': controllers[18].text,    // Correção: índice 18, não 17
-      
+
+      // 2ª medição
+      'horarioFinal': controllers[segunda + 0].text,
+      'tempTanqueFinal': controllers[segunda + 3].text,
+      'densidadeFinal': controllers[segunda + 4].text,
+      'tempAmostraFinal': controllers[segunda + 5].text,
+      'faturadoFinal': controllers[segunda + 8].text,
+
+      // Placeholders
       'volumeProdutoInicial': '0',
       'volumeProdutoFinal': '0',
       'volumeAguaInicial': '0',
@@ -347,7 +346,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'densidade20Inicial': '0.000',
       'densidade20Final': '0.000',
     };
-    
+
     final dadosFormulario = {
       'data': _dataController.text,
       'base': _nomeFilial ?? 'POLO DE COMBUSTÍVEL',
@@ -355,22 +354,19 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'tanque': tanqueAtual['numero'],
       'responsavel': UsuarioAtual.instance?.nome ?? 'Usuário',
       'medicoes': dadosMedicoes,
-      'filial_id': UsuarioAtual.instance!.nivel == 3 && widget.filialSelecionadaId != null 
-          ? widget.filialSelecionadaId 
+      'filial_id': UsuarioAtual.instance!.nivel == 3 && widget.filialSelecionadaId != null
+          ? widget.filialSelecionadaId
           : UsuarioAtual.instance!.filialId,
       'cacl_verificacao': _caclVerificacao,
       'cacl_movimentacao': _caclMovimentacao,
     };
-    
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => CalcPage(
           dadosFormulario: dadosFormulario,
           onFinalizar: widget.onFinalizarCACL,
-          // Adicione este callback para voltar corretamente
-          onVoltar: () {
-            Navigator.pop(context); // Volta para MedicaoTanquesPage
-          },
+          onVoltar: () => Navigator.pop(context),
         ),
       ),
     );
@@ -627,7 +623,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                         ),
                                       ),
 
-                                      // Caixa de seleção "CACL movimentação" (APENAS UMA VEZ)
+                                      // Caixa de seleção "CACL movimentação"
                                       Row(
                                         children: [
                                           Checkbox(
@@ -651,7 +647,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                           ),
                                         ],
                                       ),
-                                      // REMOVA ESTA SEGUNDA INSTÂNCIA DUPLICADA AQUI
                                     ],
                                   ),
                                   
@@ -700,7 +695,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                     Padding(
                                       padding: const EdgeInsets.only(top: 8),
                                       child: Text(
-                                        'Preencha todos os campos da 1ª medição',
+                                        'Preencha todos os campos obrigatórios e selecione um tipo de CACL',
                                         style: TextStyle(
                                           fontSize: 10,
                                           color: Colors.orange[700],
@@ -733,6 +728,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         child: Column(
           children: [
+            // CABEÇALHO DO TANQUE
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -785,30 +781,37 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               ),
             ),
 
+            // FORMULÁRIOS
             Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // ===== 1ª MEDIÇÃO =====
                   Expanded(
                     child: _buildSection(
                       '1ª Medição',
                       'Inicial',
                       Colors.blue[50]!,
                       Colors.blue,
-                      ctrls.sublist(0, 9), // PRIMEIRA MEDIÇÃO: 9 campos (0-8)
-                      focusNodes.sublist(0, 9),
+                      ctrls.sublist(0, 9),      // 0–8 (agora inclui observações)
+                      focusNodes.sublist(0, 9), // 0–8
+                      ehSegundaMedicao: false,
                     ),
                   ),
+
                   const SizedBox(width: 16),
+
+                  // ===== 2ª MEDIÇÃO =====
                   Expanded(
                     child: _buildSection(
                       '2ª Medição',
                       'Final',
                       Colors.green[50]!,
                       Colors.green,
-                      ctrls.sublist(9, 19), // SEGUNDA MEDIÇÃO: 10 campos (9-18)
-                      focusNodes.sublist(9, 19),
+                      ctrls.sublist(9, 19),      // 9–18
+                      focusNodes.sublist(9, 19), // 9–18
+                      ehSegundaMedicao: true,
                     ),
                   ),
                 ],
@@ -820,12 +823,15 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     );
   }
 
-  Widget _buildSection(String periodo, String hora, Color bg, Color accent, 
-      List<TextEditingController> c, List<FocusNode> f) {
-    
-    // Determina se é a segunda medição (com faturado)
-    final bool ehSegundaMedicao = periodo.contains('2ª');
-    
+  Widget _buildSection(
+    String periodo,
+    String hora,
+    Color bg,
+    Color accent,
+    List<TextEditingController> c,
+    List<FocusNode> f,
+    {required bool ehSegundaMedicao}
+  ) {
     return FocusScope(
       child: Container(
         width: double.infinity,
@@ -854,52 +860,109 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
             ),
             const SizedBox(height: 12),
 
-            // PRIMEIRA LINHA: Horário, cm, mm
+            // LINHA 1 — Horário | cm | mm
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildTimeField('Horário Medição', c[0], '', 
-                    width: 100, focusNode: f[0], nextFocus: f[1]),
-                _buildNumberField('cm', c[1], '', 
-                    width: 100, maxLength: 4, focusNode: f[1], nextFocus: f[2]),
-                _buildNumberField('mm', c[2], '', 
-                    width: 100, maxLength: 1, focusNode: f[2], nextFocus: f[3]),
+                _buildTimeField(
+                  'Horário Medição',
+                  c[0],
+                  '',
+                  width: 100,
+                  focusNode: f[0],
+                  nextFocus: f[1],
+                ),
+                _buildNumberField(
+                  'cm*',
+                  c[1],
+                  '',
+                  width: 100,
+                  maxLength: 4,
+                  focusNode: f[1],
+                  nextFocus: f[2],
+                ),
+                _buildNumberField(
+                  'mm*',
+                  c[2],
+                  '',
+                  width: 100,
+                  maxLength: 1,
+                  focusNode: f[2],
+                  nextFocus: f[3],
+                ),
               ],
             ),
             const SizedBox(height: 12),
 
-            // SEGUNDA LINHA: Temp. Tanque, Densidade, Temp. Amostra
+            // LINHA 2 — Temp. Tanque | Densidade | Temp. Amostra
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildTemperatureField('Temp. Tanque', c[3], '', 
-                    width: 100, focusNode: f[3], nextFocus: f[4]),
-                _buildDensityField('Densidade Obs.', c[4], '', 
-                    width: 100, focusNode: f[4], nextFocus: f[5]),
-                _buildTemperatureField('Temp. Amostra', c[5], '', 
-                    width: 100, focusNode: f[5], nextFocus: f[6]),
+                _buildTemperatureField(
+                  'Temp. Tanque*',
+                  c[3],
+                  '',
+                  width: 100,
+                  focusNode: f[3],
+                  nextFocus: f[4],
+                ),
+                _buildDensityField(
+                  'Densidade Obs.*',
+                  c[4],
+                  '',
+                  width: 100,
+                  focusNode: f[4],
+                  nextFocus: f[5],
+                ),
+                _buildTemperatureField(
+                  'Temp. Amostra*',
+                  c[5],
+                  '',
+                  width: 100,
+                  focusNode: f[5],
+                  nextFocus: f[6],
+                ),
               ],
             ),
             const SizedBox(height: 12),
 
-            // TERCEIRA LINHA: Água cm, Água mm, (Faturado ou fantasma)
+            // LINHA 3 — Água cm | Água mm | (Faturado só na 2ª)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNumberField('Água cm', c[6], '', 
-                    width: 100, maxLength: 1, focusNode: f[6], nextFocus: f[7]),
-                _buildNumberField('Água mm', c[7], '', 
-                    width: 100, maxLength: 1, focusNode: f[7], nextFocus: f[8]),
-                // Faturado apenas na segunda medição
-                ehSegundaMedicao 
-                    ? _buildFaturadoField('Faturado', c[8], '', 
-                        width: 100, focusNode: f[8], nextFocus: f[9])
+                _buildNumberField(
+                  'Água cm',
+                  c[6],
+                  '',
+                  width: 100,
+                  maxLength: 1,
+                  focusNode: f[6],
+                  nextFocus: f[7],
+                ),
+                _buildNumberField(
+                  'Água mm',
+                  c[7],
+                  '',
+                  width: 100,
+                  maxLength: 1,
+                  focusNode: f[7],
+                  nextFocus: ehSegundaMedicao ? f[8] : f[8], // Agora vai para observações
+                ),
+                ehSegundaMedicao
+                    ? _buildFaturadoField(
+                        'Faturado',
+                        c[8],
+                        '',
+                        width: 100,
+                        focusNode: f[8],
+                        nextFocus: f[9], // Agora vai para observações
+                      )
                     : _buildGhostField(width: 100),
               ],
             ),
-            const SizedBox(height: 12),
 
-            // OBSERVAÇÕES
+            // OBSERVAÇÕES — AGORA ESTÁ DISPONÍVEL EM AMBAS AS MEDIÇÕES
+            const SizedBox(height: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1264,7 +1327,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     }
     
     try {
-      // Verifica os 6 campos obrigatórios da primeira medição
+      // Verifica APENAS os 6 campos obrigatórios da primeira medição (posições 0-5)
       final camposObrigatorios = _controllers[_tanqueSelecionadoIndex].sublist(0, 6);
       final camposPreenchidos = camposObrigatorios.every((controller) => 
           controller.text.trim().isNotEmpty);
