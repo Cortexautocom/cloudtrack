@@ -33,6 +33,10 @@ dependencies:
   universal_io: ^2.3.0  # Para detectar plataforma
   mime: ^1.0.4
 
+  # Novas dependências para download em Excel/CSV
+  web: ^0.1.0-beta  # Substitui dart:html para acesso às APIs do navegador
+  csv: ^5.0.0       # Para geração de arquivos CSV (Excel)
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
