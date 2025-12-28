@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class EstoqueMesPage extends StatefulWidget {
   final String filialId;
   final String nomeFilial;
-  final String? empresaId; // Novo parâmetro opcional
+  final String? empresaId;
 
   const EstoqueMesPage({
     super.key,
@@ -20,10 +20,15 @@ class EstoqueMesPage extends StatefulWidget {
 class _EstoqueMesPageState extends State<EstoqueMesPage> {
   final SupabaseClient _supabase = Supabase.instance.client;
   List<Map<String, dynamic>> _estoques = [];
+  List<Map<String, dynamic>> _estoquesOrdenados = [];
   String? _empresaId;
   bool _carregando = true;
   bool _erro = false;
   String _mensagemErro = '';
+  
+  // Variáveis para ordenação
+  String _colunaOrdenacao = 'data_mov';
+  bool _ordenacaoAscendente = true; // false = mais recente primeiro
 
   @override
   void initState() {
@@ -55,7 +60,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         throw Exception('Não foi possível identificar a empresa da filial');
       }
 
-      // Buscar dados da tabela estoques
+      // Buscar dados da tabela estoques - ordenado por data do mais antigo para cálculo
       final dados = await _supabase
           .from('estoques')
           .select('''
@@ -70,22 +75,14 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           ''')
           .eq('filial_id', widget.filialId)
           .eq('empresa_id', _empresaId!)
-          .order('data_mov', ascending: false);
+          .order('data_mov', ascending: true); // Ordenar por data_mov ASC para cálculo
 
       // Calcular saldos acumulados
       List<Map<String, dynamic>> estoquesComSaldo = [];
       num saldoAmbAcumulado = 0;
       num saldoVinteAcumulado = 0;
 
-      // Ordenar por data (mais antiga primeiro para cálculo correto)
-      List<dynamic> dadosOrdenados = List.from(dados);
-      dadosOrdenados.sort((a, b) {
-        final dateA = DateTime.parse(a['data_mov']);
-        final dateB = DateTime.parse(b['data_mov']);
-        return dateA.compareTo(dateB);
-      });
-
-      for (var item in dadosOrdenados) {
+      for (var item in dados) {
         final entradaAmb = item['entrada_amb'] ?? 0;
         final entradaVinte = item['entrada_vinte'] ?? 0;
         final saidaAmb = item['saida_amb'] ?? 0;
@@ -101,11 +98,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         });
       }
 
-      // Reverter para mostrar do mais recente primeiro
-      setState(() {
-        _estoques = estoquesComSaldo.reversed.toList();
-        _carregando = false;
-      });
+      // Ordenar inicialmente pela data (mais recente primeiro)
+      _ordenarDados(estoquesComSaldo, 'data_mov', true);
     } catch (e) {
       debugPrint('❌ Erro ao carregar estoques: $e');
       setState(() {
@@ -114,6 +108,78 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         _mensagemErro = e.toString();
       });
     }
+  }
+
+  void _ordenarDados(
+    List<Map<String, dynamic>> dados, 
+    String coluna, 
+    bool ascendente
+  ) {
+    List<Map<String, dynamic>> dadosOrdenados = List.from(dados);
+    
+    dadosOrdenados.sort((a, b) {
+      dynamic valorA;
+      dynamic valorB;
+      
+      switch (coluna) {
+        case 'data_mov':
+          valorA = DateTime.parse(a['data_mov']);
+          valorB = DateTime.parse(b['data_mov']);
+          break;
+        case 'descricao':
+          valorA = (a['descricao'] ?? '').toString().toLowerCase();
+          valorB = (b['descricao'] ?? '').toString().toLowerCase();
+          break;
+        case 'entrada_amb':
+        case 'entrada_vinte':
+        case 'saida_amb':
+        case 'saida_vinte':
+        case 'saldo_amb':
+        case 'saldo_vinte':
+          valorA = a[coluna] ?? 0;
+          valorB = b[coluna] ?? 0;
+          break;
+        default:
+          return 0;
+      }
+      
+      // Comparação
+      if (valorA is DateTime && valorB is DateTime) {
+        return ascendente 
+            ? valorA.compareTo(valorB)
+            : valorB.compareTo(valorA);
+      } else if (valorA is num && valorB is num) {
+        return ascendente 
+            ? (valorA - valorB).toInt()
+            : (valorB - valorA).toInt();
+      } else if (valorA is String && valorB is String) {
+        return ascendente 
+            ? valorA.compareTo(valorB)
+            : valorB.compareTo(valorA);
+      }
+      
+      return 0;
+    });
+    
+    setState(() {
+      _estoques = dados;
+      _estoquesOrdenados = dadosOrdenados;
+      _colunaOrdenacao = coluna;
+      _ordenacaoAscendente = ascendente;
+      _carregando = false;
+    });
+  }
+
+  void _onSort(String coluna) {
+    bool ascendente = true;
+    
+    if (_colunaOrdenacao == coluna) {
+      ascendente = !_ordenacaoAscendente;
+    } else {
+      ascendente = coluna == 'data_mov' ? true : false;
+    }
+    
+    _ordenarDados(_estoques, coluna, ascendente);
   }
 
   @override
@@ -135,6 +201,34 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          if (!_carregando && !_erro && _estoques.isNotEmpty)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.sort),
+              tooltip: 'Ordenar por',
+              onSelected: (value) {
+                _onSort(value);
+              },
+              itemBuilder: (context) {
+                return [
+                  const PopupMenuItem<String>(
+                    value: 'data_mov',
+                    child: Text('Data (mais recente primeiro)'),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'data_mov_asc',
+                    child: Text('Data (mais antigo primeiro)'),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'entrada_amb',
+                    child: Text('Entrada Ambiental'),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'saldo_amb',
+                    child: Text('Saldo Ambiental'),
+                  ),
+                ];
+              },
+            ),
           if (!_carregando && !_erro)
             IconButton(
               icon: const Icon(Icons.refresh),
@@ -263,69 +357,95 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       child: SingleChildScrollView(
         scrollDirection: Axis.vertical,
         child: DataTable(
+          sortColumnIndex: _getSortColumnIndex(),
+          sortAscending: _ordenacaoAscendente,
           headingRowHeight: 48,
           dataRowHeight: 44,
           columnSpacing: 24,
           headingRowColor: MaterialStateProperty.all(
             Colors.grey.shade100,
           ),
-          columns: const [
+          columns: [
             DataColumn(
-              label: Text(
+              label: const Text(
                 'Data',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
+              onSort: (columnIndex, ascending) {
+                _onSort('data_mov');
+              },
             ),
             DataColumn(
-              label: Text(
+              label: const Text(
                 'Descrição',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
+              onSort: (columnIndex, ascending) {
+                _onSort('descricao');
+              },
             ),
             DataColumn(
-              label: Text(
+              label: const Text(
                 'Entrada (Amb.)',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               numeric: true,
+              onSort: (columnIndex, ascending) {
+                _onSort('entrada_amb');
+              },
             ),
             DataColumn(
-              label: Text(
+              label: const Text(
                 'Entrada (20ºC)',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               numeric: true,
+              onSort: (columnIndex, ascending) {
+                _onSort('entrada_vinte');
+              },
             ),
             DataColumn(
-              label: Text(
+              label: const Text(
                 'Saída (Amb.)',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               numeric: true,
+              onSort: (columnIndex, ascending) {
+                _onSort('saida_amb');
+              },
             ),
             DataColumn(
-              label: Text(
+              label: const Text(
                 'Saída (20ºC)',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               numeric: true,
+              onSort: (columnIndex, ascending) {
+                _onSort('saida_vinte');
+              },
             ),
             DataColumn(
-              label: Text(
+              label: const Text(
                 'Saldo (Amb.)',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               numeric: true,
+              onSort: (columnIndex, ascending) {
+                _onSort('saldo_amb');
+              },
             ),
             DataColumn(
-              label: Text(
+              label: const Text(
                 'Saldo (20ºC)',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               numeric: true,
+              onSort: (columnIndex, ascending) {
+                _onSort('saldo_vinte');
+              },
             ),
           ],
-          rows: _estoques.map((estoque) {
+          rows: _estoquesOrdenados.map((estoque) {
             final dataMov = estoque['data_mov']?.toString() ?? '';
             final descricao = estoque['descricao']?.toString() ?? '';
             final entradaAmb = estoque['entrada_amb'] ?? 0;
@@ -363,6 +483,29 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         ),
       ),
     );
+  }
+
+  int? _getSortColumnIndex() {
+    switch (_colunaOrdenacao) {
+      case 'data_mov':
+        return 0;
+      case 'descricao':
+        return 1;
+      case 'entrada_amb':
+        return 2;
+      case 'entrada_vinte':
+        return 3;
+      case 'saida_amb':
+        return 4;
+      case 'saida_vinte':
+        return 5;
+      case 'saldo_amb':
+        return 6;
+      case 'saldo_vinte':
+        return 7;
+      default:
+        return 0;
+    }
   }
 
   Widget _buildNumero(num valor, {bool corDiferente = false}) {
