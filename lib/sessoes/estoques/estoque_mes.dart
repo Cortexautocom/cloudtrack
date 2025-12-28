@@ -457,30 +457,71 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
 
             return DataRow(
               cells: [
-                DataCell(Text(
+                DataCell(_buildCelulaSelecionavel(
                   _formatarData(dataMov),
-                  style: const TextStyle(fontSize: 13),
                 )),
-                DataCell(Text(
+                DataCell(_buildCelulaSelecionavel(
                   descricao.isNotEmpty ? descricao : '-',
-                  style: const TextStyle(fontSize: 13),
                   maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 )),
-                DataCell(_buildNumero(entradaAmb)),
-                DataCell(_buildNumero(entradaVinte)),
-                DataCell(_buildNumero(saidaAmb)),
-                DataCell(_buildNumero(saidaVinte)),
-                DataCell(
-                  _buildNumero(saldoAmb, corDiferente: true),
-                ),
-                DataCell(
-                  _buildNumero(saldoVinte, corDiferente: true),
-                ),
+                DataCell(_buildCelulaSelecionavel(
+                  entradaAmb.toStringAsFixed(0),
+                  cor: Colors.black,
+                  alinhamento: Alignment.centerRight,
+                )),
+                DataCell(_buildCelulaSelecionavel(
+                  entradaVinte.toStringAsFixed(0),
+                  cor: Colors.black,
+                  alinhamento: Alignment.centerRight,
+                )),
+                DataCell(_buildCelulaSelecionavel(
+                  saidaAmb.toStringAsFixed(0),
+                  cor: Colors.black,
+                  alinhamento: Alignment.centerRight,
+                )),
+                DataCell(_buildCelulaSelecionavel(
+                  saidaVinte.toStringAsFixed(0),
+                  cor: Colors.black,
+                  alinhamento: Alignment.centerRight,
+                )),
+                DataCell(_buildCelulaSelecionavel(
+                  saldoAmb.toStringAsFixed(0),
+                  cor: saldoAmb >= 0 ? Colors.green : Colors.red,
+                  alinhamento: Alignment.centerRight,
+                  fontWeight: FontWeight.w600,
+                )),
+                DataCell(_buildCelulaSelecionavel(
+                  saldoVinte.toStringAsFixed(0),
+                  cor: saldoVinte >= 0 ? Colors.green : Colors.red,
+                  alinhamento: Alignment.centerRight,
+                  fontWeight: FontWeight.w600,
+                )),
               ],
             );
           }).toList(),
         ),
+      ),
+    );
+  }
+
+  // Novo método para criar células selecionáveis
+  Widget _buildCelulaSelecionavel(
+    String texto, {
+    Color cor = Colors.black,
+    AlignmentGeometry alinhamento = Alignment.centerLeft,
+    FontWeight fontWeight = FontWeight.normal,
+    int maxLines = 1,
+  }) {
+    return Align(
+      alignment: alinhamento,
+      child: SelectableText(
+        texto,
+        style: TextStyle(
+          fontSize: 13,
+          color: cor,
+          fontWeight: fontWeight,
+        ),
+        maxLines: maxLines,
       ),
     );
   }
@@ -507,26 +548,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         return 0;
     }
   }
-
-  Widget _buildNumero(num valor, {bool corDiferente = false}) {
-    Color cor = Colors.black;
-    if (corDiferente) {
-      cor = valor >= 0 ? Colors.green : Colors.red;
-    }
-
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Text(
-        valor.toStringAsFixed(0),
-        style: TextStyle(
-          fontSize: 13,
-          color: cor,
-          fontWeight: corDiferente ? FontWeight.w600 : FontWeight.normal,
-        ),
-      ),
-    );
-  }
-
+  
   String _formatarData(String dataString) {
     try {
       final data = DateTime.parse(dataString);
