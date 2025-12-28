@@ -220,11 +220,11 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                   ),
                   const PopupMenuItem<String>(
                     value: 'entrada_amb',
-                    child: Text('Entrada Ambiental'),
+                    child: Text('Entrada Ambiente'),
                   ),
                   const PopupMenuItem<String>(
                     value: 'saldo_amb',
-                    child: Text('Saldo Ambiental'),
+                    child: Text('Saldo Ambiente'),
                   ),
                 ];
               },
