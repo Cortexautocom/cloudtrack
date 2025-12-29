@@ -33,7 +33,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   
   // Variáveis para ordenação
   String _colunaOrdenacao = 'data_mov';
-  bool _ordenacaoAscendente = false; // false = mais recente primeiro
+  bool _ordenacaoAscendente = true;
 
   @override
   void initState() {
@@ -143,14 +143,24 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       }
 
       // Ordenar inicialmente pela data (mais recente primeiro)
-      _ordenarDados(estoquesComSaldo, 'data_mov', false);
+      _ordenarDados(estoquesComSaldo, 'data_mov', true);
+      
+      // IMPORTANTE: Definir carregando como false após ordenar
+      if (mounted) {
+        setState(() {
+          _carregando = false;
+        });
+      }
+      
     } catch (e) {
       debugPrint('❌ Erro ao carregar estoques: $e');
-      setState(() {
-        _carregando = false;
-        _erro = true;
-        _mensagemErro = e.toString();
-      });
+      if (mounted) {
+        setState(() {
+          _carregando = false;
+          _erro = true;
+          _mensagemErro = e.toString();
+        });
+      }
     }
   }
 
@@ -214,7 +224,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       _estoquesOrdenados = dadosOrdenados;
       _colunaOrdenacao = coluna;
       _ordenacaoAscendente = ascendente;
-      _carregando = false;
+      //_carregando = false;
     });
   }
 
@@ -224,7 +234,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     if (_colunaOrdenacao == coluna) {
       ascendente = !_ordenacaoAscendente;
     } else {
-      ascendente = coluna == 'data_mov' ? false : true; // Data: mais recente primeiro por padrão
+      ascendente = coluna == 'data_mov' ? true : true;
     }
     
     _ordenarDados(_estoques, coluna, ascendente);
@@ -509,6 +519,38 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     );
   }
 
+  String _formatarNumero(num? valor) {
+    if (valor == null) return '0';
+    
+    // Tratar valor zero
+    if (valor == 0) return '0';
+    
+    // Verificar se é negativo
+    bool isNegativo = valor < 0;
+    
+    // Trabalhar com valor absoluto
+    String valorString = valor.abs().toStringAsFixed(0);
+    
+    String resultado = '';
+    int contador = 0;
+    
+    for (int i = valorString.length - 1; i >= 0; i--) {
+      contador++;
+      resultado = valorString[i] + resultado;
+      
+      if (contador % 3 == 0 && i > 0) {
+        resultado = '.$resultado';
+      }
+    }
+    
+    // Adicionar sinal negativo se necessário
+    if (isNegativo) {
+      resultado = '-$resultado';
+    }
+    
+    return resultado;
+  }
+
   Widget _buildTabela() {
     // Adicionar coluna de produto se não estiver filtrado por produto específico
     bool mostrarColunaProduto = widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
@@ -647,33 +689,33 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                   maxLines: 2,
                 )),
                 DataCell(_buildCelulaSelecionavel(
-                  entradaAmb.toStringAsFixed(0),
+                  _formatarNumero(entradaAmb),
                   cor: Colors.black,
                   alinhamento: Alignment.centerRight,
                 )),
                 DataCell(_buildCelulaSelecionavel(
-                  entradaVinte.toStringAsFixed(0),
+                  _formatarNumero(entradaVinte),
                   cor: Colors.black,
                   alinhamento: Alignment.centerRight,
                 )),
                 DataCell(_buildCelulaSelecionavel(
-                  saidaAmb.toStringAsFixed(0),
+                  _formatarNumero(saidaAmb),
                   cor: Colors.black,
                   alinhamento: Alignment.centerRight,
                 )),
                 DataCell(_buildCelulaSelecionavel(
-                  saidaVinte.toStringAsFixed(0),
+                  _formatarNumero(saidaVinte),
                   cor: Colors.black,
                   alinhamento: Alignment.centerRight,
                 )),
                 DataCell(_buildCelulaSelecionavel(
-                  saldoAmb.toStringAsFixed(0),
+                  _formatarNumero(saldoAmb),
                   cor: saldoAmb >= 0 ? Colors.green : Colors.red,
                   alinhamento: Alignment.centerRight,
                   fontWeight: FontWeight.w600,
                 )),
                 DataCell(_buildCelulaSelecionavel(
-                  saldoVinte.toStringAsFixed(0),
+                  _formatarNumero(saldoVinte),
                   cor: saldoVinte >= 0 ? Colors.green : Colors.red,
                   alinhamento: Alignment.centerRight,
                   fontWeight: FontWeight.w600,
@@ -739,5 +781,5 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     } catch (e) {
       return dataString;
     }
-  }
+  }  
 }
