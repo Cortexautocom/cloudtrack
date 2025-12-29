@@ -52,7 +52,6 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
     
     try {
       // Consulta para buscar produtos disponíveis na filial selecionada
-      // Fazendo JOIN com a tabela produtos para obter o nome correto
       final dados = await _supabase
           .from('estoques')
           .select('''
@@ -65,8 +64,7 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
           .eq('filial_id', widget.filialId)
           .order('created_at', ascending: false);
       
-      // Extrair produtos únicos usando um Set para evitar duplicatas
-      final produtosUnicos = <Map<String, String>>{};
+      final produtosMap = <String, Map<String, String>>{};
       
       for (var estoque in dados) {
         final produto = estoque['produtos'] as Map<String, dynamic>?;
@@ -74,15 +72,13 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
           final produtoId = produto['id'].toString();
           final produtoNome = produto['nome'].toString();
           
-          // Usar MapEntry para criar um objeto comparável
-          final produtoEntry = {
-            'id': produtoId,
-            'nome': produtoNome,
-          };
-          
-          // Converter para string para usar no Set
-          //final produtoKey = '$produtoId|$produtoNome';
-          produtosUnicos.add(produtoEntry);
+          // Se o produto ainda não foi adicionado, adiciona
+          if (!produtosMap.containsKey(produtoId)) {
+            produtosMap[produtoId] = {
+              'id': produtoId,
+              'nome': produtoNome,
+            };
+          }
         }
       }
       
@@ -92,8 +88,8 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
           {'id': 'todos', 'nome': 'Todos os produtos'}
         ];
         
-        // Adicionar produtos únicos
-        final produtosList = produtosUnicos.toList();
+        // Adicionar produtos únicos em ordem alfabética
+        final produtosList = produtosMap.values.toList();
         
         // Ordenar por nome (exceto o primeiro item)
         if (produtosList.isNotEmpty) {
