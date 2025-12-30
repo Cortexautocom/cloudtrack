@@ -93,7 +93,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'descricao': 'Emitir CACL',
       },      
       {
-        'icon': Icons.storage,
+        'icon': Icons.oil_barrel,
         'label': 'Tanques',
         'descricao': 'Gerenciamento de tanques',
       },
@@ -133,9 +133,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'descricao': 'Acompanhar entradas e saídas em geral',
       },
       {
-        'icon': Icons.warning_amber,
-        'label': 'Alertas',
-        'descricao': 'Estoque mínimo e inconsistências',
+        'icon': Icons.route,
+        'label': 'Circuito',
+        'descricao': 'Gerencie o fluxo de carga e descarga',
       },
       {
         'icon': Icons.download,
@@ -1315,8 +1315,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         debugPrint('Navegando para Movimentações');
         break;
 
-      case 'Alertas':
-        debugPrint('Navegando para Alertas');
+      case 'Circuito':
+        debugPrint('Fluxo de carga e descarga');
         break;
 
       case 'Downloads':
