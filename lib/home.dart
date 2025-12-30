@@ -52,6 +52,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarHistorico = false;
   bool _mostrarListarCacls = false;
   bool _mostrarFiltrosEstoque = false;
+  bool _mostrarCircuitoFilhos = false;
   String? _filialSelecionadaNome;
   Map<String, dynamic>? _dadosCalcGerado;
   
@@ -69,6 +70,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   List<Map<String, dynamic>> estoquesFilhos = [];
   List<Map<String, dynamic>> empresas = [];
   List<Map<String, dynamic>> filiaisDaEmpresa = [];
+  List<Map<String, dynamic>> circuitoFilhos = [];
   bool _mostrarEstoquesFilhos = false;
   bool _mostrarEstoquePorEmpresa = false;
   bool _mostrarFiliaisDaEmpresa = false;
@@ -82,6 +84,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     super.initState();
     _inicializarApuracaoFilhos();
     _inicializarEstoquesFilhos();
+    _inicializarCircuitoFilhos();
     selectedIndex = -1;
   }
 
@@ -137,10 +140,25 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'label': 'Circuito',
         'descricao': 'Gerencie o fluxo de carga e descarga',
       },
+    ];
+  }
+
+  void _inicializarCircuitoFilhos() {
+    circuitoFilhos = [
       {
-        'icon': Icons.download,
-        'label': 'Downloads',
-        'descricao': 'Arquivos para download e relatórios',
+        'icon': Icons.play_arrow,
+        'label': 'Iniciar Circuito',
+        'descricao': 'Iniciar novo fluxo de carga/descarga',
+      },
+      {
+        'icon': Icons.directions_car,
+        'label': 'Acompanhar veículo',
+        'descricao': 'Monitorar veículo em trânsito',
+      },
+      {
+        'icon': Icons.dashboard,
+        'label': 'Visão geral',
+        'descricao': 'Panorama completo dos circuitos',
       },
     ];
   }
@@ -397,6 +415,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     setState(() {
       _mostrarApuracaoFilhos = false;
       _veioDaApuracao = false;
+    });
+  }
+
+  void _navegarParaCircuito() {
+    setState(() {
+      _mostrarCircuitoFilhos = true;
+      _mostrarEstoquesFilhos = false;
     });
   }
 
@@ -844,14 +869,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                                     ? _buildEstoquePorEmpresaPage()
                                                     : _mostrarEstoquesFilhos
                                                         ? _buildEstoquesFilhosPage()
-                                                        : _mostrarApuracaoFilhos
-                                                            ? _buildApuracaoFilhosPage()
-                                                            : _mostrarCalcGerado
-                                                                ? CalcPage(
-                                                                    key: const ValueKey('calc-page'),
-                                                                    dadosFormulario: _dadosCalcGerado ?? {},
-                                                                  )
-                                                                : _buildGridWithSearch(sessoes),
+                                                        : _mostrarCircuitoFilhos // NOVO: Adicione esta linha
+                                                            ? _buildCircuitoFilhosPage() // NOVO: Adicione esta linha
+                                                            : _mostrarApuracaoFilhos
+                                                                ? _buildApuracaoFilhosPage()
+                                                                : _mostrarCalcGerado
+                                                                    ? CalcPage(
+                                                                        key: const ValueKey('calc-page'),
+                                                                        dadosFormulario: _dadosCalcGerado ?? {},
+                                                                      )
+                                                                    : _buildGridWithSearch(sessoes),
       ),
     );
   }
@@ -1316,7 +1343,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         break;
 
       case 'Circuito':
-        debugPrint('Fluxo de carga e descarga');
+        _navegarParaCircuito();
         break;
 
       case 'Downloads':
@@ -1701,5 +1728,124 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         );
       },
     );
+  }
+
+  Widget _buildCircuitoFilhosPage() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
+              onPressed: () {
+                setState(() {
+                  _mostrarCircuitoFilhos = false;
+                  _mostrarEstoquesFilhos = true;
+                });
+              },
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Circuito',
+              style: TextStyle(
+                fontSize: 24,
+                color: Color(0xFF0D47A1),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        const Divider(),
+        const SizedBox(height: 20),
+
+        Expanded(
+          child: GridView.count(
+            crossAxisCount: 7,
+            crossAxisSpacing: 15,
+            mainAxisSpacing: 15,
+            childAspectRatio: 1,
+            children: circuitoFilhos
+                .map((card) => _buildCardCircuitoFilho(card))
+                .toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCardCircuitoFilho(Map<String, dynamic> card) {
+    return Material(
+      elevation: 2,
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.hardEdge,
+      child: InkWell(
+        onTap: () {
+          _navegarParaCardCircuito(card['label']);
+        },
+        hoverColor: const Color(0xFFE8F5E9),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                card['icon'],
+                color: const Color.fromARGB(255, 48, 153, 35),
+                size: 50,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                card['label'],
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF0D47A1),
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  card['descricao'] ?? '',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _navegarParaCardCircuito(String nomeCard) {
+    switch (nomeCard) {
+      case 'Iniciar Circuito':
+        debugPrint('Abrir tela para iniciar novo circuito');
+        // Aqui você pode adicionar navegação para uma nova tela
+        break;
+        
+      case 'Acompanhar veículo':
+        debugPrint('Abrir tela para acompanhar veículo');
+        // Aqui você pode adicionar navegação para uma nova tela
+        break;
+        
+      case 'Visão geral':
+        debugPrint('Abrir visão geral dos circuitos');
+        // Aqui você pode adicionar navegação para uma nova tela
+        break;
+    }
   }
 }

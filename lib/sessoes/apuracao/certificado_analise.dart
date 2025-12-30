@@ -179,7 +179,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
               onPressed: widget.onVoltar,
             ),
             const Text(
-              'Certificado de Análise',
+              'Ordem de Carga / Descarga',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
