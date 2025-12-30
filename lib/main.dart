@@ -42,65 +42,16 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _setupAuthListener() {
-    Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
-      final event = data.event;
-      final session = data.session;
-      
-      if (event == AuthChangeEvent.passwordRecovery) {
-        _redirectToResetPassword();
-      } else if (event == AuthChangeEvent.signedIn && session != null) {
-        final fragment = Uri.base.fragment;
-        if (fragment.contains('type=recovery')) {
-          _redirectToResetPassword();
-        } else {
-          await _verificarSenhaTemporaria(session.user.id);
-        }
-      } else if (event == AuthChangeEvent.signedOut) {
-        _redirectToLogin();
-      }
+    // Apenas monitora os eventos para debug/log, sem navegação
+    // A navegação será toda feita pelo SplashScreen
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      print('🔐 Auth state changed: ${data.event}');
+      // Aqui você pode fazer outras ações que não envolvam navegação
+      // como atualizar estado, mostrar notificações, etc.
     });
   }
 
-  Future<void> _verificarSenhaTemporaria(String userId) async {
-    final supabase = Supabase.instance.client;
-    final dados = await supabase
-        .from('usuarios')
-        .select('senha_temporaria')
-        .eq('id', userId)
-        .maybeSingle();
-
-    if (dados != null && dados['senha_temporaria'] == true) {
-      _redirectToEscolherSenha();
-    } else {
-      _redirectToHome();
-    }
-  }
-
-  void _redirectToEscolherSenha() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Navigator.of(context)
-          .pushNamedAndRemoveUntil('/escolher-senha', (route) => false);
-    });
-  }
-
-  void _redirectToHome() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
-    });
-  }
-
-  void _redirectToLogin() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
-    });
-  }
-
-  void _redirectToResetPassword() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Navigator.of(context)
-          .pushNamedAndRemoveUntil('/redefinir-senha', (route) => false);
-    });
-  }
+  // Removidas todas as funções _redirectTo... que usavam Navigator
 
   @override
   Widget build(BuildContext context) {

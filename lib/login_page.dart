@@ -54,6 +54,20 @@ class _LoginPageState extends State<LoginPage> {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
+    // Validação básica dos campos
+    if (email.isEmpty || password.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Por favor, preencha e-mail e senha.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      setState(() => _isLoading = false);
+      return;
+    }
+
     try {
       // 🔹 1. Autentica usuário
       final response = await supabase.auth.signInWithPassword(
@@ -62,14 +76,14 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (response.user == null) {
-        throw 'Usuário ou senha incorretos.';
+        throw 'Falha na autenticação.';
       }
       final userId = response.user!.id;
 
-      // 🔹 2. Busca dados do usuário (AGORA COM senha_temporaria)
+      // 🔹 2. Busca dados do usuário
       final usuarioData = await supabase
           .from('usuarios')
-          .select('id, nome, nivel, id_filial, senha_temporaria, Nome_apelido') // ✅ ADICIONADO
+          .select('id, nome, nivel, id_filial, senha_temporaria, Nome_apelido')
           .eq('id', userId)
           .maybeSingle();
 
@@ -80,7 +94,7 @@ class _LoginPageState extends State<LoginPage> {
       // 🔹 3. Inicializa lista vazia (será carregada depois)
       List<String> sessoesPermitidas = [];
 
-      // 🔹 4. Cria objeto global do usuário (AGORA COM senhaTemporaria)
+      // 🔹 4. Cria objeto global do usuário
       UsuarioAtual.instance = UsuarioAtual(
         id: usuarioData['id'],
         nome: usuarioData['Nome_apelido'] ?? usuarioData['nome'],
@@ -123,10 +137,59 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (error) {
       if (!mounted) return;
+      
+      String mensagemErro;
+      
+      // Tenta identificar diferentes tipos de erro
+      if (error is AuthException) {
+        final errorMessage = error.message.toLowerCase();
+        final statusCodeStr = error.statusCode?.toString() ?? '';
+        
+        // Erro de credenciais inválidas (email não existe OU senha incorreta)
+        if (statusCodeStr == '400' || 
+            errorMessage.contains('invalid login credentials') || 
+            errorMessage.contains('invalid_credentials')) {
+          mensagemErro = 'E-mail ou senha incorretos. Tente novamente.';
+        } 
+        // E-mail não confirmado
+        else if (errorMessage.contains('email not confirmed')) {
+          mensagemErro = 'E-mail não confirmado. Verifique sua caixa de entrada.';
+        }
+        // Usuário não encontrado (pode ser uma conta excluída)
+        else if (errorMessage.contains('user not found')) {
+          mensagemErro = 'Conta não encontrada. Verifique seus dados.';
+        }
+        // Muitas tentativas
+        else if (errorMessage.contains('too many requests')) {
+          mensagemErro = 'Muitas tentativas. Aguarde alguns minutos.';
+        }
+        // Erro de rede/conexão
+        else if (errorMessage.contains('network') || errorMessage.contains('connection')) {
+          mensagemErro = 'Erro de conexão. Verifique sua internet.';
+        }
+        // Outros erros de autenticação
+        else {
+          mensagemErro = 'Erro ao fazer login: ${error.message.length > 50 ? 'Erro de autenticação' : error.message}';
+        }
+      } 
+      // Erros de timeout
+      else if (error.toString().toLowerCase().contains('timeout') ||
+              error.toString().toLowerCase().contains('timed out')) {
+        mensagemErro = 'Tempo esgotado. Verifique sua conexão.';
+      }
+      // Outros erros genéricos
+      else {
+        final errorStr = error.toString();
+        mensagemErro = errorStr.length > 100 
+            ? 'Erro ao fazer login. Tente novamente.' 
+            : 'Erro: $errorStr';
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erro ao fazer login: $error'),
+          content: Text(mensagemErro),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
         ),
       );
     } finally {
