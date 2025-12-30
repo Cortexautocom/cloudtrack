@@ -35,6 +35,15 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   String _mensagemErro = '';
   String? _nomeProdutoSelecionado;
   
+  Color _getCorFundoEntrada() {
+    return Colors.green.shade50.withOpacity(0.3); // Verde muito claro
+  }
+
+  // Método para obter cor de fundo para colunas de SAÍDA
+  Color _getCorFundoSaida() {
+    return Colors.red.shade50.withOpacity(0.3); // Vermelho muito claro
+  }
+
   // Variáveis para ordenação
   String _colunaOrdenacao = 'data_mov';
   bool _ordenacaoAscendente = true;
@@ -758,7 +767,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   Widget _buildTabela() {
     // Adicionar coluna de produto se não estiver filtrado por produto específico
     bool mostrarColunaProduto = widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
-    
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -779,9 +788,17 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           ),
           columns: [
             DataColumn(
-              label: const Text(
-                'Data',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              label: SizedBox(
+                height: 48,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: const Text(
+                      'Data',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
               ),
               onSort: (columnIndex, ascending) {
                 _onSort('data_mov');
@@ -789,27 +806,51 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             ),
             if (mostrarColunaProduto)
               DataColumn(
-                label: const Text(
-                  'Produto',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                label: SizedBox(
+                  height: 48,
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: const Text(
+                        'Produto',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
                 ),
                 onSort: (columnIndex, ascending) {
                   _onSort('produto_nome');
                 },
               ),
             DataColumn(
-              label: const Text(
-                'Descrição',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              label: SizedBox(
+                height: 48,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: const Text(
+                      '                             Descrição',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
               ),
               onSort: (columnIndex, ascending) {
                 _onSort('descricao');
               },
             ),
             DataColumn(
-              label: const Text(
-                'Entrada (Amb.)',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              label: SizedBox(
+                height: 48,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: const Text(
+                      'Entrada (Amb.)                  ',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
               ),
               numeric: true,
               onSort: (columnIndex, ascending) {
@@ -817,9 +858,17 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
               },
             ),
             DataColumn(
-              label: const Text(
-                'Entrada (20ºC)',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              label: SizedBox(
+                height: 48,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: const Text(
+                      'Entrada (20ºC)                   ',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
               ),
               numeric: true,
               onSort: (columnIndex, ascending) {
@@ -827,9 +876,17 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
               },
             ),
             DataColumn(
-              label: const Text(
-                'Saída (Amb.)',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              label: SizedBox(
+                height: 48,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: const Text(
+                      'Saída (Amb.)               ',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
               ),
               numeric: true,
               onSort: (columnIndex, ascending) {
@@ -837,9 +894,17 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
               },
             ),
             DataColumn(
-              label: const Text(
-                'Saída (20ºC)',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              label: SizedBox(
+                height: 48,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: const Text(
+                      'Saída (20ºC)            ',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
               ),
               numeric: true,
               onSort: (columnIndex, ascending) {
@@ -847,9 +912,17 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
               },
             ),
             DataColumn(
-              label: const Text(
-                'Saldo (Amb.)',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              label: SizedBox(
+                height: 48,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: const Text(
+                      'Saldo (Amb.)         ',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
               ),
               numeric: true,
               onSort: (columnIndex, ascending) {
@@ -857,9 +930,17 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
               },
             ),
             DataColumn(
-              label: const Text(
-                'Saldo (20ºC)',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              label: SizedBox(
+                height: 48,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: const Text(
+                      'Saldo (20ºC)             ',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
               ),
               numeric: true,
               onSort: (columnIndex, ascending) {
@@ -878,52 +959,156 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             final saldoAmb = estoque['saldo_amb'] ?? 0;
             final saldoVinte = estoque['saldo_vinte'] ?? 0;
 
+            // Determinar cor para saldo (apenas vermelho para negativo)
+            final corSaldoAmb = saldoAmb < 0 ? Colors.red : Colors.black;
+            final corSaldoVinte = saldoVinte < 0 ? Colors.red : Colors.black;
+
             return DataRow(
               cells: [
-                DataCell(_buildCelulaSelecionavel(
-                  _formatarData(dataMov),
-                )),
+                DataCell(
+                  SizedBox(
+                    height: 44,
+                    child: Center(
+                      child: Container(
+                        color: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: _buildCelulaSelecionavel(
+                          _formatarData(dataMov),
+                          alinhamento: Alignment.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
                 if (mostrarColunaProduto)
-                  DataCell(_buildCelulaSelecionavel(
-                    produtoNome.isNotEmpty ? produtoNome : '-',
-                    maxLines: 1,
-                  )),
-                DataCell(_buildCelulaSelecionavel(
-                  descricao.isNotEmpty ? descricao : '-',
-                  maxLines: 2,
-                )),
-                DataCell(_buildCelulaSelecionavel(
-                  _formatarNumero(entradaAmb),
-                  cor: Colors.black,
-                  alinhamento: Alignment.centerRight,
-                )),
-                DataCell(_buildCelulaSelecionavel(
-                  _formatarNumero(entradaVinte),
-                  cor: Colors.black,
-                  alinhamento: Alignment.centerRight,
-                )),
-                DataCell(_buildCelulaSelecionavel(
-                  _formatarNumero(saidaAmb),
-                  cor: Colors.black,
-                  alinhamento: Alignment.centerRight,
-                )),
-                DataCell(_buildCelulaSelecionavel(
-                  _formatarNumero(saidaVinte),
-                  cor: Colors.black,
-                  alinhamento: Alignment.centerRight,
-                )),
-                DataCell(_buildCelulaSelecionavel(
-                  _formatarNumero(saldoAmb),
-                  cor: saldoAmb >= 0 ? Colors.green : Colors.red,
-                  alinhamento: Alignment.centerRight,
-                  fontWeight: FontWeight.w600,
-                )),
-                DataCell(_buildCelulaSelecionavel(
-                  _formatarNumero(saldoVinte),
-                  cor: saldoVinte >= 0 ? Colors.green : Colors.red,
-                  alinhamento: Alignment.centerRight,
-                  fontWeight: FontWeight.w600,
-                )),
+                  DataCell(
+                    SizedBox(
+                      height: 44,
+                      child: Center(
+                        child: Container(
+                          color: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: _buildCelulaSelecionavel(
+                            produtoNome.isNotEmpty ? produtoNome : '-',
+                            maxLines: 1,
+                            alinhamento: Alignment.center,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                DataCell(
+                  SizedBox(
+                    height: 44,
+                    child: Center(
+                      child: Container(
+                        color: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: _buildCelulaSelecionavel(
+                          descricao.isNotEmpty ? descricao : '-',
+                          maxLines: 2,
+                          alinhamento: Alignment.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                DataCell(
+                  SizedBox(
+                    height: 44,
+                    child: Center(
+                      child: Container(
+                        color: _getCorFundoEntrada(),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: _buildCelulaSelecionavel(
+                          _formatarNumero(entradaAmb),
+                          cor: Colors.black,
+                          alinhamento: Alignment.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                DataCell(
+                  SizedBox(
+                    height: 44,
+                    child: Center(
+                      child: Container(
+                        color: _getCorFundoEntrada(),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: _buildCelulaSelecionavel(
+                          _formatarNumero(entradaVinte),
+                          cor: Colors.black,
+                          alinhamento: Alignment.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                DataCell(
+                  SizedBox(
+                    height: 44,
+                    child: Center(
+                      child: Container(
+                        color: _getCorFundoSaida(),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: _buildCelulaSelecionavel(
+                          _formatarNumero(saidaAmb),
+                          cor: Colors.black,
+                          alinhamento: Alignment.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                DataCell(
+                  SizedBox(
+                    height: 44,
+                    child: Center(
+                      child: Container(
+                        color: _getCorFundoSaida(),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: _buildCelulaSelecionavel(
+                          _formatarNumero(saidaVinte),
+                          cor: Colors.black,
+                          alinhamento: Alignment.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                DataCell(
+                  SizedBox(
+                    height: 44,
+                    child: Center(
+                      child: Container(
+                        color: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: _buildCelulaSelecionavel(
+                          _formatarNumero(saldoAmb),
+                          cor: corSaldoAmb,
+                          alinhamento: Alignment.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                DataCell(
+                  SizedBox(
+                    height: 44,
+                    child: Center(
+                      child: Container(
+                        color: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: _buildCelulaSelecionavel(
+                          _formatarNumero(saldoVinte),
+                          cor: corSaldoVinte,
+                          alinhamento: Alignment.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             );
           }).toList(),
@@ -935,7 +1120,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   Widget _buildCelulaSelecionavel(
     String texto, {
     Color cor = Colors.black,
-    AlignmentGeometry alinhamento = Alignment.centerLeft,
+    AlignmentGeometry alinhamento = Alignment.center,
     FontWeight fontWeight = FontWeight.normal,
     int maxLines = 1,
   }) {
@@ -943,6 +1128,11 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       alignment: alinhamento,
       child: SelectableText(
         texto,
+        textAlign: alinhamento == Alignment.center 
+            ? TextAlign.center 
+            : (alinhamento == Alignment.centerRight 
+                ? TextAlign.right 
+                : TextAlign.left),
         style: TextStyle(
           fontSize: 13,
           color: cor,
@@ -985,5 +1175,5 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     } catch (e) {
       return dataString;
     }
-  }  
+  }
 }
