@@ -41,7 +41,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
 
   // Método para obter cor de fundo para colunas de SAÍDA
   Color _getCorFundoSaida() {
-    return Colors.red.shade50.withOpacity(0.3); // Vermelho muito claro
+    return Colors.red.shade50.withOpacity(0.3);
   }
 
   // Variáveis para ordenação
@@ -309,9 +309,10 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       // 🔍 SEGUNDO: Verificar autenticação
       final session = Supabase.instance.client.auth.currentSession;
 
-      if (session == null) {
-        throw Exception('❌ Usuário não autenticado. Faça login novamente.');
+      if (session == null || session.accessToken.isEmpty) {
+        throw Exception('Sessão inválida. Faça login novamente.');
       }
+
 
       return await _fazerRequisicao(
         supabaseUrl,
