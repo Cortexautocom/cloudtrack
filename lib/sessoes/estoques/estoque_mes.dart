@@ -1,3 +1,7 @@
+import 'dart:convert'; // Adicione 'json' aqui
+import 'dart:html' as html;
+//import 'dart:typed_data';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -34,6 +38,9 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   // Variáveis para ordenação
   String _colunaOrdenacao = 'data_mov';
   bool _ordenacaoAscendente = true;
+
+  // Variável para controlar estado do download
+  bool _baixandoExcel = false;
 
   @override
   void initState() {
@@ -164,6 +171,180 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     }
   }
 
+  // MÉTODO PARA BAIXAR EXCEL VIA EDGE FUNCTION
+  Future<void> _baixarExcel() async {
+    // Validar se há dados
+    if (_estoquesOrdenados.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não há dados para exportar'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Validar filtro de mês (obrigatório)
+    if (widget.mesFiltro == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('É necessário selecionar um mês para exportar'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _baixandoExcel = true;
+    });
+
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    
+    try {
+      // Mostrar loading
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('Gerando relatório Excel...'),
+          duration: Duration(seconds: 5),
+        ),
+      );
+
+      // Preparar dados para enviar à Edge Function
+      final requestData = {
+        'filialId': widget.filialId,
+        'nomeFilial': widget.nomeFilial,
+        'empresaId': widget.empresaId,
+        'mesFiltro': widget.mesFiltro!.toIso8601String(),
+        'produtoFiltro': widget.produtoFiltro,
+      };
+
+      debugPrint('📤 Enviando para Edge Function: $requestData');
+
+      // 🔧 ALTERNATIVA: Usar HTTP client direto para dados binários
+      final response = await _chamarEdgeFunctionBinaria(requestData);
+      
+      if (response.statusCode != 200) {
+        final errorBody = await response.body;
+        throw Exception('Erro ${response.statusCode}: ${errorBody.isNotEmpty ? errorBody : "Falha na Edge Function"}');
+      }
+
+      // 🔧 Converter resposta para Uint8List (dados binários)
+      final bytes = response.bodyBytes;
+      
+      if (bytes.isEmpty) {
+        throw Exception('Arquivo vazio recebido da Edge Function');
+      }
+
+      debugPrint('✅ Arquivo XLSX recebido: ${bytes.length} bytes');
+
+      // Criar blob e baixar no navegador
+      final blob = html.Blob(
+        [bytes], 
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      
+      // Gerar nome do arquivo
+      final mes = widget.mesFiltro!.month.toString().padLeft(2, '0');
+      final ano = widget.mesFiltro!.year.toString();
+      final nomeFormatado = widget.nomeFilial
+          .replaceAll(' ', '_')
+          .replaceAll(RegExp(r'[^\w_]'), '');
+      final fileName = 'estoque_${nomeFormatado}_${mes}_${ano}.xlsx';
+      
+      // Criar link e disparar download
+      html.AnchorElement(href: url)
+        ..setAttribute('download', fileName)
+        ..click();
+      
+      // Limpar URL para liberar memória
+      html.Url.revokeObjectUrl(url);
+
+      // Notificar sucesso
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('✅ Download do Excel iniciado! Verifique sua pasta de downloads.'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 4),
+        ),
+      );
+
+    } catch (e) {
+      debugPrint('❌ Erro detalhado ao baixar relatório: $e');
+      
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('❌ Erro: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _baixandoExcel = false;
+        });
+      }
+    }
+  }
+
+  // 🔧 Método auxiliar para chamar Edge Function com dados binários
+  // 🔧 Método auxiliar corrigido - use esta versão
+  Future<http.Response> _chamarEdgeFunctionBinaria(Map<String, dynamic> requestData) async {
+    try {
+      // 🔍 PRIMEIRO: Verificar se a Edge Function existe
+      // URL do seu Supabase (do erro 404 anterior)
+      const supabaseUrl = 'https://ikaxzlpaihdkqyjqrxyw.supabase.co';
+      
+      // 🔍 SEGUNDO: Verificar autenticação
+      final session = Supabase.instance.client.auth.currentSession;
+
+      if (session == null) {
+        throw Exception('❌ Usuário não autenticado. Faça login novamente.');
+      }
+
+      return await _fazerRequisicao(
+        supabaseUrl,
+        session.accessToken,
+        requestData,
+      );
+
+      
+    } catch (e) {
+      debugPrint('❌ Erro detalhado ao chamar Edge Function: $e');
+      rethrow;
+    }
+  }
+
+  // Método auxiliar para fazer a requisição HTTP
+  Future<http.Response> _fazerRequisicao(
+    String supabaseUrl, 
+    String accessToken, 
+    Map<String, dynamic> requestData
+  ) async {
+    final functionUrl = '$supabaseUrl/functions/v1/down_excel_estoques';
+    
+    debugPrint('🌐 URL: $functionUrl');
+    debugPrint('🔑 Token (início): ${accessToken.substring(0, 20)}...');
+    debugPrint('📦 Dados: ${jsonEncode(requestData)}');
+    
+    final response = await http.post(
+      Uri.parse(functionUrl),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      },
+      body: jsonEncode(requestData),
+    );
+    
+    debugPrint('📊 Status Code: ${response.statusCode}');
+    debugPrint('📄 Tamanho resposta: ${response.bodyBytes.length} bytes');
+    
+    return response;
+  }
+
   void _ordenarDados(
     List<Map<String, dynamic>> dados, 
     String coluna, 
@@ -224,7 +405,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       _estoquesOrdenados = dadosOrdenados;
       _colunaOrdenacao = coluna;
       _ordenacaoAscendente = ascendente;
-      //_carregando = false;
     });
   }
 
@@ -288,6 +468,26 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          // Botão para baixar Excel
+          if (!_carregando && !_erro && _estoquesOrdenados.isNotEmpty)
+            _baixandoExcel
+                ? const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Color(0xFF0D47A1),
+                      ),
+                    ),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.download),
+                    onPressed: _baixarExcel,
+                    tooltip: 'Baixar relatório Excel (XLSX)',
+                  ),
+          
           // Botão para alterar filtros
           if (!_carregando && (widget.mesFiltro != null || widget.produtoFiltro != null))
             IconButton(
@@ -297,6 +497,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                 Navigator.pop(context);
               },
             ),
+          
+          // Botão para ordenar
           if (!_carregando && !_erro && _estoques.isNotEmpty)
             PopupMenuButton<String>(
               icon: const Icon(Icons.sort),
@@ -334,6 +536,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                 ];
               },
             ),
+          
+          // Botão para atualizar
           if (!_carregando && !_erro)
             IconButton(
               icon: const Icon(Icons.refresh),
