@@ -18,6 +18,7 @@ import 'sessoes/apuracao/listar_cacls.dart';
 import 'sessoes/estoques/estoque_downloads.dart';
 import 'sessoes/estoques/filtro_estoque.dart';
 import 'sessoes/estoques/estoque_mes.dart';
+import 'sessoes/circuito/iniciar_circuito.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -53,6 +54,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarListarCacls = false;
   bool _mostrarFiltrosEstoque = false;
   bool _mostrarCircuitoFilhos = false;
+  bool _mostrarIniciarCircuito = false;
+
   String? _filialSelecionadaNome;
   Map<String, dynamic>? _dadosCalcGerado;
   
@@ -404,6 +407,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _empresaParaFiltroNome = null;
       _mostrarFiltrosEstoque = false;
       _mostrarCircuitoFilhos = false;
+      _mostrarIniciarCircuito = false;
     });
   }
 
@@ -547,6 +551,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   _empresaParaFiltroNome = null;
                                   _mostrarFiltrosEstoque = false;
                                   _mostrarCircuitoFilhos = false;
+                                  _mostrarIniciarCircuito = false;
                                 });
 
                                 if (menuItems[index] == 'Sessões') {
@@ -704,14 +709,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                               setState(() {
                                 _mostrarListarCacls = false;
                                 _filialSelecionadaNome = null;
-                                
+
                                 if (usuario!.nivel == 3) {
                                   _mostrarEscolherFilial = true;
                                   _contextoEscolhaFilial = 'cacl';
-                                } else {
-                                  if (_veioDaApuracao) {
-                                    _mostrarApuracaoFilhos = true;
-                                  }
+                                } else if (_veioDaApuracao) {
+                                  _mostrarApuracaoFilhos = true;
                                 }
                               });
                             },
@@ -785,7 +788,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                               _contextoEscolhaFilial = '';
                                             });
                                           } catch (e) {
-                                            debugPrint('❌ Erro ao carregar dados da filial: $e');
                                             setState(() {
                                               _filialSelecionadaId = idFilial;
                                               _filialSelecionadaNome = 'Filial';
@@ -808,16 +810,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                             key: const ValueKey('medicao-tanques'),
                                             filialSelecionadaId: _filialSelecionadaId,
                                             onVoltar: () {
-                                              final usuario = UsuarioAtual.instance;
-
                                               setState(() {
                                                 _mostrarMedicaoTanques = false;
-
-                                                if (usuario!.nivel == 3) {
-                                                  _mostrarListarCacls = true;
-                                                } else {
-                                                  _mostrarListarCacls = true;
-                                                }
+                                                _mostrarListarCacls = true;
                                               });
                                             },
                                             onFinalizarCACL: () {
@@ -834,7 +829,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                                 key: const ValueKey('gerenciamento-tanques'),
                                                 onVoltar: () {
                                                   final usuario = UsuarioAtual.instance;
-
                                                   setState(() {
                                                     _mostrarTanques = false;
                                                     _filialSelecionadaId = null;
@@ -842,12 +836,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                                     if (usuario!.nivel == 3) {
                                                       _mostrarEscolherFilial = true;
                                                       _contextoEscolhaFilial = 'tanques';
-                                                    } else {
-                                                      if (_veioDaApuracao) {
-                                                        _mostrarApuracaoFilhos = true;
-                                                      } else {
-                                                        _mostrarApuracaoFilhos = false;
-                                                      }
+                                                    } else if (_veioDaApuracao) {
+                                                      _mostrarApuracaoFilhos = true;
                                                     }
                                                   });
                                                 },
@@ -859,19 +849,32 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                                     ? _buildEstoquePorEmpresaPage()
                                                     : _mostrarEstoquesFilhos
                                                         ? _buildEstoquesFilhosPage()
-                                                        : _mostrarCircuitoFilhos
-                                                            ? _buildCircuitoFilhosPage()
-                                                            : _mostrarApuracaoFilhos
-                                                                ? _buildApuracaoFilhosPage()
-                                                                : _mostrarCalcGerado
-                                                                    ? CalcPage(
-                                                                        key: const ValueKey('calc-page'),
-                                                                        dadosFormulario: _dadosCalcGerado ?? {},
-                                                                      )
-                                                                    : _buildGridWithSearch(sessoes),
+                                                        : _mostrarIniciarCircuito
+                                                            ? IniciarCircuitoPage(
+                                                                key: const ValueKey('iniciar-circuito'),
+                                                                onVoltar: () {
+                                                                  setState(() {
+                                                                    _mostrarIniciarCircuito = false;
+                                                                    _mostrarCircuitoFilhos = true;
+                                                                    _mostrarApuracaoFilhos = false;
+                                                                    _mostrarEstoquesFilhos = false;
+                                                                  });
+                                                                },
+                                                              )
+                                                            : _mostrarCircuitoFilhos
+                                                                ? _buildCircuitoFilhosPage()
+                                                                : _mostrarApuracaoFilhos
+                                                                    ? _buildApuracaoFilhosPage()
+                                                                    : _mostrarCalcGerado
+                                                                        ? CalcPage(
+                                                                            key: const ValueKey('calc-page'),
+                                                                            dadosFormulario: _dadosCalcGerado ?? {},
+                                                                          )
+                                                                        : _buildGridWithSearch(sessoes),
       ),
     );
   }
+
 
   Widget _buildApuracaoFilhosPage() {
     return Column(
@@ -1503,6 +1506,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             _mostrarDownloads = false;
             _mostrarEstoquesFilhos = false;
             _mostrarApuracaoFilhos = false;
+            _mostrarIniciarCircuito = false;
           });
           
           if (nome == 'Estoques') {
@@ -1826,8 +1830,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   void _navegarParaCardCircuito(String nomeCard) {
     switch (nomeCard) {
       case 'Iniciar Circuito':
-        debugPrint('Abrir tela para iniciar novo circuito');
-        // Aqui você pode adicionar navegação para uma nova tela
+        setState(() {
+          _mostrarCircuitoFilhos = false;
+          _mostrarIniciarCircuito = true;
+          _mostrarApuracaoFilhos = false;
+          _mostrarEstoquesFilhos = false;
+        });
         break;
         
       case 'Acompanhar veículo':
