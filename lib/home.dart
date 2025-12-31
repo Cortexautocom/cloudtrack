@@ -135,11 +135,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'label': 'Movimentações',
         'descricao': 'Acompanhar entradas e saídas em geral',
       },
-      {
-        'icon': Icons.route,
-        'label': 'Circuito',
-        'descricao': 'Gerencie o fluxo de carga e descarga',
-      },
     ];
   }
 
@@ -408,6 +403,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _empresaParaFiltroId = null;
       _empresaParaFiltroNome = null;
       _mostrarFiltrosEstoque = false;
+      _mostrarCircuitoFilhos = false;
     });
   }
 
@@ -415,13 +411,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     setState(() {
       _mostrarApuracaoFilhos = false;
       _veioDaApuracao = false;
-    });
-  }
-
-  void _navegarParaCircuito() {
-    setState(() {
-      _mostrarCircuitoFilhos = true;
-      _mostrarEstoquesFilhos = false;
     });
   }
 
@@ -557,6 +546,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   _empresaParaFiltroId = null;
                                   _empresaParaFiltroNome = null;
                                   _mostrarFiltrosEstoque = false;
+                                  _mostrarCircuitoFilhos = false;
                                 });
 
                                 if (menuItems[index] == 'Sessões') {
@@ -869,8 +859,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                                     ? _buildEstoquePorEmpresaPage()
                                                     : _mostrarEstoquesFilhos
                                                         ? _buildEstoquesFilhosPage()
-                                                        : _mostrarCircuitoFilhos // NOVO: Adicione esta linha
-                                                            ? _buildCircuitoFilhosPage() // NOVO: Adicione esta linha
+                                                        : _mostrarCircuitoFilhos
+                                                            ? _buildCircuitoFilhosPage()
                                                             : _mostrarApuracaoFilhos
                                                                 ? _buildApuracaoFilhosPage()
                                                                 : _mostrarCalcGerado
@@ -1342,10 +1332,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         debugPrint('Navegando para Movimentações');
         break;
 
-      case 'Circuito':
-        _navegarParaCircuito();
-        break;
-
       case 'Downloads':
         setState(() {
           _mostrarDownloads = true;
@@ -1555,6 +1541,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             return;
           }
           
+      if (nome == 'Circuito') {
+        setState(() {
+          _mostrarCircuitoFilhos = true;
+        });
+        return;
+      }
+          
           if (nome == 'Tanques') {
             setState(() {
               _veioDaApuracao = false;
@@ -1635,6 +1628,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     if (lower.contains('cacl')) return Icons.analytics;
     if (lower.contains('venda')) return Icons.local_gas_station;
     if (lower.contains('tanque')) return Icons.storage;
+    if (lower.contains('circuito')) return Icons.route;
     return Icons.apps;
   }
 
@@ -1741,7 +1735,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               onPressed: () {
                 setState(() {
                   _mostrarCircuitoFilhos = false;
-                  _mostrarEstoquesFilhos = true;
                 });
               },
             ),
