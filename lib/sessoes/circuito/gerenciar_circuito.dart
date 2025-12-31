@@ -28,7 +28,7 @@ class _IniciarCircuitoPageState extends State<IniciarCircuitoPage> {
       etapa: EtapaCircuito.programado,
       label: 'Programado',
       subtitle: 'Agendamento realizado',
-      icon: Icons.schedule_outlined,
+      icon: Icons.calendar_month,
       cor: Color.fromARGB(255, 61, 160, 206),
     ),
     EtapaInfo(
@@ -42,7 +42,7 @@ class _IniciarCircuitoPageState extends State<IniciarCircuitoPage> {
       etapa: EtapaCircuito.operacao,
       label: 'Em operação',
       subtitle: 'Carga em transporte',
-      icon: Icons.local_shipping_outlined,
+      icon: Icons.invert_colors,
       cor: Color(0xFF7B1FA2),
     ),
     EtapaInfo(
@@ -56,7 +56,7 @@ class _IniciarCircuitoPageState extends State<IniciarCircuitoPage> {
       etapa: EtapaCircuito.liberacao,
       label: 'Liberação',
       subtitle: 'Entrega concluída',
-      icon: Icons.verified_outlined,
+      icon: Icons.done_outline,
       cor: Color.fromARGB(255, 42, 199, 50),
     ),
   ];
@@ -169,6 +169,7 @@ class _IniciarCircuitoPageState extends State<IniciarCircuitoPage> {
                   // Linha do tempo limpa e conectada
                   Card(
                     elevation: 2,
+                    color: Colors.white,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 16),
                       child: Column(
