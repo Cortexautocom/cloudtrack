@@ -33,6 +33,8 @@ dependencies:
   universal_io: ^2.3.0  # Para detectar plataforma
   mime: ^1.0.4
   http: ^1.1.0
+  syncfusion_flutter_core: ^32.1.21
+  syncfusion_flutter_charts: ^32.1.21
   
 dev_dependencies:
   flutter_test:

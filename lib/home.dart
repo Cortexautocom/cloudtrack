@@ -18,7 +18,7 @@ import 'sessoes/apuracao/listar_cacls.dart';
 import 'sessoes/estoques/estoque_downloads.dart';
 import 'sessoes/estoques/filtro_estoque.dart';
 import 'sessoes/estoques/estoque_mes.dart';
-import 'sessoes/circuito/iniciar_circuito.dart';
+import 'sessoes/circuito/gerenciar_circuito.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
