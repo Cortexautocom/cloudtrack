@@ -766,8 +766,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   }
 
   Widget _buildTabela() {
-    // Adicionar coluna de produto se não estiver filtrado por produto específico
-    bool mostrarColunaProduto = widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
+    bool mostrarColunaProduto =
+        widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
 
     return Container(
       width: double.infinity,
@@ -779,334 +779,187 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       child: SingleChildScrollView(
         scrollDirection: Axis.vertical,
         child: DataTable(
+          // 🔴 ISSO remove as “colunas em branco” que você mostrou na imagem
+          columnSpacing: 0,
           sortColumnIndex: _getSortColumnIndex(mostrarColunaProduto),
           sortAscending: _ordenacaoAscendente,
           headingRowHeight: 48,
           dataRowHeight: 44,
-          columnSpacing: 24,
-          headingRowColor: MaterialStateProperty.all(
-            Colors.grey.shade100,
-          ),
+          headingRowColor:
+              MaterialStateProperty.all(Colors.grey.shade100),
           columns: [
             DataColumn(
               label: SizedBox(
-                height: 48,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: const Text(
-                      'Data',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
+                width: 110, // Data
+                child: const Center(
+                  child: Text(
+                    '     Data',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
-              onSort: (columnIndex, ascending) {
-                _onSort('data_mov');
-              },
+              onSort: (_, __) => _onSort('data_mov'),
             ),
             if (mostrarColunaProduto)
               DataColumn(
                 label: SizedBox(
-                  height: 48,
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: const Text(
-                        'Produto',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ),
-                onSort: (columnIndex, ascending) {
-                  _onSort('produto_nome');
-                },
-              ),
-            DataColumn(
-              label: SizedBox(
-                height: 48,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: const Text(
-                      '                             Descrição',
+                  width: 160, // Produto
+                  child: const Center(
+                    child: Text(
+                      '        Produto',
+                      textAlign: TextAlign.center,
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
+                onSort: (_, __) => _onSort('produto_nome'),
               ),
-              onSort: (columnIndex, ascending) {
-                _onSort('descricao');
-              },
+            DataColumn(
+              label: SizedBox(
+                width: 220, // Descrição
+                child: const Center(
+                  child: Text(
+                    'Descrição',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              onSort: (_, __) => _onSort('descricao'),
             ),
             DataColumn(
-              label: SizedBox(
-                height: 48,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: const Text(
-                      'Entrada (Amb.)                  ',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ),
+              label: const Center(child: Text('Entrada (Amb.)   ')),
               numeric: true,
-              onSort: (columnIndex, ascending) {
-                _onSort('entrada_amb');
-              },
+              onSort: (_, __) => _onSort('entrada_amb'),
             ),
             DataColumn(
-              label: SizedBox(
-                height: 48,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: const Text(
-                      'Entrada (20ºC)                   ',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ),
+              label: const Center(child: Text('Entrada (20ºC)   ')),
               numeric: true,
-              onSort: (columnIndex, ascending) {
-                _onSort('entrada_vinte');
-              },
+              onSort: (_, __) => _onSort('entrada_vinte'),
             ),
             DataColumn(
-              label: SizedBox(
-                height: 48,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: const Text(
-                      'Saída (Amb.)               ',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ),
+              label: const Center(child: Text('Saída (Amb.)   ')),
               numeric: true,
-              onSort: (columnIndex, ascending) {
-                _onSort('saida_amb');
-              },
+              onSort: (_, __) => _onSort('saida_amb'),
             ),
             DataColumn(
-              label: SizedBox(
-                height: 48,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: const Text(
-                      'Saída (20ºC)            ',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ),
+              label: const Center(child: Text('Saída (20ºC)   ')),
               numeric: true,
-              onSort: (columnIndex, ascending) {
-                _onSort('saida_vinte');
-              },
+              onSort: (_, __) => _onSort('saida_vinte'),
             ),
             DataColumn(
-              label: SizedBox(
-                height: 48,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: const Text(
-                      'Saldo (Amb.)         ',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ),
+              label: const Center(child: Text('Saldo (Amb.)   ')),
               numeric: true,
-              onSort: (columnIndex, ascending) {
-                _onSort('saldo_amb');
-              },
+              onSort: (_, __) => _onSort('saldo_amb'),
             ),
             DataColumn(
-              label: SizedBox(
-                height: 48,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: const Text(
-                      'Saldo (20ºC)             ',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ),
+              label: const Center(child: Text('Saldo (20ºC)   ')),
               numeric: true,
-              onSort: (columnIndex, ascending) {
-                _onSort('saldo_vinte');
-              },
+              onSort: (_, __) => _onSort('saldo_vinte'),
             ),
           ],
-          rows: _estoquesOrdenados.map((estoque) {
-            final dataMov = estoque['data_mov']?.toString() ?? '';
-            final produtoNome = estoque['produto_nome']?.toString() ?? '';
-            final descricao = estoque['descricao']?.toString() ?? '';
-            final entradaAmb = estoque['entrada_amb'] ?? 0;
-            final entradaVinte = estoque['entrada_vinte'] ?? 0;
-            final saidaAmb = estoque['saida_amb'] ?? 0;
-            final saidaVinte = estoque['saida_vinte'] ?? 0;
-            final saldoAmb = estoque['saldo_amb'] ?? 0;
-            final saldoVinte = estoque['saldo_vinte'] ?? 0;
-
-            // Determinar cor para saldo (apenas vermelho para negativo)
-            final corSaldoAmb = saldoAmb < 0 ? Colors.red : Colors.black;
-            final corSaldoVinte = saldoVinte < 0 ? Colors.red : Colors.black;
+          rows: _estoquesOrdenados.map((e) {
+            final saldoAmb = e['saldo_amb'] ?? 0;
+            final saldoVinte = e['saldo_vinte'] ?? 0;
 
             return DataRow(
               cells: [
                 DataCell(
-                  SizedBox(
-                    height: 44,
-                    child: Center(
-                      child: Container(
-                        color: Colors.transparent,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: _buildCelulaSelecionavel(
-                          _formatarData(dataMov),
-                          alinhamento: Alignment.center,
-                        ),
-                      ),
+                  Container(
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: _buildCelulaSelecionavel(
+                      _formatarData(e['data_mov']),
                     ),
                   ),
                 ),
+
                 if (mostrarColunaProduto)
                   DataCell(
-                    SizedBox(
-                      height: 44,
-                      child: Center(
-                        child: Container(
-                          color: Colors.transparent,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: _buildCelulaSelecionavel(
-                            produtoNome.isNotEmpty ? produtoNome : '-',
-                            maxLines: 1,
-                            alinhamento: Alignment.center,
-                          ),
-                        ),
+                    Container(
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: _buildCelulaSelecionavel(
+                        e['produto_nome'] ?? '-',
+                        maxLines: 1,
                       ),
                     ),
                   ),
+
                 DataCell(
-                  SizedBox(
-                    height: 44,
-                    child: Center(
-                      child: Container(
-                        color: Colors.transparent,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: _buildCelulaSelecionavel(
-                          descricao.isNotEmpty ? descricao : '-',
-                          maxLines: 2,
-                          alinhamento: Alignment.center,
-                        ),
-                      ),
+                  Container(
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: _buildCelulaSelecionavel(
+                      e['descricao'] ?? '-',
+                      maxLines: 2,
                     ),
                   ),
                 ),
+
                 DataCell(
-                  SizedBox(
-                    height: 44,
-                    child: Center(
-                      child: Container(
-                        color: _getCorFundoEntrada(),
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: _buildCelulaSelecionavel(
-                          _formatarNumero(entradaAmb),
-                          cor: Colors.black,
-                          alinhamento: Alignment.center,
-                        ),
-                      ),
+                  Container(
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    color: _getCorFundoEntrada(),
+                    child: _buildCelulaSelecionavel(
+                      _formatarNumero(e['entrada_amb']),
                     ),
                   ),
                 ),
+
                 DataCell(
-                  SizedBox(
-                    height: 44,
-                    child: Center(
-                      child: Container(
-                        color: _getCorFundoEntrada(),
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: _buildCelulaSelecionavel(
-                          _formatarNumero(entradaVinte),
-                          cor: Colors.black,
-                          alinhamento: Alignment.center,
-                        ),
-                      ),
+                  Container(
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    color: _getCorFundoEntrada(),
+                    child: _buildCelulaSelecionavel(
+                      _formatarNumero(e['entrada_vinte']),
                     ),
                   ),
                 ),
+
                 DataCell(
-                  SizedBox(
-                    height: 44,
-                    child: Center(
-                      child: Container(
-                        color: _getCorFundoSaida(),
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: _buildCelulaSelecionavel(
-                          _formatarNumero(saidaAmb),
-                          cor: Colors.black,
-                          alinhamento: Alignment.center,
-                        ),
-                      ),
+                  Container(
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    color: _getCorFundoSaida(),
+                    child: _buildCelulaSelecionavel(
+                      _formatarNumero(e['saida_amb']),
                     ),
                   ),
                 ),
+
                 DataCell(
-                  SizedBox(
-                    height: 44,
-                    child: Center(
-                      child: Container(
-                        color: _getCorFundoSaida(),
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: _buildCelulaSelecionavel(
-                          _formatarNumero(saidaVinte),
-                          cor: Colors.black,
-                          alinhamento: Alignment.center,
-                        ),
-                      ),
+                  Container(
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    color: _getCorFundoSaida(),
+                    child: _buildCelulaSelecionavel(
+                      _formatarNumero(e['saida_vinte']),
                     ),
                   ),
                 ),
+
                 DataCell(
-                  SizedBox(
-                    height: 44,
-                    child: Center(
-                      child: Container(
-                        color: Colors.transparent,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: _buildCelulaSelecionavel(
-                          _formatarNumero(saldoAmb),
-                          cor: corSaldoAmb,
-                          alinhamento: Alignment.center,
-                        ),
-                      ),
+                  Container(
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: _buildCelulaSelecionavel(
+                      _formatarNumero(saldoAmb),
+                      cor: saldoAmb < 0 ? Colors.red : Colors.black,
                     ),
                   ),
                 ),
+
                 DataCell(
-                  SizedBox(
-                    height: 44,
-                    child: Center(
-                      child: Container(
-                        color: Colors.transparent,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: _buildCelulaSelecionavel(
-                          _formatarNumero(saldoVinte),
-                          cor: corSaldoVinte,
-                          alinhamento: Alignment.center,
-                        ),
-                      ),
+                  Container(
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: _buildCelulaSelecionavel(
+                      _formatarNumero(saldoVinte),
+                      cor: saldoVinte < 0 ? Colors.red : Colors.black,
                     ),
                   ),
                 ),
@@ -1116,7 +969,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         ),
       ),
     );
-  }
+  } //88
 
   Widget _buildCelulaSelecionavel(
     String texto, {

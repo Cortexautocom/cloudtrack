@@ -5,7 +5,8 @@ import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 serve(async (req: Request) => {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
   };
 
   if (req.method === "OPTIONS") {
@@ -13,52 +14,39 @@ serve(async (req: Request) => {
   }
 
   try {
-    // 📥 Lê dados enviados pelo app
-    const { filialId, nomeFilial, empresaId, mesFiltro, produtoFiltro } = await req.json();
+    const { filialId, nomeFilial, empresaId, mesFiltro, produtoFiltro } =
+      await req.json();
 
-    // 🔐 Validação dos parâmetros
     if (!filialId || !mesFiltro) {
       throw new Error("ID da filial e mês são obrigatórios");
     }
 
-    const supabaseUrl = Deno.env.get("PROJECT_URL")!;
-    const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const supabase = createClient(
+      Deno.env.get("PROJECT_URL")!,
+      Deno.env.get("SERVICE_ROLE_KEY")!,
+    );
 
-    // 🔹 Validação do usuário
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("Token de autenticação não encontrado");
-    }
+    if (!authHeader) throw new Error("Token não informado");
 
     const token = authHeader.replace("Bearer ", "");
     const { data: { user } } = await supabase.auth.getUser(token);
-    
-    if (!user) {
-      throw new Error("Usuário não autenticado");
-    }
+    if (!user) throw new Error("Usuário não autenticado");
 
-    // 🔍 Buscar empresaId se não fornecido
     let empresaIdFinal = empresaId;
     if (!empresaIdFinal) {
-      const { data: filialData } = await supabase
+      const { data } = await supabase
         .from("filiais")
         .select("empresa_id")
         .eq("id", filialId)
         .single();
-      
-      if (!filialData?.empresa_id) {
-        throw new Error("Filial não possui empresa associada");
-      }
-      empresaIdFinal = filialData.empresa_id;
+      empresaIdFinal = data?.empresa_id;
     }
 
-    // 📅 Preparar datas para filtro
     const mes = new Date(mesFiltro);
     const primeiroDia = new Date(mes.getFullYear(), mes.getMonth(), 1);
     const ultimoDia = new Date(mes.getFullYear(), mes.getMonth() + 1, 0);
-    
-    // 🔍 Construir query
+
     let query = supabase
       .from("estoques")
       .select(`
@@ -76,106 +64,115 @@ serve(async (req: Request) => {
       .lte("data_mov", ultimoDia.toISOString())
       .order("data_mov", { ascending: true });
 
-    // 🔍 Aplicar filtro de produto
     if (produtoFiltro && produtoFiltro !== "todos") {
       query = query.eq("produto_id", produtoFiltro);
     }
 
-    // 📊 Executar consulta
-    const { data: estoques, error } = await query;
-    if (error) throw error;
-    if (!estoques || estoques.length === 0) {
-      throw new Error("Nenhum registro encontrado");
-    }
+    const { data: estoques } = await query;
+    if (!estoques?.length) throw new Error("Sem dados");
 
-    // 🧮 Calcular saldos acumulados
-    let saldoAmbAcumulado = 0;
-    let saldoVinteAcumulado = 0;
-    
-    const dadosProcessados = estoques.map((item: any) => {
-      const entradaAmb = Number(item.entrada_amb) || 0;
-      const entradaVinte = Number(item.entrada_vinte) || 0;
-      const saidaAmb = Number(item.saida_amb) || 0;
-      const saidaVinte = Number(item.saida_vinte) || 0;
-      
-      saldoAmbAcumulado += entradaAmb - saidaAmb;
-      saldoVinteAcumulado += entradaVinte - saidaVinte;
+    let saldoAmb = 0;
+    let saldoVinte = 0;
 
-      const produtoNome = item.produtos?.nome || "";
+    const dados = estoques.map((i: any) => {
+      const ea = Number(i.entrada_amb) || 0;
+      const ev = Number(i.entrada_vinte) || 0;
+      const sa = Number(i.saida_amb) || 0;
+      const sv = Number(i.saida_vinte) || 0;
 
-      return {
-        "Data": new Date(item.data_mov).toLocaleDateString("pt-BR"),
-        "Produto": produtoNome,
-        "Descrição": item.descricao || "",
-        "Entrada (Amb.)": entradaAmb,
-        "Entrada (20ºC)": entradaVinte,
-        "Saída (Amb.)": saidaAmb,
-        "Saída (20ºC)": saidaVinte,
-        "Saldo (Amb.)": saldoAmbAcumulado,
-        "Saldo (20ºC)": saldoVinteAcumulado,
-      };
+      saldoAmb += ea - sa;
+      saldoVinte += ev - sv;
+
+      return [
+        new Date(i.data_mov).toLocaleDateString("pt-BR"),
+        i.produtos?.nome || "",
+        i.descricao || "",
+        ea,
+        ev,
+        sa,
+        sv,
+        saldoAmb,
+        saldoVinte,
+      ];
     });
 
-    // 📊 Criar planilha Excel
-    const worksheet = XLSX.utils.json_to_sheet(dadosProcessados);
-    
-    // 🎨 Ajustar larguras das colunas (opcional)
-    const colWidths = [
-      { wch: 12 }, // Data
-      { wch: 25 }, // Produto
-      { wch: 30 }, // Descrição
-      { wch: 15 }, // Entrada (Amb.)
-      { wch: 15 }, // Entrada (20ºC)
-      { wch: 15 }, // Saída (Amb.)
-      { wch: 15 }, // Saída (20ºC)
-      { wch: 15 }, // Saldo (Amb.)
-      { wch: 15 }, // Saldo (20ºC)
-    ];
-    worksheet["!cols"] = colWidths;
-
-    // 📄 Criar workbook
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Estoque");
-
-    // 🔧 Adicionar informações de cabeçalho
-    const infoRows = [
-      ["Relatório de Estoque"],
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ["RELATÓRIO DE ESTOQUE"],
       [`Filial: ${nomeFilial}`],
       [`Mês: ${mes.getMonth() + 1}/${mes.getFullYear()}`],
-      [`Produto: ${produtoFiltro === "todos" || !produtoFiltro ? "Todos" : "Específico"}`],
-      [`Gerado em: ${new Date().toLocaleDateString("pt-BR")} ${new Date().toLocaleTimeString("pt-BR")}`],
-      [], // Linha vazia
+      [
+        `Produto: ${
+          !produtoFiltro || produtoFiltro === "todos"
+            ? "Todos"
+            : "Específico"
+        }`,
+      ],
+      [
+        `Gerado em: ${new Date().toLocaleDateString("pt-BR")} ${new Date().toLocaleTimeString("pt-BR")}`,
+      ],
+      [],
+      [
+        "Data",
+        "Produto",
+        "Descrição",
+        "Entrada (Amb.)",
+        "Entrada (20ºC)",
+        "Saída (Amb.)",
+        "Saída (20ºC)",
+        "Saldo (Amb.)",
+        "Saldo (20ºC)",
+      ],
+      ...dados,
+    ]);
+
+    // Índices das colunas numéricas (D até I)
+    const colNumericas = [3, 4, 5, 6, 7, 8];
+    const range = XLSX.utils.decode_range(worksheet["!ref"]!);
+
+    for (let r = 7; r <= range.e.r; r++) {
+      for (const c of colNumericas) {
+        const cellRef = XLSX.utils.encode_cell({ r, c });
+        const cell = worksheet[cellRef];
+        if (!cell) continue;
+
+        cell.t = "n";
+        cell.z = "#,##0";
+        cell.s = {
+          alignment: { horizontal: "center" },
+        };
+      }
+    }
+
+    worksheet["!cols"] = [
+      { wch: 12 },
+      { wch: 25 },
+      { wch: 30 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 15 },
     ];
 
-    // Inserir linhas de informação acima dos dados
-    XLSX.utils.sheet_add_aoa(worksheet, infoRows, { origin: "A1" });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, worksheet, "Estoque");
 
-    // 📁 Gerar arquivo XLSX
-    const excelBuffer = XLSX.write(workbook, { type: "array", bookType: "xlsx" });
-    
-    // 📝 Nome do arquivo
-    const fileName = `estoque_${nomeFilial.replace(/\s+/g, "_")}_${mes.getMonth() + 1}_${mes.getFullYear()}.xlsx`;
+    const buffer = XLSX.write(wb, { type: "array", bookType: "xlsx" });
 
-    // ✅ Retornar arquivo XLSX
-    return new Response(excelBuffer, {
+    return new Response(buffer, {
       status: 200,
       headers: {
         ...corsHeaders,
-        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="${fileName}"`,
+        "Content-Type":
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="estoque.xlsx"`,
       },
     });
-
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error("❌ Erro em down_excel_estoques:", errorMessage);
-
+  } catch (e) {
     return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
+      JSON.stringify({ error: e instanceof Error ? e.message : e }),
+      { status: 400, headers: corsHeaders },
     );
   }
 });
