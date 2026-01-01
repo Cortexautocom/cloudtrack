@@ -47,7 +47,7 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
   
   void _inicializarControladores() {
     // Inicializar 20 controladores (0-19) para garantir índices
-    for (int i = 0; i < 20; i++) { // Mude de 19 para 20
+    for (int i = 0; i < 20; i++) {
       _controllers.add(TextEditingController());
       _focusNodes.add(FocusNode());
     }
@@ -77,12 +77,18 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
     try {
       final supabase = Supabase.instance.client;
       
-      // 1. Buscar dados do CACL
+      // 1. Buscar dados do CACL com JOIN nas tabelas relacionadas
       final cacl = await supabase
           .from('cacl')
           .select('''
             *,
-            filiais (nome)
+            filiais (nome),
+            tanques (
+              referencia,
+              capacidade,
+              numero,
+              produtos (nome)
+            )
           ''')
           .eq('id', widget.caclId)
           .single();
@@ -95,39 +101,51 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
       _caclData = cacl;
       _filialId = cacl['filial_id']?.toString();
       
-      // 2. Buscar informações do tanque
-      final tanqueRef = cacl['tanque']?.toString() ?? '';
-      if (tanqueRef.isNotEmpty) {
-        final numeros = tanqueRef.replaceAll(RegExp(r'[^0-9]'), '');
-        if (numeros.isNotEmpty) {
-        }
-      }
-      
-      final tanqueInfo = await supabase
-          .from('tanques')
-          .select('''
-            referencia,
-            capacidade,
-            numero,
-            produtos (nome)
-          ''')
-          .eq('referencia', tanqueRef)
-          .eq('id_filial', _filialId ?? '')
-          .maybeSingle();
-      
-      if (tanqueInfo != null) {
+      // 2. Buscar informações do tanque da relação
+      if (cacl['tanques'] != null) {
+        final tanque = cacl['tanques'];
         _tanqueInfo = {
-          'numero': tanqueInfo['referencia']?.toString() ?? '',
-          'produto': tanqueInfo['produtos']?['nome']?.toString() ?? cacl['produto']?.toString() ?? '',
-          'capacidade': '${tanqueInfo['capacidade']?.toString() ?? '0'} L',
+          'numero': tanque['referencia']?.toString() ?? '',
+          'produto': tanque['produtos']?['nome']?.toString() ?? cacl['produto']?.toString() ?? '',
+          'capacidade': '${tanque['capacidade']?.toString() ?? '0'} L',
         };
       } else {
-        // Fallback com dados do CACL
-        _tanqueInfo = {
-          'numero': tanqueRef,
-          'produto': cacl['produto']?.toString() ?? '',
-          'capacidade': 'Capacidade não encontrada',
-        };
+        // Fallback: buscar tanque pelo tanque_id se a relação não funcionar
+        final tanqueId = cacl['tanque_id']?.toString();
+        if (tanqueId != null && tanqueId.isNotEmpty) {
+          final tanqueInfo = await supabase
+              .from('tanques')
+              .select('''
+                referencia,
+                capacidade,
+                numero,
+                produtos (nome)
+              ''')
+              .eq('id', tanqueId)
+              .maybeSingle();
+          
+          if (tanqueInfo != null) {
+            _tanqueInfo = {
+              'numero': tanqueInfo['referencia']?.toString() ?? '',
+              'produto': tanqueInfo['produtos']?['nome']?.toString() ?? cacl['produto']?.toString() ?? '',
+              'capacidade': '${tanqueInfo['capacidade']?.toString() ?? '0'} L',
+            };
+          } else {
+            // Fallback com dados do CACL
+            _tanqueInfo = {
+              'numero': cacl['produto']?.toString() ?? '', // Usar produto como fallback
+              'produto': cacl['produto']?.toString() ?? '',
+              'capacidade': 'Capacidade não encontrada',
+            };
+          }
+        } else {
+          // Fallback com dados do CACL
+          _tanqueInfo = {
+            'numero': cacl['produto']?.toString() ?? '',
+            'produto': cacl['produto']?.toString() ?? '',
+            'capacidade': 'Capacidade não encontrada',
+          };
+        }
       }
       
       // 3. Preencher dados da interface
@@ -216,9 +234,6 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
     
     // NÃO PREENCHER 2ª MEDIÇÃO (campos 10-18) - EDITÁVEIS
     // Os controladores já nascem vazios, não preencher nada
-    
-    // REMOVIDO: Preenchimento dos campos 10-18
-    
   }
   
   String _formatarHorarioParaInterface(String? horarioSql) {
@@ -449,10 +464,11 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
       'data': _dataController.text,
       'base': _nomeFilial ?? _caclData['base'] ?? 'POLO DE COMBUSTÍVEL',
       'produto': _tanqueInfo['produto'] ?? _caclData['produto'] ?? '',
-      'tanque': _tanqueInfo['numero'] ?? _caclData['tanque'] ?? '',
+      'tanque': _tanqueInfo['numero'] ?? '', // Agora vem de tanques.referencia
       'responsavel': UsuarioAtual.instance?.nome ?? 'Usuário',
       'medicoes': dadosMedicoes,
       'filial_id': _filialId ?? _caclData['filial_id'],
+      'tanque_id': _caclData['tanque_id'], // Incluir o ID do tanque
       'cacl_verificacao': _caclVerificacao,
       'cacl_movimentacao': _caclMovimentacao,
       
@@ -905,7 +921,6 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
       decoration: BoxDecoration(
         color: readonly ? Colors.grey[50] : bg,
         borderRadius: BorderRadius.circular(8),
-        // ignore: deprecated_member_use
         border: Border.all(color: readonly ? Colors.grey[300]! : accent.withOpacity(0.3)),
       ),
       child: Column(
@@ -1135,23 +1150,20 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
     String hint, {
     required bool readonly,
     double width = 100,
-    int? maxLength, // Alterado para nullable
+    int? maxLength,
     FocusNode? focusNode,
     FocusNode? nextFocus,
     required String tipo,
   }) {
-    // Definir maxLength baseado no tipo
     int? maxLengthFinal;
     switch (tipo) {
       case 'horario':
       case 'temperatura':
       case 'densidade':
       case 'faturado':
-        // Não usar maxLength para campos com máscara
         maxLengthFinal = null;
         break;
       case 'numero':
-        // Para cm/mm, manter os valores específicos
         if (label.toLowerCase().contains('água') && label.toLowerCase().contains('mm')) {
           maxLengthFinal = 1;
         } else if (label.toLowerCase().contains('cm')) {
@@ -1209,7 +1221,6 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
                   maskedValue = _aplicarMascaraFaturado(value);
                   break;
                 default:
-                  // Para campos sem máscara (numero), manter o valor original
                   maskedValue = value;
               }
               
