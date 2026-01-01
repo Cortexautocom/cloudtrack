@@ -80,46 +80,65 @@ class _CalcPageState extends State<CalcPage> {
       
       if (widget.caclId != null && widget.caclId!.isNotEmpty) {
         try {
+          // 1. BUSCA OS DADOS DO CACL
           final resultado = await supabase
               .from('cacl')
-              .select('''
-                *,
-                tanques:tanque_id (
-                  referencia,
-                  capacidade,
-                  id_produto,
-                  produtos:id_produto (nome)
-                )
-              ''')
+              .select('*')
               .eq('id', widget.caclId!)
               .maybeSingle();
 
           if (resultado != null) {
-            String? nomeTanque;
-            if (resultado['tanques'] != null) {
-              nomeTanque = resultado['tanques']['referencia']?.toString();
-              
-              widget.dadosFormulario['tanque'] = nomeTanque ?? '';
-              
-              if (resultado['tanque_id'] != null) {
-                widget.dadosFormulario['tanque_id'] = resultado['tanque_id']?.toString();
+            // 2. BUSCA O NOME DO TANQUE SEPARADAMENTE
+            final tanqueId = resultado['tanque_id']?.toString();
+            if (tanqueId != null && tanqueId.isNotEmpty) {
+              final tanqueInfo = await supabase
+                  .from('tanques')
+                  .select('referencia')
+                  .eq('id', tanqueId)
+                  .maybeSingle();
+                  
+              if (tanqueInfo != null && tanqueInfo['referencia'] != null) {
+                widget.dadosFormulario['tanque'] = tanqueInfo['referencia']?.toString();
+              } else {
+                // Fallback: usa o produto como nome do tanque
+                widget.dadosFormulario['tanque'] = resultado['produto']?.toString();
               }
-              
-              if (resultado['tanques']['produtos'] != null) {
-                final produtoNome = resultado['tanques']['produtos']['nome']?.toString();
-                if (produtoNome != null && produtoNome.isNotEmpty) {
-                  widget.dadosFormulario['produto'] = produtoNome;
-                }
-              }
+            } else {
+              // Se não tem tanque_id, usa o produto como nome
+              widget.dadosFormulario['tanque'] = resultado['produto']?.toString();
+            }
+            
+            // 3. ATUALIZA OS DADOS DO FORMULÁRIO
+            widget.dadosFormulario['tanque_id'] = resultado['tanque_id']?.toString();
+            
+            if (resultado['data'] != null) {
+              widget.dadosFormulario['data'] = _formatarDataDisplay(resultado['data']);
+            }
+            if (resultado['base'] != null) {
+              widget.dadosFormulario['base'] = resultado['base']?.toString();
+            }
+            if (resultado['produto'] != null) {
+              widget.dadosFormulario['produto'] = resultado['produto']?.toString();
+            }
+            if (resultado['filial_id'] != null) {
+              widget.dadosFormulario['filial_id'] = resultado['filial_id']?.toString();
+            }
+            if (resultado['tipo'] != null) {
+              final tipo = resultado['tipo']?.toString();
+              widget.dadosFormulario['cacl_verificacao'] = tipo == 'verificacao';
+              widget.dadosFormulario['cacl_movimentacao'] = tipo == 'movimentacao';
             }
 
+            // 4. CARREGA OS VOLUMES
             volumeInicial = resultado['volume_produto_inicial']?.toDouble() ?? 0.0;
             volumeFinal = resultado['volume_produto_final']?.toDouble() ?? 0.0;
             volumeTotalLiquidoInicial = resultado['volume_total_liquido_inicial']?.toDouble() ?? 0.0;
             volumeTotalLiquidoFinal = resultado['volume_total_liquido_final']?.toDouble() ?? 0.0;
 
+            // 5. PREENCHE AS MEDIÇÕES
             final medicoesAtualizadas = <String, dynamic>{};
             
+            // 1ª Medição
             if (resultado['horario_inicial'] != null) {
               medicoesAtualizadas['horarioInicial'] = _formatarHorarioDisplay(resultado['horario_inicial']);
             }
@@ -154,6 +173,7 @@ class _CalcPageState extends State<CalcPage> {
               medicoesAtualizadas['massaInicial'] = resultado['massa_inicial']?.toString();
             }
             
+            // 2ª Medição
             if (resultado['horario_final'] != null) {
               medicoesAtualizadas['horarioFinal'] = _formatarHorarioDisplay(resultado['horario_final']);
             }
@@ -188,6 +208,7 @@ class _CalcPageState extends State<CalcPage> {
               medicoesAtualizadas['massaFinal'] = resultado['massa_final']?.toString();
             }
             
+            // Volumes
             medicoesAtualizadas['volumeProdutoInicial'] = _formatarVolumeLitros(volumeInicial);
             medicoesAtualizadas['volumeProdutoFinal'] = _formatarVolumeLitros(volumeFinal);
             medicoesAtualizadas['volumeTotalLiquidoInicial'] = _formatarVolumeLitros(volumeTotalLiquidoInicial);
@@ -207,29 +228,12 @@ class _CalcPageState extends State<CalcPage> {
               medicoesAtualizadas['volume20Final'] = _formatarVolumeLitros(resultado['volume_20_final']?.toDouble() ?? 0.0);
             }
             
+            // Faturado
             if (resultado['faturado_final'] != null) {
               medicoesAtualizadas['faturadoFinal'] = resultado['faturado_final']?.toString();
             }
             
             widget.dadosFormulario['medicoes'] = medicoesAtualizadas;
-            
-            if (resultado['data'] != null) {
-              widget.dadosFormulario['data'] = _formatarDataDisplay(resultado['data']);
-            }
-            if (resultado['base'] != null) {
-              widget.dadosFormulario['base'] = resultado['base']?.toString();
-            }
-            if (resultado['produto'] != null) {
-              widget.dadosFormulario['produto'] = resultado['produto']?.toString();
-            }
-            if (resultado['filial_id'] != null) {
-              widget.dadosFormulario['filial_id'] = resultado['filial_id']?.toString();
-            }
-            if (resultado['tipo'] != null) {
-              final tipo = resultado['tipo']?.toString();
-              widget.dadosFormulario['cacl_verificacao'] = tipo == 'verificacao';
-              widget.dadosFormulario['cacl_movimentacao'] = tipo == 'movimentacao';
-            }
 
             setState(() {
               _caclJaEmitido = true;
@@ -241,6 +245,7 @@ class _CalcPageState extends State<CalcPage> {
         }
       }
       
+      // Fallback: tenta usar os dados existentes
       final dadosDoBanco = widget.dadosFormulario;
       
       volumeInicial = dadosDoBanco['volume_produto_inicial']?.toDouble() ?? 0.0;
@@ -2910,17 +2915,49 @@ class _CalcPageState extends State<CalcPage> {
   }
 
   String _obterNomeTanque() {
+    // Tenta pegar o nome do tanque
     final tanqueNome = widget.dadosFormulario['tanque']?.toString();
     
-    if (tanqueNome != null && tanqueNome.isNotEmpty && tanqueNome != 'N/A') {
+    // Se já tem e não é um UUID, retorna ele
+    if (tanqueNome != null && 
+        tanqueNome.isNotEmpty && 
+        !_isValidUUID(tanqueNome)) {
       return tanqueNome;
     }
     
+    // Se o valor atual é um UUID, tenta buscar o nome da tabela 'tanques'
+    if (tanqueNome != null && _isValidUUID(tanqueNome)) {
+      _buscarNomeTanquePorId(tanqueNome);
+      return 'Carregando...'; // Retorna temporário
+    }
+    
+    // Fallback para usar o produto como nome
     final produto = widget.dadosFormulario['produto']?.toString();
     if (produto != null && produto.isNotEmpty) {
       return produto;
     }
     
     return 'Tanque';
+  }
+
+  Future<void> _buscarNomeTanquePorId(String tanqueId) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final resultado = await supabase
+          .from('tanques')
+          .select('referencia')
+          .eq('id', tanqueId)
+          .maybeSingle();
+          
+      if (resultado != null && resultado['referencia'] != null) {
+        if (mounted) {
+          setState(() {
+            widget.dadosFormulario['tanque'] = resultado['referencia']?.toString();
+          });
+        }
+      }
+    } catch (e) {
+      // Silencioso
+    }
   }
 }
