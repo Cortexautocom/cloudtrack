@@ -28,12 +28,38 @@ class ListarCaclsPage extends StatefulWidget {
 class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingObserver {
   bool _carregando = true;
   List<Map<String, dynamic>> _cacles = [];
+  int? _nivelUsuario;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _carregarNivelUsuario();
     _carregarCaclsSimples();
+  }
+
+  Future<void> _carregarNivelUsuario() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final usuarioId = UsuarioAtual.instance?.id;
+      
+      if (usuarioId != null) {
+        final response = await supabase
+            .from('usuarios')
+            .select('nivel')
+            .eq('id', usuarioId)
+            .single();
+        
+        setState(() {
+          _nivelUsuario = response['nivel'] as int? ?? 0;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Erro ao carregar nível do usuário: $e');
+      setState(() {
+        _nivelUsuario = 0;
+      });
+    }
   }
 
   @override
@@ -52,7 +78,6 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Recarrega dados sempre que as dependências mudam
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _refreshData();
@@ -63,7 +88,6 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
   @override
   void didUpdateWidget(ListarCaclsPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Se a filial mudou, recarrega os dados
     if (oldWidget.filialId != widget.filialId) {
       _refreshData();
     }
@@ -74,7 +98,6 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
   }
 
   Future<void> _carregarCaclsSimples() async {
-    // Não recarrega se já estiver carregando
     if (_carregando && _cacles.isNotEmpty) return;
     
     setState(() => _carregando = true);
@@ -100,7 +123,8 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
             volume_produto_final,
             volume_total_liquido_inicial,
             volume_total_liquido_final,
-            base
+            base,
+            solicita_canc
           ''')
           .eq('filial_id', widget.filialId)
           .order('created_at', ascending: false);
@@ -141,6 +165,88 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
     }
   }
 
+  Future<void> _solicitarCancelamento(String caclId) async {
+    try {
+      final supabase = Supabase.instance.client;
+      
+      await supabase
+          .from('cacl')
+          .update({'solicita_canc': true})
+          .eq('id', caclId);
+      
+      if (mounted) {
+        // Atualiza localmente
+        setState(() {
+          final index = _cacles.indexWhere((c) => c['id'] == caclId);
+          if (index != -1) {
+            _cacles[index]['solicita_canc'] = true;
+          }
+        });
+        
+        // Mostra mensagem de confirmação
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Cancelamento solicitado ao supervisor. Aguarde.'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Erro ao solicitar cancelamento: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao solicitar cancelamento: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmarCancelamento(String caclId) async {
+    try {
+      final supabase = Supabase.instance.client;
+      
+      await supabase
+          .from('cacl')
+          .update({'status': 'cancelado'})
+          .eq('id', caclId);
+      
+      if (mounted) {
+        // Atualiza localmente
+        setState(() {
+          final index = _cacles.indexWhere((c) => c['id'] == caclId);
+          if (index != -1) {
+            _cacles[index]['status'] = 'cancelado';
+            _cacles[index]['solicita_canc'] = false;
+          }
+        });
+        
+        // Mostra mensagem de confirmação
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('CACL cancelado com sucesso.'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Erro ao cancelar CACL: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao cancelar CACL: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
 
   String _formatarData(dynamic data) {
     if (data == null) return '-';
@@ -162,13 +268,17 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
       case 'aguardando':
         return Colors.orange;
       case 'cancelado':
-        return Colors.red;
+        return Colors.grey;
       default:
         return Colors.grey;
     }
   }
 
-  Color _getCardColor(String? status) {
+  Color _getCardColor(String? status, bool? solicitaCanc) {
+    if (_nivelUsuario == 3 && solicitaCanc == true) {
+      return Colors.red.shade50;
+    }
+    
     switch (status?.toLowerCase()) {
       case 'emitido':
         return Colors.green.shade50;
@@ -176,13 +286,17 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
       case 'aguardando':
         return Colors.orange.shade50;
       case 'cancelado':
-        return Colors.red.shade50;
+        return Colors.grey.shade50;
       default:
         return Colors.grey.shade50;
     }
   }
 
-  Color _getBorderColor(String? status) {
+  Color _getBorderColor(String? status, bool? solicitaCanc) {
+    if (_nivelUsuario == 3 && solicitaCanc == true) {
+      return Colors.red.shade300;
+    }
+    
     switch (status?.toLowerCase()) {
       case 'emitido':
         return Colors.green.shade300;
@@ -190,7 +304,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
       case 'aguardando':
         return Colors.orange.shade300;
       case 'cancelado':
-        return Colors.red.shade300;
+        return Colors.grey.shade300;
       default:
         return Colors.grey.shade300;
     }
@@ -258,7 +372,6 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                 ],
               ),
             ),
-            // Botão de refresh
             IconButton(
               icon: const Icon(Icons.refresh, color: Color(0xFF0D47A1)),
               onPressed: _refreshData,
@@ -281,13 +394,11 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                   builder: (context) => MedicaoTanquesPage(
                     onVoltar: () {
                       Navigator.pop(context);
-                      // Recarrega os dados ao voltar
                       _refreshData();
                     },
                     filialSelecionadaId: widget.filialId,
                     onFinalizarCACL: () {
                       widget.onFinalizarCACL?.call();
-                      // Recarrega os dados após finalizar CACL
                       _refreshData();
                     },
                     caclesHoje: _cacles,
@@ -323,7 +434,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
         ),
         const SizedBox(height: 10),
 
-        // ===== LISTA DE CACLS (LAYOUT COMPACTO) =====
+        // ===== LISTA DE CACLS =====
         Expanded(
           child: _carregando && _cacles.isEmpty
               ? const Center(
@@ -373,9 +484,11 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                         itemBuilder: (context, index) {
                           final cacl = _cacles[index];
                           final status = cacl['status']?.toString();
+                          final solicitaCanc = cacl['solicita_canc'] as bool?;
+                          final isCancelado = status?.toLowerCase() == 'cancelado';
                           final statusColor = _getStatusColor(status);
-                          final cardColor = _getCardColor(status);
-                          final borderColor = _getBorderColor(status);
+                          final cardColor = _getCardColor(status, solicitaCanc);
+                          final borderColor = _getBorderColor(status, solicitaCanc);
                           final statusText = _getStatusText(status);
                           final tanqueNome = cacl['tanques']?['referencia']?.toString();
                           final tanque = tanqueNome ?? '-';
@@ -402,7 +515,6 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
 
                                 if (!context.mounted) return;
 
-                                // Navega e recarrega ao voltar
                                 await Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -413,7 +525,6 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                                   ),
                                 );
                                 
-                                // Recarrega os dados após voltar
                                 _refreshData();
                               },
                               child: Container(
@@ -563,43 +674,71 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                                           ),
                                           const SizedBox(height: 8),
                                           
-                                          // Botão Editar
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.edit,
-                                              size: 22,
-                                              color: Color(0xFF0D47A1),
-                                            ),
-                                            onPressed: () {
-                                              final status = cacl['status']?.toString().toLowerCase();
+                                          // Botões de ação
+                                          Row(
+                                            children: [
+                                              // Botão Editar - SOMENTE se status for 'pendente' e não cancelado
+                                              if (!isCancelado && 
+                                                  (cacl['status']?.toString().toLowerCase() ?? '').contains('pendente'))
+                                                IconButton(
+                                                  icon: const Icon(
+                                                    Icons.edit,
+                                                    size: 22,
+                                                    color: Color(0xFF0D47A1),
+                                                  ),
+                                                  onPressed: () {
+                                                    Navigator.of(context).push(
+                                                      MaterialPageRoute(
+                                                        builder: (context) => EditarCaclPage(
+                                                          onVoltar: () {
+                                                            Navigator.pop(context);
+                                                            _refreshData();
+                                                          },
+                                                          caclId: cacl['id'].toString(),
+                                                        ),
+                                                      ),
+                                                    ).then((_) {
+                                                      _refreshData();
+                                                    });
+                                                  },
+                                                  padding: EdgeInsets.zero,
+                                                  constraints: const BoxConstraints(),
+                                                ),
                                               
-                                              if (status == 'pendente' || status == 'aguardando') {
-                                                Navigator.of(context).push(
-                                                  MaterialPageRoute(
-                                                    builder: (context) => EditarCaclPage(
-                                                      onVoltar: () {
-                                                        Navigator.pop(context);
-                                                        _refreshData();
-                                                      },
-                                                      caclId: cacl['id'].toString(),
-                                                    ),
+                                              // Botão de cancelamento (níveis 1 e 2) - SOMENTE se não cancelado e não tiver solicitação
+                                              if (!isCancelado && 
+                                                  (_nivelUsuario == 1 || _nivelUsuario == 2) &&
+                                                  solicitaCanc != true)
+                                                IconButton(
+                                                  icon: const Icon(
+                                                    Icons.cancel,
+                                                    size: 22,
+                                                    color: Colors.orange,
                                                   ),
-                                                ).then((_) {
-                                                  // Recarrega dados após voltar da edição
-                                                  _refreshData();
-                                                });
-                                              } else {
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  SnackBar(
-                                                    content: Text('Este CACL já foi ${status == 'emitido' ? 'emitido' : 'cancelado'}'),
-                                                    backgroundColor: status == 'emitido' ? Colors.green : Colors.red,
-                                                    duration: const Duration(seconds: 2),
+                                                  onPressed: () {
+                                                    _showDialogSolicitarCancelamento(cacl);
+                                                  },
+                                                  padding: EdgeInsets.zero,
+                                                  constraints: const BoxConstraints(),
+                                                ),
+                                              
+                                              // Botão de cancelamento solicitado (nível 3) - SOMENTE se solicita_canc = true
+                                              if (!isCancelado && 
+                                                  _nivelUsuario == 3 && 
+                                                  solicitaCanc == true)
+                                                IconButton(
+                                                  icon: const Icon(
+                                                    Icons.cancel,
+                                                    size: 22,
+                                                    color: Colors.red,
                                                   ),
-                                                );
-                                              }
-                                            },
-                                            padding: EdgeInsets.zero,
-                                            constraints: const BoxConstraints(),
+                                                  onPressed: () {
+                                                    _showDialogConfirmarCancelamento(cacl);
+                                                  },
+                                                  padding: EdgeInsets.zero,
+                                                  constraints: const BoxConstraints(),
+                                                ),
+                                            ],
                                           ),
                                         ],
                                       ),
@@ -614,6 +753,66 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                     ),
         ),
       ],
+    );
+  }
+
+  void _showDialogSolicitarCancelamento(Map<String, dynamic> cacl) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Solicitar Cancelamento'),
+          content: const Text('Deseja solicitar o cancelamento deste CACL?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('Voltar à lista'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await _solicitarCancelamento(cacl['id'].toString());
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+              ),
+              child: const Text('Sim, quero cancelar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showDialogConfirmarCancelamento(Map<String, dynamic> cacl) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirmar Cancelamento'),
+          content: const Text('Confirmar cancelamento?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('Voltar'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await _confirmarCancelamento(cacl['id'].toString());
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              child: const Text('Sim, cancelar'),
+            ),
+          ],
+        );
+      },
     );
   }
 
