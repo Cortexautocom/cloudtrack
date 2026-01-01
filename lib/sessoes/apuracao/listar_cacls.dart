@@ -36,6 +36,34 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
     WidgetsBinding.instance.addObserver(this);
     _carregarNivelUsuario();
     _carregarCaclsSimples();
+    _carregarNomeFilial();
+  }
+
+  Future<void> _carregarNomeFilial() async {
+    try {
+      final supabase = Supabase.instance.client;
+      // Não precisamos armazenar em uma variável se não vamos usar
+      // Apenas verificar se a filial existe
+      await supabase
+          .from('filiais')
+          .select('nome')
+          .eq('id', widget.filialId)
+          .single();
+      
+      // Se chegou aqui, a filial existe
+      debugPrint('✅ Filial ${widget.filialId} carregada com sucesso');
+    } catch (e) {
+      debugPrint('❌ Erro ao carregar nome da filial: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar dados da filial: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _carregarNivelUsuario() async {

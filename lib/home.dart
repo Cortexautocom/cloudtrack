@@ -1271,7 +1271,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             _mostrarEscolherFilial = true;
             _contextoEscolhaFilial = 'cacl';
           } else {
-            _mostrarMedicaoTanques = true;
+            // Para níveis 1 e 2, vamos para ListarCaclsPage primeiro
+            _filialSelecionadaId = usuario.filialId; // Usa a filial do usuário
+            _filialSelecionadaNome = null;
+            _mostrarListarCacls = true;
           }
         });
         break;
@@ -1539,7 +1542,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 _mostrarEscolherFilial = true;
                 _contextoEscolhaFilial = 'cacl';
               } else {
-                _mostrarMedicaoTanques = true;
+                // Para níveis 1 e 2, vamos para ListarCaclsPage primeiro
+                _filialSelecionadaId = usuario.filialId; // Usa a filial do usuário
+                _filialSelecionadaNome = null;
+                _mostrarListarCacls = true;
               }
             });
             return;
