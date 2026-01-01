@@ -7,12 +7,14 @@ class MedicaoTanquesPage extends StatefulWidget {
   final VoidCallback onVoltar;
   final String? filialSelecionadaId;
   final VoidCallback? onFinalizarCACL;
+  final List<Map<String, dynamic>>? caclesHoje;
 
   const MedicaoTanquesPage({
     super.key,
     required this.onVoltar,
     this.filialSelecionadaId,
     this.onFinalizarCACL,
+    this.caclesHoje,
   });
 
   @override
@@ -473,54 +475,92 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                             final index = entry.key;
                             final tanque = entry.value;
                             final isSelected = index == _tanqueSelecionadoIndex;
+
+                            final tanqueId = tanque['id']?.toString() ?? '';
+                            final quantidadeCacls = _caclsPorTanque[tanqueId] ?? 0;
+                            final temCaclsHoje = quantidadeCacls > 0;
                             
                             return Container(
                               margin: const EdgeInsets.only(right: 8),
                               width: 120,
                               constraints: const BoxConstraints(minWidth: 30),
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  setState(() {
-                                    _tanqueSelecionadoIndex = index;
-                                  });
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: isSelected ? const Color(0xFF0D47A1) : Colors.white,
-                                  foregroundColor: isSelected ? Colors.white : const Color(0xFF0D47A1),
-                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    side: BorderSide(
-                                      color: isSelected ? const Color(0xFF0D47A1) : Colors.grey.shade300,
-                                      width: 1,
+                              child: Stack(
+                                children: [
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _tanqueSelecionadoIndex = index;
+                                      });
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: isSelected ? const Color(0xFF0D47A1) : Colors.white,
+                                      foregroundColor: isSelected ? Colors.white : const Color(0xFF0D47A1),
+                                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        side: BorderSide(
+                                          color: isSelected ? const Color(0xFF0D47A1) : Colors.grey.shade300,
+                                          width: 1,
+                                        ),
+                                      ),
+                                      elevation: isSelected ? 2 : 0,
+                                      shadowColor: Colors.grey.shade300,
+                                    ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          tanque['numero']?.toString() ?? 'N/A',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color: isSelected ? Colors.white : const Color(0xFF0D47A1),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          tanque['produto']?.toString() ?? 'N/A',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: isSelected ? Colors.white70 : Colors.grey.shade600,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  elevation: isSelected ? 2 : 0,
-                                  shadowColor: Colors.grey.shade300,
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      tanque['numero']?.toString() ?? 'N/A',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        color: isSelected ? Colors.white : const Color(0xFF0D47A1),
+                                  
+                                  // Etiqueta de alerta se houver CACLs
+                                  if (temCaclsHoje)
+                                    Positioned(
+                                      top: -4,
+                                      right: -4,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange[700],
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: Colors.white, width: 1.5),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.2),
+                                              blurRadius: 2,
+                                              offset: const Offset(0, 1),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Text(
+                                          quantidadeCacls.toString(),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      tanque['produto']?.toString() ?? 'N/A',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: isSelected ? Colors.white70 : Colors.grey.shade600,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
+                                ],
                               ),
                             );
                           }).toList(),
@@ -640,7 +680,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                                   _caclVerificacao = false;
                                                 }
                                               });
-                                              _verificarCamposObrigatorios();
+                                                _verificarCamposObrigatorios();
                                             },
                                             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                             visualDensity: VisualDensity.compact,
@@ -1352,4 +1392,31 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       }
     }
   }
+
+  Map<String, int> get _caclsPorTanque => _calcularCaclsPorTanque();
+
+  Map<String, int> _calcularCaclsPorTanque() {
+    final Map<String, int> contagem = {};
+    
+    if (widget.caclesHoje == null || widget.caclesHoje!.isEmpty) {
+      return contagem;
+    }
+    
+    // Filtrar apenas CACLs emitidos (não pendentes)
+    final caclesEmitidos = widget.caclesHoje!.where((cacl) {
+      final status = cacl['status']?.toString().toLowerCase() ?? '';
+      return status.contains('emitido');
+    }).toList();
+    
+    // Contar por tanque_id
+    for (final cacl in caclesEmitidos) {
+      final tanqueId = cacl['tanque_id']?.toString();
+      if (tanqueId != null && tanqueId.isNotEmpty) {
+        contagem[tanqueId] = (contagem[tanqueId] ?? 0) + 1;
+      }
+    }
+    
+    return contagem;
+  }
+
 }

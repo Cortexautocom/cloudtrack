@@ -290,10 +290,10 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                       // Recarrega os dados após finalizar CACL
                       _refreshData();
                     },
+                    caclesHoje: _cacles,
                   ),
                 ),
               ).then((_) {
-                // Garante recarregamento mesmo se navegar de outras formas
                 _refreshData();
               });
             },
