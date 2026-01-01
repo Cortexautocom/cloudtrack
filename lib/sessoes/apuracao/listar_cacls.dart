@@ -573,8 +573,12 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                                 final nivelUsuario = _nivelUsuario ?? 0;
                                 final isCancelado = status?.toLowerCase() == 'cancelado';
                                 
-                                // Níveis 2 e 3 não podem clicar em CACLs cancelados
-                                if ((nivelUsuario == 2 || nivelUsuario == 3) && isCancelado) {
+                                // Regras de permissão:
+                                // - Nível 1: Pode clicar em qualquer CACL
+                                // - Nível 2: NÃO pode clicar em CACLs cancelados
+                                // - Nível 3: Pode clicar em qualquer CACL (incluindo cancelados)
+                                if (nivelUsuario == 2 && isCancelado) {
+                                  // Nível 2 não pode clicar em CACLs cancelados
                                   return;
                                 }
                                 
@@ -604,7 +608,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                               },
                               child: Opacity(
                                 // Opacidade reduzida para níveis 2 e 3 quando cancelado
-                                opacity: ((_nivelUsuario == 2 || _nivelUsuario == 3) && isCancelado) ? 0.6 : 1.0,
+                                opacity: (_nivelUsuario == 2 && isCancelado) ? 0.6 : 1.0,
                                 child: Container(
                                   decoration: BoxDecoration(
                                     color: cardColor,
@@ -657,7 +661,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                                                       fontSize: 16,
                                                       fontWeight: FontWeight.bold,
                                                       // Texto mais claro para níveis 2 e 3 quando cancelado
-                                                      color: ((_nivelUsuario == 2 || _nivelUsuario == 3) && isCancelado) 
+                                                      color: (_nivelUsuario == 2 && isCancelado)  
                                                           ? Colors.grey 
                                                           : Colors.black87,
                                                     ),
