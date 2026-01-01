@@ -36,34 +36,6 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
     WidgetsBinding.instance.addObserver(this);
     _carregarNivelUsuario();
     _carregarCaclsSimples();
-    _carregarNomeFilial();
-  }
-
-  Future<void> _carregarNomeFilial() async {
-    try {
-      final supabase = Supabase.instance.client;
-      // Não precisamos armazenar em uma variável se não vamos usar
-      // Apenas verificar se a filial existe
-      await supabase
-          .from('filiais')
-          .select('nome')
-          .eq('id', widget.filialId)
-          .single();
-      
-      // Se chegou aqui, a filial existe
-      debugPrint('✅ Filial ${widget.filialId} carregada com sucesso');
-    } catch (e) {
-      debugPrint('❌ Erro ao carregar nome da filial: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao carregar dados da filial: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    }
   }
 
   Future<void> _carregarNivelUsuario() async {
@@ -157,9 +129,15 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
           .eq('filial_id', widget.filialId)
           .order('created_at', ascending: false);
 
+      // ALTERAÇÃO: Inclui CACLs cancelados na lista
       final caclsFiltrados = todosCacls.where((cacl) {
         final status = cacl['status']?.toString().toLowerCase() ?? '';
         final data = cacl['data']?.toString() ?? '';
+
+        // Inclui CACLs cancelados
+        if (status.contains('cancelado')) {
+          return true;
+        }
 
         if (status.contains('pendente') || status.contains('aguardando')) {
           return true;
@@ -240,7 +218,55 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
       
       await supabase
           .from('cacl')
-          .update({'status': 'cancelado'})
+          .update({
+            'status': 'cancelado',
+            'solicita_canc': false  // Marca como false ao cancelar
+          })
+          .eq('id', caclId);
+      
+      if (mounted) {
+        // Atualiza localmente
+        setState(() {
+          final index = _cacles.indexWhere((c) => c['id'] == caclId);
+          if (index != -1) {
+            _cacles[index]['status'] = 'cancelado';
+            _cacles[index]['solicita_canc'] = false;
+          }
+        });
+        
+        // Mostra mensagem de confirmação
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('CACL cancelado com sucesso.'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Erro ao cancelar CACL: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao cancelar CACL: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _cancelarDireto(String caclId) async {
+    try {
+      final supabase = Supabase.instance.client;
+      
+      await supabase
+          .from('cacl')
+          .update({
+            'status': 'cancelado',
+            'solicita_canc': false  // Marca como false ao cancelar
+          })
           .eq('id', caclId);
       
       if (mounted) {
@@ -303,7 +329,13 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
   }
 
   Color _getCardColor(String? status, bool? solicitaCanc) {
-    if (_nivelUsuario == 3 && solicitaCanc == true) {
+    // Para nível 3, card vermelho apenas se tiver solicitação pendente
+    if (_nivelUsuario == 3 && solicitaCanc == true && status?.toLowerCase() != 'cancelado') {
+      return Colors.red.shade50;
+    }
+    
+    // Para níveis 1 e 2, card vermelho se tiver solicitação pendente
+    if ((_nivelUsuario == 1 || _nivelUsuario == 2) && solicitaCanc == true && status?.toLowerCase() != 'cancelado') {
       return Colors.red.shade50;
     }
     
@@ -321,7 +353,13 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
   }
 
   Color _getBorderColor(String? status, bool? solicitaCanc) {
-    if (_nivelUsuario == 3 && solicitaCanc == true) {
+    // Para nível 3, borda vermelha apenas se tiver solicitação pendente
+    if (_nivelUsuario == 3 && solicitaCanc == true && status?.toLowerCase() != 'cancelado') {
+      return Colors.red.shade300;
+    }
+    
+    // Para níveis 1 e 2, borda vermelha se tiver solicitação pendente
+    if ((_nivelUsuario == 1 || _nivelUsuario == 2) && solicitaCanc == true && status?.toLowerCase() != 'cancelado') {
       return Colors.red.shade300;
     }
     
@@ -482,7 +520,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                           ),
                           SizedBox(height: 16),
                           Text(
-                            'Nenhum CACL encontrado para hoje',
+                            'Nenhum CACL encontrado',
                             style: TextStyle(
                               color: Colors.grey,
                               fontSize: 16,
@@ -531,6 +569,15 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                             cursor: SystemMouseCursors.click,
                             child: GestureDetector(
                               onTap: () async {
+                                // Verifica se o usuário pode clicar no CACL
+                                final nivelUsuario = _nivelUsuario ?? 0;
+                                final isCancelado = status?.toLowerCase() == 'cancelado';
+                                
+                                // Níveis 2 e 3 não podem clicar em CACLs cancelados
+                                if ((nivelUsuario == 2 || nivelUsuario == 3) && isCancelado) {
+                                  return;
+                                }
+                                
                                 final supabase = Supabase.instance.client;
                                 final caclCompleto = await supabase
                                     .from('cacl')
@@ -555,222 +602,315 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                                 
                                 _refreshData();
                               },
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: cardColor,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: borderColor,
-                                    width: 1.5,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
+                              child: Opacity(
+                                // Opacidade reduzida para níveis 2 e 3 quando cancelado
+                                opacity: ((_nivelUsuario == 2 || _nivelUsuario == 3) && isCancelado) ? 0.6 : 1.0,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: cardColor,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: borderColor,
+                                      width: 1.5,
                                     ),
-                                  ],
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      // Indicador de status (barra lateral)
-                                      Container(
-                                        width: 4,
-                                        height: 60,
-                                        decoration: BoxDecoration(
-                                          color: statusColor,
-                                          borderRadius: BorderRadius.circular(2),
-                                        ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.05),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
                                       ),
-                                      const SizedBox(width: 12),
-                                      
-                                      // Informações principais
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            // Linha 1: Tanque (destaque)
-                                            Row(
-                                              children: [
-                                                const Icon(
-                                                  Icons.storage,
-                                                  size: 16,
-                                                  color: Colors.black54,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Text(
-                                                  'Tanque $tanque',
-                                                  style: const TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.black87,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 4),
-                                            
-                                            // Linha 2: Produto
-                                            Row(
-                                              children: [
-                                                const Icon(
-                                                  Icons.local_gas_station,
-                                                  size: 14,
-                                                  color: Colors.black54,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Expanded(
-                                                  child: Text(
-                                                    produto,
-                                                    style: const TextStyle(
-                                                      fontSize: 14,
-                                                      color: Colors.black87,
-                                                    ),
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 4),
-                                            
-                                            // Linha 3: Data e Horário
-                                            Row(
-                                              children: [
-                                                const Icon(
-                                                  Icons.calendar_today,
-                                                  size: 14,
-                                                  color: Colors.black54,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Text(
-                                                  data,
-                                                  style: const TextStyle(
-                                                    fontSize: 13,
+                                    ],
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // Indicador de status (barra lateral)
+                                        Container(
+                                          width: 4,
+                                          height: 60,
+                                          decoration: BoxDecoration(
+                                            color: statusColor,
+                                            borderRadius: BorderRadius.circular(2),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        
+                                        // Informações principais
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              // Linha 1: Tanque (destaque)
+                                              Row(
+                                                children: [
+                                                  const Icon(
+                                                    Icons.storage,
+                                                    size: 16,
                                                     color: Colors.black54,
                                                   ),
-                                                ),
-                                                const SizedBox(width: 16),
-                                                const Icon(
-                                                  Icons.access_time,
-                                                  size: 14,
-                                                  color: Colors.black54,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Expanded(
-                                                  child: Text(
-                                                    horario,
-                                                    style: const TextStyle(
-                                                      fontSize: 13,
-                                                      color: Colors.black54,
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    'Tanque $tanque',
+                                                    style: TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight: FontWeight.bold,
+                                                      // Texto mais claro para níveis 2 e 3 quando cancelado
+                                                      color: ((_nivelUsuario == 2 || _nivelUsuario == 3) && isCancelado) 
+                                                          ? Colors.grey 
+                                                          : Colors.black87,
                                                     ),
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
                                                   ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+                                              
+                                              // Linha 2: Produto
+                                              Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.local_gas_station,
+                                                    size: 14,
+                                                    color: ((_nivelUsuario == 2 || _nivelUsuario == 3) && isCancelado) 
+                                                        ? Colors.grey 
+                                                        : Colors.black54,
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Expanded(
+                                                    child: Text(
+                                                      produto,
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        color: ((_nivelUsuario == 2 || _nivelUsuario == 3) && isCancelado) 
+                                                            ? Colors.grey 
+                                                            : Colors.black87,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+                                              
+                                              // Linha 3: Data e Horário
+                                              Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.calendar_today,
+                                                    size: 14,
+                                                    color: ((_nivelUsuario == 2 || _nivelUsuario == 3) && isCancelado) 
+                                                        ? Colors.grey 
+                                                        : Colors.black54,
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    data,
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      color: ((_nivelUsuario == 2 || _nivelUsuario == 3) && isCancelado) 
+                                                          ? Colors.grey 
+                                                          : Colors.black54,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 16),
+                                                  Icon(
+                                                    Icons.access_time,
+                                                    size: 14,
+                                                    color: ((_nivelUsuario == 2 || _nivelUsuario == 3) && isCancelado) 
+                                                        ? Colors.grey 
+                                                        : Colors.black54,
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Expanded(
+                                                    child: Text(
+                                                      horario,
+                                                      style: TextStyle(
+                                                        fontSize: 13,
+                                                        color: ((_nivelUsuario == 2 || _nivelUsuario == 3) && isCancelado) 
+                                                            ? Colors.grey 
+                                                            : Colors.black54,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        
+                                        // Status e ações
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.end,
+                                          children: [
+                                            // Badge de status
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                                vertical: 4,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: statusColor.withOpacity(0.15),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                statusText,
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: statusColor,
                                                 ),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            
+                                            // Botões de ação
+                                            Row(
+                                              children: [
+                                                // Botão Editar - SOMENTE se status for 'pendente' e não cancelado
+                                                if (!isCancelado && 
+                                                    (cacl['status']?.toString().toLowerCase() ?? '').contains('pendente'))
+                                                  IconButton(
+                                                    icon: const Icon(
+                                                      Icons.edit,
+                                                      size: 22,
+                                                      color: Color(0xFF0D47A1),
+                                                    ),
+                                                    onPressed: () {
+                                                      Navigator.of(context).push(
+                                                        MaterialPageRoute(
+                                                          builder: (context) => EditarCaclPage(
+                                                            onVoltar: () {
+                                                              Navigator.pop(context);
+                                                              _refreshData();
+                                                            },
+                                                            caclId: cacl['id'].toString(),
+                                                          ),
+                                                        ),
+                                                      ).then((_) {
+                                                        _refreshData();
+                                                      });
+                                                    },
+                                                    padding: EdgeInsets.zero,
+                                                    constraints: const BoxConstraints(),
+                                                  ),
+                                                
+                                                // Botão Solicitar Cancelamento (níveis 1 e 2) - Laranja se não solicitado, Vermelho se solicitado
+                                                if (!isCancelado && 
+                                                    (_nivelUsuario == 1 || _nivelUsuario == 2))
+                                                  ElevatedButton(
+                                                    onPressed: () {
+                                                      if (solicitaCanc == true) {
+                                                        // Se já solicitado, mostra mensagem
+                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                          const SnackBar(
+                                                            content: Text('Cancelamento já solicitado. Aguarde a análise do supervisor.'),
+                                                            backgroundColor: Colors.orange,
+                                                            duration: Duration(seconds: 3),
+                                                          ),
+                                                        );
+                                                      } else {
+                                                        _showDialogSolicitarCancelamento(cacl);
+                                                      }
+                                                    },
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: solicitaCanc == true 
+                                                          ? Colors.red.shade50 
+                                                          : Colors.orange.shade50,
+                                                      foregroundColor: solicitaCanc == true 
+                                                          ? Colors.red.shade800 
+                                                          : Colors.orange.shade800,
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                      minimumSize: const Size(0, 0),
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius: BorderRadius.circular(6),
+                                                        side: BorderSide(
+                                                          color: solicitaCanc == true 
+                                                              ? Colors.red.shade300 
+                                                              : Colors.orange.shade300,
+                                                        ),
+                                                      ),
+                                                      elevation: 0,
+                                                    ),
+                                                    child: Text(
+                                                      solicitaCanc == true 
+                                                          ? 'Cancelamento\nsolicitado' 
+                                                          : 'Solicitar\ncancelamento',
+                                                      textAlign: TextAlign.center,
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                
+                                                // Botão Confirmar Cancelamento (nível 3) - Quando solicita_canc = true
+                                                if (!isCancelado && 
+                                                    _nivelUsuario == 3 && 
+                                                    solicitaCanc == true)
+                                                  ElevatedButton(
+                                                    onPressed: () {
+                                                      _showDialogConfirmarCancelamento(cacl);
+                                                    },
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: Colors.red.shade50,
+                                                      foregroundColor: Colors.red.shade800,
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                      minimumSize: const Size(0, 0),
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius: BorderRadius.circular(6),
+                                                        side: BorderSide(color: Colors.red.shade300),
+                                                      ),
+                                                      elevation: 0,
+                                                    ),
+                                                    child: const Text(
+                                                      'Cancelamento\nsolicitado',
+                                                      textAlign: TextAlign.center,
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                
+                                                // Botão Cancelar CACL direto (nível 3) - Quando solicita_canc = false/null e não está cancelado
+                                                if (!isCancelado && 
+                                                    _nivelUsuario == 3 && 
+                                                    (solicitaCanc == false || solicitaCanc == null) &&
+                                                    status?.toLowerCase() != 'cancelado')
+                                                  ElevatedButton(
+                                                    onPressed: () {
+                                                      _showDialogCancelarDireto(cacl);
+                                                    },
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: Colors.red.shade50,
+                                                      foregroundColor: Colors.red.shade800,
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                      minimumSize: const Size(0, 0),
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius: BorderRadius.circular(6),
+                                                        side: BorderSide(color: Colors.red.shade300),
+                                                      ),
+                                                      elevation: 0,
+                                                    ),
+                                                    child: const Text(
+                                                      'Cancelar\nCACL',
+                                                      textAlign: TextAlign.center,
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ),
                                               ],
                                             ),
                                           ],
                                         ),
-                                      ),
-                                      
-                                      // Status e ações
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.end,
-                                        children: [
-                                          // Badge de status
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: statusColor.withOpacity(0.15),
-                                              borderRadius: BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              statusText,
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                                color: statusColor,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          
-                                          // Botões de ação
-                                          Row(
-                                            children: [
-                                              // Botão Editar - SOMENTE se status for 'pendente' e não cancelado
-                                              if (!isCancelado && 
-                                                  (cacl['status']?.toString().toLowerCase() ?? '').contains('pendente'))
-                                                IconButton(
-                                                  icon: const Icon(
-                                                    Icons.edit,
-                                                    size: 22,
-                                                    color: Color(0xFF0D47A1),
-                                                  ),
-                                                  onPressed: () {
-                                                    Navigator.of(context).push(
-                                                      MaterialPageRoute(
-                                                        builder: (context) => EditarCaclPage(
-                                                          onVoltar: () {
-                                                            Navigator.pop(context);
-                                                            _refreshData();
-                                                          },
-                                                          caclId: cacl['id'].toString(),
-                                                        ),
-                                                      ),
-                                                    ).then((_) {
-                                                      _refreshData();
-                                                    });
-                                                  },
-                                                  padding: EdgeInsets.zero,
-                                                  constraints: const BoxConstraints(),
-                                                ),
-                                              
-                                              // Botão de cancelamento (níveis 1 e 2) - SOMENTE se não cancelado e não tiver solicitação
-                                              if (!isCancelado && 
-                                                  (_nivelUsuario == 1 || _nivelUsuario == 2) &&
-                                                  solicitaCanc != true)
-                                                IconButton(
-                                                  icon: const Icon(
-                                                    Icons.cancel,
-                                                    size: 22,
-                                                    color: Colors.orange,
-                                                  ),
-                                                  onPressed: () {
-                                                    _showDialogSolicitarCancelamento(cacl);
-                                                  },
-                                                  padding: EdgeInsets.zero,
-                                                  constraints: const BoxConstraints(),
-                                                ),
-                                              
-                                              // Botão de cancelamento solicitado (nível 3) - SOMENTE se solicita_canc = true
-                                              if (!isCancelado && 
-                                                  _nivelUsuario == 3 && 
-                                                  solicitaCanc == true)
-                                                IconButton(
-                                                  icon: const Icon(
-                                                    Icons.cancel,
-                                                    size: 22,
-                                                    color: Colors.red,
-                                                  ),
-                                                  onPressed: () {
-                                                    _showDialogConfirmarCancelamento(cacl);
-                                                  },
-                                                  padding: EdgeInsets.zero,
-                                                  constraints: const BoxConstraints(),
-                                                ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
@@ -832,6 +972,36 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
               onPressed: () async {
                 Navigator.pop(context);
                 await _confirmarCancelamento(cacl['id'].toString());
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              child: const Text('Sim, cancelar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showDialogCancelarDireto(Map<String, dynamic> cacl) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Cancelar CACL'),
+          content: const Text('Deseja cancelar este CACL? Esta ação é irreversível.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('Voltar'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await _cancelarDireto(cacl['id'].toString());
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
