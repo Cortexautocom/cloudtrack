@@ -371,7 +371,9 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       MaterialPageRoute(
         builder: (context) => CalcPage(
           dadosFormulario: dadosFormulario,
-          onFinalizar: widget.onFinalizarCACL,
+          onFinalizar: () {
+            widget.onFinalizarCACL?.call();
+          },
           onVoltar: () => Navigator.pop(context),
         ),
       ),

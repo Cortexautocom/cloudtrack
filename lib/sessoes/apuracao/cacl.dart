@@ -628,6 +628,18 @@ class _CalcPageState extends State<CalcPage> {
       _isEmittingCACL = true;
     });
 
+    if (mounted) {
+      setState(() {
+        _caclJaEmitido = true;
+        print('DEBUG: _caclJaEmitido atualizado para true'); // Para depuração
+      });
+      
+      // Chama o callback onFinalizar se existir
+      if (widget.onFinalizar != null) {
+        widget.onFinalizar!();
+      }
+    }
+
     try {
       final supabase = Supabase.instance.client;
       final medicoes = widget.dadosFormulario['medicoes'] ?? {};
@@ -2567,72 +2579,29 @@ class _CalcPageState extends State<CalcPage> {
 
   Future<void> _irParaApuracao() async {
     try {
-      // Obter dados necessários para a Apuração
-      final supabase = Supabase.instance.client;
-      final session = supabase.auth.currentSession;
-      
-      if (session == null) {
+      // Mensagem de confirmação
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Você precisa estar logado para continuar'),
-            backgroundColor: Colors.red,
+            content: Text('✓ CACL finalizado com sucesso!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
           ),
         );
-        return;
       }
       
-      final dataFormatada = _formatarDataParaSQL(widget.dadosFormulario['data']?.toString() ?? '');
-      final produto = widget.dadosFormulario['produto']?.toString() ?? '';
+      // Aguardar um pouco para mostrar a mensagem
+      await Future.delayed(const Duration(milliseconds: 1500));
       
-      final response = await supabase
-          .from('cacl')
-          .select('id')
-          .eq('created_by', session.user.id)
-          .eq('data', dataFormatada)
-          .eq('produto', produto)
-          .order('created_at', ascending: false)
-          .limit(1);
-      
-      if (response.isNotEmpty) {
-        
-        // Mensagem de confirmação
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✓ CACL finalizado com sucesso!'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-        
-        // Aguardar um pouco para mostrar a mensagem
-        await Future.delayed(const Duration(milliseconds: 1500));
-        
-        // **CORREÇÃO PRINCIPAL**: Lógica simplificada e segura
-        if (context.mounted) {
-          // Para qualquer modo (edição ou emissão), usar Navigator.popUntil
-          // Isso garante que voltaremos para a HomePage de forma segura
-          
-          // Primeiro, verifica se há um callback personalizado
-          if (widget.onFinalizar != null) {
-            widget.onFinalizar!(); // Executa o callback se existir
-          } else {
-            // Navegação segura para voltar à HomePage
-            Navigator.of(context).popUntil((route) {
-              // Volta até encontrar a HomePage (ou até a primeira rota)
-              return route.isFirst;
-            });
-          }
-        }
-        
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Não foi possível encontrar o CACL emitido'),
-            backgroundColor: Colors.red,
-          ),
-        );
+      // **CORREÇÃO: Voltar DUAS telas (CalcPage → MedicaoTanquesPage → ListarCaclsPage)**
+      if (context.mounted) {
+        // Conta quantas telas precisa voltar
+        int popCount = 0;
+        Navigator.of(context).popUntil((route) {
+          // Volta até encontrar a ListarCaclsPage (aproximadamente 2 telas)
+          popCount++;
+          return popCount > 2; // Volta CalcPage e MedicaoTanquesPage
+        });
       }
       
     } catch (e) {
