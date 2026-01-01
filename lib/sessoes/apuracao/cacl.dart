@@ -59,7 +59,6 @@ class _CalcPageState extends State<CalcPage> {
     try {
       final supabase = Supabase.instance.client;
       
-      // ✅ SE JÁ TEMOS DADOS COMPLETOS (vindo do mapeamento anterior)
       final medicoes = widget.dadosFormulario['medicoes'] ?? {};
       
       if (medicoes.isNotEmpty && medicoes.containsKey('volumeProdutoInicial')) {
@@ -79,10 +78,8 @@ class _CalcPageState extends State<CalcPage> {
         return;
       }
       
-      // ✅ SE TEMOS UM CACL_ID, BUSCA DO BANCO COM JOIN
       if (widget.caclId != null && widget.caclId!.isNotEmpty) {
         try {
-          // FAZ JOIN COM A TABELA tanques PARA OBTER O nome/referencia
           final resultado = await supabase
               .from('cacl')
               .select('''
@@ -98,15 +95,16 @@ class _CalcPageState extends State<CalcPage> {
               .maybeSingle();
 
           if (resultado != null) {
-            // ✅ CORREÇÃO: Extrai o nome do tanque da relação tanques
             String? nomeTanque;
             if (resultado['tanques'] != null) {
               nomeTanque = resultado['tanques']['referencia']?.toString();
               
-              // Atualiza o nome do tanque nos dados do formulário
               widget.dadosFormulario['tanque'] = nomeTanque ?? '';
               
-              // Se tiver produto via relação, atualiza também
+              if (resultado['tanque_id'] != null) {
+                widget.dadosFormulario['tanque_id'] = resultado['tanque_id']?.toString();
+              }
+              
               if (resultado['tanques']['produtos'] != null) {
                 final produtoNome = resultado['tanques']['produtos']['nome']?.toString();
                 if (produtoNome != null && produtoNome.isNotEmpty) {
@@ -115,16 +113,13 @@ class _CalcPageState extends State<CalcPage> {
               }
             }
 
-            // ✅ CARREGA OS DADOS PRINCIPAIS
             volumeInicial = resultado['volume_produto_inicial']?.toDouble() ?? 0.0;
             volumeFinal = resultado['volume_produto_final']?.toDouble() ?? 0.0;
             volumeTotalLiquidoInicial = resultado['volume_total_liquido_inicial']?.toDouble() ?? 0.0;
             volumeTotalLiquidoFinal = resultado['volume_total_liquido_final']?.toDouble() ?? 0.0;
 
-            // ✅ MONTAR OBJETO medicoes COM TODOS OS DADOS
             final medicoesAtualizadas = <String, dynamic>{};
             
-            // 1ª MEDIÇÃO
             if (resultado['horario_inicial'] != null) {
               medicoesAtualizadas['horarioInicial'] = _formatarHorarioDisplay(resultado['horario_inicial']);
             }
@@ -159,7 +154,6 @@ class _CalcPageState extends State<CalcPage> {
               medicoesAtualizadas['massaInicial'] = resultado['massa_inicial']?.toString();
             }
             
-            // 2ª MEDIÇÃO
             if (resultado['horario_final'] != null) {
               medicoesAtualizadas['horarioFinal'] = _formatarHorarioDisplay(resultado['horario_final']);
             }
@@ -194,7 +188,6 @@ class _CalcPageState extends State<CalcPage> {
               medicoesAtualizadas['massaFinal'] = resultado['massa_final']?.toString();
             }
             
-            // VOLUMES
             medicoesAtualizadas['volumeProdutoInicial'] = _formatarVolumeLitros(volumeInicial);
             medicoesAtualizadas['volumeProdutoFinal'] = _formatarVolumeLitros(volumeFinal);
             medicoesAtualizadas['volumeTotalLiquidoInicial'] = _formatarVolumeLitros(volumeTotalLiquidoInicial);
@@ -214,15 +207,12 @@ class _CalcPageState extends State<CalcPage> {
               medicoesAtualizadas['volume20Final'] = _formatarVolumeLitros(resultado['volume_20_final']?.toDouble() ?? 0.0);
             }
             
-            // FATURADO
             if (resultado['faturado_final'] != null) {
               medicoesAtualizadas['faturadoFinal'] = resultado['faturado_final']?.toString();
             }
             
-            // ✅ ATUALIZA OS DADOS DO FORMULÁRIO
             widget.dadosFormulario['medicoes'] = medicoesAtualizadas;
             
-            // Carrega outros dados importantes
             if (resultado['data'] != null) {
               widget.dadosFormulario['data'] = _formatarDataDisplay(resultado['data']);
             }
@@ -247,11 +237,10 @@ class _CalcPageState extends State<CalcPage> {
             return;
           }
         } catch (e) {
-          debugPrint('Erro ao carregar CACL do banco: $e');
+          // Continua para o fallback
         }
       }
       
-      // ✅ FALLBACK: Se não conseguiu carregar do banco, usa dados existentes
       final dadosDoBanco = widget.dadosFormulario;
       
       volumeInicial = dadosDoBanco['volume_produto_inicial']?.toDouble() ?? 0.0;
@@ -259,7 +248,6 @@ class _CalcPageState extends State<CalcPage> {
       volumeTotalLiquidoInicial = dadosDoBanco['volume_total_liquido_inicial']?.toDouble() ?? 0.0;
       volumeTotalLiquidoFinal = dadosDoBanco['volume_total_liquido_final']?.toDouble() ?? 0.0;
       
-      // Mantém os dados existentes e adiciona os faltantes
       final medicoesAtualizadas = <String, dynamic>{
         ...medicoes,
         'volumeProdutoInicial': _formatarVolumeLitros(volumeInicial),
@@ -275,9 +263,6 @@ class _CalcPageState extends State<CalcPage> {
       });
       
     } catch (e) {
-      debugPrint('Erro ao carregar dados para visualização: $e');
-      
-      // Fallback seguro
       setState(() {
         volumeInicial = 0;
         volumeFinal = 0;
@@ -2925,13 +2910,17 @@ class _CalcPageState extends State<CalcPage> {
   }
 
   String _obterNomeTanque() {
-    // Se for modo visualização e tiver dados do tanque via JOIN
-    if (widget.modo != CaclModo.emissao && 
-        widget.dadosFormulario.containsKey('tanques')) {
-      return widget.dadosFormulario['tanques']['referencia']?.toString() ?? '';
+    final tanqueNome = widget.dadosFormulario['tanque']?.toString();
+    
+    if (tanqueNome != null && tanqueNome.isNotEmpty && tanqueNome != 'N/A') {
+      return tanqueNome;
     }
     
-    // Caso contrário, usa o nome que já estava
-    return widget.dadosFormulario['tanque']?.toString() ?? '';
+    final produto = widget.dadosFormulario['produto']?.toString();
+    if (produto != null && produto.isNotEmpty) {
+      return produto;
+    }
+    
+    return 'Tanque';
   }
 }
