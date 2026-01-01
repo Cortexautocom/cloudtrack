@@ -639,34 +639,6 @@ class _CalcPageState extends State<CalcPage> {
     });
 
     try {
-      // ===== DEBUG: VERIFICAÇÃO DOS DADOS RECEBIDOS =====
-      print('🔍 ===== DEBUG _emitirCACL() INICIADO =====');
-      print('📋 Modo: ${widget.modo}');
-      print('📋 Chaves do formulário: ${widget.dadosFormulario.keys.toList()}');
-      
-      // Verifica os dados do tanque
-      final tanqueIdBruto = widget.dadosFormulario['tanque_id'];
-      final tanqueNome = widget.dadosFormulario['tanque'];
-      final filialId = widget.dadosFormulario['filial_id'];
-      
-      print('📋 tanque_id (bruto): $tanqueIdBruto');
-      print('📋 tanque_id tipo: ${tanqueIdBruto?.runtimeType}');
-      print('📋 tanque (nome): $tanqueNome');
-      print('📋 filial_id: $filialId');
-      
-      // Testa a função _obterTanqueId()
-      final tanqueIdObtido = _obterTanqueId();
-      print('📋 _obterTanqueId() retornou: $tanqueIdObtido');
-      
-      // Verifica se parece ser um UUID válido
-      if (tanqueIdObtido != null) {
-        final isUUID = _isValidUUID(tanqueIdObtido);
-        print('📋 tanque_id é UUID válido? $isUUID');
-      }
-      
-      print('🔍 ===== FIM DEBUG INICIAL =====');
-      // ===============================================
-
       final supabase = Supabase.instance.client;
       final medicoes = widget.dadosFormulario['medicoes'] ?? {};
 
@@ -701,17 +673,13 @@ class _CalcPageState extends State<CalcPage> {
         dataFormatada = _formatarDataParaSQL(dataOriginal);
       }
 
-      // ===== DEBUG: ANTES DE MONTAR DADOS PARA INSERIR =====
-      print('🔍 ===== PREPARANDO DADOS PARA SALVAR =====');
       final tanqueIdParaSalvar = _obterTanqueId();
-      print('📤 tanque_id que será salvo: $tanqueIdParaSalvar');
-      // ===================================================
 
       final dadosParaInserir = {
         'data': dataFormatada,
         'base': widget.dadosFormulario['base']?.toString(),
         'produto': widget.dadosFormulario['produto']?.toString(),
-        'tanque_id': tanqueIdParaSalvar, // Usa o valor já calculado
+        'tanque_id': tanqueIdParaSalvar,
         'filial_id': widget.dadosFormulario['filial_id']?.toString(),
         'status': 'emitido',
         'tipo': tipoCACL,
@@ -790,18 +758,6 @@ class _CalcPageState extends State<CalcPage> {
         'updated_at': DateTime.now().toIso8601String(),
       };
 
-      // ===== DEBUG: VERIFICA DADOS ANTES DE SALVAR =====
-      print('🔍 ===== DADOS QUE SERÃO SALVOS =====');
-      print('📤 tanque_id no objeto: ${dadosParaInserir['tanque_id']}');
-      print('📤 data: ${dadosParaInserir['data']}');
-      print('📤 base: ${dadosParaInserir['base']}');
-      print('📤 produto: ${dadosParaInserir['produto']}');
-      print('📤 filial_id: ${dadosParaInserir['filial_id']}');
-      print('📤 status: ${dadosParaInserir['status']}');
-      print('📤 tipo: ${dadosParaInserir['tipo']}');
-      print('🔍 ===== FIM DOS DADOS =====');
-      // ================================================
-
       final entradaSaida20 =
           _extrairNumero(medicoes['volume20Final']?.toString()) -
               _extrairNumero(medicoes['volume20Inicial']?.toString());
@@ -819,23 +775,7 @@ class _CalcPageState extends State<CalcPage> {
         dadosParaInserir['porcentagem_diferenca'] = '0.00%';
       }
 
-      // Remove valores nulos
-      final dadosAntesRemocao = Map<String, dynamic>.from(dadosParaInserir);
       dadosParaInserir.removeWhere((key, value) => value == null);
-      
-      // ===== DEBUG: VERIFICA REMOÇÃO DE VALORES NULOS =====
-      print('🔍 ===== APÓS REMOVER VALORES NULOS =====');
-      print('📤 tanque_id após remoção: ${dadosParaInserir['tanque_id']}');
-      if (!dadosParaInserir.containsKey('tanque_id')) {
-        print('⚠️ ATENÇÃO: tanque_id foi removido por ser null!');
-        print('📤 Valores removidos:');
-        dadosAntesRemocao.forEach((key, value) {
-          if (value == null) {
-            print('   - $key: $value');
-          }
-        });
-      }
-      // ===================================================
 
       String? idParaUpdate = widget.caclId;
       if ((idParaUpdate == null || idParaUpdate.isEmpty) &&
@@ -889,19 +829,7 @@ class _CalcPageState extends State<CalcPage> {
         dadosParaInserir['created_by'] = session.user.id;
         dadosParaInserir['created_at'] = DateTime.now().toIso8601String();
 
-        // ===== DEBUG: ANTES DE INSERIR NO BANCO =====
-        print('🔍 ===== INSERINDO NO BANCO =====');
-        print('📤 tanque_id final: ${dadosParaInserir['tanque_id']}');
-        print('📤 user_id: ${session.user.id}');
-        // ===========================================
-
-        final resultado = await supabase.from('cacl').insert(dadosParaInserir);
-        
-        // ===== DEBUG: APÓS INSERIR NO BANCO =====
-        print('🔍 ===== RESULTADO DA INSERÇÃO =====');
-        print('📤 Resultado: $resultado');
-        print('✅ CACL salvo com sucesso!');
-        // ========================================
+        await supabase.from('cacl').insert(dadosParaInserir);
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -920,12 +848,6 @@ class _CalcPageState extends State<CalcPage> {
         });
       }
     } catch (e) {
-      // ===== DEBUG: EM CASO DE ERRO =====
-      print('❌ ===== ERRO AO EMITIR CACL =====');
-      print('❌ Erro: $e');
-      print('❌ StackTrace: ${e.toString()}');
-      // ==================================
-      
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -2969,27 +2891,18 @@ class _CalcPageState extends State<CalcPage> {
 
   // Adicione este método para obter o ID do tanque
   String? _obterTanqueId() {
-    print('🔍 ===== DEBUG _obterTanqueId() =====');
-    
-    // Diretamente do formulário - já deve vir como UUID válido
     if (widget.dadosFormulario.containsKey('tanque_id')) {
       final tanqueId = widget.dadosFormulario['tanque_id']?.toString();
-      print('📋 tanque_id encontrado: $tanqueId');
       
       if (tanqueId != null && tanqueId.isNotEmpty) {
-        // Verifica se é UUID válido
         if (_isValidUUID(tanqueId)) {
-          print('✅ tanque_id é UUID válido');
           return tanqueId;
         } else {
-          print('❌ tanque_id NÃO é UUID válido: $tanqueId');
-          print('📋 Comprimento: ${tanqueId.length}');
           return null;
         }
       }
     }
     
-    print('❌ tanque_id não encontrado ou inválido');
     return null;
   }
 
