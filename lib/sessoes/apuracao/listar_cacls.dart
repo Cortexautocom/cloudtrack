@@ -29,6 +29,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
   bool _carregando = true;
   List<Map<String, dynamic>> _cacles = [];
   int? _nivelUsuario;
+  int? _hoverIndex;
 
   @override
   void initState() {
@@ -567,6 +568,12 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
 
                           return MouseRegion(
                             cursor: SystemMouseCursors.click,
+                            onEnter: (_) {
+                              setState(() => _hoverIndex = index);
+                            },
+                            onExit: (_) {
+                              setState(() => _hoverIndex = null);
+                            },
                             child: GestureDetector(
                               onTap: () async {
                                 // Verifica se o usuário pode clicar no CACL
@@ -609,9 +616,16 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                               child: Opacity(
                                 // Opacidade reduzida para níveis 2 e 3 quando cancelado
                                 opacity: (_nivelUsuario == 2 && isCancelado) ? 0.6 : 1.0,
-                                child: Container(
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 180),
+                                  curve: Curves.easeOut,
+                                  transform: _hoverIndex == index
+                                      ? (Matrix4.identity()..scale(1.01))
+                                      : Matrix4.identity(),
                                   decoration: BoxDecoration(
-                                    color: cardColor,
+                                    color: _hoverIndex == index
+                                        ? cardColor.withOpacity(0.85)
+                                        : cardColor,
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color: borderColor,
@@ -619,9 +633,11 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.05),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
+                                        color: Colors.black.withOpacity(
+                                          _hoverIndex == index ? 0.15 : 0.05,
+                                        ),
+                                        blurRadius: _hoverIndex == index ? 12 : 4,
+                                        offset: const Offset(0, 4),
                                       ),
                                     ],
                                   ),
