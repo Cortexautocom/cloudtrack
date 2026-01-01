@@ -81,6 +81,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         query = supabase
             .from('tanques')
             .select('''
+              id, 
               referencia,
               capacidade,
               id_produto,
@@ -100,6 +101,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         query = supabase
             .from('tanques')
             .select('''
+              id,
               referencia,
               capacidade,
               id_produto,
@@ -116,6 +118,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
 
       for (final tanque in tanquesResponse) {
         tanquesFormatados.add({
+          'id': tanque['id'],
           'numero': tanque['referencia']?.toString() ?? '',
           'produto': tanque['produtos']?['nome']?.toString() ?? '',
           'capacidade': '${tanque['capacidade']?.toString() ?? '0'} L',
@@ -263,7 +266,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     final tanqueAtual = tanques[_tanqueSelecionadoIndex];
     final controllers = _controllers[_tanqueSelecionadoIndex];
 
-    const int segunda = 9; // Ajustado porque agora temos 9 campos na primeira medição
+    const int segunda = 9;
 
     // -------- 1ª MEDIÇÃO --------
     final cmTotalInicial = controllers[1].text;
@@ -352,6 +355,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'base': _nomeFilial ?? 'POLO DE COMBUSTÍVEL',
       'produto': tanqueAtual['produto'],
       'tanque': tanqueAtual['numero'],
+      'tanque_id': tanqueAtual['id'],
       'responsavel': UsuarioAtual.instance?.nome ?? 'Usuário',
       'medicoes': dadosMedicoes,
       'filial_id': UsuarioAtual.instance!.nivel == 3 && widget.filialSelecionadaId != null

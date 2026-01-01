@@ -91,7 +91,8 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
             id,
             data,
             produto,
-            tanque,
+            tanque_id,
+            tanques:tanque_id (referencia),
             status,
             horario_inicial,
             horario_final,
@@ -376,7 +377,8 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                           final cardColor = _getCardColor(status);
                           final borderColor = _getBorderColor(status);
                           final statusText = _getStatusText(status);
-                          final tanque = cacl['tanque']?.toString() ?? '-';
+                          final tanqueNome = cacl['tanques']?['referencia']?.toString();
+                          final tanque = tanqueNome ?? '-';
                           final produto = cacl['produto'] ?? 'Produto não informado';
                           final data = _formatarData(cacl['data']);
                           final horario = _formatarHorario(
@@ -638,7 +640,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
       'data': cacl['data']?.toString(),
       'base': cacl['base'],
       'produto': cacl['produto'],
-      'tanque': cacl['tanque'],
+      'tanque': cacl['tanques']?['referencia'] ?? cacl['tanque_id'] ?? '-',
       'filial_id': cacl['filial_id'],
       'responsavel': UsuarioAtual.instance?.nome ?? 'Usuário',
 

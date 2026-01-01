@@ -57,17 +57,17 @@ class _CalcPageState extends State<CalcPage> {
 
   Future<void> _carregarDadosParaVisualizacao() async {
     try {
-      // Verifica se já temos dados completos
+      final supabase = Supabase.instance.client;
+      
+      // ✅ SE JÁ TEMOS DADOS COMPLETOS (vindo do mapeamento anterior)
       final medicoes = widget.dadosFormulario['medicoes'] ?? {};
       
-      // Se os dados já estão completos (vindos do mapeamento), usa-os
       if (medicoes.isNotEmpty && medicoes.containsKey('volumeProdutoInicial')) {
         volumeInicial =
             _extrairNumero(medicoes['volumeProdutoInicial']?.toString());
         volumeFinal =
             _extrairNumero(medicoes['volumeProdutoFinal']?.toString());
 
-        // 🔴 CORREÇÃO PRINCIPAL
         volumeTotalLiquidoInicial =
             _extrairNumero(medicoes['volumeTotalLiquidoInicial']?.toString());
         volumeTotalLiquidoFinal =
@@ -79,7 +79,179 @@ class _CalcPageState extends State<CalcPage> {
         return;
       }
       
-      // Se não, busca valores diretos do banco
+      // ✅ SE TEMOS UM CACL_ID, BUSCA DO BANCO COM JOIN
+      if (widget.caclId != null && widget.caclId!.isNotEmpty) {
+        try {
+          // FAZ JOIN COM A TABELA tanques PARA OBTER O nome/referencia
+          final resultado = await supabase
+              .from('cacl')
+              .select('''
+                *,
+                tanques:tanque_id (
+                  referencia,
+                  capacidade,
+                  id_produto,
+                  produtos:id_produto (nome)
+                )
+              ''')
+              .eq('id', widget.caclId!)
+              .maybeSingle();
+
+          if (resultado != null) {
+            // ✅ CORREÇÃO: Extrai o nome do tanque da relação tanques
+            String? nomeTanque;
+            if (resultado['tanques'] != null) {
+              nomeTanque = resultado['tanques']['referencia']?.toString();
+              
+              // Atualiza o nome do tanque nos dados do formulário
+              widget.dadosFormulario['tanque'] = nomeTanque ?? '';
+              
+              // Se tiver produto via relação, atualiza também
+              if (resultado['tanques']['produtos'] != null) {
+                final produtoNome = resultado['tanques']['produtos']['nome']?.toString();
+                if (produtoNome != null && produtoNome.isNotEmpty) {
+                  widget.dadosFormulario['produto'] = produtoNome;
+                }
+              }
+            }
+
+            // ✅ CARREGA OS DADOS PRINCIPAIS
+            volumeInicial = resultado['volume_produto_inicial']?.toDouble() ?? 0.0;
+            volumeFinal = resultado['volume_produto_final']?.toDouble() ?? 0.0;
+            volumeTotalLiquidoInicial = resultado['volume_total_liquido_inicial']?.toDouble() ?? 0.0;
+            volumeTotalLiquidoFinal = resultado['volume_total_liquido_final']?.toDouble() ?? 0.0;
+
+            // ✅ MONTAR OBJETO medicoes COM TODOS OS DADOS
+            final medicoesAtualizadas = <String, dynamic>{};
+            
+            // 1ª MEDIÇÃO
+            if (resultado['horario_inicial'] != null) {
+              medicoesAtualizadas['horarioInicial'] = _formatarHorarioDisplay(resultado['horario_inicial']);
+            }
+            if (resultado['altura_total_cm_inicial'] != null) {
+              medicoesAtualizadas['cmInicial'] = resultado['altura_total_cm_inicial']?.toString();
+            }
+            if (resultado['altura_total_mm_inicial'] != null) {
+              medicoesAtualizadas['mmInicial'] = resultado['altura_total_mm_inicial']?.toString();
+            }
+            if (resultado['altura_agua_inicial'] != null) {
+              medicoesAtualizadas['alturaAguaInicial'] = resultado['altura_agua_inicial']?.toString();
+            }
+            if (resultado['altura_produto_inicial'] != null) {
+              medicoesAtualizadas['alturaProdutoInicial'] = resultado['altura_produto_inicial']?.toString();
+            }
+            if (resultado['temperatura_tanque_inicial'] != null) {
+              medicoesAtualizadas['tempTanqueInicial'] = resultado['temperatura_tanque_inicial']?.toString();
+            }
+            if (resultado['densidade_observada_inicial'] != null) {
+              medicoesAtualizadas['densidadeInicial'] = resultado['densidade_observada_inicial']?.toString();
+            }
+            if (resultado['temperatura_amostra_inicial'] != null) {
+              medicoesAtualizadas['tempAmostraInicial'] = resultado['temperatura_amostra_inicial']?.toString();
+            }
+            if (resultado['densidade_20_inicial'] != null) {
+              medicoesAtualizadas['densidade20Inicial'] = resultado['densidade_20_inicial']?.toString();
+            }
+            if (resultado['fator_correcao_inicial'] != null) {
+              medicoesAtualizadas['fatorCorrecaoInicial'] = resultado['fator_correcao_inicial']?.toString();
+            }
+            if (resultado['massa_inicial'] != null) {
+              medicoesAtualizadas['massaInicial'] = resultado['massa_inicial']?.toString();
+            }
+            
+            // 2ª MEDIÇÃO
+            if (resultado['horario_final'] != null) {
+              medicoesAtualizadas['horarioFinal'] = _formatarHorarioDisplay(resultado['horario_final']);
+            }
+            if (resultado['altura_total_cm_final'] != null) {
+              medicoesAtualizadas['cmFinal'] = resultado['altura_total_cm_final']?.toString();
+            }
+            if (resultado['altura_total_mm_final'] != null) {
+              medicoesAtualizadas['mmFinal'] = resultado['altura_total_mm_final']?.toString();
+            }
+            if (resultado['altura_agua_final'] != null) {
+              medicoesAtualizadas['alturaAguaFinal'] = resultado['altura_agua_final']?.toString();
+            }
+            if (resultado['altura_produto_final'] != null) {
+              medicoesAtualizadas['alturaProdutoFinal'] = resultado['altura_produto_final']?.toString();
+            }
+            if (resultado['temperatura_tanque_final'] != null) {
+              medicoesAtualizadas['tempTanqueFinal'] = resultado['temperatura_tanque_final']?.toString();
+            }
+            if (resultado['densidade_observada_final'] != null) {
+              medicoesAtualizadas['densidadeFinal'] = resultado['densidade_observada_final']?.toString();
+            }
+            if (resultado['temperatura_amostra_final'] != null) {
+              medicoesAtualizadas['tempAmostraFinal'] = resultado['temperatura_amostra_final']?.toString();
+            }
+            if (resultado['densidade_20_final'] != null) {
+              medicoesAtualizadas['densidade20Final'] = resultado['densidade_20_final']?.toString();
+            }
+            if (resultado['fator_correcao_final'] != null) {
+              medicoesAtualizadas['fatorCorrecaoFinal'] = resultado['fator_correcao_final']?.toString();
+            }
+            if (resultado['massa_final'] != null) {
+              medicoesAtualizadas['massaFinal'] = resultado['massa_final']?.toString();
+            }
+            
+            // VOLUMES
+            medicoesAtualizadas['volumeProdutoInicial'] = _formatarVolumeLitros(volumeInicial);
+            medicoesAtualizadas['volumeProdutoFinal'] = _formatarVolumeLitros(volumeFinal);
+            medicoesAtualizadas['volumeTotalLiquidoInicial'] = _formatarVolumeLitros(volumeTotalLiquidoInicial);
+            medicoesAtualizadas['volumeTotalLiquidoFinal'] = _formatarVolumeLitros(volumeTotalLiquidoFinal);
+            
+            if (resultado['volume_agua_inicial'] != null) {
+              medicoesAtualizadas['volumeAguaInicial'] = _formatarVolumeLitros(resultado['volume_agua_inicial']?.toDouble() ?? 0.0);
+            }
+            if (resultado['volume_agua_final'] != null) {
+              medicoesAtualizadas['volumeAguaFinal'] = _formatarVolumeLitros(resultado['volume_agua_final']?.toDouble() ?? 0.0);
+            }
+            
+            if (resultado['volume_20_inicial'] != null) {
+              medicoesAtualizadas['volume20Inicial'] = _formatarVolumeLitros(resultado['volume_20_inicial']?.toDouble() ?? 0.0);
+            }
+            if (resultado['volume_20_final'] != null) {
+              medicoesAtualizadas['volume20Final'] = _formatarVolumeLitros(resultado['volume_20_final']?.toDouble() ?? 0.0);
+            }
+            
+            // FATURADO
+            if (resultado['faturado_final'] != null) {
+              medicoesAtualizadas['faturadoFinal'] = resultado['faturado_final']?.toString();
+            }
+            
+            // ✅ ATUALIZA OS DADOS DO FORMULÁRIO
+            widget.dadosFormulario['medicoes'] = medicoesAtualizadas;
+            
+            // Carrega outros dados importantes
+            if (resultado['data'] != null) {
+              widget.dadosFormulario['data'] = _formatarDataDisplay(resultado['data']);
+            }
+            if (resultado['base'] != null) {
+              widget.dadosFormulario['base'] = resultado['base']?.toString();
+            }
+            if (resultado['produto'] != null) {
+              widget.dadosFormulario['produto'] = resultado['produto']?.toString();
+            }
+            if (resultado['filial_id'] != null) {
+              widget.dadosFormulario['filial_id'] = resultado['filial_id']?.toString();
+            }
+            if (resultado['tipo'] != null) {
+              final tipo = resultado['tipo']?.toString();
+              widget.dadosFormulario['cacl_verificacao'] = tipo == 'verificacao';
+              widget.dadosFormulario['cacl_movimentacao'] = tipo == 'movimentacao';
+            }
+
+            setState(() {
+              _caclJaEmitido = true;
+            });
+            return;
+          }
+        } catch (e) {
+          debugPrint('Erro ao carregar CACL do banco: $e');
+        }
+      }
+      
+      // ✅ FALLBACK: Se não conseguiu carregar do banco, usa dados existentes
       final dadosDoBanco = widget.dadosFormulario;
       
       volumeInicial = dadosDoBanco['volume_produto_inicial']?.toDouble() ?? 0.0;
@@ -104,7 +276,55 @@ class _CalcPageState extends State<CalcPage> {
       
     } catch (e) {
       debugPrint('Erro ao carregar dados para visualização: $e');
+      
+      // Fallback seguro
+      setState(() {
+        volumeInicial = 0;
+        volumeFinal = 0;
+        volumeTotalLiquidoInicial = 0;
+        volumeTotalLiquidoFinal = 0;
+        _caclJaEmitido = false;
+      });
     }
+  }
+
+  // ✅ FUNÇÃO AUXILIAR: Formatar horário para exibição
+  String _formatarHorarioDisplay(String? timeString) {
+    if (timeString == null || timeString.isEmpty) return '-';
+    
+    try {
+      // Formato esperado: "HH:MM:SS"
+      final partes = timeString.split(':');
+      if (partes.length >= 2) {
+        final horas = partes[0];
+        final minutos = partes[1];
+        return '$horas:$minutos h';
+      }
+    } catch (e) {
+      return timeString;
+    }
+    
+    return timeString;
+  }
+
+  // ✅ FUNÇÃO AUXILIAR: Formatar data para exibição
+  String _formatarDataDisplay(String? dataSql) {
+    if (dataSql == null || dataSql.isEmpty) return '';
+    
+    try {
+      // Formato SQL: "YYYY-MM-DD"
+      final partes = dataSql.split('-');
+      if (partes.length == 3) {
+        final ano = partes[0];
+        final mes = partes[1];
+        final dia = partes[2];
+        return '$dia/$mes/$ano';
+      }
+    } catch (e) {
+      return dataSql;
+    }
+    
+    return dataSql;
   }  
 
   Future<void> _calcularVolumesIniciais() async {
@@ -419,6 +639,34 @@ class _CalcPageState extends State<CalcPage> {
     });
 
     try {
+      // ===== DEBUG: VERIFICAÇÃO DOS DADOS RECEBIDOS =====
+      print('🔍 ===== DEBUG _emitirCACL() INICIADO =====');
+      print('📋 Modo: ${widget.modo}');
+      print('📋 Chaves do formulário: ${widget.dadosFormulario.keys.toList()}');
+      
+      // Verifica os dados do tanque
+      final tanqueIdBruto = widget.dadosFormulario['tanque_id'];
+      final tanqueNome = widget.dadosFormulario['tanque'];
+      final filialId = widget.dadosFormulario['filial_id'];
+      
+      print('📋 tanque_id (bruto): $tanqueIdBruto');
+      print('📋 tanque_id tipo: ${tanqueIdBruto?.runtimeType}');
+      print('📋 tanque (nome): $tanqueNome');
+      print('📋 filial_id: $filialId');
+      
+      // Testa a função _obterTanqueId()
+      final tanqueIdObtido = _obterTanqueId();
+      print('📋 _obterTanqueId() retornou: $tanqueIdObtido');
+      
+      // Verifica se parece ser um UUID válido
+      if (tanqueIdObtido != null) {
+        final isUUID = _isValidUUID(tanqueIdObtido);
+        print('📋 tanque_id é UUID válido? $isUUID');
+      }
+      
+      print('🔍 ===== FIM DEBUG INICIAL =====');
+      // ===============================================
+
       final supabase = Supabase.instance.client;
       final medicoes = widget.dadosFormulario['medicoes'] ?? {};
 
@@ -453,11 +701,17 @@ class _CalcPageState extends State<CalcPage> {
         dataFormatada = _formatarDataParaSQL(dataOriginal);
       }
 
+      // ===== DEBUG: ANTES DE MONTAR DADOS PARA INSERIR =====
+      print('🔍 ===== PREPARANDO DADOS PARA SALVAR =====');
+      final tanqueIdParaSalvar = _obterTanqueId();
+      print('📤 tanque_id que será salvo: $tanqueIdParaSalvar');
+      // ===================================================
+
       final dadosParaInserir = {
         'data': dataFormatada,
         'base': widget.dadosFormulario['base']?.toString(),
         'produto': widget.dadosFormulario['produto']?.toString(),
-        'tanque': widget.dadosFormulario['tanque']?.toString(),
+        'tanque_id': tanqueIdParaSalvar, // Usa o valor já calculado
         'filial_id': widget.dadosFormulario['filial_id']?.toString(),
         'status': 'emitido',
         'tipo': tipoCACL,
@@ -536,6 +790,18 @@ class _CalcPageState extends State<CalcPage> {
         'updated_at': DateTime.now().toIso8601String(),
       };
 
+      // ===== DEBUG: VERIFICA DADOS ANTES DE SALVAR =====
+      print('🔍 ===== DADOS QUE SERÃO SALVOS =====');
+      print('📤 tanque_id no objeto: ${dadosParaInserir['tanque_id']}');
+      print('📤 data: ${dadosParaInserir['data']}');
+      print('📤 base: ${dadosParaInserir['base']}');
+      print('📤 produto: ${dadosParaInserir['produto']}');
+      print('📤 filial_id: ${dadosParaInserir['filial_id']}');
+      print('📤 status: ${dadosParaInserir['status']}');
+      print('📤 tipo: ${dadosParaInserir['tipo']}');
+      print('🔍 ===== FIM DOS DADOS =====');
+      // ================================================
+
       final entradaSaida20 =
           _extrairNumero(medicoes['volume20Final']?.toString()) -
               _extrairNumero(medicoes['volume20Inicial']?.toString());
@@ -553,7 +819,23 @@ class _CalcPageState extends State<CalcPage> {
         dadosParaInserir['porcentagem_diferenca'] = '0.00%';
       }
 
+      // Remove valores nulos
+      final dadosAntesRemocao = Map<String, dynamic>.from(dadosParaInserir);
       dadosParaInserir.removeWhere((key, value) => value == null);
+      
+      // ===== DEBUG: VERIFICA REMOÇÃO DE VALORES NULOS =====
+      print('🔍 ===== APÓS REMOVER VALORES NULOS =====');
+      print('📤 tanque_id após remoção: ${dadosParaInserir['tanque_id']}');
+      if (!dadosParaInserir.containsKey('tanque_id')) {
+        print('⚠️ ATENÇÃO: tanque_id foi removido por ser null!');
+        print('📤 Valores removidos:');
+        dadosAntesRemocao.forEach((key, value) {
+          if (value == null) {
+            print('   - $key: $value');
+          }
+        });
+      }
+      // ===================================================
 
       String? idParaUpdate = widget.caclId;
       if ((idParaUpdate == null || idParaUpdate.isEmpty) &&
@@ -598,7 +880,7 @@ class _CalcPageState extends State<CalcPage> {
               const SnackBar(
                 content: Text('✓ Novo CACL criado (fallback)'),
                 backgroundColor: Colors.orange,
-                duration: Duration(seconds: 3),
+                duration: const Duration(seconds: 3),
               ),
             );
           }
@@ -607,7 +889,19 @@ class _CalcPageState extends State<CalcPage> {
         dadosParaInserir['created_by'] = session.user.id;
         dadosParaInserir['created_at'] = DateTime.now().toIso8601String();
 
-        await supabase.from('cacl').insert(dadosParaInserir);
+        // ===== DEBUG: ANTES DE INSERIR NO BANCO =====
+        print('🔍 ===== INSERINDO NO BANCO =====');
+        print('📤 tanque_id final: ${dadosParaInserir['tanque_id']}');
+        print('📤 user_id: ${session.user.id}');
+        // ===========================================
+
+        final resultado = await supabase.from('cacl').insert(dadosParaInserir);
+        
+        // ===== DEBUG: APÓS INSERIR NO BANCO =====
+        print('🔍 ===== RESULTADO DA INSERÇÃO =====');
+        print('📤 Resultado: $resultado');
+        print('✅ CACL salvo com sucesso!');
+        // ========================================
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -626,6 +920,12 @@ class _CalcPageState extends State<CalcPage> {
         });
       }
     } catch (e) {
+      // ===== DEBUG: EM CASO DE ERRO =====
+      print('❌ ===== ERRO AO EMITIR CACL =====');
+      print('❌ Erro: $e');
+      print('❌ StackTrace: ${e.toString()}');
+      // ==================================
+      
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -736,7 +1036,7 @@ class _CalcPageState extends State<CalcPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _secaoTitulo("TANQUE Nº:"),
-                              _linhaValor(widget.dadosFormulario['tanque']?.toString() ?? ""),
+                              _linhaValor(_obterNomeTanque()),
                             ],
                           ),
                         ),
@@ -2506,7 +2806,7 @@ class _CalcPageState extends State<CalcPage> {
         'data': dataFormatada,
         'base': widget.dadosFormulario['base']?.toString(),
         'produto': widget.dadosFormulario['produto']?.toString(),
-        'tanque': widget.dadosFormulario['tanque']?.toString(),
+        'tanque_id': _obterTanqueId(),
         'filial_id': widget.dadosFormulario['filial_id']?.toString(),
         'status': 'pendente',      
         'tipo': tipoCACL,
@@ -2665,5 +2965,60 @@ class _CalcPageState extends State<CalcPage> {
     } catch (e) {
       return null;
     }
+  }
+
+  // Adicione este método para obter o ID do tanque
+  String? _obterTanqueId() {
+    print('🔍 ===== DEBUG _obterTanqueId() =====');
+    
+    // Diretamente do formulário - já deve vir como UUID válido
+    if (widget.dadosFormulario.containsKey('tanque_id')) {
+      final tanqueId = widget.dadosFormulario['tanque_id']?.toString();
+      print('📋 tanque_id encontrado: $tanqueId');
+      
+      if (tanqueId != null && tanqueId.isNotEmpty) {
+        // Verifica se é UUID válido
+        if (_isValidUUID(tanqueId)) {
+          print('✅ tanque_id é UUID válido');
+          return tanqueId;
+        } else {
+          print('❌ tanque_id NÃO é UUID válido: $tanqueId');
+          print('📋 Comprimento: ${tanqueId.length}');
+          return null;
+        }
+      }
+    }
+    
+    print('❌ tanque_id não encontrado ou inválido');
+    return null;
+  }
+
+  bool _isValidUUID(String str) {
+    if (str.isEmpty) return false;
+    
+    // Aceita UUID com hífens: 123e4567-e89b-12d3-a456-426614174000
+    final uuidRegex = RegExp(
+      r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+      caseSensitive: false,
+    );
+    
+    // Aceita UUID sem hífens: 123e4567e89b12d3a456426614174000
+    final uuidNoHyphensRegex = RegExp(
+      r'^[0-9a-f]{32}$',
+      caseSensitive: false,
+    );
+    
+    return uuidRegex.hasMatch(str) || uuidNoHyphensRegex.hasMatch(str);
+  }
+
+  String _obterNomeTanque() {
+    // Se for modo visualização e tiver dados do tanque via JOIN
+    if (widget.modo != CaclModo.emissao && 
+        widget.dadosFormulario.containsKey('tanques')) {
+      return widget.dadosFormulario['tanques']['referencia']?.toString() ?? '';
+    }
+    
+    // Caso contrário, usa o nome que já estava
+    return widget.dadosFormulario['tanque']?.toString() ?? '';
   }
 }
