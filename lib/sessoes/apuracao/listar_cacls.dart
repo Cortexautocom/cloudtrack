@@ -323,22 +323,22 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
       case 'aguardando':
         return Colors.orange;
       case 'cancelado':
-        return Colors.grey;
+        return const Color.fromARGB(255, 192, 43, 43);
       default:
-        return Colors.grey;
+        return const Color.fromARGB(255, 128, 128, 128);
     }
   }
 
   Color _getCardColor(String? status, bool? solicitaCanc) {
     // Para nível 3, card vermelho apenas se tiver solicitação pendente
-    if (_nivelUsuario == 3 && solicitaCanc == true && status?.toLowerCase() != 'cancelado') {
+    if (status?.toLowerCase() == 'cancelado') {
+      return Colors.grey.shade50;
+    }
+
+    if (solicitaCanc == true) {
       return Colors.red.shade50;
     }
-    
-    // Para níveis 1 e 2, card vermelho se tiver solicitação pendente
-    if ((_nivelUsuario == 1 || _nivelUsuario == 2) && solicitaCanc == true && status?.toLowerCase() != 'cancelado') {
-      return Colors.red.shade50;
-    }
+
     
     switch (status?.toLowerCase()) {
       case 'emitido':
@@ -355,14 +355,14 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
 
   Color _getBorderColor(String? status, bool? solicitaCanc) {
     // Para nível 3, borda vermelha apenas se tiver solicitação pendente
-    if (_nivelUsuario == 3 && solicitaCanc == true && status?.toLowerCase() != 'cancelado') {
+    if (status?.toLowerCase() == 'cancelado') {
+      return Colors.grey.shade300;
+    }
+
+    if (solicitaCanc == true) {
       return Colors.red.shade300;
     }
-    
-    // Para níveis 1 e 2, borda vermelha se tiver solicitação pendente
-    if ((_nivelUsuario == 1 || _nivelUsuario == 2) && solicitaCanc == true && status?.toLowerCase() != 'cancelado') {
-      return Colors.red.shade300;
-    }
+
     
     switch (status?.toLowerCase()) {
       case 'emitido':
@@ -615,7 +615,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                               },
                               child: Opacity(
                                 // Opacidade reduzida para níveis 2 e 3 quando cancelado
-                                opacity: (_nivelUsuario == 2 && isCancelado) ? 0.6 : 1.0,
+                                opacity: isCancelado ? 0.85 : 1.0,
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 180),
                                   curve: Curves.easeOut,
@@ -677,7 +677,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                                                       fontSize: 16,
                                                       fontWeight: FontWeight.bold,
                                                       // Texto mais claro para níveis 2 e 3 quando cancelado
-                                                      color: (_nivelUsuario == 2 && isCancelado)  
+                                                      color: isCancelado 
                                                           ? Colors.grey 
                                                           : Colors.black87,
                                                     ),
@@ -692,7 +692,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                                                   Icon(
                                                     Icons.local_gas_station,
                                                     size: 14,
-                                                    color: ((_nivelUsuario == 2 || _nivelUsuario == 3) && isCancelado) 
+                                                    color: isCancelado
                                                         ? Colors.grey 
                                                         : Colors.black54,
                                                   ),
@@ -702,7 +702,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                                                       produto,
                                                       style: TextStyle(
                                                         fontSize: 14,
-                                                        color: ((_nivelUsuario == 2 || _nivelUsuario == 3) && isCancelado) 
+                                                        color: isCancelado 
                                                             ? Colors.grey 
                                                             : Colors.black87,
                                                       ),
@@ -720,7 +720,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                                                   Icon(
                                                     Icons.calendar_today,
                                                     size: 14,
-                                                    color: ((_nivelUsuario == 2 || _nivelUsuario == 3) && isCancelado) 
+                                                    color: isCancelado
                                                         ? Colors.grey 
                                                         : Colors.black54,
                                                   ),
@@ -729,7 +729,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                                                     data,
                                                     style: TextStyle(
                                                       fontSize: 13,
-                                                      color: ((_nivelUsuario == 2 || _nivelUsuario == 3) && isCancelado) 
+                                                      color: isCancelado 
                                                           ? Colors.grey 
                                                           : Colors.black54,
                                                     ),
@@ -738,7 +738,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                                                   Icon(
                                                     Icons.access_time,
                                                     size: 14,
-                                                    color: ((_nivelUsuario == 2 || _nivelUsuario == 3) && isCancelado) 
+                                                    color: isCancelado 
                                                         ? Colors.grey 
                                                         : Colors.black54,
                                                   ),
@@ -748,7 +748,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                                                       horario,
                                                       style: TextStyle(
                                                         fontSize: 13,
-                                                        color: ((_nivelUsuario == 2 || _nivelUsuario == 3) && isCancelado) 
+                                                        color: isCancelado 
                                                             ? Colors.grey 
                                                             : Colors.black54,
                                                       ),
@@ -948,27 +948,115 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Solicitar Cancelamento'),
-          content: const Text('Deseja solicitar o cancelamento deste CACL?'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text('Voltar à lista'),
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 8,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: 600,
             ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                await _solicitarCancelamento(cacl['id'].toString());
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Cabeçalho com ícone
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.orange.shade700,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Solicitar Cancelamento',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0D47A1),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Mensagem
+                  const Padding(
+                    padding: EdgeInsets.only(left: 36),
+                    child: Text(
+                      'Deseja solicitar o cancelamento deste CACL?\n\nEsta solicitação será enviada ao supervisor para análise.',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.black87,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  
+                  // Botões alinhados à direita
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'Voltar à lista',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color.fromARGB(255, 102, 102, 102),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: () async {
+                          Navigator.pop(context);
+                          await _solicitarCancelamento(cacl['id'].toString());
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange.shade600,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          elevation: 2,
+                          shadowColor: Colors.orange.withOpacity(0.3),
+                        ),
+                        child: const Text(
+                          'Sim, quero solicitar',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              child: const Text('Sim, quero cancelar'),
             ),
-          ],
+          ),
         );
       },
     );
@@ -978,27 +1066,115 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Confirmar Cancelamento'),
-          content: const Text('Confirmar cancelamento?'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text('Voltar'),
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 8,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: 600,
             ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                await _confirmarCancelamento(cacl['id'].toString());
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Cabeçalho com ícone
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle_outline_rounded,
+                        color: Colors.red.shade700,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Confirmar Cancelamento',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0D47A1),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Mensagem
+                  const Padding(
+                    padding: EdgeInsets.only(left: 36),
+                    child: Text(
+                      'O operador solicitou cancelamento deste CACL.\n\nDeseja confirmar o cancelamento?',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.black87,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  
+                  // Botões alinhados à direita
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'Voltar',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color.fromARGB(255, 102, 102, 102),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: () async {
+                          Navigator.pop(context);
+                          await _confirmarCancelamento(cacl['id'].toString());
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade600,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          elevation: 2,
+                          shadowColor: Colors.red.withOpacity(0.3),
+                        ),
+                        child: const Text(
+                          'Confirmar Cancelamento',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              child: const Text('Sim, cancelar'),
             ),
-          ],
+          ),
         );
       },
     );
@@ -1008,27 +1184,115 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Cancelar CACL'),
-          content: const Text('Deseja cancelar este CACL? Esta ação é irreversível.'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text('Voltar'),
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 8,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: 600,
             ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                await _cancelarDireto(cacl['id'].toString());
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Cabeçalho com ícone
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.dangerous_rounded,
+                        color: Colors.red.shade700,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Cancelar CACL',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0D47A1),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Mensagem
+                  const Padding(
+                    padding: EdgeInsets.only(left: 36),
+                    child: Text(
+                      'Deseja cancelar este CACL?\n\n⚠️ Esta ação é irreversível e não pode ser desfeita.',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.black87,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  
+                  // Botões alinhados à direita
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'Voltar',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color.fromARGB(255, 107, 107, 107),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: () async {
+                          Navigator.pop(context);
+                          await _cancelarDireto(cacl['id'].toString());
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade600,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          elevation: 2,
+                          shadowColor: Colors.red.withOpacity(0.3),
+                        ),
+                        child: const Text(
+                          'Sim, cancelar CACL',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              child: const Text('Sim, cancelar'),
             ),
-          ],
+          ),
         );
       },
     );
