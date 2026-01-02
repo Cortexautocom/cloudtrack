@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'cacl.dart';
+import '../../login_page.dart';
 
 class HistoricoCaclPage extends StatefulWidget {
   final VoidCallback onVoltar;
@@ -14,7 +15,7 @@ class HistoricoCaclPage extends StatefulWidget {
   State<HistoricoCaclPage> createState() => _HistoricoCaclPageState();
 }
 
-class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
+class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindingObserver {
   bool carregando = true;
   bool buscando = false;
   List<Map<String, dynamic>> cacles = [];
@@ -30,8 +31,11 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
   DateTime? dataInicio;
   DateTime? dataFim;
   String? filialSelecionadaId;
-  String? tanqueSelecionado;
+  String? tanqueSelecionadoId;
   String? produtoSelecionado;
+  
+  int? _nivelUsuario;
+  int? _hoverIndex;
   
   final TextEditingController dataInicioController = TextEditingController();
   final TextEditingController dataFimController = TextEditingController();
@@ -41,7 +45,23 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _carregarDadosIniciais();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    dataInicioController.dispose();
+    dataFimController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshData();
+    }
   }
 
   Future<Map<String, dynamic>?> _obterDadosUsuario() async {
@@ -61,6 +81,33 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
     }
   }
 
+  Future<void> _carregarNivelUsuario() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final usuarioId = UsuarioAtual.instance?.id;
+      
+      if (usuarioId != null) {
+        final response = await supabase
+            .from('usuarios')
+            .select('nivel')
+            .eq('id', usuarioId)
+            .single();
+        
+        setState(() {
+          _nivelUsuario = response['nivel'] as int? ?? 0;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Erro ao carregar nível do usuário: $e');
+      setState(() {
+        _nivelUsuario = 0;
+      });
+    }
+  }
+
+  Future<void> _refreshData() async {
+    await _aplicarFiltros(resetarPagina: true);
+  }
 
   Future<void> _carregarDadosIniciais() async {
     setState(() => carregando = true);
@@ -68,6 +115,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
     try {
       final supabase = Supabase.instance.client;
       _usuarioData = await _obterDadosUsuario();
+      await _carregarNivelUsuario();
       
       if (_usuarioData == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -153,13 +201,20 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
         data,
         base,
         produto,
-        tanque,
+        tanque_id,
         filial_id,
         created_at,
-
-        volume_total_liquido_inicial,
+        status,
+        solicita_canc,
+        horario_inicial,
+        horario_final,
         volume_produto_inicial,
-
+        volume_produto_final,
+        volume_total_liquido_inicial,
+        volume_total_liquido_final,
+        tanques!inner(
+          referencia
+        ),
         entrada_saida_20,
         faturado_final,
         diferenca_faturado,
@@ -188,8 +243,8 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
         query = query.eq('filial_id', filialSelecionadaId!);
       }
 
-      if (tanqueSelecionado != null && tanqueSelecionado!.isNotEmpty) {
-        query = query.ilike('tanque', '%$tanqueSelecionado%');
+      if (tanqueSelecionadoId != null && tanqueSelecionadoId!.isNotEmpty) {
+        query = query.eq('tanque_id', tanqueSelecionadoId!);
       }
 
       if (produtoSelecionado != null && produtoSelecionado!.isNotEmpty) {
@@ -230,7 +285,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
       dataInicio = null;
       dataFim = null;
       filialSelecionadaId = null;
-      tanqueSelecionado = null;
+      tanqueSelecionadoId = null;
       produtoSelecionado = null;
       dataInicioController.clear();
       dataFimController.clear();
@@ -247,6 +302,89 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
           '${d.year}';
     } catch (_) {
       return data.toString();
+    }
+  }
+
+  String _formatarHorario(dynamic horarioInicial, dynamic horarioFinal) {
+    if (horarioInicial != null && horarioFinal != null) {
+      return '$horarioInicial - $horarioFinal';
+    } else if (horarioInicial != null) {
+      return 'Início: $horarioInicial';
+    } else if (horarioFinal != null) {
+      return 'Fim: $horarioFinal';
+    }
+    return 'Sem horário';
+  }
+
+  Color _getStatusColor(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'emitido':
+        return Colors.green;
+      case 'pendente':
+      case 'aguardando':
+        return Colors.orange;
+      case 'cancelado':
+        return const Color.fromARGB(255, 192, 43, 43);
+      default:
+        return const Color.fromARGB(255, 128, 128, 128);
+    }
+  }
+
+  Color _getCardColor(String? status, bool? solicitaCanc) {
+    if (status?.toLowerCase() == 'cancelado') {
+      return Colors.grey.shade50;
+    }
+
+    if (solicitaCanc == true) {
+      return Colors.red.shade50;
+    }
+
+    switch (status?.toLowerCase()) {
+      case 'emitido':
+        return Colors.green.shade50;
+      case 'pendente':
+      case 'aguardando':
+        return Colors.orange.shade50;
+      case 'cancelado':
+        return Colors.grey.shade50;
+      default:
+        return Colors.grey.shade50;
+    }
+  }
+
+  Color _getBorderColor(String? status, bool? solicitaCanc) {
+    if (status?.toLowerCase() == 'cancelado') {
+      return Colors.grey.shade300;
+    }
+
+    if (solicitaCanc == true) {
+      return Colors.red.shade300;
+    }
+
+    switch (status?.toLowerCase()) {
+      case 'emitido':
+        return Colors.green.shade300;
+      case 'pendente':
+      case 'aguardando':
+        return Colors.orange.shade300;
+      case 'cancelado':
+        return Colors.grey.shade300;
+      default:
+        return Colors.grey.shade300;
+    }
+  }
+
+  String _getStatusText(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'emitido':
+        return 'Emitido';
+      case 'pendente':
+      case 'aguardando':
+        return 'Pendente';
+      case 'cancelado':
+        return 'Cancelado';
+      default:
+        return 'Sem status';
     }
   }
 
@@ -349,7 +487,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
                 
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: tanqueSelecionado,
+                    value: tanqueSelecionadoId,
                     decoration: InputDecoration(
                       labelText: 'Tanque',
                       border: const OutlineInputBorder(),
@@ -364,7 +502,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
                       ),
                       ...tanquesDisponiveis.map((tanque) {
                         return DropdownMenuItem(
-                          value: tanque['referencia']?.toString(),
+                          value: tanque['id']?.toString(),
                           child: Text(
                             tanque['referencia']?.toString() ?? '',
                             overflow: TextOverflow.ellipsis,
@@ -374,7 +512,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
                     ],
                     onChanged: (value) {
                       setState(() {
-                        tanqueSelecionado = value;
+                        tanqueSelecionadoId = value;
                       });
                     },
                   ),
@@ -586,6 +724,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
       backgroundColor: const Color(0xFFF8F9FA),
       body: Column(
         children: [
+          // ===== CABEÇALHO =====
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -610,9 +749,9 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
                       const Text(
                         'Histórico de CACLs',
                         style: TextStyle(
-                          fontSize: 19,
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                          color: Color(0xFF0D47A1),
                         ),
                       ),
                       if (nivel != null && nivel < 3 && filialId != null)
@@ -626,12 +765,13 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
                             if (snapshot.hasData) {
                               final nomeFilial = snapshot.data!['nome'];
                               return Text(
-                                'Filial: $nomeFilial',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.green.shade700,
-                                  fontWeight: FontWeight.w500,
+                                nomeFilial,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               );
                             }
                             return const SizedBox();
@@ -643,23 +783,21 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
                 if (!carregando)
                   IconButton(
                     icon: const Icon(Icons.refresh, color: Color(0xFF0D47A1)),
-                    onPressed: _carregarDadosIniciais,
-                    tooltip: 'Recarregar',
+                    onPressed: _refreshData,
+                    tooltip: 'Atualizar lista',
                   ),
               ],
             ),
           ),
+          const SizedBox(height: 10),
+          const Divider(),
+          const SizedBox(height: 10),
 
           Expanded(
             child: carregando
                 ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(color: Color(0xFF0D47A1)),
-                        SizedBox(height: 16),
-                        Text('Carregando histórico...'),
-                      ],
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF0D47A1),
                     ),
                   )
                 : Column(
@@ -668,167 +806,339 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
                       
                       Expanded(
                         child: cacles.isEmpty
-                            ? Center(
+                            ? const Center(
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.receipt_long, size: 64, color: Colors.grey.shade400),
-                                    const SizedBox(height: 16),
-                                    const Text(
-                                      'Nenhum CACL encontrado',
-                                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                                    Icon(
+                                      Icons.receipt_long_outlined,
+                                      size: 60,
+                                      color: Colors.grey,
                                     ),
-                                    const SizedBox(height: 8),
+                                    SizedBox(height: 16),
                                     Text(
-                                      'Ajuste os filtros ou cadastre um novo cálculo',
-                                      style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+                                      'Nenhum CACL encontrado',
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      'Ajuste os filtros para encontrar CACLs',
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 13,
+                                      ),
                                     ),
                                   ],
                                 ),
                               )
-                            : ListView.builder(
-                                itemCount: cacles.length,
-                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                                itemBuilder: (context, index) {
-                                  final cacl = cacles[index];
-                                  final diferenca = (cacl['diferenca_faturado'] as num?)?.toDouble() ?? 0;
-                                  final porcentagem = cacl['porcentagem_diferenca']?.toString() ?? '-';
-                                  
-                                  return Card(
-                                    margin: const EdgeInsets.only(bottom: 8),
-                                    elevation: 1,
-                                    color: const Color.fromARGB(255, 246, 255, 241),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                      side: BorderSide(
-                                        color: diferenca == 0 
-                                            ? Colors.green.shade200 
-                                            : Colors.orange.shade200,
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: ListTile(
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                      leading: Container(
-                                        width: 36,
-                                        height: 36,
-                                        decoration: BoxDecoration(
-                                          color: diferenca == 0 
-                                              ? Colors.green.shade50 
-                                              : Colors.orange.shade50,
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Icon(
-                                          diferenca == 0 ? Icons.check_circle : Icons.warning,
-                                          color: diferenca == 0 ? Colors.green : Colors.orange,
-                                          size: 18,
-                                        ),
-                                      ),
-                                      title: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              cacl['produto']?.toString() ?? 'Produto não informado',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 14,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: diferenca == 0 
-                                                  ? Colors.green.shade50 
-                                                  : Colors.orange.shade50,
-                                              borderRadius: BorderRadius.circular(10),
-                                              border: Border.all(
-                                                color: diferenca == 0 
-                                                    ? Colors.green.shade200 
-                                                    : Colors.orange.shade200,
-                                                width: 1,
-                                              ),
-                                            ),
-                                            child: Text(
-                                              diferenca == 0 ? 'OK' : '$porcentagem%',
-                                              style: TextStyle(
-                                                color: diferenca == 0 
-                                                    ? Colors.green.shade800 
-                                                    : Colors.orange.shade800,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      subtitle: Padding(
-                                        padding: const EdgeInsets.only(top: 4),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                'Tanque: ${cacl['tanque']?.toString() ?? '-'}',
-                                                style: TextStyle(
-                                                  color: Colors.grey.shade700,
-                                                  fontSize: 12,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 16),
-                                            Expanded(
-                                              child: Text(
-                                                'Data: ${_formatarData(cacl['data'])}',
-                                                style: TextStyle(
-                                                  color: Colors.grey.shade700,
-                                                  fontSize: 12,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 16),
-                                            if (cacl['base'] != null)
-                                              Expanded(
-                                                child: Text(
-                                                  'Filial: ${cacl['base']}',
-                                                  style: TextStyle(
-                                                    color: Colors.grey.shade700,
-                                                    fontSize: 12,
-                                                  ),
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                      onTap: () async {
-                                        final supabase = Supabase.instance.client;
+                            : RefreshIndicator(
+                                onRefresh: _refreshData,
+                                color: const Color(0xFF0D47A1),
+                                child: ListView.separated(
+                                  itemCount: cacles.length,
+                                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
+                                  itemBuilder: (context, index) {
+                                    final cacl = cacles[index];
+                                    final status = cacl['status']?.toString();
+                                    final solicitaCanc = cacl['solicita_canc'] as bool?;
+                                    final isCancelado = status?.toLowerCase() == 'cancelado';
+                                    final statusColor = _getStatusColor(status);
+                                    final cardColor = _getCardColor(status, solicitaCanc);
+                                    final borderColor = _getBorderColor(status, solicitaCanc);
+                                    final statusText = _getStatusText(status);
+                                    final tanqueRef = cacl['tanques']?['referencia']?.toString() ?? '-';
+                                    final produto = cacl['produto'] ?? 'Produto não informado';
+                                    final data = _formatarData(cacl['data']);
+                                    final horario = _formatarHorario(
+                                      cacl['horario_inicial'],
+                                      cacl['horario_final'],
+                                    );
 
-                                        final caclCompleto = await supabase
-                                            .from('cacl')
-                                            .select('*')
-                                            .eq('id', cacl['id'])
-                                            .single();
-
-                                        final dadosFormulario = _mapearCaclParaFormulario(caclCompleto);
-
-                                        if (!context.mounted) return;
-
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => CalcPage(
-                                              dadosFormulario: dadosFormulario,
-                                              modo: CaclModo.visualizacao,
-                                            ),
-                                          ),
-                                        );
+                                    return MouseRegion(
+                                      cursor: SystemMouseCursors.click,
+                                      onEnter: (_) {
+                                        setState(() => _hoverIndex = index);
                                       },
-                                    ),
-                                  );
-                                },
+                                      onExit: (_) {
+                                        setState(() => _hoverIndex = null);
+                                      },
+                                      child: GestureDetector(
+                                        onTap: () async {
+                                          // Verifica se o usuário pode clicar no CACL
+                                          final nivelUsuario = _nivelUsuario ?? 0;
+                                          
+                                          // Regras de permissão:
+                                          // - Nível 1: Pode clicar em qualquer CACL
+                                          // - Nível 2: NÃO pode clicar em CACLs cancelados
+                                          // - Nível 3: Pode clicar em qualquer CACL (incluindo cancelados)
+                                          if (nivelUsuario == 2 && isCancelado) {
+                                            // Nível 2 não pode clicar em CACLs cancelados
+                                            return;
+                                          }
+                                          
+                                          final supabase = Supabase.instance.client;
+                                          final caclCompleto = await supabase
+                                              .from('cacl')
+                                              .select('*, tanques!inner(referencia)')
+                                              .eq('id', cacl['id'])
+                                              .single();
+
+                                          final dadosFormulario = _mapearCaclParaFormulario(caclCompleto);
+
+                                          if (!context.mounted) return;
+
+                                          await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => CalcPage(
+                                                dadosFormulario: dadosFormulario,
+                                                modo: CaclModo.visualizacao,
+                                              ),
+                                            ),
+                                          );
+                                          
+                                          _refreshData();
+                                        },
+                                        child: Opacity(
+                                          // Opacidade reduzida para níveis 2 e 3 quando cancelado
+                                          opacity: isCancelado ? 0.85 : 1.0,
+                                          child: AnimatedContainer(
+                                            duration: const Duration(milliseconds: 180),
+                                            curve: Curves.easeOut,
+                                            transform: _hoverIndex == index
+                                                ? (Matrix4.identity()..scale(1.01))
+                                                : Matrix4.identity(),
+                                            decoration: BoxDecoration(
+                                              color: _hoverIndex == index
+                                                  ? cardColor.withOpacity(0.85)
+                                                  : cardColor,
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(
+                                                color: borderColor,
+                                                width: 1.5,
+                                              ),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black.withOpacity(
+                                                    _hoverIndex == index ? 0.15 : 0.05,
+                                                  ),
+                                                  blurRadius: _hoverIndex == index ? 12 : 4,
+                                                  offset: const Offset(0, 4),
+                                                ),
+                                              ],
+                                            ),
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(12),
+                                              child: Row(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  // Indicador de status (barra lateral)
+                                                  Container(
+                                                    width: 4,
+                                                    height: 60,
+                                                    decoration: BoxDecoration(
+                                                      color: statusColor,
+                                                      borderRadius: BorderRadius.circular(2),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  
+                                                  // Informações principais
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        // Linha 1: Tanque (destaque)
+                                                        Row(
+                                                          children: [
+                                                            const Icon(
+                                                              Icons.storage,
+                                                              size: 16,
+                                                              color: Colors.black54,
+                                                            ),
+                                                            const SizedBox(width: 6),
+                                                            Text(
+                                                              'Tanque $tanqueRef',
+                                                              style: TextStyle(
+                                                                fontSize: 16,
+                                                                fontWeight: FontWeight.bold,
+                                                                // Texto mais claro para níveis 2 e 3 quando cancelado
+                                                                color: isCancelado 
+                                                                    ? Colors.grey 
+                                                                    : Colors.black87,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        const SizedBox(height: 4),
+                                                        
+                                                        // Linha 2: Produto
+                                                        Row(
+                                                          children: [
+                                                            Icon(
+                                                              Icons.local_gas_station,
+                                                              size: 14,
+                                                              color: isCancelado
+                                                                  ? Colors.grey 
+                                                                  : Colors.black54,
+                                                            ),
+                                                            const SizedBox(width: 6),
+                                                            Expanded(
+                                                              child: Text(
+                                                                produto,
+                                                                style: TextStyle(
+                                                                  fontSize: 14,
+                                                                  color: isCancelado 
+                                                                      ? Colors.grey 
+                                                                      : Colors.black87,
+                                                                ),
+                                                                maxLines: 1,
+                                                                overflow: TextOverflow.ellipsis,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        const SizedBox(height: 4),
+                                                        
+                                                        // Linha 3: Data e Horário
+                                                        Row(
+                                                          children: [
+                                                            Icon(
+                                                              Icons.calendar_today,
+                                                              size: 14,
+                                                              color: isCancelado
+                                                                  ? Colors.grey 
+                                                                  : Colors.black54,
+                                                            ),
+                                                            const SizedBox(width: 6),
+                                                            Text(
+                                                              data,
+                                                              style: TextStyle(
+                                                                fontSize: 13,
+                                                                color: isCancelado 
+                                                                    ? Colors.grey 
+                                                                    : Colors.black54,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(width: 16),
+                                                            Icon(
+                                                              Icons.access_time,
+                                                              size: 14,
+                                                              color: isCancelado 
+                                                                  ? Colors.grey 
+                                                                  : Colors.black54,
+                                                            ),
+                                                            const SizedBox(width: 6),
+                                                            Expanded(
+                                                              child: Text(
+                                                                horario,
+                                                                style: TextStyle(
+                                                                  fontSize: 13,
+                                                                  color: isCancelado 
+                                                                      ? Colors.grey 
+                                                                      : Colors.black54,
+                                                                ),
+                                                                maxLines: 1,
+                                                                overflow: TextOverflow.ellipsis,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  
+                                                  // Status e ações
+                                                  Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                                    children: [
+                                                      // Badge de status
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 4,
+                                                        ),
+                                                        decoration: BoxDecoration(
+                                                          color: statusColor.withOpacity(0.15),
+                                                          borderRadius: BorderRadius.circular(6),
+                                                        ),
+                                                        child: Text(
+                                                          statusText,
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            fontWeight: FontWeight.w600,
+                                                            color: statusColor,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 8),
+                                                      
+                                                      // Botões de ação (apenas visualização no histórico)
+                                                      if (!isCancelado && 
+                                                          (_nivelUsuario == 1 || _nivelUsuario == 2))
+                                                        ElevatedButton(
+                                                          onPressed: () {
+                                                            if (solicitaCanc == true) {
+                                                              // Se já solicitado, mostra mensagem
+                                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                                const SnackBar(
+                                                                  content: Text('Cancelamento já solicitado. Aguarde a análise do supervisor.'),
+                                                                  backgroundColor: Colors.orange,
+                                                                  duration: Duration(seconds: 3),
+                                                                ),
+                                                              );
+                                                            } else {
+                                                              _showDialogSolicitarCancelamento(cacl);
+                                                            }
+                                                          },
+                                                          style: ElevatedButton.styleFrom(
+                                                            backgroundColor: solicitaCanc == true 
+                                                                ? Colors.red.shade50 
+                                                                : Colors.orange.shade50,
+                                                            foregroundColor: solicitaCanc == true 
+                                                                ? Colors.red.shade800 
+                                                                : Colors.orange.shade800,
+                                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                            minimumSize: const Size(0, 0),
+                                                            shape: RoundedRectangleBorder(
+                                                              borderRadius: BorderRadius.circular(6),
+                                                              side: BorderSide(
+                                                                color: solicitaCanc == true 
+                                                                    ? Colors.red.shade300 
+                                                                    : Colors.orange.shade300,
+                                                              ),
+                                                            ),
+                                                            elevation: 0,
+                                                          ),
+                                                          child: Text(
+                                                            solicitaCanc == true 
+                                                                ? 'Cancelamento\nsolicitado' 
+                                                                : 'Solicitar\ncancelamento',
+                                                            textAlign: TextAlign.center,
+                                                            style: TextStyle(
+                                                              fontSize: 10,
+                                                              fontWeight: FontWeight.w600,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
                       ),
                       
@@ -841,113 +1151,256 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> {
     );
   }
 
-  Map<String, dynamic> _mapearCaclParaFormulario(Map<String, dynamic> cacl) {
-    String _formatarVolumeLitros(double? volume) {
-      if (volume == null) return '-';
+  Future<void> _solicitarCancelamento(String caclId) async {
+    try {
+      final supabase = Supabase.instance.client;
       
-      final volumeInteiro = volume.round();
+      await supabase
+          .from('cacl')
+          .update({'solicita_canc': true})
+          .eq('id', caclId);
       
-      String inteiroFormatado = volumeInteiro.toString();
-      
-      if (inteiroFormatado.length > 3) {
-        final buffer = StringBuffer();
-        int contador = 0;
-        
-        for (int i = inteiroFormatado.length - 1; i >= 0; i--) {
-          buffer.write(inteiroFormatado[i]);
-          contador++;
-          
-          if (contador == 3 && i > 0) {
-            buffer.write('.');
-            contador = 0;
+      if (mounted) {
+        // Atualiza localmente
+        setState(() {
+          final index = cacles.indexWhere((c) => c['id'] == caclId);
+          if (index != -1) {
+            cacles[index]['solicita_canc'] = true;
           }
-        }
+        });
         
-        final chars = buffer.toString().split('').reversed.toList();
-        inteiroFormatado = chars.join('');
+        // Mostra mensagem de confirmação
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cancelamento solicitado ao supervisor. Aguarde.'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        
+        // Atualiza a lista
+        await _refreshData();
       }
-      
-      return '$inteiroFormatado L';
+    } catch (e) {
+      debugPrint('❌ Erro ao solicitar cancelamento: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao solicitar cancelamento: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showDialogSolicitarCancelamento(Map<String, dynamic> cacl) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 8,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: 600,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Cabeçalho com ícone
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.orange.shade700,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Solicitar Cancelamento',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0D47A1),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Mensagem
+                  const Padding(
+                    padding: EdgeInsets.only(left: 36),
+                    child: Text(
+                      'Deseja solicitar o cancelamento deste CACL?\n\nEsta solicitação será enviada ao supervisor para análise.',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.black87,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  
+                  // Botões alinhados à direita
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'Voltar à lista',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color.fromARGB(255, 102, 102, 102),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: () async {
+                          Navigator.pop(context);
+                          await _solicitarCancelamento(cacl['id'].toString());
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange.shade600,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          elevation: 2,
+                          shadowColor: Colors.orange.withOpacity(0.3),
+                        ),
+                        child: const Text(
+                          'Sim, quero solicitar',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Map<String, dynamic> _mapearCaclParaFormulario(Map<String, dynamic> cacl) {
+    String fmt(double? v) {
+      if (v == null) return '-';
+      final i = v.round().toString();
+      if (i.length <= 3) return '$i L';
+
+      final buffer = StringBuffer();
+      int c = 0;
+      for (int x = i.length - 1; x >= 0; x--) {
+        buffer.write(i[x]);
+        c++;
+        if (c == 3 && x > 0) {
+          buffer.write('.');
+          c = 0;
+        }
+      }
+      return '${buffer.toString().split('').reversed.join()} L';
     }
 
-    return {
-      'id': cacl['id']?.toString(),
+    return <String, dynamic>{
       'data': cacl['data']?.toString(),
       'base': cacl['base'],
       'produto': cacl['produto'],
-      'tanque': cacl['tanque'],
+      'tanque': cacl['tanques']?['referencia'] ?? '-',
       'filial_id': cacl['filial_id'],
+      'responsavel': UsuarioAtual.instance?.nome ?? 'Usuário',
 
-      'medicoes': {
-        'horarioInicial': cacl['horario_inicial'],
+      'medicoes': <String, dynamic>{
+        // ===== INICIAL =====
+        'horarioInicial': cacl['horario_inicial']?.toString(),
         'cmInicial': cacl['altura_total_cm_inicial']?.toString(),
         'mmInicial': cacl['altura_total_mm_inicial']?.toString(),
-        'alturaAguaInicial': cacl['altura_agua_inicial'],
+        'alturaAguaInicial': cacl['altura_agua_inicial']?.toString(),
         'volumeAguaInicial': cacl['volume_agua_inicial'] != null
-            ? _formatarVolumeLitros(cacl['volume_agua_inicial'] as double?)
+            ? fmt(cacl['volume_agua_inicial'])
             : '-',
-        'alturaProdutoInicial': cacl['altura_produto_inicial'],
-        'tempTanqueInicial': cacl['temperatura_tanque_inicial'],
-        'densidadeInicial': cacl['densidade_observada_inicial'],
-        'tempAmostraInicial': cacl['temperatura_amostra_inicial'],
-        'densidade20Inicial': cacl['densidade_20_inicial'],
-        'fatorCorrecaoInicial': cacl['fator_correcao_inicial'],
+        'alturaProdutoInicial': cacl['altura_produto_inicial']?.toString(),
+        'tempTanqueInicial': cacl['temperatura_tanque_inicial']?.toString(),
+        'densidadeInicial': cacl['densidade_observada_inicial']?.toString(),
+        'tempAmostraInicial': cacl['temperatura_amostra_inicial']?.toString(),
+        'densidade20Inicial': cacl['densidade_20_inicial']?.toString(),
+        'fatorCorrecaoInicial': cacl['fator_correcao_inicial']?.toString(),
         'volume20Inicial': cacl['volume_20_inicial'] != null
-            ? _formatarVolumeLitros(cacl['volume_20_inicial'] as double?)
+            ? fmt(cacl['volume_20_inicial'])
             : '-',
-        'massaInicial': cacl['massa_inicial'],
-        
-        'volumeTotalLiquidoInicial': cacl['volume_total_liquido_inicial'] != null
-            ? _formatarVolumeLitros(cacl['volume_total_liquido_inicial'] as double?)
-            : '-',
-        'volumeProdutoInicial': cacl['volume_produto_inicial'] != null
-            ? _formatarVolumeLitros(cacl['volume_produto_inicial'] as double?)
-            : '-',
+        'massaInicial': cacl['massa_inicial']?.toString(),
 
-        'horarioFinal': cacl['horario_final'],
+        'volumeProdutoInicial': cacl['volume_produto_inicial'] != null
+            ? fmt(cacl['volume_produto_inicial'])
+            : '-',
+        'volumeTotalLiquidoInicial':
+            cacl['volume_total_liquido_inicial'] != null
+                ? fmt(cacl['volume_total_liquido_inicial'])
+                : '-',
+
+        // ===== FINAL =====
+        'horarioFinal': cacl['horario_final']?.toString(),
         'cmFinal': cacl['altura_total_cm_final']?.toString(),
         'mmFinal': cacl['altura_total_mm_final']?.toString(),
-        'alturaAguaFinal': cacl['altura_agua_final'],
+        'alturaAguaFinal': cacl['altura_agua_final']?.toString(),
         'volumeAguaFinal': cacl['volume_agua_final'] != null
-            ? _formatarVolumeLitros(cacl['volume_agua_final'] as double?)
+            ? fmt(cacl['volume_agua_final'])
             : '-',
-        'alturaProdutoFinal': cacl['altura_produto_final'],
-        'tempTanqueFinal': cacl['temperatura_tanque_final'],
-        'densidadeFinal': cacl['densidade_observada_final'],
-        'tempAmostraFinal': cacl['temperatura_amostra_final'],
-        'densidade20Final': cacl['densidade_20_final'],
-        'fatorCorrecaoFinal': cacl['fator_correcao_final'],
+        'alturaProdutoFinal': cacl['altura_produto_final']?.toString(),
+        'tempTanqueFinal': cacl['temperatura_tanque_final']?.toString(),
+        'densidadeFinal': cacl['densidade_observada_final']?.toString(),
+        'tempAmostraFinal': cacl['temperatura_amostra_final']?.toString(),
+        'densidade20Final': cacl['densidade_20_final']?.toString(),
+        'fatorCorrecaoFinal': cacl['fator_correcao_final']?.toString(),
         'volume20Final': cacl['volume_20_final'] != null
-            ? _formatarVolumeLitros(cacl['volume_20_final'] as double?)
+            ? fmt(cacl['volume_20_final'])
             : '-',
-        'massaFinal': cacl['massa_final'],
-        
-        'volumeTotalLiquidoFinal': cacl['volume_total_liquido_final'] != null
-            ? _formatarVolumeLitros(cacl['volume_total_liquido_final'] as double?)
-            : '-',
+        'massaFinal': cacl['massa_final']?.toString(),
+
         'volumeProdutoFinal': cacl['volume_produto_final'] != null
-            ? _formatarVolumeLitros(cacl['volume_produto_final'] as double?)
+            ? fmt(cacl['volume_produto_final'])
             : '-',
+        'volumeTotalLiquidoFinal':
+            cacl['volume_total_liquido_final'] != null
+                ? fmt(cacl['volume_total_liquido_final'])
+                : '-',
 
-        'alturaTotalInicial': cacl['altura_total_liquido_inicial'],
-        'alturaTotalFinal': cacl['altura_total_liquido_final'],
-
+        // FATURAMENTO
         'faturadoFinal': cacl['faturado_final']?.toString(),
-        
-        'volumeAmbienteInicial': cacl['volume_ambiente_inicial'] != null
-            ? _formatarVolumeLitros(cacl['volume_ambiente_inicial'] as double?)
-            : '-',
-        'volumeAmbienteFinal': cacl['volume_ambiente_final'] != null
-            ? _formatarVolumeLitros(cacl['volume_ambiente_final'] as double?)
-            : '-',
+        'entradaSaida20': cacl['entrada_saida_20']?.toString(),
+        'diferencaFaturado': cacl['diferenca_faturado']?.toString(),
+        'porcentagemDiferenca': cacl['porcentagem_diferenca']?.toString(),
       }
     };
-  }
-
-  @override
-  void dispose() {
-    dataInicioController.dispose();
-    dataFimController.dispose();
-    super.dispose();
   }
 }
