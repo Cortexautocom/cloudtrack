@@ -53,7 +53,7 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
     try {
       // Consulta para buscar produtos disponíveis na filial selecionada
       final dados = await _supabase
-          .from('estoques')
+          .from('movimentacoes') // Tabela alterada de 'estoques' para 'movimentacoes'
           .select('''
             produto_id,
             produtos!inner(
@@ -66,8 +66,8 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
       
       final produtosMap = <String, Map<String, String>>{};
       
-      for (var estoque in dados) {
-        final produto = estoque['produtos'] as Map<String, dynamic>?;
+      for (var movimentacao in dados) {
+        final produto = movimentacao['produtos'] as Map<String, dynamic>?;
         if (produto != null && produto['id'] != null && produto['nome'] != null) {
           final produtoId = produto['id'].toString();
           final produtoNome = produto['nome'].toString();

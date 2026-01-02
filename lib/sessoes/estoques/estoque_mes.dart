@@ -1,6 +1,5 @@
-import 'dart:convert'; // Adicione 'json' aqui
+import 'dart:convert';
 import 'dart:html' as html;
-//import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,7 +9,7 @@ class EstoqueMesPage extends StatefulWidget {
   final String nomeFilial;
   final String? empresaId;
   final DateTime? mesFiltro;
-  final String? produtoFiltro; // Agora recebe ID do produto ou 'todos'
+  final String? produtoFiltro;
 
   const EstoqueMesPage({
     super.key,
@@ -27,8 +26,8 @@ class EstoqueMesPage extends StatefulWidget {
 
 class _EstoqueMesPageState extends State<EstoqueMesPage> {
   final SupabaseClient _supabase = Supabase.instance.client;
-  List<Map<String, dynamic>> _estoques = [];
-  List<Map<String, dynamic>> _estoquesOrdenados = [];
+  List<Map<String, dynamic>> _movimentacoes = [];
+  List<Map<String, dynamic>> _movimentacoesOrdenadas = [];
   String? _empresaId;
   bool _carregando = true;
   bool _erro = false;
@@ -36,19 +35,15 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   String? _nomeProdutoSelecionado;
   
   Color _getCorFundoEntrada() {
-    return Colors.green.shade50.withOpacity(0.3); // Verde muito claro
+    return Colors.green.shade50.withOpacity(0.3);
   }
 
-  // Método para obter cor de fundo para colunas de SAÍDA
   Color _getCorFundoSaida() {
     return Colors.red.shade50.withOpacity(0.3);
   }
 
-  // Variáveis para ordenação
   String _colunaOrdenacao = 'data_mov';
   bool _ordenacaoAscendente = true;
-
-  // Variável para controlar estado do download
   bool _baixandoExcel = false;
 
   @override
@@ -64,7 +59,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     });
 
     try {
-      // Se empresaId não foi passado, buscar da filial
       if (widget.empresaId == null) {
         final filialData = await _supabase
             .from('filiais')
@@ -81,7 +75,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         throw Exception('Não foi possível identificar a empresa da filial');
       }
 
-      // Buscar nome do produto se não for "todos"
       if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
         final produtoData = await _supabase
             .from('produtos')
@@ -92,9 +85,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         _nomeProdutoSelecionado = produtoData?['nome']?.toString();
       }
 
-      // CONSTRUIR QUERY COM FILTROS
       var query = _supabase
-          .from('estoques')
+          .from('movimentacoes')
           .select('''
             id,
             data_mov,
@@ -113,7 +105,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           .eq('filial_id', widget.filialId)
           .eq('empresa_id', _empresaId!);
 
-      // APLICAR FILTRO DE MÊS
       if (widget.mesFiltro != null) {
         final primeiroDia = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month, 1);
         final ultimoDia = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month + 1, 0);
@@ -123,16 +114,13 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             .lte('data_mov', ultimoDia.toIso8601String());
       }
 
-      // APLICAR FILTRO DE PRODUTO
       if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
         query = query.eq('produto_id', widget.produtoFiltro!);
       }
 
-      // Ordenar por data_mov ASC para cálculo
       final dados = await query.order('data_mov', ascending: true);
 
-      // Calcular saldos acumulados
-      List<Map<String, dynamic>> estoquesComSaldo = [];
+      List<Map<String, dynamic>> movimentacoesComSaldo = [];
       num saldoAmbAcumulado = 0;
       num saldoVinteAcumulado = 0;
 
@@ -142,14 +130,13 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         final saidaAmb = item['saida_amb'] ?? 0;
         final saidaVinte = item['saida_vinte'] ?? 0;
         
-        // Extrair nome do produto do relacionamento
         final produto = item['produtos'] as Map<String, dynamic>?;
         final produtoNome = produto?['nome']?.toString() ?? '';
 
         saldoAmbAcumulado += entradaAmb - saidaAmb;
         saldoVinteAcumulado += entradaVinte - saidaVinte;
 
-        estoquesComSaldo.add({
+        movimentacoesComSaldo.add({
           ...item,
           'produto_nome': produtoNome,
           'produto_id': item['produto_id'],
@@ -158,10 +145,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         });
       }
 
-      // Ordenar inicialmente pela data (mais recente primeiro)
-      _ordenarDados(estoquesComSaldo, 'data_mov', true);
+      _ordenarDados(movimentacoesComSaldo, 'data_mov', true);
       
-      // IMPORTANTE: Definir carregando como false após ordenar
       if (mounted) {
         setState(() {
           _carregando = false;
@@ -169,7 +154,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       }
       
     } catch (e) {
-      debugPrint('❌ Erro ao carregar estoques: $e');
+      debugPrint('Erro ao carregar movimentações: $e');
       if (mounted) {
         setState(() {
           _carregando = false;
@@ -180,10 +165,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     }
   }
 
-  // MÉTODO PARA BAIXAR EXCEL VIA EDGE FUNCTION
   Future<void> _baixarExcel() async {
-    // Validar se há dados
-    if (_estoquesOrdenados.isEmpty) {
+    if (_movimentacoesOrdenadas.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Não há dados para exportar'),
@@ -193,7 +176,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       return;
     }
 
-    // Validar filtro de mês (obrigatório)
     if (widget.mesFiltro == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -211,7 +193,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     
     try {
-      // Mostrar loading
       scaffoldMessenger.showSnackBar(
         const SnackBar(
           content: Text('Gerando relatório Excel...'),
@@ -219,7 +200,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         ),
       );
 
-      // Preparar dados para enviar à Edge Function
       final requestData = {
         'filialId': widget.filialId,
         'nomeFilial': widget.nomeFilial,
@@ -228,9 +208,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         'produtoFiltro': widget.produtoFiltro,
       };
 
-      debugPrint('📤 Enviando para Edge Function: $requestData');
+      debugPrint('Enviando para Edge Function: $requestData');
 
-      // 🔧 ALTERNATIVA: Usar HTTP client direto para dados binários
       final response = await _chamarEdgeFunctionBinaria(requestData);
       
       if (response.statusCode != 200) {
@@ -238,53 +217,47 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         throw Exception('Erro ${response.statusCode}: ${errorBody.isNotEmpty ? errorBody : "Falha na Edge Function"}');
       }
 
-      // 🔧 Converter resposta para Uint8List (dados binários)
       final bytes = response.bodyBytes;
       
       if (bytes.isEmpty) {
         throw Exception('Arquivo vazio recebido da Edge Function');
       }
 
-      debugPrint('✅ Arquivo XLSX recebido: ${bytes.length} bytes');
+      debugPrint('Arquivo XLSX recebido: ${bytes.length} bytes');
 
-      // Criar blob e baixar no navegador
       final blob = html.Blob(
         [bytes], 
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       );
       final url = html.Url.createObjectUrlFromBlob(blob);
       
-      // Gerar nome do arquivo
       final mes = widget.mesFiltro!.month.toString().padLeft(2, '0');
       final ano = widget.mesFiltro!.year.toString();
       final nomeFormatado = widget.nomeFilial
           .replaceAll(' ', '_')
           .replaceAll(RegExp(r'[^\w_]'), '');
-      final fileName = 'estoque_${nomeFormatado}_${mes}_${ano}.xlsx';
+      final fileName = 'movimentacoes_${nomeFormatado}_${mes}_${ano}.xlsx';
       
-      // Criar link e disparar download
       html.AnchorElement(href: url)
         ..setAttribute('download', fileName)
         ..click();
       
-      // Limpar URL para liberar memória
       html.Url.revokeObjectUrl(url);
 
-      // Notificar sucesso
       scaffoldMessenger.showSnackBar(
         const SnackBar(
-          content: Text('✅ Download do Excel iniciado! Verifique sua pasta de downloads.'),
+          content: Text('Download do Excel iniciado! Verifique sua pasta de downloads.'),
           backgroundColor: Colors.green,
           duration: Duration(seconds: 4),
         ),
       );
 
     } catch (e) {
-      debugPrint('❌ Erro detalhado ao baixar relatório: $e');
+      debugPrint('Erro detalhado ao baixar relatório: $e');
       
       scaffoldMessenger.showSnackBar(
         SnackBar(
-          content: Text('❌ Erro: ${e.toString()}'),
+          content: Text('Erro: ${e.toString()}'),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 5),
         ),
@@ -298,36 +271,28 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     }
   }
 
-  // 🔧 Método auxiliar para chamar Edge Function com dados binários
-  // 🔧 Método auxiliar corrigido - use esta versão
   Future<http.Response> _chamarEdgeFunctionBinaria(Map<String, dynamic> requestData) async {
     try {
-      // 🔍 PRIMEIRO: Verificar se a Edge Function existe
-      // URL do seu Supabase (do erro 404 anterior)
       const supabaseUrl = 'https://ikaxzlpaihdkqyjqrxyw.supabase.co';
       
-      // 🔍 SEGUNDO: Verificar autenticação
       final session = Supabase.instance.client.auth.currentSession;
 
       if (session == null || session.accessToken.isEmpty) {
         throw Exception('Sessão inválida. Faça login novamente.');
       }
 
-
       return await _fazerRequisicao(
         supabaseUrl,
         session.accessToken,
         requestData,
       );
-
       
     } catch (e) {
-      debugPrint('❌ Erro detalhado ao chamar Edge Function: $e');
+      debugPrint('Erro detalhado ao chamar Edge Function: $e');
       rethrow;
     }
   }
 
-  // Método auxiliar para fazer a requisição HTTP
   Future<http.Response> _fazerRequisicao(
     String supabaseUrl, 
     String accessToken, 
@@ -335,9 +300,9 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   ) async {
     final functionUrl = '$supabaseUrl/functions/v1/down_excel_estoques';
     
-    debugPrint('🌐 URL: $functionUrl');
-    debugPrint('🔑 Token (início): ${accessToken.substring(0, 20)}...');
-    debugPrint('📦 Dados: ${jsonEncode(requestData)}');
+    debugPrint('URL: $functionUrl');
+    debugPrint('Token (início): ${accessToken.substring(0, 20)}...');
+    debugPrint('Dados: ${jsonEncode(requestData)}');
     
     final response = await http.post(
       Uri.parse(functionUrl),
@@ -349,8 +314,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       body: jsonEncode(requestData),
     );
     
-    debugPrint('📊 Status Code: ${response.statusCode}');
-    debugPrint('📄 Tamanho resposta: ${response.bodyBytes.length} bytes');
+    debugPrint('Status Code: ${response.statusCode}');
+    debugPrint('Tamanho resposta: ${response.bodyBytes.length} bytes');
     
     return response;
   }
@@ -392,7 +357,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           return 0;
       }
       
-      // Comparação
       if (valorA is DateTime && valorB is DateTime) {
         return ascendente 
             ? valorA.compareTo(valorB)
@@ -411,8 +375,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     });
     
     setState(() {
-      _estoques = dados;
-      _estoquesOrdenados = dadosOrdenados;
+      _movimentacoes = dados;
+      _movimentacoesOrdenadas = dadosOrdenados;
       _colunaOrdenacao = coluna;
       _ordenacaoAscendente = ascendente;
     });
@@ -427,7 +391,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       ascendente = coluna == 'data_mov' ? true : true;
     }
     
-    _ordenarDados(_estoques, coluna, ascendente);
+    _ordenarDados(_movimentacoes, coluna, ascendente);
   }
 
   String _getSubtitleFiltros() {
@@ -458,7 +422,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Estoque mensal – ${widget.nomeFilial}',
+              'Movimentações mensais – ${widget.nomeFilial}',
               style: const TextStyle(
                 fontWeight: FontWeight.w600,
               ),
@@ -478,8 +442,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          // Botão para baixar Excel
-          if (!_carregando && !_erro && _estoquesOrdenados.isNotEmpty)
+          if (!_carregando && !_erro && _movimentacoesOrdenadas.isNotEmpty)
             _baixandoExcel
                 ? const Padding(
                     padding: EdgeInsets.all(8.0),
@@ -498,7 +461,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                     tooltip: 'Baixar relatório Excel (XLSX)',
                   ),
           
-          // Botão para alterar filtros
           if (!_carregando && (widget.mesFiltro != null || widget.produtoFiltro != null))
             IconButton(
               icon: const Icon(Icons.filter_alt),
@@ -508,8 +470,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
               },
             ),
           
-          // Botão para ordenar
-          if (!_carregando && !_erro && _estoques.isNotEmpty)
+          if (!_carregando && !_erro && _movimentacoes.isNotEmpty)
             PopupMenuButton<String>(
               icon: const Icon(Icons.sort),
               tooltip: 'Ordenar por',
@@ -547,7 +508,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
               },
             ),
           
-          // Botão para atualizar
           if (!_carregando && !_erro)
             IconButton(
               icon: const Icon(Icons.refresh),
@@ -562,11 +522,10 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             ? _buildCarregando()
             : _erro
                 ? _buildErro()
-                : _estoques.isEmpty
+                : _movimentacoes.isEmpty
                     ? _buildSemDados()
                     : Column(
                         children: [
-                          // Indicador de filtros ativos
                           if (widget.mesFiltro != null || widget.produtoFiltro != null)
                             _buildIndicadorFiltros(),
                           const SizedBox(height: 16),
@@ -629,7 +588,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           CircularProgressIndicator(color: Color(0xFF0D47A1)),
           SizedBox(height: 20),
           Text(
-            'Carregando dados do estoque...',
+            'Carregando dados das movimentações...',
             style: TextStyle(color: Colors.grey),
           ),
         ],
@@ -701,8 +660,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           const SizedBox(height: 10),
           Text(
             widget.mesFiltro != null || widget.produtoFiltro != null
-                ? 'Não há movimentações de estoque para os filtros aplicados.'
-                : 'Não há movimentações de estoque para esta filial.',
+                ? 'Não há movimentações para os filtros aplicados.'
+                : 'Não há movimentações para esta filial.',
             style: const TextStyle(color: Colors.grey),
           ),
           const SizedBox(height: 20),
@@ -714,7 +673,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             ),
             child: const Text('Atualizar'),
           ),
-          // Botão para remover filtros se houver algum ativo
           if (widget.mesFiltro != null || widget.produtoFiltro != null)
             Padding(
               padding: const EdgeInsets.only(top: 10),
@@ -736,13 +694,10 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   String _formatarNumero(num? valor) {
     if (valor == null) return '0';
     
-    // Tratar valor zero
     if (valor == 0) return '0';
     
-    // Verificar se é negativo
     bool isNegativo = valor < 0;
     
-    // Trabalhar com valor absoluto
     String valorString = valor.abs().toStringAsFixed(0);
     
     String resultado = '';
@@ -757,7 +712,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       }
     }
     
-    // Adicionar sinal negativo se necessário
     if (isNegativo) {
       resultado = '-$resultado';
     }
@@ -779,7 +733,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       child: SingleChildScrollView(
         scrollDirection: Axis.vertical,
         child: DataTable(
-          // 🔴 ISSO remove as “colunas em branco” que você mostrou na imagem
           columnSpacing: 0,
           sortColumnIndex: _getSortColumnIndex(mostrarColunaProduto),
           sortAscending: _ordenacaoAscendente,
@@ -790,7 +743,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           columns: [
             DataColumn(
               label: SizedBox(
-                width: 110, // Data
+                width: 110,
                 child: const Center(
                   child: Text(
                     '     Data',
@@ -804,7 +757,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             if (mostrarColunaProduto)
               DataColumn(
                 label: SizedBox(
-                  width: 160, // Produto
+                  width: 160,
                   child: const Center(
                     child: Text(
                       '        Produto',
@@ -817,7 +770,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
               ),
             DataColumn(
               label: SizedBox(
-                width: 220, // Descrição
+                width: 220,
                 child: const Center(
                   child: Text(
                     'Descrição',
@@ -859,7 +812,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
               onSort: (_, __) => _onSort('saldo_vinte'),
             ),
           ],
-          rows: _estoquesOrdenados.map((e) {
+          rows: _movimentacoesOrdenadas.map((e) {
             final saldoAmb = e['saldo_amb'] ?? 0;
             final saldoVinte = e['saldo_vinte'] ?? 0;
 
@@ -969,7 +922,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         ),
       ),
     );
-  } //88
+  }
 
   Widget _buildCelulaSelecionavel(
     String texto, {

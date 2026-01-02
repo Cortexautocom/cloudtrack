@@ -40,6 +40,7 @@ serve(async (req: Request) => {
         .select("empresa_id")
         .eq("id", filialId)
         .single();
+
       empresaIdFinal = data?.empresa_id;
     }
 
@@ -48,7 +49,7 @@ serve(async (req: Request) => {
     const ultimoDia = new Date(mes.getFullYear(), mes.getMonth() + 1, 0);
 
     let query = supabase
-      .from("estoques")
+      .from("movimentacoes")
       .select(`
         data_mov,
         descricao,
@@ -68,13 +69,13 @@ serve(async (req: Request) => {
       query = query.eq("produto_id", produtoFiltro);
     }
 
-    const { data: estoques } = await query;
-    if (!estoques?.length) throw new Error("Sem dados");
+    const { data: movimentacoes } = await query;
+    if (!movimentacoes?.length) throw new Error("Sem dados");
 
     let saldoAmb = 0;
     let saldoVinte = 0;
 
-    const dados = estoques.map((i: any) => {
+    const dados = movimentacoes.map((i: any) => {
       const ea = Number(i.entrada_amb) || 0;
       const ev = Number(i.entrada_vinte) || 0;
       const sa = Number(i.saida_amb) || 0;
@@ -125,7 +126,6 @@ serve(async (req: Request) => {
       ...dados,
     ]);
 
-    // Índices das colunas numéricas (D até I)
     const colNumericas = [3, 4, 5, 6, 7, 8];
     const range = XLSX.utils.decode_range(worksheet["!ref"]!);
 
