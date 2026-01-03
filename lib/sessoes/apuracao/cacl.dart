@@ -41,13 +41,15 @@ class _CalcPageState extends State<CalcPage> {
   bool _isGeneratingPDF = false;
   bool _isEmittingCACL = false;
   bool _caclJaEmitido = false;
+  String? _numeroControle; // Variável para armazenar o número de controle
 
   @override
   void initState() {
     super.initState();
 
-    // ✅ ETAPA 2.2 — Ajustar initState
+    
     if (widget.modo == CaclModo.emissao) {
+      _numeroControle = null;
       _calcularVolumesIniciais();
     } else {
       // Modo visualização: carrega os dados já calculados do banco
@@ -73,7 +75,7 @@ class _CalcPageState extends State<CalcPage> {
             _extrairNumero(medicoes['volumeTotalLiquidoFinal']?.toString());
 
         setState(() {
-          _caclJaEmitido = true;
+          _caclJaEmitido = _numeroControle != null;
         });
         return;
       }
@@ -129,13 +131,19 @@ class _CalcPageState extends State<CalcPage> {
               widget.dadosFormulario['cacl_movimentacao'] = tipo == 'movimentacao';
             }
 
-            // 4. CARREGA OS VOLUMES
+            // ✅ 4. CARREGA O NÚMERO DE CONTROLE COM TRATAMENTO CORRETO
+            _numeroControle = _tratarNumeroControle(resultado['numero_controle']);
+            print('📥 Número controle carregado do banco: $_numeroControle');
+
+            // 5. CARREGA OS VOLUMES
             volumeInicial = resultado['volume_produto_inicial']?.toDouble() ?? 0.0;
             volumeFinal = resultado['volume_produto_final']?.toDouble() ?? 0.0;
             volumeTotalLiquidoInicial = resultado['volume_total_liquido_inicial']?.toDouble() ?? 0.0;
             volumeTotalLiquidoFinal = resultado['volume_total_liquido_final']?.toDouble() ?? 0.0;
 
-            // 5. PREENCHE AS MEDIÇÕES
+            // ... resto do código continua igual ...
+
+            // 6. PREENCHE AS MEDIÇÕES
             final medicoesAtualizadas = <String, dynamic>{};
             
             // 1ª Medição
@@ -236,7 +244,7 @@ class _CalcPageState extends State<CalcPage> {
             widget.dadosFormulario['medicoes'] = medicoesAtualizadas;
 
             setState(() {
-              _caclJaEmitido = true;
+              _caclJaEmitido = _numeroControle != null;
             });
             return;
           }
@@ -253,6 +261,9 @@ class _CalcPageState extends State<CalcPage> {
       volumeTotalLiquidoInicial = dadosDoBanco['volume_total_liquido_inicial']?.toDouble() ?? 0.0;
       volumeTotalLiquidoFinal = dadosDoBanco['volume_total_liquido_final']?.toDouble() ?? 0.0;
       
+      // Tenta pegar o número de controle do formulário
+      _numeroControle = dadosDoBanco['numero_controle']?.toString();
+      
       final medicoesAtualizadas = <String, dynamic>{
         ...medicoes,
         'volumeProdutoInicial': _formatarVolumeLitros(volumeInicial),
@@ -264,7 +275,7 @@ class _CalcPageState extends State<CalcPage> {
       widget.dadosFormulario['medicoes'] = medicoesAtualizadas;
       
       setState(() {
-        _caclJaEmitido = true;
+        _caclJaEmitido = _numeroControle != null;
       });
       
     } catch (e) {
@@ -628,18 +639,6 @@ class _CalcPageState extends State<CalcPage> {
       _isEmittingCACL = true;
     });
 
-    if (mounted) {
-      setState(() {
-        _caclJaEmitido = true;
-        print('DEBUG: _caclJaEmitido atualizado para true'); // Para depuração
-      });
-      
-      // Chama o callback onFinalizar se existir
-      if (widget.onFinalizar != null) {
-        widget.onFinalizar!();
-      }
-    }
-
     try {
       final supabase = Supabase.instance.client;
       final medicoes = widget.dadosFormulario['medicoes'] ?? {};
@@ -677,6 +676,7 @@ class _CalcPageState extends State<CalcPage> {
 
       final tanqueIdParaSalvar = _obterTanqueId();
 
+      // ✅ NÃO INCLUA 'numero_controle' - A TRIGGER VAI GERAR
       final dadosParaInserir = {
         'data': dataFormatada,
         'base': widget.dadosFormulario['base']?.toString(),
@@ -758,6 +758,8 @@ class _CalcPageState extends State<CalcPage> {
                     0),
 
         'updated_at': DateTime.now().toIso8601String(),
+        'created_by': session.user.id,
+        'created_at': DateTime.now().toIso8601String(),
       };
 
       final entradaSaida20 =
@@ -777,7 +779,14 @@ class _CalcPageState extends State<CalcPage> {
         dadosParaInserir['porcentagem_diferenca'] = '0.00%';
       }
 
-      dadosParaInserir.removeWhere((key, value) => value == null);
+      // ✅ REMOVER QUALQUER 'numero_controle' QUE POSSA TER VINDO DE ALGUM LUGAR
+      dadosParaInserir.remove('numero_controle');
+      
+      // ✅ DEBUG: Verificar dados antes de enviar
+      print('=== DEBUG ANTES DE ENVIAR CACL ===');
+      print('Número controle nos dados? ${dadosParaInserir.containsKey('numero_controle')}');
+      print('Quantidade de campos: ${dadosParaInserir.length}');
+      print('==============================');
 
       String? idParaUpdate = widget.caclId;
       if ((idParaUpdate == null || idParaUpdate.isEmpty) &&
@@ -787,6 +796,7 @@ class _CalcPageState extends State<CalcPage> {
 
       if (idParaUpdate != null && idParaUpdate.isNotEmpty) {
         try {
+          // Verifica se o CACL já existe
           final verificaExistencia = await supabase
               .from('cacl')
               .select('id')
@@ -797,10 +807,25 @@ class _CalcPageState extends State<CalcPage> {
             throw Exception('CACL não encontrado para atualização');
           }
 
+          // Atualiza o CACL existente
           await supabase
               .from('cacl')
               .update(dadosParaInserir)
               .eq('id', idParaUpdate);
+
+          // ✅ BUSCA O NÚMERO DE CONTROLE APÓS ATUALIZAR (pode já existir)
+          final resultadoAtualizado = await supabase
+              .from('cacl')
+              .select('numero_controle')
+              .eq('id', idParaUpdate)
+              .single();
+              
+          if (resultadoAtualizado['numero_controle'] != null) {
+            setState(() {
+              _numeroControle = _tratarNumeroControle(resultadoAtualizado['numero_controle']);
+            });
+            print('✅ Número controle após atualização: $_numeroControle');
+          }
 
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -812,26 +837,52 @@ class _CalcPageState extends State<CalcPage> {
             );
           }
         } catch (_) {
+          // Se não encontrou para atualizar, insere como novo
+          print('CACL não encontrado, criando novo...');
+          
+          // Garante que tem created_by e created_at
           dadosParaInserir['created_by'] = session.user.id;
           dadosParaInserir['created_at'] = DateTime.now().toIso8601String();
+          
+          final resultadoInserir = await supabase
+              .from('cacl')
+              .insert(dadosParaInserir)
+              .select('id, numero_controle, created_at')
+              .single();
 
-          await supabase.from('cacl').insert(dadosParaInserir);
+          // ✅ TRATA O NÚMERO DE CONTROLE GERADO PELA TRIGGER
+          if (resultadoInserir['numero_controle'] != null) {
+            setState(() {
+              _numeroControle = _tratarNumeroControle(resultadoInserir['numero_controle']);
+            });
+            print('✅ Novo CACL criado. Número controle: $_numeroControle');
+          }
 
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('✓ Novo CACL criado (fallback)'),
                 backgroundColor: Colors.orange,
-                duration: const Duration(seconds: 3),
+                duration: Duration(seconds: 3),
               ),
             );
           }
         }
       } else {
-        dadosParaInserir['created_by'] = session.user.id;
-        dadosParaInserir['created_at'] = DateTime.now().toIso8601String();
+        // ✅ INSERÇÃO DE NOVO CACL
+        final resultadoInserir = await supabase
+            .from('cacl')
+            .insert(dadosParaInserir)
+            .select('id, numero_controle, created_at')
+            .single();
 
-        await supabase.from('cacl').insert(dadosParaInserir);
+        // ✅ ATUALIZA COM O NÚMERO GERADO PELA TRIGGER
+        if (resultadoInserir['numero_controle'] != null) {
+          setState(() {
+            _numeroControle = _tratarNumeroControle(resultadoInserir['numero_controle']);
+          });
+          print('✅ CACL emitido. Número controle gerado: $_numeroControle');
+        }
 
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -846,10 +897,12 @@ class _CalcPageState extends State<CalcPage> {
 
       if (mounted) {
         setState(() {
-          _caclJaEmitido = true;
+          _caclJaEmitido = _numeroControle != null && _numeroControle!.isNotEmpty;
         });
       }
     } catch (e) {
+      print('❌ ERRO ao emitir CACL: $e');
+      
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -868,6 +921,31 @@ class _CalcPageState extends State<CalcPage> {
     }
   }
 
+  // ✅ FUNÇÃO AUXILIAR PARA TRATAR NÚMERO DE CONTROLE (adicione na classe)
+  String? _tratarNumeroControle(dynamic valor) {
+    if (valor == null) return null;
+    
+    final strValor = valor.toString().trim();
+    
+    // Se for vazio, NULL, ou "null" (string), retorna null
+    if (strValor.isEmpty || 
+        strValor == 'null' || 
+        strValor.toLowerCase() == 'null') {
+      return null;
+    }
+    
+    // Remove aspas simples se houver
+    if (strValor.startsWith("'") && strValor.endsWith("'")) {
+      return strValor.substring(1, strValor.length - 1);
+    }
+    
+    // Se for "0", considera como null (ainda não gerado)
+    if (strValor == '0' || strValor == "'0'") {
+      return null;
+    }
+    
+    return strValor;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -919,12 +997,29 @@ class _CalcPageState extends State<CalcPage> {
 
                   const SizedBox(height: 20),                  
 
-                  // DADOS PRINCIPAIS
+                  // ✅ ATUALIZADO: DADOS PRINCIPAIS COM "Nº DE CONTROLE"
                   SizedBox(
                     width: double.infinity,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // ✅ NOVO CAMPO: Nº DE CONTROLE
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _secaoTitulo("Nº DE CONTROLE:"),
+                              _linhaValor(
+                                _numeroControle ?? 
+                                (widget.modo == CaclModo.emissao 
+                                  ? "A ser gerado..." 
+                                  : "C-XXXX")
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2461,6 +2556,11 @@ class _CalcPageState extends State<CalcPage> {
     });
     
     try {
+      // ✅ ATUALIZA: Passa o número de controle para o PDF
+      if (_numeroControle != null) {
+        widget.dadosFormulario['numero_controle'] = _numeroControle;
+      }
+      
       // Gera o PDF usando a classe CACLPdf
       final pdfDocument = await CACLPdf.gerar(
         dadosFormulario: widget.dadosFormulario,
@@ -2639,7 +2739,7 @@ class _CalcPageState extends State<CalcPage> {
         return;
       }
       
-      // ✅ DETERMINAR O TIPO DO CACL BASEADO NAS CHECKBOXES (MESMA LÓGICA)
+      // ✅ DETERMINAR O TIPO DO CACL BASEADO NAS CHECKBOXES
       String? tipoCACL;
       final bool caclVerificacao = widget.dadosFormulario['cacl_verificacao'] ?? false;
       final bool caclMovimentacao = widget.dadosFormulario['cacl_movimentacao'] ?? false;
@@ -2656,6 +2756,7 @@ class _CalcPageState extends State<CalcPage> {
         dataFormatada = _formatarDataParaSQL(dataOriginal);
       }
       
+      // ✅ FUNÇÕES AUXILIARES
       String? formatarHorarioParaTime(String? horario) {
         if (horario == null || horario.isEmpty || horario == '-') return null;
         String limpo = horario.trim().replaceAll('h', '').replaceAll('H', '');
@@ -2683,6 +2784,7 @@ class _CalcPageState extends State<CalcPage> {
         }
       }
       
+      // ✅ DADOS PARA INSERIR - NÃO INCLUA 'numero_controle'
       final dadosParaInserir = {
         'data': dataFormatada,
         'base': widget.dadosFormulario['base']?.toString(),
@@ -2734,11 +2836,34 @@ class _CalcPageState extends State<CalcPage> {
         
         'created_by': session.user.id,
         'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
       };
+      
+      // ✅ GARANTIR QUE NÃO TEM 'numero_controle' NOS DADOS
+      dadosParaInserir.remove('numero_controle');
+      
+      // ✅ DEBUG: Verificar dados antes de enviar
+      print('=== DEBUG SALVAR COMO PENDENTE ===');
+      print('Número controle nos dados? ${dadosParaInserir.containsKey('numero_controle')}');
+      print('Dados para inserir: ${dadosParaInserir.keys.length} campos');
+      print('==============================');
       
       dadosParaInserir.removeWhere((key, value) => value == null);
       
-      await supabase.from('cacl').insert(dadosParaInserir);
+      // ✅ INSERIR E PEGAR O NÚMERO DE CONTROLE GERADO PELA TRIGGER
+      final resultadoInserir = await supabase
+          .from('cacl')
+          .insert(dadosParaInserir)
+          .select('id, numero_controle, created_at')
+          .single();
+
+      // ✅ ATUALIZA COM O NÚMERO GERADO PELA TRIGGER
+      if (resultadoInserir['numero_controle'] != null) {
+        setState(() {
+          _numeroControle = _tratarNumeroControle(resultadoInserir['numero_controle']);
+        });
+        print('✅ CACL pendente criado. Número controle: $_numeroControle');
+      }
       
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2751,6 +2876,7 @@ class _CalcPageState extends State<CalcPage> {
         
         await Future.delayed(const Duration(milliseconds: 1500));
         
+        // Volta duas telas
         int contadorPop = 0;
         Navigator.of(context).popUntil((route) {
           if (contadorPop >= 2) {
@@ -2762,7 +2888,7 @@ class _CalcPageState extends State<CalcPage> {
       }
       
     } catch (e) {
-      print('ERRO ao salvar como pendente: $e');
+      print('❌ ERRO ao salvar como pendente: $e');
       
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2781,7 +2907,7 @@ class _CalcPageState extends State<CalcPage> {
       }
     }
   }
-
+    
   bool _dadosFinaisEstaoCompletos() {
     final medicoes = widget.dadosFormulario['medicoes'] ?? {};
     
@@ -2928,5 +3054,6 @@ class _CalcPageState extends State<CalcPage> {
     } catch (e) {
       // Silencioso
     }
-  }
+  } 
+
 }
