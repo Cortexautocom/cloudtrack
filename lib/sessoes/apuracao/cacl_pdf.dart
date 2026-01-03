@@ -81,10 +81,13 @@ class CACLPdf {
                     pw.Row(
                       children: [
                         // Nº Controle (NOVO CAMPO)
+                        // Versão simplificada (no local original):
                         pw.Expanded(
                           child: _infoLinhaPDFMuitoCompacta(
                             'Nº Controle:',
-                            dadosFormulario['numeroControle']?.toString() ?? 'A ser gerado',
+                            (dadosFormulario['numero_controle'] ?? 
+                            dadosFormulario['numeroControle'] ?? 
+                            'A ser gerado').toString(),
                           ),
                         ),
                         pw.SizedBox(width: 8),
