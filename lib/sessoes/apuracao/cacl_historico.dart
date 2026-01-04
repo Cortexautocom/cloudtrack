@@ -1,0 +1,1369 @@
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'cacl_pdf.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:typed_data';
+import 'dart:convert' show base64Encode;
+import 'dart:js' as js;
+
+class CaclHistoricoPage extends StatefulWidget {
+  final String caclId;
+  final VoidCallback? onVoltar;
+
+  const CaclHistoricoPage({
+    super.key,
+    required this.caclId,
+    this.onVoltar,
+  });
+
+  @override
+  State<CaclHistoricoPage> createState() => _CaclHistoricoPageState();
+}
+
+class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
+  // Dados do formulário para exibição
+  final Map<String, dynamic> _dadosFormulario = {
+    'medicoes': {},
+  };
+
+  // Variáveis de volume (apenas para exibição)
+  double _volumeInicial = 0;
+  double _volumeFinal = 0;
+  double _volumeTotalLiquidoInicial = 0;
+  double _volumeTotalLiquidoFinal = 0;
+  
+  // Controles de estado
+  bool _isLoading = true;
+  bool _isGeneratingPDF = false;
+  bool _caclEmitido = false;
+  String? _numeroControle;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarDadosDoBanco();
+  }
+
+  Future<void> _carregarDadosDoBanco() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final supabase = Supabase.instance.client;
+      
+      // Busca os dados do CACL pelo ID
+      final resultado = await supabase
+          .from('cacl')
+          .select('*')
+          .eq('id', widget.caclId)
+          .single();
+
+      if (resultado == null) {
+        throw Exception('CACL não encontrado');
+      }
+
+      // 1. NÚMERO DE CONTROLE
+      _numeroControle = resultado['numero_controle']?.toString();
+
+      // 2. STATUS (para saber se é emitido ou pendente)
+      final status = resultado['status']?.toString();
+      _caclEmitido = status == 'emitido';
+
+      // 3. DADOS BÁSICOS
+      if (resultado['data'] != null) {
+        _dadosFormulario['data'] = _formatarDataDisplay(resultado['data']);
+      }
+      
+      if (resultado['base'] != null) {
+        _dadosFormulario['base'] = resultado['base']?.toString();
+      }
+      
+      if (resultado['produto'] != null) {
+        _dadosFormulario['produto'] = resultado['produto']?.toString();
+      }
+      
+      if (resultado['filial_id'] != null) {
+        _dadosFormulario['filial_id'] = resultado['filial_id']?.toString();
+      }
+      
+      if (resultado['tipo'] != null) {
+        final tipo = resultado['tipo']?.toString();
+        _dadosFormulario['cacl_verificacao'] = tipo == 'verificacao';
+        _dadosFormulario['cacl_movimentacao'] = tipo == 'movimentacao';
+      }
+
+      // 4. BUSCAR NOME DO TANQUE (se tanque_id existir)
+      final tanqueId = resultado['tanque_id']?.toString();
+      if (tanqueId != null && tanqueId.isNotEmpty) {
+        final tanqueInfo = await supabase
+            .from('tanques')
+            .select('referencia')
+            .eq('id', tanqueId)
+            .maybeSingle();
+
+        if (tanqueInfo != null && tanqueInfo['referencia'] != null) {
+          _dadosFormulario['tanque'] = tanqueInfo['referencia']?.toString();
+        } else {
+          _dadosFormulario['tanque'] = resultado['produto']?.toString();
+        }
+        
+        _dadosFormulario['tanque_id'] = tanqueId;
+      } else {
+        _dadosFormulario['tanque'] = resultado['produto']?.toString();
+      }
+
+      // 5. VOLUMES (apenas para exibição)
+      _volumeInicial = resultado['volume_produto_inicial']?.toDouble() ?? 0.0;
+      _volumeFinal = resultado['volume_produto_final']?.toDouble() ?? 0.0;
+      _volumeTotalLiquidoInicial = resultado['volume_total_liquido_inicial']?.toDouble() ?? 0.0;
+      _volumeTotalLiquidoFinal = resultado['volume_total_liquido_final']?.toDouble() ?? 0.0;
+
+      // 6. MEDIÇÕES - Mapear campos do banco para o formato de exibição
+      final medicoesAtualizadas = <String, dynamic>{};
+
+      // 6.1. MEDIÇÃO INICIAL
+      if (resultado['horario_inicial'] != null) {
+        medicoesAtualizadas['horarioInicial'] = 
+            _formatarHorarioDisplay(resultado['horario_inicial']);
+      }
+      
+      if (resultado['altura_total_cm_inicial'] != null) {
+        medicoesAtualizadas['cmInicial'] = 
+            resultado['altura_total_cm_inicial']?.toString();
+      }
+      
+      if (resultado['altura_total_mm_inicial'] != null) {
+        medicoesAtualizadas['mmInicial'] = 
+            resultado['altura_total_mm_inicial']?.toString();
+      }
+      
+      if (resultado['altura_agua_inicial'] != null) {
+        medicoesAtualizadas['alturaAguaInicial'] = 
+            resultado['altura_agua_inicial']?.toString();
+      }
+      
+      if (resultado['altura_produto_inicial'] != null) {
+        medicoesAtualizadas['alturaProdutoInicial'] = 
+            resultado['altura_produto_inicial']?.toString();
+      }
+      
+      if (resultado['temperatura_tanque_inicial'] != null) {
+        medicoesAtualizadas['tempTanqueInicial'] = 
+            resultado['temperatura_tanque_inicial']?.toString();
+      }
+      
+      if (resultado['densidade_observada_inicial'] != null) {
+        medicoesAtualizadas['densidadeInicial'] = 
+            resultado['densidade_observada_inicial']?.toString();
+      }
+      
+      if (resultado['temperatura_amostra_inicial'] != null) {
+        medicoesAtualizadas['tempAmostraInicial'] = 
+            resultado['temperatura_amostra_inicial']?.toString();
+      }
+      
+      if (resultado['densidade_20_inicial'] != null) {
+        medicoesAtualizadas['densidade20Inicial'] = 
+            resultado['densidade_20_inicial']?.toString();
+      }
+      
+      if (resultado['fator_correcao_inicial'] != null) {
+        medicoesAtualizadas['fatorCorrecaoInicial'] = 
+            resultado['fator_correcao_inicial']?.toString();
+      }
+      
+      if (resultado['massa_inicial'] != null) {
+        medicoesAtualizadas['massaInicial'] = 
+            resultado['massa_inicial']?.toString();
+      }
+
+      // 6.2. MEDIÇÃO FINAL
+      if (resultado['horario_final'] != null) {
+        medicoesAtualizadas['horarioFinal'] = 
+            _formatarHorarioDisplay(resultado['horario_final']);
+      }
+      
+      if (resultado['altura_total_cm_final'] != null) {
+        medicoesAtualizadas['cmFinal'] = 
+            resultado['altura_total_cm_final']?.toString();
+      }
+      
+      if (resultado['altura_total_mm_final'] != null) {
+        medicoesAtualizadas['mmFinal'] = 
+            resultado['altura_total_mm_final']?.toString();
+      }
+      
+      if (resultado['altura_agua_final'] != null) {
+        medicoesAtualizadas['alturaAguaFinal'] = 
+            resultado['altura_agua_final']?.toString();
+      }
+      
+      if (resultado['altura_produto_final'] != null) {
+        medicoesAtualizadas['alturaProdutoFinal'] = 
+            resultado['altura_produto_final']?.toString();
+      }
+      
+      if (resultado['temperatura_tanque_final'] != null) {
+        medicoesAtualizadas['tempTanqueFinal'] = 
+            resultado['temperatura_tanque_final']?.toString();
+      }
+      
+      if (resultado['densidade_observada_final'] != null) {
+        medicoesAtualizadas['densidadeFinal'] = 
+            resultado['densidade_observada_final']?.toString();
+      }
+      
+      if (resultado['temperatura_amostra_final'] != null) {
+        medicoesAtualizadas['tempAmostraFinal'] = 
+            resultado['temperatura_amostra_final']?.toString();
+      }
+      
+      if (resultado['densidade_20_final'] != null) {
+        medicoesAtualizadas['densidade20Final'] = 
+            resultado['densidade_20_final']?.toString();
+      }
+      
+      if (resultado['fator_correcao_final'] != null) {
+        medicoesAtualizadas['fatorCorrecaoFinal'] = 
+            resultado['fator_correcao_final']?.toString();
+      }
+      
+      if (resultado['massa_final'] != null) {
+        medicoesAtualizadas['massaFinal'] = 
+            resultado['massa_final']?.toString();
+      }
+
+      // 6.3. VOLUMES FORMATADOS
+      medicoesAtualizadas['volumeProdutoInicial'] = 
+          _formatarVolumeLitros(_volumeInicial);
+      medicoesAtualizadas['volumeProdutoFinal'] = 
+          _formatarVolumeLitros(_volumeFinal);
+      medicoesAtualizadas['volumeTotalLiquidoInicial'] = 
+          _formatarVolumeLitros(_volumeTotalLiquidoInicial);
+      medicoesAtualizadas['volumeTotalLiquidoFinal'] = 
+          _formatarVolumeLitros(_volumeTotalLiquidoFinal);
+
+      if (resultado['volume_agua_inicial'] != null) {
+        medicoesAtualizadas['volumeAguaInicial'] = 
+            _formatarVolumeLitros(resultado['volume_agua_inicial']?.toDouble() ?? 0.0);
+      }
+      
+      if (resultado['volume_agua_final'] != null) {
+        medicoesAtualizadas['volumeAguaFinal'] = 
+            _formatarVolumeLitros(resultado['volume_agua_final']?.toDouble() ?? 0.0);
+      }
+
+      if (resultado['volume_20_inicial'] != null) {
+        medicoesAtualizadas['volume20Inicial'] = 
+            _formatarVolumeLitros(resultado['volume_20_inicial']?.toDouble() ?? 0.0);
+      }
+      
+      if (resultado['volume_20_final'] != null) {
+        medicoesAtualizadas['volume20Final'] = 
+            _formatarVolumeLitros(resultado['volume_20_final']?.toDouble() ?? 0.0);
+      }
+
+      if (resultado['faturado_final'] != null) {
+        medicoesAtualizadas['faturadoFinal'] = 
+            resultado['faturado_final']?.toString();
+      }
+
+      // 6.4. CAMPOS DE COMPARAÇÃO (se existirem)
+      if (resultado['entrada_saida_ambiente'] != null) {
+        medicoesAtualizadas['entradaSaidaAmbiente'] = 
+            resultado['entrada_saida_ambiente']?.toString();
+      }
+      
+      if (resultado['entrada_saida_20'] != null) {
+        medicoesAtualizadas['entradaSaida20'] = 
+            resultado['entrada_saida_20']?.toString();
+      }
+      
+      if (resultado['diferenca_faturado'] != null) {
+        medicoesAtualizadas['diferencaFaturado'] = 
+            resultado['diferenca_faturado']?.toString();
+      }
+      
+      if (resultado['porcentagem_diferenca'] != null) {
+        medicoesAtualizadas['porcentagemDiferenca'] = 
+            resultado['porcentagem_diferenca']?.toString();
+      }
+
+      _dadosFormulario['medicoes'] = medicoesAtualizadas;
+
+      setState(() {
+        _isLoading = false;
+      });
+
+    } catch (e) {
+      print('❌ ERRO ao carregar CACL: $e');
+      
+      setState(() {
+        _isLoading = false;
+        _caclEmitido = false;
+        _numeroControle = null;
+      });
+    }
+  }
+
+  // FUNÇÕES AUXILIARES DE FORMATAÇÃO (copiadas da CalcPage)
+  String _formatarHorarioDisplay(String? timeString) {
+    if (timeString == null || timeString.isEmpty) return '-';
+    
+    try {
+      final partes = timeString.split(':');
+      if (partes.length >= 2) {
+        final horas = partes[0];
+        final minutos = partes[1];
+        return '$horas:$minutos h';
+      }
+    } catch (e) {
+      return timeString;
+    }
+    
+    return timeString;
+  }
+
+  String _formatarDataDisplay(String? dataSql) {
+    if (dataSql == null || dataSql.isEmpty) return '';
+    
+    try {
+      final partes = dataSql.split('-');
+      if (partes.length == 3) {
+        final ano = partes[0];
+        final mes = partes[1];
+        final dia = partes[2];
+        return '$dia/$mes/$ano';
+      }
+    } catch (e) {
+      return dataSql;
+    }
+    
+    return dataSql;
+  }
+
+  String _formatarVolumeLitros(double volume) {
+    final volumeInteiro = volume.round();
+    
+    String inteiroFormatado = volumeInteiro.toString();
+    
+    if (inteiroFormatado.length > 3) {
+      final buffer = StringBuffer();
+      int contador = 0;
+      
+      for (int i = inteiroFormatado.length - 1; i >= 0; i--) {
+        buffer.write(inteiroFormatado[i]);
+        contador++;
+        
+        if (contador == 3 && i > 0) {
+          buffer.write('.');
+          contador = 0;
+        }
+      }
+      
+      final chars = buffer.toString().split('').reversed.toList();
+      inteiroFormatado = chars.join('');
+    }
+    
+    return '$inteiroFormatado L';
+  }
+
+  String _obterValorMedicao(dynamic valor) {
+    if (valor == null) return "-";
+
+    if (valor is String) {
+      final v = valor.trim();
+      if (v.isEmpty) return "-";
+      return v;
+    }
+
+    return valor.toString();
+  }
+
+  String _formatarAlturaTotal(String? cm, String? mm) {
+    if (cm == null || cm.isEmpty) return "-";
+    final mmValue = (mm == null || mm.isEmpty) ? "0" : mm;
+    return "$cm,$mmValue cm";
+  }
+
+  String _formatarTemperatura(dynamic valor) {
+    if (valor == null) return "-";
+    if (valor is String && valor.isEmpty) return "-";
+    
+    final strValor = valor.toString().trim();
+    
+    final valorSemUnidade = strValor
+        .replaceAll(' ºC', '')
+        .replaceAll('°C', '')
+        .replaceAll('ºC', '')
+        .trim();
+    
+    if (valorSemUnidade.isEmpty) return "-";
+    
+    return '$valorSemUnidade ºC';
+  }
+
+  String _obterApenasData(String dataCompleta) {
+    if (dataCompleta.contains(',')) {
+      return dataCompleta.split(',').first.trim();
+    }
+    return dataCompleta;
+  }
+
+  String _formatarHorarioCACL(String? horario) {
+    if (horario == null || horario.isEmpty) return '--:-- h';
+    
+    String horarioLimpo = horario.trim();
+    
+    if (horarioLimpo.toLowerCase().endsWith('h')) {
+      return horarioLimpo;
+    }
+    
+    return '$horarioLimpo h';
+  }
+
+  // WIDGETS DE UI (copiados da CalcPage)
+  Widget _secaoTitulo(String texto) {
+    return Text(
+      texto,
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+        color: Colors.black87,
+      ),
+    );
+  }
+
+  Widget _subtitulo(String texto) {
+    return Text(
+      texto,
+      style: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.bold,
+        color: Colors.black87,
+      ),
+    );
+  }
+
+  Widget _linhaValor(String valor) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.black26),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        valor,
+        style: const TextStyle(fontSize: 11),
+      ),
+    );
+  }
+
+  Widget _tabelaMedicoes(List<TableRow> linhas, Map<String, dynamic> medicoes) {
+    return Table(
+      border: TableBorder.all(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      columnWidths: const {
+        0: FlexColumnWidth(2.5),
+        1: FlexColumnWidth(1.0),
+        2: FlexColumnWidth(1.0),
+      },
+      children: [
+        TableRow(
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+          ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              child: Text(
+                "DESCRIÇÃO",
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              child: Text(
+                "1ª MEDIÇÃO, ${_formatarHorarioCACL(medicoes['horarioInicial'])}",
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue[700],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              child: Text(
+                "2ª MEDIÇÃO, ${_formatarHorarioCACL(medicoes['horarioFinal'])}",
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue[700],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+        ...linhas,
+        
+        TableRow(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+              child: Text(
+                "Massa do produto (Volume a 20 ºC × Densidade  a 20 ºC):",
+                style: const TextStyle(fontSize: 11),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+              child: Text(
+                _obterValorMedicao(medicoes['massaInicial']),
+                style: const TextStyle(fontSize: 11),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+              child: Text(
+                _obterValorMedicao(medicoes['massaFinal']),
+                style: const TextStyle(fontSize: 11),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  TableRow _linhaMedicao(String descricao, String valorInicial, String valorFinal) {
+    return TableRow(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+          child: Text(
+            descricao,
+            style: const TextStyle(fontSize: 11),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+          child: Text(
+            valorInicial,
+            style: const TextStyle(fontSize: 11),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+          child: Text(
+            valorFinal,
+            style: const TextStyle(fontSize: 11),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _tabelaComparacaoResultados() {
+    final medicoes = _dadosFormulario['medicoes'] ?? {};
+    
+    // Função para formatar no padrão "999.999 L"
+    String fmt(dynamic v) {
+      if (v == null) return "-";
+      
+      try {
+        double valor;
+        if (v is String) {
+          if (v.isEmpty || v == '-') return "-";
+          valor = double.tryParse(v.replaceAll(',', '.')) ?? 0.0;
+        } else if (v is num) {
+          valor = v.toDouble();
+        } else {
+          return "-";
+        }
+        
+        final volumeInteiro = valor.round();
+        final isNegativo = volumeInteiro < 0;
+        String inteiroFormatado = volumeInteiro.abs().toString();
+        
+        if (inteiroFormatado.length > 3) {
+          final buffer = StringBuffer();
+          int contador = 0;
+          
+          for (int i = inteiroFormatado.length - 1; i >= 0; i--) {
+            buffer.write(inteiroFormatado[i]);
+            contador++;
+            
+            if (contador == 3 && i > 0) {
+              buffer.write('.');
+              contador = 0;
+            }
+          }
+          
+          final chars = buffer.toString().split('').reversed.toList();
+          inteiroFormatado = chars.join('');
+        }
+        
+        final sinal = isNegativo ? '-' : '';
+        return '$sinal$inteiroFormatado L';
+      } catch (e) {
+        return "-";
+      }
+    }
+
+    // Buscar valores do banco (já armazenados)
+    final volumeAmbienteInicial = _volumeInicial;
+    final volumeAmbienteFinal = _volumeFinal;
+    
+    final volume20Inicial = medicoes['volume20Inicial'] != null ? 
+        _converterVolumeParaDouble(medicoes['volume20Inicial'].toString()) : 0.0;
+    final volume20Final = medicoes['volume20Final'] != null ? 
+        _converterVolumeParaDouble(medicoes['volume20Final'].toString()) : 0.0;
+    
+    // Usar valores armazenados ou calcular se não existirem
+    final entradaSaidaAmbiente = medicoes['entradaSaidaAmbiente'] != null ?
+        double.tryParse(medicoes['entradaSaidaAmbiente'].toString().replaceAll(',', '.')) ?? 0.0 :
+        volumeAmbienteFinal - volumeAmbienteInicial;
+    
+    final entradaSaida20 = medicoes['entradaSaida20'] != null ?
+        double.tryParse(medicoes['entradaSaida20'].toString().replaceAll(',', '.')) ?? 0.0 :
+        volume20Final - volume20Inicial;
+
+    return Table(
+      border: TableBorder.all(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      columnWidths: const {
+        0: FlexColumnWidth(2.5),
+        1: FlexColumnWidth(1.0),
+        2: FlexColumnWidth(1.0),
+        3: FlexColumnWidth(1.0),
+      },
+      children: [
+        TableRow(
+          decoration: BoxDecoration(color: Color(0xFFE0E0E0)),
+          children: [
+            Padding(
+              padding: EdgeInsets.all(6.0),
+              child: Text("DESCRIÇÃO",
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
+            Padding(
+              padding: EdgeInsets.all(6.0),
+              child: Text("1ª MEDIÇÃO",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
+            Padding(
+              padding: EdgeInsets.all(6.0),
+              child: Text("2ª MEDIÇÃO",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
+            Padding(
+              padding: EdgeInsets.all(6.0),
+              child: Text("ENTRADA/SAÍDA",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+
+        TableRow(
+          children: [
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
+              child: Text("Volume ambiente", style: TextStyle(fontSize: 10)),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
+              child: Text(fmt(volumeAmbienteInicial), 
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10)),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
+              child: Text(fmt(volumeAmbienteFinal), 
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10)),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
+              child: Text(fmt(entradaSaidaAmbiente),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10)),
+            ),
+          ],
+        ),
+
+        TableRow(
+          children: [
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
+              child: Text("Volume a 20 ºC", style: TextStyle(fontSize: 10)),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
+              child: Text(fmt(volume20Inicial), 
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10)),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
+              child: Text(fmt(volume20Final), 
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10)),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
+              child: Text(fmt(entradaSaida20),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10)),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  double _converterVolumeParaDouble(String volumeStr) {
+    try {
+      String limpo = volumeStr.replaceAll(' L', '').trim();
+      
+      if (limpo.isEmpty || limpo == '-') {
+        return 0.0;
+      }
+      
+      if (limpo.contains('.')) {
+        final partes = limpo.split('.');
+        if (partes.length > 1) {
+          if (partes.last.length == 3) {
+            limpo = limpo.replaceAll('.', '');
+          } else {
+            limpo = limpo.replaceAll('.', ',');
+          }
+        } else {
+          limpo = limpo.replaceAll('.', '');
+        }
+      }
+      
+      limpo = limpo.replaceAll(',', '.');
+      
+      return double.tryParse(limpo) ?? 0.0;
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  Widget _blocoFaturado() {
+    final medicoes = _dadosFormulario['medicoes'] ?? {};
+    
+    // Função para formatar no padrão "999.999 L"
+    String fmt(num v) {
+      if (v.isNaN) return "-";
+      
+      final volumeInteiro = v.round();
+      final isNegativo = volumeInteiro < 0;
+      String inteiroFormatado = volumeInteiro.abs().toString();
+      
+      if (inteiroFormatado.length > 3) {
+        final buffer = StringBuffer();
+        int contador = 0;
+        
+        for (int i = inteiroFormatado.length - 1; i >= 0; i--) {
+          buffer.write(inteiroFormatado[i]);
+          contador++;
+          
+          if (contador == 3 && i > 0) {
+            buffer.write('.');
+            contador = 0;
+          }
+        }
+        
+        final chars = buffer.toString().split('').reversed.toList();
+        inteiroFormatado = chars.join('');
+      }
+      
+      final sinal = isNegativo ? '-' : '';
+      return '$sinal$inteiroFormatado L';
+    }
+
+    // Função para formatar porcentagem com 2 casas decimais
+    String fmtPercent(double v) {
+      if (v.isNaN || v.isInfinite) return "-";
+      return '${v >= 0 ? '+' : ''}${v.toStringAsFixed(2)}%';
+    }
+
+    // Buscar valores do banco
+    double faturadoUsuario = 0.0;
+    if (medicoes['faturadoFinal'] != null && 
+        medicoes['faturadoFinal'].toString().isNotEmpty && 
+        medicoes['faturadoFinal'].toString() != '-') {
+      try {
+        String limpo = medicoes['faturadoFinal'].toString()
+            .replaceAll('.', '')
+            .replaceAll(',', '.');
+        faturadoUsuario = double.tryParse(limpo) ?? 0.0;
+      } catch (e) {
+        faturadoUsuario = 0.0;
+      }
+    }
+    
+    final volume20Final = _converterVolumeParaDouble(medicoes['volume20Final']?.toString() ?? '0');
+    final volume20Inicial = _converterVolumeParaDouble(medicoes['volume20Inicial']?.toString() ?? '0');
+    
+    // Usar diferença armazenada ou calcular se não existir
+    double diferenca;
+    double porcentagem;
+    
+    if (medicoes['diferencaFaturado'] != null) {
+      diferenca = double.tryParse(medicoes['diferencaFaturado'].toString().replaceAll(',', '.')) ?? 0.0;
+    } else {
+      final entradaSaida20 = volume20Final - volume20Inicial;
+      diferenca = entradaSaida20 - faturadoUsuario;
+    }
+    
+    if (medicoes['porcentagemDiferenca'] != null) {
+      final porcentagemStr = medicoes['porcentagemDiferenca'].toString()
+          .replaceAll('%', '')
+          .replaceAll(',', '.');
+      porcentagem = double.tryParse(porcentagemStr) ?? 0.0;
+    } else {
+      final entradaSaida20 = volume20Final - volume20Inicial;
+      porcentagem = entradaSaida20 != 0 ? (diferenca / entradaSaida20) * 100 : 0.0;
+    }
+    
+    final faturadoFormatado = faturadoUsuario > 0 ? fmt(faturadoUsuario) : "-";
+    final diferencaFormatada = fmt(diferenca);
+    final porcentagemFormatada = fmtPercent(porcentagem);
+    
+    final concatenacao = '$diferencaFormatada ║ $porcentagemFormatada';
+    final corDiferenca = diferenca < 0 ? Colors.red[700] : Colors.blue[700];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(flex: 7, child: SizedBox()),
+            Expanded(
+              flex: 3,
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black54),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Table(
+                  defaultColumnWidth: IntrinsicColumnWidth(),
+                  border: TableBorder.all(color: Colors.black54),
+                  children: [
+                    TableRow(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          color: Color(0xFFF5F5F5),
+                          child: Center(
+                            child: Text(
+                              "Faturado",
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          color: Colors.white,
+                          child: Center(
+                            child: Text(
+                              faturadoFormatado,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    TableRow(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          color: Color(0xFFF5F5F5),
+                          child: Center(
+                            child: Text(
+                              "Diferença",
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          color: Colors.white,
+                          child: Center(
+                            child: Text(
+                              concatenacao,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: corDiferenca,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 15),        
+      ],
+    );
+  }
+
+  // FUNÇÕES PARA PDF
+  Future<void> _baixarPDFCACL() async {
+    setState(() {
+      _isGeneratingPDF = true;
+    });
+    
+    try {
+      // Adiciona número de controle para o PDF
+      if (_numeroControle != null) {
+        _dadosFormulario['numero_controle'] = _numeroControle;
+      }
+      
+      // Gera o PDF
+      final pdfDocument = await CACLPdf.gerar(
+        dadosFormulario: _dadosFormulario,
+      );
+      
+      final pdfBytes = await pdfDocument.save();
+      
+      if (kIsWeb) {
+        await _downloadForWebCACL(pdfBytes);
+      } else {
+        print('PDF CACL gerado (${pdfBytes.length} bytes)');
+        _showMobileMessageCACL();
+      }
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✓ Certificado CACL baixado com sucesso!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      
+    } catch (e) {
+      print('ERRO ao gerar PDF CACL: $e');
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao gerar PDF: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGeneratingPDF = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _downloadForWebCACL(Uint8List bytes) async {
+    try {
+      final base64 = base64Encode(bytes);
+      final dataUrl = 'data:application/pdf;base64,$base64';
+      
+      final produto = _dadosFormulario['produto']?.toString() ?? 'CACL';
+      final data = _dadosFormulario['data']?.toString() ?? '';
+      final fileName = 'CACL_${produto}_${data.replaceAll('/', '-')}.pdf';
+      
+      final jsCode = '''
+        try {
+          const link = document.createElement('a');
+          link.href = '$dataUrl';
+          link.download = '$fileName';
+          link.style.display = 'none';
+          
+          document.body.appendChild(link);
+          link.click();
+          
+          setTimeout(() => {
+            document.body.removeChild(link);
+          }, 100);
+          
+          console.log('Download CACL iniciado: ' + '$fileName');
+        } catch (error) {
+          console.error('Erro no download automático:', error);
+          window.open('$dataUrl', '_blank');
+        }
+      ''';
+      
+      js.context.callMethod('eval', [jsCode]);
+      
+    } catch (e) {
+      print('Erro no download Web CACL: $e');
+    }
+  }
+
+  void _showMobileMessageCACL() {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('PDF CACL gerado! Em breve disponível para download no mobile.'),
+          backgroundColor: Colors.blue,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 20),
+              Text(
+                'Carregando CACL...',
+                style: TextStyle(fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final medicoes = _dadosFormulario['medicoes'] ?? {};
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 670,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // CABEÇALHO
+                  Stack(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE0E0E0),
+                          border: Border.all(color: Colors.black, width: 1.5),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              "CACL - VISUALIZAÇÃO",
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                                letterSpacing: 0.5,
+                              ),
+                            ),                           
+                          ],
+                        ),
+                      ),                                            
+                    ],
+                  ),
+
+                  const SizedBox(height: 20),                  
+
+                  // DADOS PRINCIPAIS
+                  SizedBox(
+                    width: double.infinity,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Nº DE CONTROLE
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _secaoTitulo("Nº DE CONTROLE:"),
+                              _linhaValor(_numeroControle ?? "-"),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _secaoTitulo("DATA:"),
+                              _linhaValor(_obterApenasData(_dadosFormulario['data']?.toString() ?? "-")),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _secaoTitulo("BASE:"),
+                              _linhaValor(_dadosFormulario['base']?.toString() ?? "POLO DE COMBUSTÍVEL"),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _secaoTitulo("PRODUTO:"),
+                              _linhaValor(_dadosFormulario['produto']?.toString() ?? "-"),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _secaoTitulo("TANQUE Nº:"),
+                              _linhaValor(_dadosFormulario['tanque']?.toString() ?? "-"),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 25),
+
+                  // SEÇÃO DE MEDIÇÕES
+                  _subtitulo("VOLUME RECEBIDO NOS TANQUES DE TERRA E CANALIZAÇÃO RESPECTIVA"),
+                  const SizedBox(height: 12),
+
+                  _tabelaMedicoes([
+                    _linhaMedicao("Altura total de líquido no tanque:", 
+                        _formatarAlturaTotal(medicoes['cmInicial'], medicoes['mmInicial']), 
+                        _formatarAlturaTotal(medicoes['cmFinal'], medicoes['mmFinal'])),
+                    _linhaMedicao("Volume total de líquido no tanque (temp. ambiente):", 
+                        _formatarVolumeLitros(_volumeTotalLiquidoInicial), 
+                        _formatarVolumeLitros(_volumeTotalLiquidoFinal)),
+                    _linhaMedicao("Altura da água aferida no tanque:", 
+                        _obterValorMedicao(medicoes['alturaAguaInicial']), 
+                        _obterValorMedicao(medicoes['alturaAguaFinal'])),
+                    _linhaMedicao("Volume correspondente à água:", 
+                        _obterValorMedicao(medicoes['volumeAguaInicial']), 
+                        _obterValorMedicao(medicoes['volumeAguaFinal'])),
+                    _linhaMedicao("Altura do produto aferido no tanque:", 
+                        _obterValorMedicao(medicoes['alturaProdutoInicial']), 
+                        _obterValorMedicao(medicoes['alturaProdutoFinal'])),
+                    _linhaMedicao(
+                      "Volume correspondente ao produto (temp. ambiente):",
+                      _formatarVolumeLitros(_volumeInicial),
+                      _formatarVolumeLitros(_volumeFinal),
+                    ),
+                    _linhaMedicao("Temperatura do produto no tanque:", 
+                        _formatarTemperatura(medicoes['tempTanqueInicial']), 
+                        _formatarTemperatura(medicoes['tempTanqueFinal'])),
+                    _linhaMedicao("Densidade observada na amostra:", 
+                        _obterValorMedicao(medicoes['densidadeInicial']), 
+                        _obterValorMedicao(medicoes['densidadeFinal'])),
+                    _linhaMedicao("Temperatura da amostra:", 
+                        _formatarTemperatura(medicoes['tempAmostraInicial']), 
+                        _formatarTemperatura(medicoes['tempAmostraFinal'])),
+                    _linhaMedicao("Densidade da amostra, considerada à temperatura padrão (20 ºC):", 
+                        _obterValorMedicao(medicoes['densidade20Inicial']), 
+                        _obterValorMedicao(medicoes['densidade20Final'])),                    
+                    _linhaMedicao("Fator de correção de volume do produto (FCV):", 
+                        _obterValorMedicao(medicoes['fatorCorrecaoInicial']), 
+                        _obterValorMedicao(medicoes['fatorCorrecaoFinal'])),                    
+                    _linhaMedicao("Volume total do produto, considerada a temperatura padrão (20 ºC):", 
+                        _obterValorMedicao(medicoes['volume20Inicial']), 
+                        _obterValorMedicao(medicoes['volume20Final'])),
+                  ], medicoes),
+
+                  const SizedBox(height: 25),
+
+                  // COMPARAÇÃO DE RESULTADOS
+                  _subtitulo("COMPARAÇÃO DE RESULTADOS"),
+                  const SizedBox(height: 8),
+
+                  _tabelaComparacaoResultados(),
+
+                  // BLOCO FATURADO
+                  const SizedBox(height: 20),
+                  _blocoFaturado(),                 
+
+                  // RODAPÉ
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _caclEmitido 
+                          ? const Color(0xFFE3F2FD)  // Azul claro se emitido
+                          : const Color(0xFFFFF3E0), // Laranja claro se pendente
+                      border: Border.all(
+                        color: _caclEmitido 
+                            ? const Color(0xFF2196F3)
+                            : Colors.orange,
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _caclEmitido ? Icons.info_outline : Icons.pending,
+                          color: _caclEmitido 
+                              ? const Color(0xFF2196F3)
+                              : Colors.orange,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _caclEmitido ? "CACL Emitido" : "CACL Pendente",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: _caclEmitido 
+                                      ? const Color(0xFF0D47A1)
+                                      : Colors.orange[800],
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _caclEmitido 
+                                  ? "Este CACL já foi emitido e está salvo no histórico."
+                                  : "Este CACL está pendente. Faltam dados da medição final.",
+                                style: TextStyle(
+                                  color: _caclEmitido 
+                                      ? Colors.grey[700]
+                                      : Colors.orange[700],
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  
+                  // BOTÕES
+                  Container(
+                    margin: const EdgeInsets.only(top: 20),
+                    width: double.infinity,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // BOTÃO VOLTAR
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            if (widget.onVoltar != null) {
+                              widget.onVoltar!();
+                            } else {
+                              Navigator.of(context).pop();
+                            }
+                          },
+                          icon: const Icon(Icons.arrow_back, size: 18),
+                          label: const Text('Voltar'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D47A1),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                        ),
+                        
+                        const SizedBox(width: 20),
+                        
+                        // BOTÃO GERAR PDF (apenas se CACL emitido)
+                        if (_caclEmitido)
+                          ElevatedButton.icon(
+                            onPressed: _isGeneratingPDF ? null : _baixarPDFCACL,
+                            icon: _isGeneratingPDF
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.picture_as_pdf, size: 18),
+                            label: Text(_isGeneratingPDF ? 'Gerando...' : 'Gerar PDF'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0D47A1),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
