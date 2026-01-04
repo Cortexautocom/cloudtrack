@@ -57,11 +57,7 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
           .from('cacl')
           .select('*')
           .eq('id', widget.caclId)
-          .single();
-
-      if (resultado == null) {
-        throw Exception('CACL não encontrado');
-      }
+          .single();     
 
       // 1. NÚMERO DE CONTROLE
       _numeroControle = resultado['numero_controle']?.toString();
