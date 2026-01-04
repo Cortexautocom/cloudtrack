@@ -590,6 +590,8 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                                 }
                                 
                                 final supabase = Supabase.instance.client;
+                                final caclId = cacl['id'].toString(); // Captura o ID
+                                print('📤 [ListarCaclsPage] Navegando para CACL com ID: $caclId');
                                 final caclCompleto = await supabase
                                     .from('cacl')
                                     .select('*')
@@ -607,6 +609,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                                     builder: (_) => CalcPage(
                                       dadosFormulario: dadosFormulario,
                                       modo: CaclModo.visualizacao,
+                                      caclId: cacl['id'].toString(),
                                     ),
                                   ),
                                 );

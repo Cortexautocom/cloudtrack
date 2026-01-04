@@ -46,24 +46,46 @@ class _CalcPageState extends State<CalcPage> {
   @override
   void initState() {
     super.initState();
-
+    
+    print('📥 [CalcPage] Recebida nova instância');
+    print('   Modo: ${widget.modo}');
+    print('   caclId recebido no construtor: ${widget.caclId}');
+    print('   Tem id em dadosFormulario: ${widget.dadosFormulario.containsKey('id')}');
+    print('   Tem id_cacl em dadosFormulario: ${widget.dadosFormulario.containsKey('id_cacl')}');
+    
+    if (widget.dadosFormulario.containsKey('id')) {
+      print('   ID nos dadosFormulario: ${widget.dadosFormulario['id']}');
+    }
+    if (widget.dadosFormulario.containsKey('id_cacl')) {
+      print('   ID_CACL nos dadosFormulario: ${widget.dadosFormulario['id_cacl']}');
+    }
+    
+    // Mostra todas as chaves do dadosFormulario para debug
+    print('   Chaves disponíveis em dadosFormulario:');
+    widget.dadosFormulario.keys.forEach((key) {
+      print('     - $key: ${widget.dadosFormulario[key]}');
+    });
     
     if (widget.modo == CaclModo.emissao) {
       _numeroControle = null;
       _calcularVolumesIniciais();
     } else {
-      // Modo visualização: carrega os dados já calculados do banco
       _carregarDadosParaVisualizacao();
     }
   }
 
   Future<void> _carregarDadosParaVisualizacao() async {
+    print('🔍 [CalcPage] Carregando dados para visualização...');
+    print('   ID disponível para busca: ${widget.caclId}');
+
     try {
       final supabase = Supabase.instance.client;
       
       final medicoes = widget.dadosFormulario['medicoes'] ?? {};
       
       if (medicoes.isNotEmpty && medicoes.containsKey('volumeProdutoInicial')) {
+      print('   Usando dados locais do formulário');        
+        
         volumeInicial =
             _extrairNumero(medicoes['volumeProdutoInicial']?.toString());
         volumeFinal =
@@ -81,6 +103,7 @@ class _CalcPageState extends State<CalcPage> {
       }
       
       if (widget.caclId != null && widget.caclId!.isNotEmpty) {
+        print('   🔎 Buscando CACL no banco com ID: ${widget.caclId}');
         try {
           // 1. BUSCA OS DADOS DO CACL
           final resultado = await supabase
@@ -90,6 +113,9 @@ class _CalcPageState extends State<CalcPage> {
               .maybeSingle();
 
           if (resultado != null) {
+            print('   ✅ CACL encontrado no banco');
+            print('   ID no banco: ${resultado['id']}');
+            print('   Número controle: ${resultado['numero_controle']}');
             // 2. BUSCA O NOME DO TANQUE SEPARADAMENTE
             final tanqueId = resultado['tanque_id']?.toString();
             if (tanqueId != null && tanqueId.isNotEmpty) {

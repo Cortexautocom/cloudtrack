@@ -871,39 +871,58 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                       },
                                       child: GestureDetector(
                                         onTap: () async {
+                                          final caclId = cacl['id'].toString();
+                                          print('📤 [HistoricoCaclPage] Navegando para CACL com ID: $caclId');
+                                          
                                           // Verifica se o usuário pode clicar no CACL
                                           final nivelUsuario = _nivelUsuario ?? 0;
                                           
                                           // Regras de permissão:
-                                          // - Nível 1: Pode clicar em qualquer CACL
-                                          // - Nível 2: NÃO pode clicar em CACLs cancelados
-                                          // - Nível 3: Pode clicar em qualquer CACL (incluindo cancelados)
                                           if (nivelUsuario == 2 && isCancelado) {
-                                            // Nível 2 não pode clicar em CACLs cancelados
+                                            print('⛔ [HistoricoCaclPage] Usuário nível 2 não pode visualizar CACL cancelado');
                                             return;
                                           }
                                           
+                                          print('✅ [HistoricoCaclPage] Usuário autorizado (nível $nivelUsuario)');
+                                          
                                           final supabase = Supabase.instance.client;
+                                          print('🔍 [HistoricoCaclPage] Buscando CACL no banco com ID: $caclId');
+                                          
                                           final caclCompleto = await supabase
                                               .from('cacl')
                                               .select('*, tanques!inner(referencia)')
-                                              .eq('id', cacl['id'])
+                                              .eq('id', caclId)
                                               .single();
 
+                                          print('✅ [HistoricoCaclPage] CACL encontrado no banco');
+                                          print('   ID no caclCompleto: ${caclCompleto['id']}');
+                                          print('   Status: ${caclCompleto['status']}');
+                                          print('   Produto: ${caclCompleto['produto']}');
+                                          
                                           final dadosFormulario = _mapearCaclParaFormulario(caclCompleto);
+                                          
+                                          print('📋 [HistoricoCaclPage] Dados mapeados para formulário');
+                                          print('   ID nos dadosFormulario: ${dadosFormulario['id'] ?? "NÃO MAPEADO"}');
+                                          print('   ID_CACL nos dadosFormulario: ${dadosFormulario['id_cacl'] ?? "NÃO MAPEADO"}');
+                                          print('   Tem id em dadosFormulario? ${dadosFormulario.containsKey('id')}');
+                                          print('   Tem id_cacl em dadosFormulario? ${dadosFormulario.containsKey('id_cacl')}');
 
                                           if (!context.mounted) return;
 
+                                          print('🚀 [HistoricoCaclPage] Navegando para CalcPage...');
+                                          
                                           await Navigator.push(
                                             context,
                                             MaterialPageRoute(
                                               builder: (_) => CalcPage(
                                                 dadosFormulario: dadosFormulario,
                                                 modo: CaclModo.visualizacao,
+                                                caclId: caclId,  // Passa explicitamente o ID
                                               ),
                                             ),
                                           );
                                           
+                                          print('↩️ [HistoricoCaclPage] Retornou da CalcPage');
                                           _refreshData();
                                         },
                                         child: Opacity(
