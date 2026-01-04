@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'cacl.dart';
+//import 'cacl.dart';
 import '../../login_page.dart';
 import 'emitir_cacl.dart';
 import 'editar_cacl.dart';
+import 'cacl_historico.dart';
 
 class ListarCaclsPage extends StatefulWidget {
   final VoidCallback onVoltar;
@@ -589,27 +590,19 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                                   return;
                                 }
                                 
-                                final supabase = Supabase.instance.client;
                                 final caclId = cacl['id'].toString(); // Captura o ID
-                                print('📤 [ListarCaclsPage] Navegando para CACL com ID: $caclId');
-                                final caclCompleto = await supabase
-                                    .from('cacl')
-                                    .select('*')
-                                    .eq('id', cacl['id'])
-                                    .single();
-
-                                final dadosFormularioBruto = _mapearCaclParaFormulario(caclCompleto);
-                                final dadosFormulario = Map<String, dynamic>.from(dadosFormularioBruto);
+                                print('📤 [ListarCaclsPage] Navegando para CaclHistoricoPage com ID: $caclId');
 
                                 if (!context.mounted) return;
 
                                 await Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => CalcPage(
-                                      dadosFormulario: dadosFormulario,
-                                      modo: CaclModo.visualizacao,
-                                      caclId: cacl['id'].toString(),
+                                    builder: (_) => CaclHistoricoPage(
+                                      caclId: caclId,
+                                      onVoltar: () {
+                                        Navigator.pop(context);
+                                      },
                                     ),
                                   ),
                                 );
@@ -1299,95 +1292,5 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
         );
       },
     );
-  }
-
-  Map<String, dynamic> _mapearCaclParaFormulario(Map<String, dynamic> cacl) {
-    String fmt(double? v) {
-      if (v == null) return '-';
-      final i = v.round().toString();
-      if (i.length <= 3) return '$i L';
-
-      final buffer = StringBuffer();
-      int c = 0;
-      for (int x = i.length - 1; x >= 0; x--) {
-        buffer.write(i[x]);
-        c++;
-        if (c == 3 && x > 0) {
-          buffer.write('.');
-          c = 0;
-        }
-      }
-      return '${buffer.toString().split('').reversed.join()} L';
-    }
-
-    return <String, dynamic>{
-      'data': cacl['data']?.toString(),
-      'base': cacl['base'],
-      'produto': cacl['produto'],
-      'tanque': cacl['tanques']?['referencia'] ?? cacl['tanque_id'] ?? '-',
-      'filial_id': cacl['filial_id'],
-      'responsavel': UsuarioAtual.instance?.nome ?? 'Usuário',
-
-      'medicoes': <String, dynamic>{
-        // ===== INICIAL =====
-        'horarioInicial': cacl['horario_inicial']?.toString(),
-        'cmInicial': cacl['altura_total_cm_inicial']?.toString(),
-        'mmInicial': cacl['altura_total_mm_inicial']?.toString(),
-        'alturaAguaInicial': cacl['altura_agua_inicial']?.toString(),
-        'volumeAguaInicial': cacl['volume_agua_inicial'] != null
-            ? fmt(cacl['volume_agua_inicial'])
-            : '-',
-        'alturaProdutoInicial': cacl['altura_produto_inicial']?.toString(),
-        'tempTanqueInicial': cacl['temperatura_tanque_inicial']?.toString(),
-        'densidadeInicial': cacl['densidade_observada_inicial']?.toString(),
-        'tempAmostraInicial': cacl['temperatura_amostra_inicial']?.toString(),
-        'densidade20Inicial': cacl['densidade_20_inicial']?.toString(),
-        'fatorCorrecaoInicial': cacl['fator_correcao_inicial']?.toString(),
-        'volume20Inicial': cacl['volume_20_inicial'] != null
-            ? fmt(cacl['volume_20_inicial'])
-            : '-',
-        'massaInicial': cacl['massa_inicial']?.toString(),
-
-        // 🔴 CORREÇÃO PRINCIPAL
-        'volumeProdutoInicial': cacl['volume_produto_inicial'] != null
-            ? fmt(cacl['volume_produto_inicial'])
-            : '-',
-        'volumeTotalLiquidoInicial':
-            cacl['volume_total_liquido_inicial'] != null
-                ? fmt(cacl['volume_total_liquido_inicial'])
-                : '-',
-
-        // ===== FINAL =====
-        'horarioFinal': cacl['horario_final']?.toString(),
-        'cmFinal': cacl['altura_total_cm_final']?.toString(),
-        'mmFinal': cacl['altura_total_mm_final']?.toString(),
-        'alturaAguaFinal': cacl['altura_agua_final']?.toString(),
-        'volumeAguaFinal': cacl['volume_agua_final'] != null
-            ? fmt(cacl['volume_agua_final'])
-            : '-',
-        'alturaProdutoFinal': cacl['altura_produto_final']?.toString(),
-        'tempTanqueFinal': cacl['temperatura_tanque_final']?.toString(),
-        'densidadeFinal': cacl['densidade_observada_final']?.toString(),
-        'tempAmostraFinal': cacl['temperatura_amostra_final']?.toString(),
-        'densidade20Final': cacl['densidade_20_final']?.toString(),
-        'fatorCorrecaoFinal': cacl['fator_correcao_final']?.toString(),
-        'volume20Final': cacl['volume_20_final'] != null
-            ? fmt(cacl['volume_20_final'])
-            : '-',
-        'massaFinal': cacl['massa_final']?.toString(),
-
-        // 🔴 CORREÇÃO PRINCIPAL
-        'volumeProdutoFinal': cacl['volume_produto_final'] != null
-            ? fmt(cacl['volume_produto_final'])
-            : '-',
-        'volumeTotalLiquidoFinal':
-            cacl['volume_total_liquido_final'] != null
-                ? fmt(cacl['volume_total_liquido_final'])
-                : '-',
-
-        // FATURAMENTO
-        'faturadoFinal': cacl['faturado_final']?.toString(),
-      }
-    };
-  }
+  }  
 }
