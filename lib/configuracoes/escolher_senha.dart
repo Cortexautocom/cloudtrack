@@ -58,6 +58,7 @@ class _EscolherSenhaPageState extends State<EscolherSenhaPage> {
           UsuarioAtual.instance = UsuarioAtual(
             id: UsuarioAtual.instance!.id,
             nome: UsuarioAtual.instance!.nome,
+            empresaId: UsuarioAtual.instance!.empresaId,
             nivel: UsuarioAtual.instance!.nivel,
             filialId: UsuarioAtual.instance!.filialId,
             sessoesPermitidas: UsuarioAtual.instance!.sessoesPermitidas,

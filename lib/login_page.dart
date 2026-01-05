@@ -3,7 +3,7 @@ import 'home.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'configuracoes/cadastro_novo_usuario.dart';
 import 'configuracoes/esqueci_senha.dart';
-import 'configuracoes/escolher_senha.dart'; // ✅ IMPORT ADICIONADO
+import 'configuracoes/escolher_senha.dart';
 
 /// 🧩 Classe global que armazena dados do usuário logado
 class UsuarioAtual {
@@ -12,17 +12,22 @@ class UsuarioAtual {
   final String id;
   final String nome;
   final int nivel;
+
+  /// IDs SEMPRE String (Flutter Web safe)
   final String? filialId;
+  final String? empresaId;
+
   final List<String> sessoesPermitidas;
-  final bool senhaTemporaria; // ✅ NOVO CAMPO
+  final bool senhaTemporaria;
 
   UsuarioAtual({
     required this.id,
     required this.nome,
     required this.nivel,
-    this.filialId,
+    required this.filialId,
+    required this.empresaId,
     required this.sessoesPermitidas,
-    required this.senhaTemporaria, // ✅ NOVO PARÂMETRO
+    required this.senhaTemporaria,
   });
 
   bool temPermissao(String idSessao) {
@@ -30,7 +35,6 @@ class UsuarioAtual {
     return sessoesPermitidas.contains(idSessao);
   }
 
-  // ✅ NOVO MÉTODO PARA VERIFICAR SE PRECISA TROCAR SENHA
   bool get precisaTrocarSenha => senhaTemporaria;
 }
 
@@ -44,17 +48,18 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+
   bool _obscureText = true;
   bool _isLoading = false;
 
   // ======= Função de login =======
   Future<void> loginUser() async {
     setState(() => _isLoading = true);
+
     final supabase = Supabase.instance.client;
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
-    // Validação básica dos campos
     if (email.isEmpty || password.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -69,45 +74,64 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     try {
-      // 🔹 1. Autentica usuário
+      // 🔹 1. Autenticação
       final response = await supabase.auth.signInWithPassword(
         email: email,
         password: password,
       );
 
       if (response.user == null) {
-        throw 'Falha na autenticação.';
+        throw Exception('Falha na autenticação.');
       }
+
       final userId = response.user!.id;
 
-      // 🔹 2. Busca dados do usuário
-      final usuarioData = await supabase
+      // 🔹 2. Busca dados do usuário (empresa_id incluído)
+      final raw = await supabase
           .from('usuarios')
-          .select('id, nome, nivel, id_filial, senha_temporaria, Nome_apelido')
+          .select('''
+            id,
+            nome,
+            Nome_apelido,
+            nivel,
+            id_filial,
+            empresa_id,
+            senha_temporaria
+          ''')
           .eq('id', userId)
           .maybeSingle();
 
-      if (usuarioData == null) {
-        throw 'Usuário não encontrado na tabela de usuários.';
+      if (raw == null) {
+        throw Exception('Usuário não encontrado na tabela de usuários.');
       }
 
-      // 🔹 3. Inicializa lista vazia (será carregada depois)
-      List<String> sessoesPermitidas = [];
+      /// 🔹 3. Conversão EXPLÍCITA (obrigatória no Flutter Web)
+      final Map<String, dynamic> usuarioData =
+          Map<String, dynamic>.from(raw as Map);
+
+      final String? filialId = usuarioData['id_filial'] != null
+          ? usuarioData['id_filial'].toString()
+          : null;
+
+      final String? empresaId = usuarioData['empresa_id'] != null
+          ? usuarioData['empresa_id'].toString()
+          : null;
 
       // 🔹 4. Cria objeto global do usuário
       UsuarioAtual.instance = UsuarioAtual(
-        id: usuarioData['id'],
-        nome: usuarioData['Nome_apelido'] ?? usuarioData['nome'],
-        nivel: usuarioData['nivel'],
-        filialId: usuarioData['id_filial']?.toString(),
-        sessoesPermitidas: sessoesPermitidas,
-        senhaTemporaria: usuarioData['senha_temporaria'] ?? true,
+        id: usuarioData['id'].toString(),
+        nome: (usuarioData['Nome_apelido'] ?? usuarioData['nome']).toString(),
+        nivel: usuarioData['nivel'] as int,
+        filialId: filialId,
+        empresaId: empresaId,
+        sessoesPermitidas: <String>[],
+        senhaTemporaria: usuarioData['senha_temporaria'] == true,
       );
 
-      // 🔹 5. VERIFICA SE PRECISA REDIRECIONAR PARA TROCA DE SENHA
+      // 🔹 5. Verifica troca de senha
       if (UsuarioAtual.instance!.precisaTrocarSenha) {
         if (!mounted) return;
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Por favor, defina uma nova senha para sua conta.'),
@@ -115,14 +139,13 @@ class _LoginPageState extends State<LoginPage> {
           ),
         );
 
-        // 🔄 REDIRECIONA PARA TELA DE ESCOLHER SENHA
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const EscolherSenhaPage()),
+          MaterialPageRoute(builder: (_) => const EscolherSenhaPage()),
         );
       } else {
-        // 🔹 6. Login normal - vai para Home
         if (!mounted) return;
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Login realizado com sucesso!'),
@@ -132,64 +155,27 @@ class _LoginPageState extends State<LoginPage> {
 
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const HomePage()),
+          MaterialPageRoute(builder: (_) => const HomePage()),
         );
       }
     } catch (error) {
       if (!mounted) return;
-      
-      String mensagemErro;
-      
-      // Tenta identificar diferentes tipos de erro
+
+      String mensagemErro = 'Erro ao fazer login.';
+
       if (error is AuthException) {
-        final errorMessage = error.message.toLowerCase();
-        final statusCodeStr = error.statusCode?.toString() ?? '';
-        
-        // Erro de credenciais inválidas (email não existe OU senha incorreta)
-        if (statusCodeStr == '400' || 
-            errorMessage.contains('invalid login credentials') || 
-            errorMessage.contains('invalid_credentials')) {
-          mensagemErro = 'E-mail ou senha incorretos. Tente novamente.';
-        } 
-        // E-mail não confirmado
-        else if (errorMessage.contains('email not confirmed')) {
-          mensagemErro = 'E-mail não confirmado. Verifique sua caixa de entrada.';
+        final msg = error.message.toLowerCase();
+        if (msg.contains('invalid')) {
+          mensagemErro = 'E-mail ou senha incorretos.';
+        } else if (msg.contains('email not confirmed')) {
+          mensagemErro = 'E-mail não confirmado.';
         }
-        // Usuário não encontrado (pode ser uma conta excluída)
-        else if (errorMessage.contains('user not found')) {
-          mensagemErro = 'Conta não encontrada. Verifique seus dados.';
-        }
-        // Muitas tentativas
-        else if (errorMessage.contains('too many requests')) {
-          mensagemErro = 'Muitas tentativas. Aguarde alguns minutos.';
-        }
-        // Erro de rede/conexão
-        else if (errorMessage.contains('network') || errorMessage.contains('connection')) {
-          mensagemErro = 'Erro de conexão. Verifique sua internet.';
-        }
-        // Outros erros de autenticação
-        else {
-          mensagemErro = 'Erro ao fazer login: ${error.message.length > 50 ? 'Erro de autenticação' : error.message}';
-        }
-      } 
-      // Erros de timeout
-      else if (error.toString().toLowerCase().contains('timeout') ||
-              error.toString().toLowerCase().contains('timed out')) {
-        mensagemErro = 'Tempo esgotado. Verifique sua conexão.';
       }
-      // Outros erros genéricos
-      else {
-        final errorStr = error.toString();
-        mensagemErro = errorStr.length > 100 
-            ? 'Erro ao fazer login. Tente novamente.' 
-            : 'Erro: $errorStr';
-      }
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(mensagemErro),
           backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
         ),
       );
     } finally {
@@ -197,7 +183,7 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // ======= Interface de login =======
+  // ======= Interface =======
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -246,7 +232,6 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 30),
 
-                  // ===== Campo de e-mail =====
                   TextField(
                     controller: emailController,
                     decoration: InputDecoration(
@@ -259,7 +244,6 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 20),
 
-                  // ===== Campo de senha =====
                   TextField(
                     controller: passwordController,
                     obscureText: _obscureText,
@@ -283,7 +267,6 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 25),
 
-                  // ===== Botão Entrar =====
                   SizedBox(
                     width: double.infinity,
                     height: 48,
@@ -306,12 +289,12 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 20),
 
-                  // ===== Esqueci senha =====
                   TextButton(
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const EsqueciSenhaPage()),
+                        MaterialPageRoute(
+                            builder: (_) => const EsqueciSenhaPage()),
                       );
                     },
                     child: const Text(
@@ -319,13 +302,14 @@ class _LoginPageState extends State<LoginPage> {
                       style: TextStyle(color: Color(0xFF0A4B78)),
                     ),
                   ),
-                  
-                  // ===== Me cadastrar =====
+
                   TextButton(
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const CadastroNovoUsuarioPage()),
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                const CadastroNovoUsuarioPage()),
                       );
                     },
                     child: const Text(
@@ -343,31 +327,25 @@ class _LoginPageState extends State<LoginPage> {
             bottom: 30,
             left: 0,
             right: 0,
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    "© 2025 CloudTrack, LLC. All rights reserved.",
-                    style: TextStyle(
-                      color: Colors.grey.shade400,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    textAlign: TextAlign.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  "© 2025 CloudTrack, LLC. All rights reserved.",
+                  style: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontSize: 13,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "AwaySoftwares Solution - 505 North Angier Avenue, Atlanta, GA 30308, EUA.",
-                    style: TextStyle(
-                      color: Colors.grey.shade400,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "AwaySoftwares Solution - 505 North Angier Avenue, Atlanta, GA 30308, EUA.",
+                  style: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontSize: 13,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],

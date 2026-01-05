@@ -332,6 +332,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         UsuarioAtual.instance = UsuarioAtual(
           id: usuario.id,
           nome: usuario.nome,
+          empresaId: usuario.empresaId,
           nivel: usuario.nivel,
           filialId: usuario.filialId,
           sessoesPermitidas: [],
@@ -357,6 +358,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         nome: usuario.nome,
         nivel: usuario.nivel,
         filialId: usuario.filialId,
+        empresaId: usuario.empresaId,
         sessoesPermitidas: sessoesPermitidas,
         senhaTemporaria: usuario.senhaTemporaria,
       );
