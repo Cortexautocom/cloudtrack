@@ -109,13 +109,8 @@ class _LoginPageState extends State<LoginPage> {
       final Map<String, dynamic> usuarioData =
           Map<String, dynamic>.from(raw as Map);
 
-      final String? filialId = usuarioData['id_filial'] != null
-          ? usuarioData['id_filial'].toString()
-          : null;
-
-      final String? empresaId = usuarioData['empresa_id'] != null
-          ? usuarioData['empresa_id'].toString()
-          : null;
+      final String? filialId = usuarioData['id_filial']?.toString();
+      final String? empresaId = usuarioData['empresa_id']?.toString();
 
       // 🔹 4. Cria objeto global do usuário
       UsuarioAtual.instance = UsuarioAtual(
