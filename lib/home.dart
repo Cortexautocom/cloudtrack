@@ -20,6 +20,9 @@ import 'sessoes/estoques/filtro_estoque.dart';
 import 'sessoes/estoques/estoque_mes.dart';
 import 'sessoes/circuito/gerenciar_circuito.dart';
 
+// NOVO: Importar páginas para as novas sessões
+// import 'sessoes/bombeios/bombeios_page.dart'; // Descomente quando criar
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -38,29 +41,35 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     'Ajuda'
   ];
 
+  // FLAGS GERAIS
   bool showConversaoList = false;
   bool showControleAcesso = false;
   bool showConfigList = false;
   bool carregandoSessoes = false;
   bool showUsuarios = false;
+  
+  // FLAGS PARA SESSÕES ESPECÍFICAS
   bool _mostrarCalcGerado = false;
   bool _mostrarDownloads = false;
-  bool _mostrarApuracaoFilhos = false;
-  bool _veioDaApuracao = false;
   bool _mostrarMedicaoTanques = false;
   bool _mostrarTanques = false;
   bool _mostrarOrdensAnalise = false;
   bool _mostrarHistorico = false;
   bool _mostrarListarCacls = false;
   bool _mostrarFiltrosEstoque = false;
-  bool _mostrarCircuitoFilhos = false;
+  bool _mostrarEscolherFilial = false;
+  bool _mostrarEstoquePorEmpresa = false;
+  bool _mostrarFiliaisDaEmpresa = false;
   bool _mostrarIniciarCircuito = false;
-
+  
+  // FLAG UNIFICADA PARA MOSTRAR FILHOS DE QUALQUER SESSÃO
+  bool _mostrarFilhosSessao = false;
+  String? _sessaoAtual; // Nome da sessão pai atual
+  List<Map<String, dynamic>> _filhosSessaoAtual = []; // Filhos da sessão atual
+  
+  // DADOS PARA NAVEGAÇÃO
   String? _filialSelecionadaNome;
   Map<String, dynamic>? _dadosCalcGerado;
-  
-  // FLAGS PARA ESCOLHA DE FILIAL
-  bool _mostrarEscolherFilial = false;
   String? _filialSelecionadaId;
   String _contextoEscolhaFilial = '';
   String? _filialParaFiltroId;
@@ -68,95 +77,152 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   String? _empresaParaFiltroId;
   String? _empresaParaFiltroNome;
   
+  // LISTAS DE DADOS
   List<Map<String, dynamic>> sessoes = [];
-  List<Map<String, dynamic>> apuracaoFilhos = [];
-  List<Map<String, dynamic>> estoquesFilhos = [];
   List<Map<String, dynamic>> empresas = [];
   List<Map<String, dynamic>> filiaisDaEmpresa = [];
-  List<Map<String, dynamic>> circuitoFilhos = [];
-  bool _mostrarEstoquesFilhos = false;
-  bool _mostrarEstoquePorEmpresa = false;
-  bool _mostrarFiliaisDaEmpresa = false;
+  
+  // FLAGS DE CARREGAMENTO
   bool carregandoEmpresas = false;
   bool carregandoFiliaisEmpresa = false;
   String? _empresaSelecionadaNome;
   String? _empresaSelecionadaId;
 
+  // NOVO: MAPA UNIFICADO DE FILHOS POR SESSÃO
+  final Map<String, List<Map<String, dynamic>>> _filhosPorSessao = {};
+
   @override
   void initState() {
     super.initState();
-    _inicializarApuracaoFilhos();
-    _inicializarEstoquesFilhos();
-    _inicializarCircuitoFilhos();
+    _inicializarFilhosPorSessao(); // NOVO: Inicializar todos os filhos de uma vez
     selectedIndex = -1;
   }
 
-  void _inicializarApuracaoFilhos() {
-    apuracaoFilhos = [
+  // NOVO: Método unificado para inicializar todos os filhos
+  void _inicializarFilhosPorSessao() {
+    // Filhos para "Apuração"
+    _filhosPorSessao['Apuração'] = [
       {
         'icon': Icons.analytics,
         'label': 'CACL',
         'descricao': 'Emitir CACL',
+        'tipo': 'cacl',
       },      
       {
         'icon': Icons.oil_barrel,
         'label': 'Tanques',
         'descricao': 'Gerenciamento de tanques',
+        'tipo': 'tanques',
       },
       {
         'icon': Icons.assignment,
         'label': 'Ordens / Análise',
         'descricao': 'Geração e gestão de ordens',
+        'tipo': 'ordens_analise',
       },
       {
         'icon': Icons.history,
         'label': 'Histórico de CACLs',
         'descricao': 'Consultar histórico de CACLs emitidos',
+        'tipo': 'historico_cacl',
       },
       {
         'icon': Icons.table_chart,
         'label': 'Tabelas de Conversão',
         'descricao': 'Tabelas de conversão de densidade e temperatura',
+        'tipo': 'tabelas_conversao',
       },
     ];
-  }
 
-  void _inicializarEstoquesFilhos() {
-    estoquesFilhos = [
+    // Filhos para "Estoques"
+    _filhosPorSessao['Estoques'] = [
       {
         'icon': Icons.hub,
         'label': 'Estoque Geral',
         'descricao': 'Visão consolidada dos estoques da base',
+        'tipo': 'estoque_geral',
       },
       {
         'icon': Icons.business,
         'label': 'Estoque por empresa',
         'descricao': 'Estoques separados por empresa',
+        'tipo': 'estoque_por_empresa',
       },
       {
         'icon': Icons.swap_horiz,
         'label': 'Movimentações',
         'descricao': 'Acompanhar entradas e saídas em geral',
+        'tipo': 'movimentacoes',
+      },
+      {
+        'icon': Icons.download,
+        'label': 'Downloads',
+        'descricao': 'Baixar relatórios e dados',
+        'tipo': 'downloads',
       },
     ];
-  }
 
-  void _inicializarCircuitoFilhos() {
-    circuitoFilhos = [
+    // Filhos para "Circuito"
+    _filhosPorSessao['Circuito'] = [
       {
         'icon': Icons.play_arrow,
         'label': 'Iniciar Circuito',
         'descricao': 'Iniciar novo fluxo de carga/descarga',
+        'tipo': 'iniciar_circuito',
       },
       {
         'icon': Icons.directions_car,
         'label': 'Acompanhar veículo',
         'descricao': 'Monitorar veículo em trânsito',
+        'tipo': 'acompanhar_veiculo',
       },
       {
         'icon': Icons.dashboard,
         'label': 'Visão geral',
         'descricao': 'Panorama completo dos circuitos',
+        'tipo': 'visao_geral_circuito',
+      },
+    ];
+
+    // Filhos para "Gestão de Frota"
+    _filhosPorSessao['Gestão de Frota'] = [
+      {
+        'icon': Icons.directions_car,
+        'label': 'Veículos',
+        'descricao': 'Gerenciar frota de veículos',
+        'tipo': 'veiculos',
+      },
+      {
+        'icon': Icons.people,
+        'label': 'Motoristas',
+        'descricao': 'Gerenciar cadastro de motoristas',
+        'tipo': 'motoristas',
+      },
+      {
+        'icon': Icons.description,
+        'label': 'Documentação',
+        'descricao': 'Controle de documentos da frota',
+        'tipo': 'documentacao',
+      },
+    ];
+
+    // Filhos para "Vendas" (se necessário)
+    _filhosPorSessao['Vendas'] = [
+      {
+        'icon': Icons.local_gas_station,
+        'label': 'Programação',
+        'descricao': 'Programação de vendas',
+        'tipo': 'programacao_vendas',
+      },
+    ];
+
+    // Filhos para "Bombeios" (se necessário)
+    _filhosPorSessao['Bombeios'] = [
+      {
+        'icon': Icons.invert_colors,
+        'label': 'Bombeios',
+        'descricao': 'Controle de bombeios',
+        'tipo': 'bombeios',
       },
     ];
   }
@@ -297,6 +363,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         final idSessao = s['id'].toString();
         final nome = s['nome'] ?? 'Sem nome';
         
+        // "Tabelas de conversão" não aparece como card pai, apenas como filho
         if (nome == 'Tabelas de conversão') {
           continue;
         }
@@ -316,6 +383,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         sessoes = filtradas;
       });
     } catch (e) {
+      debugPrint("Erro ao carregar sessões: $e");
     } finally {
       setState(() => carregandoSessoes = false);
     }
@@ -377,46 +445,80 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
-  void _navegarParaInicio() {
+  // NOVO: Método unificado para resetar todas as flags
+  void _resetarTodasFlags() {
     setState(() {
+      // Flags gerais
       selectedIndex = -1;
       showConversaoList = false;
       showControleAcesso = false;
       showConfigList = false;
       showUsuarios = false;
       _mostrarCalcGerado = false;
-      _mostrarApuracaoFilhos = false;
-      _veioDaApuracao = false;
+      _mostrarDownloads = false;
+      
+      // Flags para sessões específicas
       _mostrarMedicaoTanques = false;
       _mostrarTanques = false;
-      _mostrarEscolherFilial = false;
-      _filialSelecionadaId = null;
-      _filialSelecionadaNome = null;
-      _contextoEscolhaFilial = '';
       _mostrarOrdensAnalise = false;
       _mostrarHistorico = false;
-      _mostrarEstoquePorEmpresa = false;
-      _mostrarEstoquesFilhos = false;
-      _mostrarFiliaisDaEmpresa = false;
       _mostrarListarCacls = false;
-      _mostrarDownloads = false;
-      _empresaSelecionadaId = null;
-      _empresaSelecionadaNome = null;
       _mostrarFiltrosEstoque = false;
+      _mostrarEscolherFilial = false;
+      _mostrarEstoquePorEmpresa = false;
+      _mostrarFiliaisDaEmpresa = false;
+      _mostrarIniciarCircuito = false;
+      
+      // Flag unificada
+      _mostrarFilhosSessao = false;
+      _sessaoAtual = null;
+      _filhosSessaoAtual = [];
+      
+      // Dados de navegação
+      _filialSelecionadaNome = null;
+      _dadosCalcGerado = null;
+      _filialSelecionadaId = null;
+      _contextoEscolhaFilial = '';
       _filialParaFiltroId = null;
       _filialParaFiltroNome = null;
       _empresaParaFiltroId = null;
       _empresaParaFiltroNome = null;
+      _empresaSelecionadaId = null;
+      _empresaSelecionadaNome = null;
+    });
+  }
+
+  // NOVO: Método unificado para mostrar filhos de uma sessão
+  void _mostrarFilhosDaSessao(String nomeSessao) {
+    final filhos = _filhosPorSessao[nomeSessao] ?? [];
+    
+    setState(() {
+      _mostrarFilhosSessao = true;
+      _sessaoAtual = nomeSessao;
+      _filhosSessaoAtual = filhos;
+      
+      // Resetar outras flags
+      showConversaoList = false;
+      _mostrarDownloads = false;
+      _mostrarListarCacls = false;
+      _mostrarOrdensAnalise = false;
+      _mostrarHistorico = false;
+      _mostrarEscolherFilial = false;
+      _mostrarMedicaoTanques = false;
+      _mostrarTanques = false;
+      _mostrarFiliaisDaEmpresa = false;
+      _mostrarEstoquePorEmpresa = false;
       _mostrarFiltrosEstoque = false;
-      _mostrarCircuitoFilhos = false;
       _mostrarIniciarCircuito = false;
     });
   }
 
+  // NOVO: Método unificado para voltar aos cards pai
   void _voltarParaCardsPai() {
     setState(() {
-      _mostrarApuracaoFilhos = false;
-      _veioDaApuracao = false;
+      _mostrarFilhosSessao = false;
+      _sessaoAtual = null;
+      _filhosSessaoAtual = [];
     });
   }
 
@@ -446,7 +548,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 Padding(
                   padding: const EdgeInsets.only(left: 10),
                   child: InkWell(
-                    onTap: _navegarParaInicio,
+                    onTap: _resetarTodasFlags,
                     child: MouseRegion(
                       cursor: SystemMouseCursors.click,
                       child: Image.asset(
@@ -527,47 +629,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                             bool isSelected = selectedIndex == index;
                             return InkWell(
                               onTap: () async {
+                                _resetarTodasFlags();
                                 setState(() {
                                   selectedIndex = index;
-                                  showConversaoList = false;
-                                  showControleAcesso = false;
-                                  showConfigList = false;
-                                  showUsuarios = false;
-                                  _mostrarCalcGerado = false;
-                                  _mostrarApuracaoFilhos = false;
-                                  _mostrarMedicaoTanques = false;
-                                  _veioDaApuracao = false;
-                                  _mostrarTanques = false;
-                                  _mostrarEscolherFilial = false;
-                                  _filialSelecionadaId = null;
-                                  _contextoEscolhaFilial = '';
-                                  _mostrarOrdensAnalise = false;
-                                  _mostrarHistorico = false;
-                                  _mostrarEstoquePorEmpresa = false;
-                                  _mostrarEstoquesFilhos = false;
-                                  _mostrarFiliaisDaEmpresa = false;
-                                  _mostrarListarCacls = false;
-                                  _filialParaFiltroId = null;
-                                  _filialParaFiltroNome = null;
-                                  _empresaParaFiltroId = null;
-                                  _empresaParaFiltroNome = null;
-                                  _mostrarFiltrosEstoque = false;
-                                  _mostrarCircuitoFilhos = false;
-                                  _mostrarIniciarCircuito = false;
                                 });
 
                                 if (menuItems[index] == 'Sessões') {
                                   await _verificarPermissoesUsuario();
                                 }
-
-                                if (menuItems[index] != 'Configurações') {
-                                  setState(() {
-                                    showControleAcesso = false;
-                                    showUsuarios = false;
-                                  });
-                                }
                               },
-
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 400),
                                 padding: const EdgeInsets.symmetric(
@@ -679,206 +749,211 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         duration: const Duration(milliseconds: 400),
         transitionBuilder: (child, animation) =>
             FadeTransition(opacity: animation, child: child),
-        child: _mostrarFiltrosEstoque && _filialParaFiltroId != null
-            ? _buildFiltrosEstoquePage()
-            : _mostrarDownloads
-                ? DownloadsPage(
-                    key: const ValueKey('downloads-page'),
-                    onVoltar: () {
-                      setState(() {
-                        _mostrarDownloads = false;
-                        _mostrarEstoquesFilhos = true;
-                      });
-                    },
-                  )
-                : showConversaoList
-                    ? TabelasDeConversao(
-                        key: const ValueKey('tabelas'),
-                        onVoltar: () {
-                          setState(() {
-                            showConversaoList = false;
-                            if (_veioDaApuracao) {
-                              _mostrarApuracaoFilhos = true;
-                            }
-                          });
-                        },
-                      )
-                    : _mostrarListarCacls
-                        ? ListarCaclsPage(
-                            key: ValueKey('listar-cacls-$_filialSelecionadaId'),
-                            onVoltar: () {
-                              final usuario = UsuarioAtual.instance;
-                              setState(() {
-                                _mostrarListarCacls = false;
-                                _filialSelecionadaNome = null;
-
-                                if (usuario!.nivel == 3) {
-                                  _mostrarEscolherFilial = true;
-                                  _contextoEscolhaFilial = 'cacl';
-                                } else if (_veioDaApuracao) {
-                                  _mostrarApuracaoFilhos = true;
-                                }
-                              });
-                            },
-                            filialId: _filialSelecionadaId!,
-                            filialNome: _filialSelecionadaNome ?? 'Filial',
-                            onIrParaEmissao: () {
-                              setState(() {
-                                _mostrarListarCacls = false;
-                                _mostrarMedicaoTanques = true;
-                                _mostrarApuracaoFilhos = true;
-                                _veioDaApuracao = true;
-                              });
-                            },
-                          )
-                        : _mostrarOrdensAnalise
-                            ? CertificadoAnalisePage(
-                                key: const ValueKey('ordens-analise'),
-                                onVoltar: () {
-                                  setState(() {
-                                    _mostrarOrdensAnalise = false;
-                                    if (_veioDaApuracao) {
-                                      _mostrarApuracaoFilhos = true;
-                                    }
-                                  });
-                                },
-                              )
-                            : _mostrarHistorico
-                                ? HistoricoCaclPage(
-                                    key: const ValueKey('historico-cacl'),
-                                    onVoltar: () {
-                                      setState(() {
-                                        _mostrarHistorico = false;
-                                        if (_veioDaApuracao) {
-                                          _mostrarApuracaoFilhos = true;
-                                        }
-                                      });
-                                    },
-                                  )
-                                : _mostrarEscolherFilial
-                                    ? EscolherFilialPage(
-                                        key: ValueKey('escolher-filial-$_contextoEscolhaFilial'),
-                                        onVoltar: () {
-                                          setState(() {
-                                            _mostrarEscolherFilial = false;
-                                            if (_veioDaApuracao) {
-                                              _mostrarApuracaoFilhos = true;
-                                            }
-                                            _contextoEscolhaFilial = '';
-                                          });
-                                        },
-                                        onSelecionarFilial: (idFilial) async {
-                                          try {
-                                            final supabase = Supabase.instance.client;
-                                            final filialData = await supabase
-                                                .from('filiais')
-                                                .select('nome')
-                                                .eq('id', idFilial)
-                                                .single();
-
-                                            setState(() {
-                                              _filialSelecionadaId = idFilial;
-                                              _filialSelecionadaNome = filialData['nome'];
-                                              _mostrarEscolherFilial = false;
-
-                                              if (_contextoEscolhaFilial == 'cacl') {
-                                                _mostrarListarCacls = true;
-                                              } else if (_contextoEscolhaFilial == 'tanques') {
-                                                _mostrarTanques = true;
-                                              }
-
-                                              _contextoEscolhaFilial = '';
-                                            });
-                                          } catch (e) {
-                                            setState(() {
-                                              _filialSelecionadaId = idFilial;
-                                              _filialSelecionadaNome = 'Filial';
-                                              _mostrarEscolherFilial = false;
-
-                                              if (_contextoEscolhaFilial == 'cacl') {
-                                                _mostrarListarCacls = true;
-                                              }
-
-                                              _contextoEscolhaFilial = '';
-                                            });
-                                          }
-                                        },
-                                        titulo: _contextoEscolhaFilial == 'cacl'
-                                            ? 'Selecionar filial para CACL:'
-                                            : 'Selecionar filial para gerenciar tanques:',
-                                      )
-                                    : _mostrarMedicaoTanques
-                                        ? MedicaoTanquesPage(
-                                            key: const ValueKey('medicao-tanques'),
-                                            filialSelecionadaId: _filialSelecionadaId,
-                                            onVoltar: () {
-                                              setState(() {
-                                                _mostrarMedicaoTanques = false;
-                                                _mostrarListarCacls = true;
-                                              });
-                                            },
-                                            onFinalizarCACL: () {
-                                              setState(() {
-                                                _mostrarMedicaoTanques = false;
-                                                _mostrarListarCacls = false;
-                                                _mostrarApuracaoFilhos = true;
-                                                _veioDaApuracao = true;
-                                              });
-                                            },
-                                          )
-                                        : _mostrarTanques
-                                            ? GerenciamentoTanquesPage(
-                                                key: const ValueKey('gerenciamento-tanques'),
-                                                onVoltar: () {
-                                                  final usuario = UsuarioAtual.instance;
-                                                  setState(() {
-                                                    _mostrarTanques = false;
-                                                    _filialSelecionadaId = null;
-
-                                                    if (usuario!.nivel == 3) {
-                                                      _mostrarEscolherFilial = true;
-                                                      _contextoEscolhaFilial = 'tanques';
-                                                    } else if (_veioDaApuracao) {
-                                                      _mostrarApuracaoFilhos = true;
-                                                    }
-                                                  });
-                                                },
-                                                filialSelecionadaId: _filialSelecionadaId,
-                                              )
-                                            : _mostrarFiliaisDaEmpresa
-                                                ? _buildFiliaisDaEmpresaPage()
-                                                : _mostrarEstoquePorEmpresa
-                                                    ? _buildEstoquePorEmpresaPage()
-                                                    : _mostrarEstoquesFilhos
-                                                        ? _buildEstoquesFilhosPage()
-                                                        : _mostrarIniciarCircuito
-                                                            ? IniciarCircuitoPage(
-                                                                key: const ValueKey('iniciar-circuito'),
-                                                                onVoltar: () {
-                                                                  setState(() {
-                                                                    _mostrarIniciarCircuito = false;
-                                                                    _mostrarCircuitoFilhos = true;
-                                                                    _mostrarApuracaoFilhos = false;
-                                                                    _mostrarEstoquesFilhos = false;
-                                                                  });
-                                                                },
-                                                              )
-                                                            : _mostrarCircuitoFilhos
-                                                                ? _buildCircuitoFilhosPage()
-                                                                : _mostrarApuracaoFilhos
-                                                                    ? _buildApuracaoFilhosPage()
-                                                                    : _mostrarCalcGerado
-                                                                        ? CalcPage(
-                                                                            key: const ValueKey('calc-page'),
-                                                                            dadosFormulario: _dadosCalcGerado ?? {},
-                                                                          )
-                                                                        : _buildGridWithSearch(sessoes),
+        child: _buildConteudoSessoes(),
       ),
     );
   }
 
+  // NOVO: Método unificado para construir o conteúdo das sessões
+  Widget _buildConteudoSessoes() {
+    // Páginas específicas (fluxos complexos)
+    if (_mostrarFiltrosEstoque && _filialParaFiltroId != null) {
+      return _buildFiltrosEstoquePage();
+    }
+    
+    if (_mostrarDownloads) {
+      return DownloadsPage(
+        key: const ValueKey('downloads-page'),
+        onVoltar: () {
+          _mostrarFilhosDaSessao('Estoques');
+        },
+      );
+    }
+    
+    if (showConversaoList) {
+      return TabelasDeConversao(
+        key: const ValueKey('tabelas'),
+        onVoltar: () {
+          _mostrarFilhosDaSessao('Apuração');
+        },
+      );
+    }
+    
+    if (_mostrarListarCacls && _filialSelecionadaId != null) {
+      return ListarCaclsPage(
+        key: ValueKey('listar-cacls-$_filialSelecionadaId'),
+        onVoltar: () {
+          final usuario = UsuarioAtual.instance;
+          setState(() {
+            _mostrarListarCacls = false;
+            _filialSelecionadaNome = null;
 
-  Widget _buildApuracaoFilhosPage() {
+            if (usuario!.nivel == 3) {
+              _mostrarEscolherFilial = true;
+              _contextoEscolhaFilial = 'cacl';
+            } else {
+              _mostrarFilhosDaSessao('Apuração');
+            }
+          });
+        },
+        filialId: _filialSelecionadaId!,
+        filialNome: _filialSelecionadaNome ?? 'Filial',
+        onIrParaEmissao: () {
+          setState(() {
+            _mostrarListarCacls = false;
+            _mostrarMedicaoTanques = true;
+          });
+        },
+      );
+    }
+    
+    if (_mostrarOrdensAnalise) {
+      return CertificadoAnalisePage(
+        key: const ValueKey('ordens-analise'),
+        onVoltar: () {
+          _mostrarFilhosDaSessao('Apuração');
+        },
+      );
+    }
+    
+    if (_mostrarHistorico) {
+      return HistoricoCaclPage(
+        key: const ValueKey('historico-cacl'),
+        onVoltar: () {
+          _mostrarFilhosDaSessao('Apuração');
+        },
+      );
+    }
+    
+    if (_mostrarEscolherFilial) {
+      return EscolherFilialPage(
+        key: ValueKey('escolher-filial-$_contextoEscolhaFilial'),
+        onVoltar: () {
+          setState(() {
+            _mostrarEscolherFilial = false;
+            _contextoEscolhaFilial = '';
+            _mostrarFilhosDaSessao('Apuração');
+          });
+        },
+        onSelecionarFilial: (idFilial) async {
+          try {
+            final supabase = Supabase.instance.client;
+            final filialData = await supabase
+                .from('filiais')
+                .select('nome')
+                .eq('id', idFilial)
+                .single();
+
+            setState(() {
+              _filialSelecionadaId = idFilial;
+              _filialSelecionadaNome = filialData['nome'];
+              _mostrarEscolherFilial = false;
+
+              if (_contextoEscolhaFilial == 'cacl') {
+                _mostrarListarCacls = true;
+              } else if (_contextoEscolhaFilial == 'tanques') {
+                _mostrarTanques = true;
+              }
+
+              _contextoEscolhaFilial = '';
+            });
+          } catch (e) {
+            setState(() {
+              _filialSelecionadaId = idFilial;
+              _filialSelecionadaNome = 'Filial';
+              _mostrarEscolherFilial = false;
+
+              if (_contextoEscolhaFilial == 'cacl') {
+                _mostrarListarCacls = true;
+              }
+
+              _contextoEscolhaFilial = '';
+            });
+          }
+        },
+        titulo: _contextoEscolhaFilial == 'cacl'
+            ? 'Selecionar filial para CACL:'
+            : 'Selecionar filial para gerenciar tanques:',
+      );
+    }
+    
+    if (_mostrarMedicaoTanques) {
+      return MedicaoTanquesPage(
+        key: const ValueKey('medicao-tanques'),
+        filialSelecionadaId: _filialSelecionadaId,
+        onVoltar: () {
+          setState(() {
+            _mostrarMedicaoTanques = false;
+            _mostrarListarCacls = true;
+          });
+        },
+        onFinalizarCACL: () {
+          setState(() {
+            _mostrarMedicaoTanques = false;
+            _mostrarListarCacls = false;
+            _mostrarFilhosDaSessao('Apuração');
+          });
+        },
+      );
+    }
+    
+    if (_mostrarTanques && _filialSelecionadaId != null) {
+      return GerenciamentoTanquesPage(
+        key: const ValueKey('gerenciamento-tanques'),
+        onVoltar: () {
+          final usuario = UsuarioAtual.instance;
+          setState(() {
+            _mostrarTanques = false;
+            _filialSelecionadaId = null;
+
+            if (usuario!.nivel == 3) {
+              _mostrarEscolherFilial = true;
+              _contextoEscolhaFilial = 'tanques';
+            } else {
+              _mostrarFilhosDaSessao('Apuração');
+            }
+          });
+        },
+        filialSelecionadaId: _filialSelecionadaId,
+      );
+    }
+    
+    if (_mostrarFiliaisDaEmpresa) {
+      return _buildFiliaisDaEmpresaPage();
+    }
+    
+    if (_mostrarEstoquePorEmpresa) {
+      return _buildEstoquePorEmpresaPage();
+    }
+    
+    if (_mostrarIniciarCircuito) {
+      return IniciarCircuitoPage(
+        key: const ValueKey('iniciar-circuito'),
+        onVoltar: () {
+          _mostrarFilhosDaSessao('Circuito');
+        },
+      );
+    }
+    
+    // Se estiver mostrando filhos de alguma sessão
+    if (_mostrarFilhosSessao && _sessaoAtual != null) {
+      return _buildFilhosSessaoPage();
+    }
+    
+    // Se estiver mostrando calculadora gerada
+    if (_mostrarCalcGerado) {
+      return CalcPage(
+        key: const ValueKey('calc-page'),
+        dadosFormulario: _dadosCalcGerado ?? {},
+      );
+    }
+    
+    // Página padrão com cards pai
+    return _buildGridWithSearch(sessoes);
+  }
+
+  // NOVO: Método unificado para construir página de filhos
+  Widget _buildFilhosSessaoPage() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -890,9 +965,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               tooltip: 'Voltar para sessões',
             ),
             const SizedBox(width: 10),
-            const Text(
-              'Apuração',
-              style: TextStyle(
+            Text(
+              _sessaoAtual ?? '',
+              style: const TextStyle(
                 fontSize: 24,
                 color: Color(0xFF0D47A1),
                 fontWeight: FontWeight.bold,
@@ -905,50 +980,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         const SizedBox(height: 20),
 
         Expanded(
-          child: _buildGridApuracaoFilhos(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEstoquesFilhosPage() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
-              onPressed: () {
-                setState(() {
-                  _mostrarEstoquesFilhos = false;
-                });
-              },
-            ),
-            const SizedBox(width: 10),
-            const Text(
-              'Estoques',
-              style: TextStyle(
-                fontSize: 24,
-                color: Color(0xFF0D47A1),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        const Divider(),
-        const SizedBox(height: 20),
-
-        Expanded(
           child: GridView.count(
             crossAxisCount: 7,
             crossAxisSpacing: 15,
             mainAxisSpacing: 15,
             childAspectRatio: 1,
-            children: estoquesFilhos
-                .map((card) => _buildCardApuracaoFilho(card))
-                .toList(),
+            children: _filhosSessaoAtual.map((card) => _buildCardFilho(card)).toList(),
           ),
         ),
       ],
@@ -964,10 +1001,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             IconButton(
               icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
               onPressed: () {
-                setState(() {
-                  _mostrarEstoquePorEmpresa = false;
-                  _mostrarEstoquesFilhos = true;
-                });
+                _mostrarFilhosDaSessao('Estoques');
               },
             ),
             const SizedBox(width: 10),
@@ -1067,27 +1101,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildGridApuracaoFilhos() {
-    return GridView.count(
-      shrinkWrap: true,
-      crossAxisCount: 7,
-      crossAxisSpacing: 15,
-      mainAxisSpacing: 15,
-      childAspectRatio: 1,
-      children: apuracaoFilhos.map((card) => _buildCardApuracaoFilho(card)).toList(),
-    );
-  }
-
-  Widget _buildCardApuracaoFilho(Map<String, dynamic> card) {
+  // NOVO: Método unificado para construir card filho
+  Widget _buildCardFilho(Map<String, dynamic> card) {
     return Material(
       elevation: 2,
       color: Colors.white,
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.hardEdge,
       child: InkWell(
-        onTap: () {
-          _navegarParaCardFilho(card['label']);
-        },
+        onTap: () => _navegarParaCardFilho(card),
         hoverColor: const Color(0xFFE8F5E9),
         child: Container(
           decoration: BoxDecoration(
@@ -1208,7 +1230,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         onTap: () {
           setState(() {
             _mostrarFiliaisDaEmpresa = false;
-            // Mostrar página de filtros usando estado
             _filialParaFiltroId = filial['id'];
             _filialParaFiltroNome = filial['label'];
             _empresaParaFiltroId = _empresaSelecionadaId;
@@ -1260,32 +1281,53 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  void _navegarParaCardFilho(String nomeCard) {
+  // NOVO: Método unificado para navegar para card filho
+  void _navegarParaCardFilho(Map<String, dynamic> card) {
     final usuario = UsuarioAtual.instance;
+    final tipo = card['tipo'];
+    final sessaoPai = _sessaoAtual;
 
-    switch (nomeCard) {
-      case 'CACL':
+    switch (sessaoPai) {
+      case 'Apuração':
+        _navegarParaCardApuracao(tipo, usuario);
+        break;
+      case 'Estoques':
+        _navegarParaCardEstoques(tipo);
+        break;
+      case 'Circuito':
+        _navegarParaCardCircuito(tipo);
+        break;
+      case 'Gestão de Frota':
+        _navegarParaCardGestaoFrota(tipo);
+        break;
+      case 'Vendas':
+        _navegarParaCardVendas(tipo);
+        break;
+      case 'Bombeios':
+        _navegarParaCardBombeios(tipo);
+        break;
+      default:
+        debugPrint('Sessão pai não reconhecida: $sessaoPai');
+    }
+  }
+
+  // Métodos específicos para cada sessão
+  void _navegarParaCardApuracao(String tipo, UsuarioAtual? usuario) {
+    switch (tipo) {
+      case 'cacl':
         setState(() {
-          _veioDaApuracao = true;
-          _mostrarApuracaoFilhos = false;
-
           if (usuario!.nivel == 3) {
             _mostrarEscolherFilial = true;
             _contextoEscolhaFilial = 'cacl';
           } else {
-            // Para níveis 1 e 2, vamos para ListarCaclsPage primeiro
-            _filialSelecionadaId = usuario.filialId; // Usa a filial do usuário
+            _filialSelecionadaId = usuario.filialId;
             _filialSelecionadaNome = null;
             _mostrarListarCacls = true;
           }
         });
         break;
-            
-      case 'Tanques':
+      case 'tanques':
         setState(() {
-          _veioDaApuracao = true;
-          _mostrarApuracaoFilhos = false;
-
           if (usuario!.nivel == 3) {
             _mostrarEscolherFilial = true;
             _contextoEscolhaFilial = 'tanques';
@@ -1294,32 +1336,27 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           }
         });
         break;
-          
-      case 'Ordens / Análise':
+      case 'ordens_analise':
         setState(() {
-          _veioDaApuracao = true;
           _mostrarOrdensAnalise = true;
-          _mostrarApuracaoFilhos = false;
         });
         break;
-          
-      case 'Histórico de CACLs':
+      case 'historico_cacl':
         setState(() {
-          _veioDaApuracao = true;
-          _mostrarApuracaoFilhos = false;
           _mostrarHistorico = true;
         });
         break;
-          
-      case 'Tabelas de Conversão':
+      case 'tabelas_conversao':
         setState(() {
-          _veioDaApuracao = true;
-          _mostrarApuracaoFilhos = false;
           showConversaoList = true;
         });
         break;
-          
-      case 'Estoque Geral':
+    }
+  }
+
+  void _navegarParaCardEstoques(String tipo) {
+    switch (tipo) {
+      case 'estoque_geral':
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -1327,24 +1364,87 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
         );
         break;
-          
-      case 'Estoque por empresa':
+      case 'estoque_por_empresa':
         setState(() {
           _mostrarEstoquePorEmpresa = true;
-          _mostrarEstoquesFilhos = false;
           _carregarEmpresas();
         });
         break;
-
-      case 'Movimentações':
+      case 'movimentacoes':
         debugPrint('Navegando para Movimentações');
+        // Implementar navegação para movimentações
         break;
-
-      case 'Downloads':
+      case 'downloads':
         setState(() {
           _mostrarDownloads = true;
-          _mostrarEstoquesFilhos = false;
         });
+        break;
+    }
+  }
+
+  void _navegarParaCardCircuito(String tipo) {
+    switch (tipo) {
+      case 'iniciar_circuito':
+        setState(() {
+          _mostrarIniciarCircuito = true;
+        });
+        break;
+      case 'acompanhar_veiculo':
+        debugPrint('Abrir tela para acompanhar veículo');
+        // Implementar navegação
+        break;
+      case 'visao_geral_circuito':
+        debugPrint('Abrir visão geral dos circuitos');
+        // Implementar navegação
+        break;
+    }
+  }
+
+  void _navegarParaCardGestaoFrota(String tipo) {
+    switch (tipo) {
+      case 'veiculos':
+        debugPrint('Abrir tela de veículos');
+        // Implementar navegação
+        break;
+      case 'motoristas':
+        debugPrint('Abrir tela de motoristas');
+        // Implementar navegação
+        break;
+      case 'documentacao':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ControleDocumentosPage()),
+        );
+        break;
+    }
+  }
+
+  void _navegarParaCardVendas(String tipo) {
+    switch (tipo) {
+      case 'programacao_vendas':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ProgramacaoPage(
+              onVoltar: () {
+                Navigator.pop(context);
+              },
+            ),
+          ),
+        );
+        break;
+    }
+  }
+
+  void _navegarParaCardBombeios(String tipo) {
+    switch (tipo) {
+      case 'bombeios':
+        debugPrint('Abrir tela de bombeios');
+        // Implementar navegação quando criar a página
+        // Navigator.push(
+        //   context,
+        //   MaterialPageRoute(builder: (_) => const BombeiosPage()),
+        // );
         break;
     }
   }
@@ -1507,96 +1607,19 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         onTap: () {
           final nome = sessao['label'];
           
+          // Resetar todas as flags
+          _resetarTodasFlags();
           setState(() {
-            _mostrarDownloads = false;
-            _mostrarEstoquesFilhos = false;
-            _mostrarApuracaoFilhos = false;
-            _mostrarIniciarCircuito = false;
+            selectedIndex = 0; // Mantém na aba "Sessões"
           });
           
-          if (nome == 'Estoques') {
-            setState(() {
-              _mostrarEstoquesFilhos = true;
-            });
-            return;
-          }
-
-          final usuario = UsuarioAtual.instance;
-
-          if (nome == 'Apuração') {
-            setState(() {
-              showConversaoList = false;
-              showControleAcesso = false;
-              showUsuarios = false;
-              _mostrarApuracaoFilhos = true;
-            });
-            return;
-          }          
-
-          if (nome == 'CACL') {
-            setState(() {
-              _veioDaApuracao = false;
-              showConversaoList = false;
-              showControleAcesso = false;
-              showUsuarios = false;
-
-              if (usuario!.nivel == 3) {
-                _mostrarEscolherFilial = true;
-                _contextoEscolhaFilial = 'cacl';
-              } else {
-                // Para níveis 1 e 2, vamos para ListarCaclsPage primeiro
-                _filialSelecionadaId = usuario.filialId; // Usa a filial do usuário
-                _filialSelecionadaNome = null;
-                _mostrarListarCacls = true;
-              }
-            });
-            return;
-          }
-          
-      if (nome == 'Circuito') {
-        setState(() {
-          _mostrarCircuitoFilhos = true;
-        });
-        return;
-      }
-          
-          if (nome == 'Tanques') {
-            setState(() {
-              _veioDaApuracao = false;
-              showConversaoList = false;
-              showControleAcesso = false;
-              showUsuarios = false;
-
-              if (usuario!.nivel == 3) {
-                _mostrarEscolherFilial = true;
-                _contextoEscolhaFilial = 'tanques';
-              } else {
-                _mostrarTanques = true;
-              }
-            });
-            return;
-          }
-
-          if (nome == 'Vendas') {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ProgramacaoPage(
-                  onVoltar: () {
-                    Navigator.pop(context);
-                  },
-                ),
-              ),
-            );
-            return;
-          }
-          
-          if (nome == 'Logística') {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ControleDocumentosPage()),
-            );
-            return;
+          // Verificar se a sessão tem filhos definidos
+          if (_filhosPorSessao.containsKey(nome)) {
+            // Sessão com filhos: mostrar página de filhos
+            _mostrarFilhosDaSessao(nome);
+          } else {
+            // Sessão sem filhos: navegar diretamente (comportamento antigo)
+            _navegarParaSessaoSemFilhos(nome);
           }
         },
         hoverColor: const Color(0xFFE8F5E9),
@@ -1625,12 +1648,28 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
+  // NOVO: Método para navegar para sessões sem filhos (comportamento antigo)
+  void _navegarParaSessaoSemFilhos(String nomeSessao) {
+    // Este método pode ser usado para sessões que ainda não foram migradas
+    // para a nova arquitetura ou que têm comportamentos específicos
+    debugPrint('Navegando para sessão sem filhos: $nomeSessao');
+    
+    // Exemplo: se alguma sessão precisa de comportamento específico
+    // switch (nomeSessao) {
+    //   case 'Sessão Especial':
+    //     // Comportamento específico
+    //     break;
+    //   default:
+    //     // Comportamento padrão
+    //     break;
+    // }
+  }
+
   IconData _definirIcone(String nome) {
     final lower = nome.toLowerCase();
     if (lower.contains('estoques')) return Icons.leaderboard;
     if (lower.contains('tabela')) return Icons.view_list;
     if (lower.contains('motor')) return Icons.people;
-    if (lower.contains('rota')) return Icons.map;
     if (lower.contains('abaste')) return Icons.local_gas_station;
     if (lower.contains('document')) return Icons.description;
     if (lower.contains('dep')) return Icons.warehouse;
@@ -1641,6 +1680,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     if (lower.contains('venda')) return Icons.local_gas_station;
     if (lower.contains('tanque')) return Icons.storage;
     if (lower.contains('circuito')) return Icons.route;
+    if (lower.contains('gestão') && lower.contains('frota')) return Icons.local_shipping;
+    if (lower.contains('bombeios')) return Icons.invert_colors;
     return Icons.apps;
   }
 
@@ -1719,7 +1760,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         DateTime? mesFiltro,
         String? produtoFiltro,
       }) {
-        // Navegar para EstoqueMesPage
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -1734,127 +1774,5 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         );
       },
     );
-  }
-
-  Widget _buildCircuitoFilhosPage() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
-              onPressed: () {
-                setState(() {
-                  _mostrarCircuitoFilhos = false;
-                });
-              },
-            ),
-            const SizedBox(width: 10),
-            const Text(
-              'Circuito',
-              style: TextStyle(
-                fontSize: 24,
-                color: Color(0xFF0D47A1),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        const Divider(),
-        const SizedBox(height: 20),
-
-        Expanded(
-          child: GridView.count(
-            crossAxisCount: 7,
-            crossAxisSpacing: 15,
-            mainAxisSpacing: 15,
-            childAspectRatio: 1,
-            children: circuitoFilhos
-                .map((card) => _buildCardCircuitoFilho(card))
-                .toList(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCardCircuitoFilho(Map<String, dynamic> card) {
-    return Material(
-      elevation: 2,
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      clipBehavior: Clip.hardEdge,
-      child: InkWell(
-        onTap: () {
-          _navegarParaCardCircuito(card['label']);
-        },
-        hoverColor: const Color(0xFFE8F5E9),
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                card['icon'],
-                color: const Color.fromARGB(255, 48, 153, 35),
-                size: 50,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                card['label'],
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF0D47A1),
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  card['descricao'] ?? '',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _navegarParaCardCircuito(String nomeCard) {
-    switch (nomeCard) {
-      case 'Iniciar Circuito':
-        setState(() {
-          _mostrarCircuitoFilhos = false;
-          _mostrarIniciarCircuito = true;
-          _mostrarApuracaoFilhos = false;
-          _mostrarEstoquesFilhos = false;
-        });
-        break;
-        
-      case 'Acompanhar veículo':
-        debugPrint('Abrir tela para acompanhar veículo');
-        // Aqui você pode adicionar navegação para uma nova tela
-        break;
-        
-      case 'Visão geral':
-        debugPrint('Abrir visão geral dos circuitos');
-        // Aqui você pode adicionar navegação para uma nova tela
-        break;
-    }
   }
 }

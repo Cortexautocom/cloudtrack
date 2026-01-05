@@ -42,16 +42,10 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _setupAuthListener() {
-    // Apenas monitora os eventos para debug/log, sem navegação
-    // A navegação será toda feita pelo SplashScreen
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       print('🔐 Auth state changed: ${data.event}');
-      // Aqui você pode fazer outras ações que não envolvam navegação
-      // como atualizar estado, mostrar notificações, etc.
     });
   }
-
-  // Removidas todas as funções _redirectTo... que usavam Navigator
 
   @override
   Widget build(BuildContext context) {
