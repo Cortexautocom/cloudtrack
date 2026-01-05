@@ -110,7 +110,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       },
       {
         'icon': Icons.history,
-        'label': 'Histórico',
+        'label': 'Histórico de CACLs',
         'descricao': 'Consultar histórico de CACLs emitidos',
       },
       {
@@ -1301,7 +1301,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         });
         break;
           
-      case 'Histórico':
+      case 'Histórico de CACLs':
         setState(() {
           _veioDaApuracao = true;
           _mostrarApuracaoFilhos = false;
