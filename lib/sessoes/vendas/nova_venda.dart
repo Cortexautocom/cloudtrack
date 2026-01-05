@@ -1,22 +1,19 @@
-// vendas/nova_venda.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class NovaVendaPage extends StatefulWidget {
-  final VoidCallback onVoltar;
+class NovaVendaDialog extends StatefulWidget {
   final Function(bool sucesso)? onSalvar;
 
-  const NovaVendaPage({
+  const NovaVendaDialog({
     super.key,
-    required this.onVoltar,
     this.onSalvar,
   });
 
   @override
-  State<NovaVendaPage> createState() => _NovaVendaPageState();
+  State<NovaVendaDialog> createState() => _NovaVendaDialogState();
 }
 
-class _NovaVendaPageState extends State<NovaVendaPage> {
+class _NovaVendaDialogState extends State<NovaVendaDialog> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _clienteController = TextEditingController();
   final TextEditingController _obsController = TextEditingController();
@@ -37,6 +34,20 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
   // Focus nodes para controle do teclado
   final FocusNode _quantidadeFocusNode = FocusNode();
   final FocusNode _formaPagamentoFocusNode = FocusNode();
+
+  // Mapeamento de IDs de produtos para colunas
+  static const Map<String, String> _produtoParaColuna = {
+    '82c348c8-efa1-4d1a-953a-ee384d5780fc': 'g_comum',
+    '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 'g_aditivada',
+    '58ce20cf-f252-4291-9ef6-f4821f22c29e': 'd_s10',
+    'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': 'd_s500',
+    '66ca957a-5698-4a02-8c9e-987770b6a151': 'etanol',
+    'cecab8eb-297a-4640-81ae-e88335b88d8b': 'anidro',
+    'ecd91066-e763-42e3-8a0e-d982ea6da535': 'b100',
+    'f8e95435-471a-424c-947f-def8809053a0': 'gasolina_a',
+    '4da89784-301f-4abe-b97e-c48729969e3d': 's500_a',
+    '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 's10_a',
+  };
 
   @override
   void initState() {
@@ -250,7 +261,14 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
         orElse: () => null,
       );
 
-      await supabase.from('vendas').insert({
+      // Obtém a coluna correspondente ao produto
+      final colunaProduto = _produtoParaColuna[produtoPrincipal];
+      if (colunaProduto == null) {
+        throw Exception('Produto selecionado não possui coluna correspondente');
+      }
+
+      // Prepara os dados para inserção
+      final dadosVenda = {
         'placa': placaPrincipal,
         'cliente': _clienteController.text,
         'observacoes': _obsController.text.isEmpty ? null : _obsController.text,
@@ -258,7 +276,26 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
         'quantidade': quantidade,
         'forma_pagamento': _formaPagamentoController.text,
         'usuario_id': usuario?.id,
-      });
+        'uf': null, // Será preenchido depois se necessário
+        'codigo': null, // Será preenchido depois se necessário
+        'anp': false,
+        // Define o valor na coluna correta
+        colunaProduto: quantidade,
+      };
+
+      // Define zero nas outras colunas
+      final todasColunas = [
+        'g_comum', 'g_aditivada', 'd_s10', 'd_s500', 
+        'etanol', 'anidro', 'b100', 'gasolina_a', 's500_a', 's10_a'
+      ];
+      
+      for (var coluna in todasColunas) {
+        if (coluna != colunaProduto) {
+          dadosVenda[coluna] = 0;
+        }
+      }
+
+      await supabase.from('vendas').insert(dadosVenda);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -270,9 +307,8 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
         
         if (widget.onSalvar != null) {
           widget.onSalvar!(true);
-        } else {
-          widget.onVoltar();
         }
+        Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {
@@ -390,7 +426,7 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center, // ← ALINHAMENTO CENTRALIZADO
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // Campo flexível que ocupa o espaço disponível
                 Expanded(
@@ -427,11 +463,11 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
                 // Espaço entre campo e ícones
                 const SizedBox(width: 8),
                 
-                // Ícones de remover e adicionar - CENTRALIZADOS
+                // Ícones de remover e adicionar
                 if (_produtosSelecionados.length > 1) 
                   Container(
-                    height: 48, // ← ALTURA FIXA PARA CENTRALIZAR
-                    alignment: Alignment.center, // ← CENTRALIZA O ÍCONE
+                    height: 48,
+                    alignment: Alignment.center,
                     child: IconButton(
                       icon: const Icon(Icons.remove_circle, color: Colors.red),
                       onPressed: () => _removerProduto(index),
@@ -443,8 +479,8 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
                 
                 if (isLast && _produtosSelecionados.length < 6)
                   Container(
-                    height: 48, // ← MESMA ALTURA PARA CENTRALIZAR
-                    alignment: Alignment.center, // ← CENTRALIZA O ÍCONE
+                    height: 48,
+                    alignment: Alignment.center,
                     child: IconButton(
                       icon: Icon(
                         Icons.add_circle,
@@ -529,142 +565,172 @@ class _NovaVendaPageState extends State<NovaVendaPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AlertDialog(
       backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text(
-          'Nova Venda',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+      insetPadding: const EdgeInsets.all(20),
+      titlePadding: const EdgeInsets.only(top: 20, left: 20, right: 20),
+      contentPadding: const EdgeInsets.all(20),
+      title: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0D47A1),
+          borderRadius: BorderRadius.circular(12),
         ),
-        backgroundColor: const Color(0xFF0D47A1),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: widget.onVoltar,
-        ),
-        actions: [
-          if (!_carregando)
-            IconButton(
-              icon: const Icon(Icons.save, color: Colors.white),
-              onPressed: _salvarVenda,
-              tooltip: 'Salvar venda',
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'NOVA VENDA',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                fontSize: 18,
+              ),
             ),
-        ],
+            if (!_carregando)
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                onPressed: () => Navigator.of(context).pop(false),
+              ),
+          ],
+        ),
       ),
-      body: _carregando
-          ? const Center(child: CircularProgressIndicator())
-          : Align(
-                alignment: Alignment.topLeft,
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 700),
-                  child: Form(
-                    key: _formKey,
-                    child: ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        // Campo Placas
-                        _buildCampoPlacas(),
-                        const SizedBox(height: 20),
-                        
-                        // Campo Cliente
-                        Text(
-                          'Cliente',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey[700],
-                            fontSize: 14,
-                          ),
+      content: _carregando
+          ? SizedBox(
+              height: 200,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          : SizedBox(
+              width: MediaQuery.of(context).size.width * 0.9,
+              child: SingleChildScrollView(
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Campo Placas
+                      _buildCampoPlacas(),
+                      const SizedBox(height: 20),
+                      
+                      // Campo Cliente
+                      Text(
+                        'Cliente',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[700],
+                          fontSize: 14,
                         ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _clienteController,
-                          decoration: InputDecoration(
-                            hintText: 'Cliente',
-                            prefixIcon: const Icon(Icons.person),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey[50],
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _clienteController,
+                        decoration: InputDecoration(
+                          hintText: 'Cliente',
+                          prefixIcon: const Icon(Icons.person),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          maxLength: 35,
+                          filled: true,
+                          fillColor: Colors.grey[50],
                         ),
-                        const SizedBox(height: 20),
+                        maxLength: 35,
+                      ),
+                      const SizedBox(height: 20),
 
-                        // Campo Produtos
-                        _buildCampoProdutos(),
-                        const SizedBox(height: 20),
-                        
-                        // Campo Quantidade
-                        _buildCampoQuantidade(),
-                        const SizedBox(height: 20),
-                        
-                        // Forma de Pagamento
-                        _buildFormaPagamento(),
-                        const SizedBox(height: 20),
+                      // Campo Produtos
+                      _buildCampoProdutos(),
+                      const SizedBox(height: 20),
+                      
+                      // Campo Quantidade
+                      _buildCampoQuantidade(),
+                      const SizedBox(height: 20),
+                      
+                      // Forma de Pagamento
+                      _buildFormaPagamento(),
+                      const SizedBox(height: 20),
 
-                        // Campo Observações
-                        Text(
-                          'Observações (Opcional)',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey[700],
-                            fontSize: 14,
-                          ),
+                      // Campo Observações
+                      Text(
+                        'Observações (Opcional)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[700],
+                          fontSize: 14,
                         ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _obsController,
-                          decoration: InputDecoration(
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey[50],
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _obsController,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          maxLength: 100,
-                          maxLines: 2,
+                          filled: true,
+                          fillColor: Colors.grey[50],
                         ),
-                        const SizedBox(height: 20),
+                        maxLength: 100,
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 20),
 
-                        // Botão Salvar
-                        SizedBox(
-                          height: 54,
-                          child: ElevatedButton(
-                            onPressed: _salvarVenda,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0D47A1),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 2,
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.check_circle, color: Colors.white),
-                                SizedBox(width: 8),
-                                Text(
-                                  'CONFIRMAR VENDA',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
+                      // Botões de ação
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.of(context).pop(false),
+                              style: OutlinedButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                              ],
+                                side: BorderSide(color: Colors.grey.shade400),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                              ),
+                              child: const Text(
+                                'CANCELAR',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-                    ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _salvarVenda,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0D47A1),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 2,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.check_circle, color: Colors.white, size: 20),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'SALVAR',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                    ],
                   ),
                 ),
               ),
+            ),
     );
   }
 

@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-// ==============================================================
-//                    PÁGINA PRINCIPAL
-// ==============================================================
+import 'nova_venda.dart';
 
 class ProgramacaoPage extends StatefulWidget {
   final VoidCallback onVoltar;
@@ -25,11 +22,10 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
   }
 
   Future<void> carregar() async {
-    final supabase = Supabase.instance.client;
-
     setState(() => carregando = true);
 
     try {
+      final supabase = Supabase.instance.client;
       final response = await supabase
           .from("vendas")
           .select("*")
@@ -39,10 +35,20 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
         vendas = List<Map<String, dynamic>>.from(response);
       });
     } catch (e) {
-      debugPrint("Erro: $e");
+      debugPrint("Erro ao carregar vendas: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar vendas: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
 
-    setState(() => carregando = false);
+    if (mounted) {
+      setState(() => carregando = false);
+    }
   }
 
   Future<void> atualizarCampo(String id, String campo, dynamic valor) async {
@@ -50,8 +56,53 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
 
     try {
       await supabase.from("vendas").update({campo: valor}).eq("id", id);
+      
+      // Atualiza localmente
+      setState(() {
+        final index = vendas.indexWhere((v) => v['id'] == id);
+        if (index != -1) {
+          vendas[index][campo] = valor;
+        }
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Campo atualizado com sucesso!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
     } catch (e) {
       debugPrint("Erro ao atualizar: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao atualizar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _mostrarDialogNovaVenda() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => NovaVendaDialog(
+        onSalvar: (sucesso) {
+          if (sucesso) {
+            // Recarrega os dados quando uma nova venda é salva
+            carregar();
+          }
+        },
+      ),
+    );
+
+    if (result == true) {
+      // Recarrega os dados após salvar
+      await carregar();
     }
   }
 
@@ -64,13 +115,48 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
           icon: const Icon(Icons.arrow_back),
           onPressed: widget.onVoltar,
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: carregar,
+            tooltip: 'Atualizar',
+          ),
+        ],
       ),
       body: carregando
           ? const Center(child: CircularProgressIndicator())
-          : ExcelTabela(
-              dados: vendas,
-              onEdit: atualizarCampo,
-            ),
+          : vendas.isEmpty
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.list, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text(
+                        'Nenhuma venda encontrada',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ExcelTabela(
+                  dados: vendas,
+                  onEdit: atualizarCampo,
+                ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _mostrarDialogNovaVenda,
+        backgroundColor: const Color(0xFF0D47A1),
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        elevation: 4,
+        child: const Icon(Icons.add_box, size: 32),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
@@ -91,21 +177,31 @@ class ExcelTabela extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final horizontalScrollController = ScrollController();
+    final verticalScrollController = ScrollController();
+
     return Column(
       children: [
         _cabecalho(),
         Expanded(
           child: Scrollbar(
+            controller: horizontalScrollController,
             thumbVisibility: true,
             child: SingleChildScrollView(
+              controller: horizontalScrollController,
               scrollDirection: Axis.horizontal,
               child: SizedBox(
                 width: 1900,
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: List.generate(
-                      dados.length,
-                      (i) => _linha(dados[i], i, context),
+                child: Scrollbar(
+                  controller: verticalScrollController,
+                  thumbVisibility: true,
+                  child: SingleChildScrollView(
+                    controller: verticalScrollController,
+                    child: Column(
+                      children: List.generate(
+                        dados.length,
+                        (i) => _linha(dados[i], i, context),
+                      ),
                     ),
                   ),
                 ),
@@ -171,15 +267,17 @@ class ExcelTabela extends StatelessWidget {
     final cor = i % 2 == 0 ? Colors.grey.shade200 : Colors.grey.shade300;
 
     return Container(
+      height: 50,
       color: cor,
       child: Row(
         children: [
-          _cell(l["id"], "placa", l["placa"], largura: 120),
-          _cell(l["id"], "cliente", l["cliente"], largura: 220),
+          _cell(l["id"], "placa", l["placa"]?.toString() ?? "", largura: 120),
+          _cell(l["id"], "cliente", l["cliente"]?.toString() ?? "", largura: 220),
           _cell(l["id"], "codigo", l["codigo"]?.toString() ?? "", largura: 80),
-          _cell(l["id"], "uf", l["uf"] ?? "", largura: 60),
-          _cell(l["id"], "forma_pagamento", l["forma_pagamento"] ?? "", largura: 100),
+          _cell(l["id"], "uf", l["uf"]?.toString() ?? "", largura: 60),
+          _cell(l["id"], "forma_pagamento", l["forma_pagamento"]?.toString() ?? "", largura: 100),
 
+          // Colunas numéricas com formatação
           _cell(l["id"], "g_comum", l["g_comum"].toString(), largura: 90, numero: true),
           _cell(l["id"], "g_aditivada", l["g_aditivada"].toString(), largura: 90, numero: true),
 
@@ -244,51 +342,165 @@ class _EditableCellState extends State<EditableCell> {
     super.initState();
   }
 
-  String aplicarMascara(String v) {
-    v = v.replaceAll(RegExp(r'\D'), ""); // mantém só números
-    if (v.isEmpty) return "";
-
-    if (v.length > 3) {
-      return "${v.substring(0, v.length - 3)}.${v.substring(v.length - 3)}";
+  // Formata o valor para exibição (apenas para campos numéricos)
+  String _formatarValorParaExibicao(String valor) {
+    if (widget.numero && valor.isNotEmpty) {
+      // Remove qualquer formatação existente
+      String apenasNumeros = valor.replaceAll(RegExp(r'\D'), '');
+      
+      if (apenasNumeros.isEmpty) return "";
+      
+      // Converte para inteiro para remover zeros à esquerda
+      try {
+        int valorNumerico = int.parse(apenasNumeros);
+        if (valorNumerico == 0) return "";
+        
+        // Aplica formatação 999.999
+        String valorString = valorNumerico.toString();
+        if (valorString.length > 3) {
+          return "${valorString.substring(0, valorString.length - 3)}.${valorString.substring(valorString.length - 3)}";
+        }
+        return valorString;
+      } catch (e) {
+        return valor;
+      }
     }
-    return v;
+    return valor;
+  }
+
+  // Prepara o valor para salvar no banco de dados
+  String _prepararParaSalvar(String valor) {
+    if (widget.numero) {
+      // Para campos numéricos, remove a formatação e mantém apenas números
+      String semFormatacao = valor.replaceAll(RegExp(r'\D'), '');
+      if (semFormatacao.isEmpty) return "0";
+      
+      try {
+        // Converte para inteiro para remover zeros à esquerda
+        int valorNumerico = int.parse(semFormatacao);
+        return valorNumerico.toString();
+      } catch (e) {
+        return "0";
+      }
+    } else {
+      // Para campos de texto, retorna o valor exatamente como foi digitado
+      return valor.trim();
+    }
+  }
+
+  // Formata em tempo real enquanto o usuário digita (apenas para campos numéricos)
+  String _aplicarMascaraNumerica(String valor) {
+    if (!widget.numero) return valor; // Não aplica máscara para campos não numéricos
+    
+    String apenasNumeros = valor.replaceAll(RegExp(r'\D'), '');
+    
+    if (apenasNumeros.isEmpty) return "";
+    
+    // Remove zeros à esquerda
+    try {
+      int valorNumerico = int.tryParse(apenasNumeros) ?? 0;
+      if (valorNumerico == 0) return "";
+      
+      String valorString = valorNumerico.toString();
+      
+      if (valorString.length > 3) {
+        return "${valorString.substring(0, valorString.length - 3)}.${valorString.substring(valorString.length - 3)}";
+      }
+      return valorString;
+    } catch (e) {
+      return apenasNumeros;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Para campos não numéricos, usamos o valor original
+    // Para campos numéricos, aplicamos a formatação na exibição
+    final valorExibicao = widget.numero 
+        ? _formatarValorParaExibicao(widget.valorInicial)
+        : widget.valorInicial;
+
+    if (controller.text != valorExibicao) {
+      controller.text = valorExibicao;
+    }
+
     return GestureDetector(
-      onDoubleTap: () => setState(() => editando = true),
+      behavior: HitTestBehavior.opaque,
+      onDoubleTap: () {
+        setState(() {
+          editando = true;
+        });
+      },
       child: Container(
         width: widget.largura,
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        height: 50,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        alignment: Alignment.center,
         child: editando
             ? Focus(
                 onFocusChange: (focus) {
                   if (!focus) {
-                    widget.onSubmit(controller.text);
+                    // Salva o valor preparado
+                    widget.onSubmit(_prepararParaSalvar(controller.text));
                     setState(() => editando = false);
                   }
                 },
                 child: TextField(
                   autofocus: true,
                   controller: controller,
+                  textAlign: TextAlign.center,
+                  keyboardType: widget.numero ? TextInputType.number : TextInputType.text,
                   onChanged: (v) {
                     if (widget.numero) {
-                      controller.text = aplicarMascara(v);
-                      controller.selection = TextSelection.fromPosition(
-                        TextPosition(offset: controller.text.length),
-                      );
+                      // Aplica a máscara em tempo real apenas para campos numéricos
+                      String novaFormatacao = _aplicarMascaraNumerica(v);
+                      if (controller.text != novaFormatacao) {
+                        controller.text = novaFormatacao;
+                        controller.selection = TextSelection.fromPosition(
+                          TextPosition(offset: controller.text.length),
+                        );
+                      }
                     }
                   },
-                  decoration: const InputDecoration(
+                  onSubmitted: (v) {
+                    widget.onSubmit(_prepararParaSalvar(v));
+                    setState(() => editando = false);
+                  },
+                  decoration: InputDecoration(
                     isDense: true,
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.all(4),
+                    border: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                   ),
+                  style: const TextStyle(fontSize: 14),
                 ),
               )
-            : Text(controller.text),
+            : Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                child: Text(
+                  valorExibicao,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: widget.numero ? FontWeight.w500 : FontWeight.normal,
+                    color: valorExibicao.isEmpty ? Colors.grey : Colors.black,
+                  ),
+                ),
+              ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
   }
 }
