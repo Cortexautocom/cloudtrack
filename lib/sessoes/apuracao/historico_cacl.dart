@@ -26,10 +26,9 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
   int paginaAtual = 1;
   int totalPaginas = 1;
   int totalRegistros = 0;
-  final int limitePorPagina = 50;
+  final int limitePorPagina = 10;
   
-  DateTime? dataInicio;
-  DateTime? dataFim;
+  DateTime? dataEmissao;
   String? filialSelecionadaId;
   String? tanqueSelecionadoId;
   String? produtoSelecionado;
@@ -37,8 +36,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
   int? _nivelUsuario;
   int? _hoverIndex;
   
-  final TextEditingController dataInicioController = TextEditingController();
-  final TextEditingController dataFimController = TextEditingController();
+  final TextEditingController dataEmissaoController = TextEditingController();
 
   Map<String, dynamic>? _usuarioData;
 
@@ -46,14 +44,15 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    dataEmissao = DateTime.now();
+    dataEmissaoController.text = _formatarData(dataEmissao!);
     _carregarDadosIniciais();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    dataInicioController.dispose();
-    dataFimController.dispose();
+    dataEmissaoController.dispose();
     super.dispose();
   }
 
@@ -98,7 +97,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
         });
       }
     } catch (e) {
-      debugPrint('❌ Erro ao carregar nível do usuário: $e');
       setState(() {
         _nivelUsuario = 0;
       });
@@ -225,17 +223,10 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
         query = query.eq('filial_id', filialId);
       }
 
-      if (dataInicio != null) {
-        query = query.gte(
+      if (dataEmissao != null) {
+        query = query.eq(
           'data',
-          dataInicio!.toIso8601String().split('T')[0],
-        );
-      }
-
-      if (dataFim != null) {
-        query = query.lte(
-          'data',
-          dataFim!.toIso8601String().split('T')[0],
+          dataEmissao!.toIso8601String().split('T')[0],
         );
       }
 
@@ -282,13 +273,11 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
 
   void _limparFiltros() {
     setState(() {
-      dataInicio = null;
-      dataFim = null;
+      dataEmissao = null;
       filialSelecionadaId = null;
       tanqueSelecionadoId = null;
       produtoSelecionado = null;
-      dataInicioController.clear();
-      dataFimController.clear();
+      dataEmissaoController.clear();
     });
     _aplicarFiltros();
   }
@@ -396,7 +385,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
     
     return Card(
       elevation: 2,
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -410,11 +399,13 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                 color: Color(0xFF0D47A1),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
+                  flex: 2,
                   child: DropdownButtonFormField<String>(
                     value: produtoSelecionado,
                     decoration: InputDecoration(
@@ -422,12 +413,13 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                       border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.local_gas_station, size: 18),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      isDense: true,
                     ),
                     isExpanded: true,
                     items: [
                       const DropdownMenuItem(
                         value: null,
-                        child: Text('Todos os produtos', overflow: TextOverflow.ellipsis),
+                        child: Text('Todos os produtos', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13)),
                       ),
                       ...produtosDisponiveis.map((produto) {
                         return DropdownMenuItem(
@@ -435,6 +427,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                           child: Text(
                             produto['nome']?.toString() ?? '',
                             overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13),
                           ),
                         );
                       }).toList(),
@@ -447,45 +440,10 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                   ),
                 ),
                 
-                const SizedBox(width: 12),
-                
-                if (isAdmin)
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: filialSelecionadaId,
-                      decoration: InputDecoration(
-                        labelText: 'Filial',
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.business, size: 18),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      ),
-                      isExpanded: true,
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('Todas as filiais', overflow: TextOverflow.ellipsis),
-                        ),
-                        ...filiais.map((filial) {
-                          return DropdownMenuItem(
-                            value: filial['id']?.toString(),
-                            child: Text(
-                              filial['nome']?.toString() ?? '',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          );
-                        }).toList(),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          filialSelecionadaId = value;
-                        });
-                      },
-                    ),
-                  ),
-                
-                if (isAdmin) const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 
                 Expanded(
+                  flex: 2,
                   child: DropdownButtonFormField<String>(
                     value: tanqueSelecionadoId,
                     decoration: InputDecoration(
@@ -493,12 +451,13 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                       border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.storage, size: 18),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      isDense: true,
                     ),
                     isExpanded: true,
                     items: [
                       const DropdownMenuItem(
                         value: null,
-                        child: Text('Todos os tanques', overflow: TextOverflow.ellipsis),
+                        child: Text('Todos os tanques', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13)),
                       ),
                       ...tanquesDisponiveis.map((tanque) {
                         return DropdownMenuItem(
@@ -506,6 +465,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                           child: Text(
                             tanque['referencia']?.toString() ?? '',
                             overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13),
                           ),
                         );
                       }).toList(),
@@ -517,27 +477,63 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                     },
                   ),
                 ),
-              ],
-            ),
-            
-            const SizedBox(height: 12),
-            
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: dataInicioController,
+                
+                const SizedBox(width: 8),
+                
+                if (isAdmin) Expanded(
+                  flex: 2,
+                  child: DropdownButtonFormField<String>(
+                    value: filialSelecionadaId,
                     decoration: InputDecoration(
-                      labelText: 'Data Início',
+                      labelText: 'Filial',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.business, size: 18),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      isDense: true,
+                    ),
+                    isExpanded: true,
+                    items: [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('Todas as filiais', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13)),
+                      ),
+                      ...filiais.map((filial) {
+                        return DropdownMenuItem(
+                          value: filial['id']?.toString(),
+                          child: Text(
+                            filial['nome']?.toString() ?? '',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        );
+                      }).toList(),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        filialSelecionadaId = value;
+                      });
+                    },
+                  ),
+                ),
+                
+                if (isAdmin) const SizedBox(width: 8),
+                
+                Expanded(
+                  flex: 3,
+                  child: TextFormField(
+                    controller: dataEmissaoController,
+                    decoration: InputDecoration(
+                      labelText: 'Data de emissão',
                       prefixIcon: const Icon(Icons.calendar_today, size: 18),
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      isDense: true,
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.clear, size: 16),
                         onPressed: () {
                           setState(() {
-                            dataInicio = null;
-                            dataInicioController.clear();
+                            dataEmissao = null;
+                            dataEmissaoController.clear();
                           });
                         },
                       ),
@@ -550,66 +546,30 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                         firstDate: DateTime(2020),
                         lastDate: DateTime.now(),
                       );
+                      
                       if (data != null) {
                         setState(() {
-                          dataInicio = data;
-                          dataInicioController.text = _formatarData(data);
+                          dataEmissao = data;
+                          dataEmissaoController.text = _formatarData(data);
                         });
                       }
                     },
                   ),
                 ),
                 
-                const SizedBox(width: 12),
-                
-                Expanded(
-                  child: TextFormField(
-                    controller: dataFimController,
-                    decoration: InputDecoration(
-                      labelText: 'Data Fim',
-                      prefixIcon: const Icon(Icons.calendar_today, size: 18),
-                      border: const OutlineInputBorder(),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.clear, size: 16),
-                        onPressed: () {
-                          setState(() {
-                            dataFim = null;
-                            dataFimController.clear();
-                          });
-                        },
-                      ),
-                    ),
-                    readOnly: true,
-                    onTap: () async {
-                      final data = await showDatePicker(
-                        context: context,
-                        initialDate: dataInicio ?? DateTime.now(),
-                        firstDate: dataInicio ?? DateTime(2020),
-                        lastDate: DateTime.now(),
-                      );
-                      if (data != null) {
-                        setState(() {
-                          dataFim = data;
-                          dataFimController.text = _formatarData(data);
-                        });
-                      }
-                    },
-                  ),
-                ),
-                
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 
                 SizedBox(
-                  width: 200,
+                  width: 180,
                   child: Row(
                     children: [
                       Expanded(
                         child: OutlinedButton(
                           onPressed: _limparFiltros,
                           style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
                             side: const BorderSide(color: Color(0xFF0D47A1)),
+                            minimumSize: const Size(0, 40),
                           ),
                           child: const Text(
                             'Limpar',
@@ -623,7 +583,8 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                           onPressed: () => _aplicarFiltros(),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF0D47A1),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            minimumSize: const Size(0, 40),
                           ),
                           child: buscando
                               ? const SizedBox(
@@ -635,7 +596,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                   ),
                                 )
                               : const Text(
-                                  'Buscar',
+                                  'Filtrar',
                                   style: TextStyle(fontSize: 13),
                                 ),
                         ),
@@ -645,6 +606,48 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                 ),
               ],
             ),
+            /*
+            if (isAdmin) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: filialSelecionadaId,
+                      decoration: InputDecoration(
+                        labelText: 'Filial',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.business, size: 18),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        isDense: true,
+                      ),
+                      isExpanded: true,
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('Todas as filiais', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13)),
+                        ),
+                        ...filiais.map((filial) {
+                          return DropdownMenuItem(
+                            value: filial['id']?.toString(),
+                            child: Text(
+                              filial['nome']?.toString() ?? '',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          filialSelecionadaId = value;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],*/
           ],
         ),
       ),
@@ -724,13 +727,11 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
       backgroundColor: const Color(0xFFF8F9FA),
       body: Column(
         children: [
-          // ===== CABEÇALHO =====
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             decoration: const BoxDecoration(
               color: Color(0xFFF8F9FA),
-              border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
             ),
             child: Row(
               children: [
@@ -784,14 +785,12 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                   IconButton(
                     icon: const Icon(Icons.refresh, color: Color(0xFF0D47A1)),
                     onPressed: _refreshData,
-                    tooltip: 'Atualizar lista',
                   ),
               ],
             ),
           ),
-          const SizedBox(height: 10),
-          const Divider(),
-          const SizedBox(height: 10),
+
+          _buildCardFiltros(),
 
           Expanded(
             child: carregando
@@ -802,8 +801,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                   )
                 : Column(
                     children: [
-                      _buildCardFiltros(),
-                      
                       Expanded(
                         child: cacles.isEmpty
                             ? const Center(
@@ -896,7 +893,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                           _refreshData();
                                         },
                                         child: Opacity(
-                                          // Opacidade reduzida para níveis 2 e 3 quando cancelado
                                           opacity: isCancelado ? 0.85 : 1.0,
                                           child: AnimatedContainer(
                                             duration: const Duration(milliseconds: 180),
@@ -928,7 +924,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                               child: Row(
                                                 crossAxisAlignment: CrossAxisAlignment.start,
                                                 children: [
-                                                  // Indicador de status (barra lateral)
                                                   Container(
                                                     width: 4,
                                                     height: 60,
@@ -939,12 +934,10 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                                   ),
                                                   const SizedBox(width: 12),
                                                   
-                                                  // Informações principais
                                                   Expanded(
                                                     child: Column(
                                                       crossAxisAlignment: CrossAxisAlignment.start,
                                                       children: [
-                                                        // Linha 1: Tanque (destaque)
                                                         Row(
                                                           children: [
                                                             const Icon(
@@ -958,7 +951,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                                               style: TextStyle(
                                                                 fontSize: 16,
                                                                 fontWeight: FontWeight.bold,
-                                                                // Texto mais claro para níveis 2 e 3 quando cancelado
                                                                 color: isCancelado 
                                                                     ? Colors.grey 
                                                                     : Colors.black87,
@@ -968,7 +960,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                                         ),
                                                         const SizedBox(height: 4),
                                                         
-                                                        // Linha 2: Produto
                                                         Row(
                                                           children: [
                                                             Icon(
@@ -996,7 +987,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                                         ),
                                                         const SizedBox(height: 4),
                                                         
-                                                        // Linha 3: Data e Horário
                                                         Row(
                                                           children: [
                                                             Icon(
@@ -1044,11 +1034,9 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                                     ),
                                                   ),
                                                   
-                                                  // Status e ações
                                                   Column(
                                                     crossAxisAlignment: CrossAxisAlignment.end,
                                                     children: [
-                                                      // Badge de status
                                                       Container(
                                                         padding: const EdgeInsets.symmetric(
                                                           horizontal: 8,
@@ -1069,13 +1057,11 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                                       ),
                                                       const SizedBox(height: 8),
                                                       
-                                                      // Botões de ação (apenas visualização no histórico)
                                                       if (!isCancelado && 
                                                           (_nivelUsuario == 1 || _nivelUsuario == 2))
                                                         ElevatedButton(
                                                           onPressed: () {
                                                             if (solicitaCanc == true) {
-                                                              // Se já solicitado, mostra mensagem
                                                               ScaffoldMessenger.of(context).showSnackBar(
                                                                 const SnackBar(
                                                                   content: Text('Cancelamento já solicitado. Aguarde a análise do supervisor.'),
@@ -1131,7 +1117,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                               ),
                       ),
                       
-                      if (totalPaginas > 1) _buildPaginacao(),
+                      _buildPaginacao(),
                     ],
                   ),
           ),
@@ -1150,7 +1136,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
           .eq('id', caclId);
       
       if (mounted) {
-        // Atualiza localmente
         setState(() {
           final index = cacles.indexWhere((c) => c['id'] == caclId);
           if (index != -1) {
@@ -1158,20 +1143,17 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
           }
         });
         
-        // Mostra mensagem de confirmação
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Cancelamento solicitado ao supervisor. Aguarde.'),
             backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
+            duration: Duration(seconds: 3),
           ),
         );
         
-        // Atualiza a lista
         await _refreshData();
       }
     } catch (e) {
-      debugPrint('❌ Erro ao solicitar cancelamento: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1203,7 +1185,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Cabeçalho com ícone
                   Row(
                     children: [
                       Icon(
@@ -1226,7 +1207,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                   ),
                   const SizedBox(height: 16),
                   
-                  // Mensagem
                   const Padding(
                     padding: EdgeInsets.only(left: 36),
                     child: Text(
@@ -1240,7 +1220,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                   ),
                   const SizedBox(height: 28),
                   
-                  // Botões alinhados à direita
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
