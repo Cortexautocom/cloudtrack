@@ -422,7 +422,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Movimentações mensais – ${widget.nomeFilial}',
+              'Estoque – ${widget.nomeFilial}',
               style: const TextStyle(
                 fontWeight: FontWeight.w600,
               ),
