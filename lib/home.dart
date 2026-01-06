@@ -6,7 +6,7 @@ import 'login_page.dart';
 import 'configuracoes/usuarios.dart';
 import 'perfil.dart';
 import 'sessoes/apuracao/cacl.dart';
-import 'sessoes/logistica/controle_documentos.dart';
+import 'sessoes/gestao_de_frota/controle_documentos.dart';
 import 'sessoes/apuracao/emitir_cacl.dart';
 import 'sessoes/apuracao/tanques.dart';
 import 'sessoes/apuracao/escolherfilial.dart';
@@ -19,6 +19,7 @@ import 'sessoes/estoques/estoque_downloads.dart';
 import 'sessoes/estoques/filtro_estoque.dart';
 import 'sessoes/estoques/estoque_mes.dart';
 import 'sessoes/circuito/gerenciar_circuito.dart';
+import 'sessoes/gestao_de_frota/motoristas_page.dart';
 
 // NOVO: Importar páginas para as novas sessões
 // import 'sessoes/bombeios/bombeios_page.dart'; // Descomente quando criar
@@ -1407,8 +1408,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         // Implementar navegação
         break;
       case 'motoristas':
-        debugPrint('Abrir tela de motoristas');
-        // Implementar navegação
+        // Navegação via Navigator.push
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MotoristasPage(
+              onVoltar: () {
+                Navigator.pop(context);
+              },
+            ),
+          ),
+        );
         break;
       case 'documentacao':
         Navigator.push(
