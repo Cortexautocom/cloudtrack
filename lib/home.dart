@@ -20,6 +20,7 @@ import 'sessoes/estoques/filtro_estoque.dart';
 import 'sessoes/estoques/estoque_mes.dart';
 import 'sessoes/circuito/gerenciar_circuito.dart';
 import 'sessoes/gestao_de_frota/motoristas_page.dart';
+import 'sessoes/gestao_de_frota/veiculos.dart';
 
 // NOVO: Importar páginas para as novas sessões
 // import 'sessoes/bombeios/bombeios_page.dart'; // Descomente quando criar
@@ -62,6 +63,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarEstoquePorEmpresa = false;
   bool _mostrarFiliaisDaEmpresa = false;
   bool _mostrarIniciarCircuito = false;
+  
+  // NOVAS VARIÁVEIS PARA GESTÃO DE FROTA
+  bool _mostrarVeiculos = false;
+  bool _mostrarDetalhesVeiculo = false;
+  Map<String, dynamic>? _veiculoSelecionado;
+  bool _mostrarMotoristas = false;
+  bool _mostrarControleDocumentos = false;
   
   // FLAG UNIFICADA PARA MOSTRAR FILHOS DE QUALQUER SESSÃO
   bool _mostrarFilhosSessao = false;
@@ -446,6 +454,33 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
+  // MÉTODOS PARA GERENCIAR FLAGS DE VEÍCULOS
+  void _resetarFlagsVeiculos() {
+    setState(() {
+      _mostrarVeiculos = false;
+      _mostrarDetalhesVeiculo = false;
+      _veiculoSelecionado = null;
+    });
+  }
+
+  void _resetarFlagsMotoristas() {
+    setState(() {
+      _mostrarMotoristas = false;
+    });
+  }
+
+  void _resetarFlagsDocumentacao() {
+    setState(() {
+      _mostrarControleDocumentos = false;
+    });
+  }
+
+  void _resetarTodasFlagsGestaoFrota() {
+    _resetarFlagsVeiculos();
+    _resetarFlagsMotoristas();
+    _resetarFlagsDocumentacao();
+  }
+
   // NOVO: Método unificado para resetar todas as flags
   void _resetarTodasFlags() {
     setState(() {
@@ -469,6 +504,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarEstoquePorEmpresa = false;
       _mostrarFiliaisDaEmpresa = false;
       _mostrarIniciarCircuito = false;
+      
+      // Flags de Gestão de Frota
+      _resetarTodasFlagsGestaoFrota();
       
       // Flag unificada
       _mostrarFilhosSessao = false;
@@ -511,6 +549,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarEstoquePorEmpresa = false;
       _mostrarFiltrosEstoque = false;
       _mostrarIniciarCircuito = false;
+      
+      // Resetar flags de Gestão de Frota
+      _resetarTodasFlagsGestaoFrota();
     });
   }
 
@@ -946,6 +987,55 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       return CalcPage(
         key: const ValueKey('calc-page'),
         dadosFormulario: _dadosCalcGerado ?? {},
+      );
+    }
+
+    if (_mostrarVeiculos && !_mostrarDetalhesVeiculo) {
+      return VeiculosPage(
+        key: const ValueKey('veiculos-page'),
+        onVoltar: () {
+          setState(() {
+            
+            _resetarTodasFlagsGestaoFrota();
+            
+            _mostrarFilhosDaSessao('Gestão de Frota');
+          });
+        },
+        onSelecionarVeiculo: (veiculo) {
+          setState(() {
+            _veiculoSelecionado = veiculo;
+            _mostrarDetalhesVeiculo = true;
+          });
+        },
+      );
+    }
+
+    if (_mostrarDetalhesVeiculo && _veiculoSelecionado != null) {
+      return VeiculoDetalhesPage(
+        key: ValueKey('detalhes-${_veiculoSelecionado!['placa']}'),
+        placa: _veiculoSelecionado!['placa'],
+        bocas: List<int>.from(_veiculoSelecionado!['bocas'] ?? []),
+        onVoltar: () {
+          setState(() {
+            _mostrarDetalhesVeiculo = false;
+            _veiculoSelecionado = null;
+          });
+        },
+      );
+    }
+
+    if (_mostrarMotoristas) {
+      return MotoristasPage(
+        key: const ValueKey('motoristas-page'),
+        onVoltar: () {
+          _mostrarFilhosDaSessao('Gestão de Frota');
+        },
+      );
+    }
+
+    if (_mostrarControleDocumentos) {
+      return ControleDocumentosPage(
+        key: const ValueKey('controle-documentos-page'),
       );
     }
     
@@ -1404,27 +1494,43 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   void _navegarParaCardGestaoFrota(String tipo) {
     switch (tipo) {
       case 'veiculos':
-        debugPrint('Abrir tela de veículos');
-        // Implementar navegação
+        // Navegação via setState (mantendo dentro da home)
+        setState(() {
+          _mostrarVeiculos = true;
+          _mostrarDetalhesVeiculo = false;
+          _veiculoSelecionado = null;
+          _mostrarFilhosSessao = false;
+          
+          // Resetar outras flags
+          _mostrarMotoristas = false;
+          _mostrarControleDocumentos = false;
+        });
         break;
+        
       case 'motoristas':
-        // Navegação via Navigator.push
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => MotoristasPage(
-              onVoltar: () {
-                Navigator.pop(context);
-              },
-            ),
-          ),
-        );
+        // Navegação via setState (mantendo dentro da home)
+        setState(() {
+          _mostrarMotoristas = true;
+          
+          // Resetar outras flags da Gestão de Frota
+          _mostrarVeiculos = false;
+          _mostrarDetalhesVeiculo = false;
+          _veiculoSelecionado = null;
+          _mostrarControleDocumentos = false;
+        });
         break;
+        
       case 'documentacao':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ControleDocumentosPage()),
-        );
+        // Navegação via setState (mantendo dentro da home)
+        setState(() {
+          _mostrarControleDocumentos = true;
+          
+          // Resetar outras flags da Gestão de Frota
+          _mostrarVeiculos = false;
+          _mostrarDetalhesVeiculo = false;
+          _veiculoSelecionado = null;
+          _mostrarMotoristas = false;
+        });
         break;
     }
   }

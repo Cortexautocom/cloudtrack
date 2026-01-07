@@ -30,7 +30,7 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
     setState(() => _carregando = true);
     try {
       final data = await Supabase.instance.client
-          .from('documentos_equipamentos')
+          .from('equipamentos_3')
           .select()
           .order('placa');
       _veiculos.clear();
@@ -42,12 +42,12 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
   Future<void> _salvarData(String placa, String doc, DateTime? date) async {
     final colunas = {
       'CIPP':'cipp','CIV':'civ','Afericao':'afericao','Tacografo':'tacografo',
-      'AET Federal':'aet_federal','AET Bahia':'aet_bahia','AET Goias':'aet_goias',
-      'AET Alagoas':'aet_alagoas','AET Minas G':'aet_minas_g',
+      'AET Federal':'aet_fed','AET Bahia':'aet_ba','AET Goias':'aet_go',
+      'AET Alagoas':'aet_al','AET Minas G':'aet_mg',
     };
     final valor = date == null ? null : '${date.day.toString().padLeft(2,'0')}/${date.month.toString().padLeft(2,'0')}/${date.year}';
     await Supabase.instance.client
-        .from('documentos_equipamentos')
+        .from('equipamentos_3')
         .update({colunas[doc]!: valor})
         .eq('placa', placa);
     _carregar();
@@ -56,7 +56,7 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
   Future<void> _addVeiculo() async {
     final placa = _placaCtrl.text.trim().toUpperCase();
     if (placa.isEmpty) return;
-    await Supabase.instance.client.from('documentos_equipamentos').insert({'placa': placa});
+    await Supabase.instance.client.from('equipamentos_3').insert({'placa': placa});
     _placaCtrl.clear();
     setState(() => _addMode = false);
     _carregar();
@@ -195,8 +195,8 @@ class _ControleDocumentosPageState extends State<ControleDocumentosPage> {
                                   ..._documentos.map((doc) {
                                     final col = {
                                       'CIPP':'cipp','CIV':'civ','Afericao':'afericao','Tacografo':'tacografo',
-                                      'AET Federal':'aet_federal','AET Bahia':'aet_bahia','AET Goias':'aet_goias',
-                                      'AET Alagoas':'aet_alagoas','AET Minas G':'aet_minas_g',
+                                      'AET Federal':'aet_fed','AET Bahia':'aet_ba','AET Goias':'aet_go',
+                                      'AET Alagoas':'aet_al','AET Minas G':'aet_mg',
                                     }[doc]!;
                                     final raw = v[col] as String?;
                                     final date = _parse(raw);
