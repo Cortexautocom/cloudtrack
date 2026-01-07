@@ -326,7 +326,7 @@ class _LoginPageState extends State<LoginPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  "© 2025 CloudTrack, LLC. All rights reserved.",
+                  "© 2025 Aura, LLC. All rights reserved.",
                   style: TextStyle(
                     color: Colors.grey.shade400,
                     fontSize: 13,
@@ -334,7 +334,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  "AwaySoftwares Solution - 505 North Angier Avenue, Atlanta, GA 30308, EUA.",
+                  "NexHealth IA - 550 California St, Suite 302, San Francisco, CA 94104.",
                   style: TextStyle(
                     color: Colors.grey.shade400,
                     fontSize: 13,
