@@ -69,7 +69,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarDetalhesVeiculo = false;
   Map<String, dynamic>? _veiculoSelecionado;
   bool _mostrarMotoristas = false;
-  bool _mostrarControleDocumentos = false;
+  //bool _mostrarControleDocumentos = false;
   
   // FLAG UNIFICADA PARA MOSTRAR FILHOS DE QUALQUER SESSÃO
   bool _mostrarFilhosSessao = false;
@@ -469,16 +469,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     });
   }
 
-  void _resetarFlagsDocumentacao() {
-    setState(() {
-      _mostrarControleDocumentos = false;
-    });
-  }
+  
 
   void _resetarTodasFlagsGestaoFrota() {
     _resetarFlagsVeiculos();
     _resetarFlagsMotoristas();
-    _resetarFlagsDocumentacao();
+    //_resetarFlagsDocumentacao();
   }
 
   // NOVO: Método unificado para resetar todas as flags
@@ -536,7 +532,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _sessaoAtual = nomeSessao;
       _filhosSessaoAtual = filhos;
       
-      // Resetar outras flags
+      // Resetar TODAS as outras flags
       showConversaoList = false;
       _mostrarDownloads = false;
       _mostrarListarCacls = false;
@@ -549,9 +545,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarEstoquePorEmpresa = false;
       _mostrarFiltrosEstoque = false;
       _mostrarIniciarCircuito = false;
+      _mostrarCalcGerado = false;
       
       // Resetar flags de Gestão de Frota
-      _resetarTodasFlagsGestaoFrota();
+      _mostrarVeiculos = false;
+      _mostrarDetalhesVeiculo = false;
+      _veiculoSelecionado = null;
+      _mostrarMotoristas = false;
+      //_mostrarControleDocumentos = false;
     });
   }
 
@@ -561,6 +562,36 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarFilhosSessao = false;
       _sessaoAtual = null;
       _filhosSessaoAtual = [];
+      
+      // Resetar TODAS as flags de páginas específicas
+      showConversaoList = false;
+      _mostrarDownloads = false;
+      _mostrarListarCacls = false;
+      _mostrarOrdensAnalise = false;
+      _mostrarHistorico = false;
+      _mostrarEscolherFilial = false;
+      _mostrarMedicaoTanques = false;
+      _mostrarTanques = false;
+      _mostrarFiliaisDaEmpresa = false;
+      _mostrarEstoquePorEmpresa = false;
+      _mostrarFiltrosEstoque = false;
+      _mostrarIniciarCircuito = false;
+      _mostrarCalcGerado = false;
+      
+      // Resetar TODAS as flags de Gestão de Frota
+      _resetarTodasFlagsGestaoFrota();
+      
+      // Resetar outras flags importantes
+      _filialSelecionadaNome = null;
+      _dadosCalcGerado = null;
+      _filialSelecionadaId = null;
+      _contextoEscolhaFilial = '';
+      _filialParaFiltroId = null;
+      _filialParaFiltroNome = null;
+      _empresaParaFiltroId = null;
+      _empresaParaFiltroNome = null;
+      _empresaSelecionadaId = null;
+      _empresaSelecionadaNome = null;
     });
   }
 
@@ -977,11 +1008,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       );
     }
     
-    // Se estiver mostrando filhos de alguma sessão
-    if (_mostrarFilhosSessao && _sessaoAtual != null) {
-      return _buildFilhosSessaoPage();
-    }
-    
     // Se estiver mostrando calculadora gerada
     if (_mostrarCalcGerado) {
       return CalcPage(
@@ -990,14 +1016,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       );
     }
 
+    // ========== GESTÃO DE FROTA ==========
+    // ESTAS VERIFICAÇÕES DEVEM VIR ANTES DE _mostrarFilhosSessao!
+    
     if (_mostrarVeiculos && !_mostrarDetalhesVeiculo) {
       return VeiculosPage(
         key: const ValueKey('veiculos-page'),
         onVoltar: () {
           setState(() {
-            
             _resetarTodasFlagsGestaoFrota();
-            
             _mostrarFilhosDaSessao('Gestão de Frota');
           });
         },
@@ -1028,15 +1055,27 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       return MotoristasPage(
         key: const ValueKey('motoristas-page'),
         onVoltar: () {
-          _mostrarFilhosDaSessao('Gestão de Frota');
+          setState(() {
+            _resetarTodasFlagsGestaoFrota();
+            _mostrarFilhosDaSessao('Gestão de Frota');
+          });
         },
       );
     }
 
-    if (_mostrarControleDocumentos) {
-      return ControleDocumentosPage(
-        key: const ValueKey('controle-documentos-page'),
-      );
+    // NÃO MAIS USANDO _mostrarControleDocumentos - AGORA VIA Navigator.push
+    // REMOVA ESTA VERIFICAÇÃO:
+    // if (_mostrarControleDocumentos) {
+    //   return ControleDocumentosPage(
+    //     key: const ValueKey('controle-documentos-page'),
+    //   );
+    // }
+    
+    // =====================================
+    
+    // SÓ DEPOIS DE TODAS AS PÁGINAS ESPECÍFICAS, verifica se está mostrando filhos
+    if (_mostrarFilhosSessao && _sessaoAtual != null) {
+      return _buildFilhosSessaoPage();
     }
     
     // Página padrão com cards pai
@@ -1499,11 +1538,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _mostrarVeiculos = true;
           _mostrarDetalhesVeiculo = false;
           _veiculoSelecionado = null;
-          _mostrarFilhosSessao = false;
-          
-          // Resetar outras flags
           _mostrarMotoristas = false;
-          _mostrarControleDocumentos = false;
+          //_mostrarControleDocumentos = false;
         });
         break;
         
@@ -1511,26 +1547,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         // Navegação via setState (mantendo dentro da home)
         setState(() {
           _mostrarMotoristas = true;
-          
-          // Resetar outras flags da Gestão de Frota
           _mostrarVeiculos = false;
           _mostrarDetalhesVeiculo = false;
           _veiculoSelecionado = null;
-          _mostrarControleDocumentos = false;
+          //_mostrarControleDocumentos = false;
         });
         break;
         
       case 'documentacao':
-        // Navegação via setState (mantendo dentro da home)
-        setState(() {
-          _mostrarControleDocumentos = true;
-          
-          // Resetar outras flags da Gestão de Frota
-          _mostrarVeiculos = false;
-          _mostrarDetalhesVeiculo = false;
-          _veiculoSelecionado = null;
-          _mostrarMotoristas = false;
-        });
+        // Navegação via Navigator.push (nova rota completa)
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const ControleDocumentosPage(),
+          ),
+        );
         break;
     }
   }
