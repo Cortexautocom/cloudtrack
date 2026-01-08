@@ -22,8 +22,6 @@ import 'sessoes/circuito/gerenciar_circuito.dart';
 import 'sessoes/gestao_de_frota/motoristas_page.dart';
 import 'sessoes/gestao_de_frota/veiculos.dart';
 
-// NOVO: Importar páginas para as novas sessões
-// import 'sessoes/bombeios/bombeios_page.dart'; // Descomente quando criar
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -1040,8 +1038,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     if (_mostrarDetalhesVeiculo && _veiculoSelecionado != null) {
       return VeiculoDetalhesPage(
         key: ValueKey('detalhes-${_veiculoSelecionado!['placa']}'),
-        placa: _veiculoSelecionado!['placa'],
+        id: _veiculoSelecionado!['id'] ?? '',
+        placa: _veiculoSelecionado!['placa'] ?? '',
         bocas: List<int>.from(_veiculoSelecionado!['bocas'] ?? []),
+        transportadora: _veiculoSelecionado!['transportadora'] ?? '--', // ADICIONAR TRANSPORTADORA
         onVoltar: () {
           setState(() {
             _mostrarDetalhesVeiculo = false;
