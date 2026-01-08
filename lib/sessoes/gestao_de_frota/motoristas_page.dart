@@ -217,7 +217,7 @@ class _MotoristasPageState extends State<MotoristasPage> {
   void _abrirCadastroMotorista() {
     showDialog(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (context) => CadastroMotoristaDialog(
         onCadastroConcluido: () {
           _carregarMotoristas();
