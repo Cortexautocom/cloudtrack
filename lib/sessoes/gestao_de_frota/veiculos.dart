@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// ==============================
-// PÁGINA PRINCIPAL DE VEÍCULOS (VERSÃO COMPACTA)
-// ==============================
 class VeiculosPage extends StatefulWidget {
   final Function(Map<String, dynamic>) onSelecionarVeiculo;
   final VoidCallback onVoltar;
@@ -42,7 +39,7 @@ class _VeiculosPageState extends State<VeiculosPage> {
         _veiculos = List<Map<String, dynamic>>.from(data);
       });
     } catch (e) {
-      debugPrint('Erro ao carregar veículos: $e');
+      print('Erro ao carregar veículos: $e');
     } finally {
       setState(() => _carregando = false);
     }
@@ -51,6 +48,10 @@ class _VeiculosPageState extends State<VeiculosPage> {
   List<int> _parseBocas(dynamic bocasData) {
     if (bocasData is List) return bocasData.cast<int>();
     return [];
+  }
+
+  int _calcularTotalBocas(List<int> bocas) {
+    return bocas.isNotEmpty ? bocas.reduce((a, b) => a + b) : 0;
   }
 
   List<Map<String, dynamic>> get _veiculosFiltrados {
@@ -65,7 +66,7 @@ class _VeiculosPageState extends State<VeiculosPage> {
   void _abrirCadastroVeiculo() {
     showDialog(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (context) => DialogCadastroVeiculo(),
     ).then((_) => _carregarVeiculos());
   }
@@ -82,7 +83,6 @@ class _VeiculosPageState extends State<VeiculosPage> {
       ),
       body: Column(
         children: [
-          // Cabeçalho
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
@@ -106,7 +106,6 @@ class _VeiculosPageState extends State<VeiculosPage> {
                 ),
                 const Spacer(),
                 
-                // Busca
                 SizedBox(
                   width: 200,
                   child: TextField(
@@ -140,7 +139,6 @@ class _VeiculosPageState extends State<VeiculosPage> {
             ),
           ),
           
-          // Cabeçalho da tabela
           Container(
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
             decoration: BoxDecoration(
@@ -165,7 +163,6 @@ class _VeiculosPageState extends State<VeiculosPage> {
             ),
           ),
           
-          // Corpo da tabela
           Expanded(
             child: _carregando
                 ? const Center(
@@ -200,9 +197,10 @@ class _VeiculosPageState extends State<VeiculosPage> {
                           final veiculo = _veiculosFiltrados[index];
                           final placa = veiculo['placa']?.toString() ?? '';
                           final bocas = _parseBocas(veiculo['bocas']);
+                          final totalBocas = _calcularTotalBocas(bocas);
                           
                           return Container(
-                            height: 48, // Altura reduzida
+                            height: 48,
                             decoration: BoxDecoration(
                               color: index.isEven 
                                   ? Colors.white 
@@ -220,7 +218,6 @@ class _VeiculosPageState extends State<VeiculosPage> {
                                 padding: const EdgeInsets.symmetric(horizontal: 16),
                                 child: Row(
                                   children: [
-                                    // Placa (sem fundo azul)
                                     SizedBox(
                                       width: 120,
                                       child: Text(
@@ -236,46 +233,90 @@ class _VeiculosPageState extends State<VeiculosPage> {
                                     
                                     const SizedBox(width: 8),
                                     
-                                    // Bocas
                                     Expanded(
                                       child: bocas.isEmpty
-                                          ? const Text(
-                                              '--',
-                                              style: TextStyle(
-                                                color: Colors.grey,
-                                                fontStyle: FontStyle.italic,
-                                                fontSize: 12,
-                                              ),
+                                          ? Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.directions_car,
+                                                  size: 16,
+                                                  color: Colors.grey,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                const Text(
+                                                  'Cavalo',
+                                                  style: TextStyle(
+                                                    color: Colors.grey,
+                                                    fontStyle: FontStyle.italic,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
                                             )
                                           : Wrap(
                                               spacing: 6,
                                               runSpacing: 4,
-                                              children: bocas.map((capacidade) {
-                                                return Container(
+                                              children: [
+                                                ...bocas.map((capacidade) {
+                                                  return Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 3,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: _getCorBoca(capacidade)
+                                                          .withOpacity(0.1),
+                                                      border: Border.all(
+                                                        color: _getCorBoca(capacidade)
+                                                            .withOpacity(0.3),
+                                                        width: 1,
+                                                      ),
+                                                      borderRadius: BorderRadius.circular(12),
+                                                    ),
+                                                    child: Text(
+                                                      '$capacidade',
+                                                      style: TextStyle(
+                                                        color: _getCorBoca(capacidade),
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  );
+                                                }).toList(),
+                                                
+                                                const SizedBox(width: 6),
+                                                
+                                                const Icon(
+                                                  Icons.arrow_forward,
+                                                  size: 14,
+                                                  color: Colors.grey,
+                                                ),
+                                                
+                                                const SizedBox(width: 6),
+                                                
+                                                Container(
                                                   padding: const EdgeInsets.symmetric(
                                                     horizontal: 8,
                                                     vertical: 3,
                                                   ),
                                                   decoration: BoxDecoration(
-                                                    color: _getCorBoca(capacidade)
-                                                        .withOpacity(0.1),
+                                                    color: Colors.blueGrey.withOpacity(0.1),
                                                     border: Border.all(
-                                                      color: _getCorBoca(capacidade)
-                                                          .withOpacity(0.3),
+                                                      color: Colors.blueGrey.withOpacity(0.3),
                                                       width: 1,
                                                     ),
                                                     borderRadius: BorderRadius.circular(12),
                                                   ),
                                                   child: Text(
-                                                    '$capacidade',
-                                                    style: TextStyle(
-                                                      color: _getCorBoca(capacidade),
+                                                    '$totalBocas',
+                                                    style: const TextStyle(
+                                                      color: Colors.blueGrey,
                                                       fontSize: 11,
                                                       fontWeight: FontWeight.bold,
                                                     ),
                                                   ),
-                                                );
-                                              }).toList(),
+                                                ),
+                                              ],
                                             ),
                                     ),
                                   ],
@@ -333,9 +374,6 @@ class _CabecalhoTabela extends StatelessWidget {
   }
 }
 
-// ==============================
-// DIÁLOGO DE CADASTRO DE VEÍCULO
-// ==============================
 class DialogCadastroVeiculo extends StatefulWidget {
   const DialogCadastroVeiculo({super.key});
 
@@ -364,6 +402,7 @@ class _DialogCadastroVeiculoState extends State<DialogCadastroVeiculo> {
   };
   
   bool _salvando = false;
+  final Map<int, bool> _documentosExpandidos = {};
 
   @override
   void initState() {
@@ -374,6 +413,7 @@ class _DialogCadastroVeiculoState extends State<DialogCadastroVeiculo> {
   void _adicionarPlaca() {
     setState(() {
       _placasControllers.add(PlacaController());
+      _documentosExpandidos[_placasControllers.length - 1] = false;
     });
   }
 
@@ -381,8 +421,65 @@ class _DialogCadastroVeiculoState extends State<DialogCadastroVeiculo> {
     if (_placasControllers.length > 1) {
       setState(() {
         _placasControllers.removeAt(index);
+        _documentosExpandidos.remove(index);
+        final novosExpandidos = <int, bool>{};
+        for (int i = 0; i < _placasControllers.length; i++) {
+          novosExpandidos[i] = _documentosExpandidos[i + 1] ?? false;
+        }
+        _documentosExpandidos.clear();
+        _documentosExpandidos.addAll(novosExpandidos);
       });
     }
+  }
+
+  void _alternarExpansaoDocumentos(int index) {
+    setState(() {
+      _documentosExpandidos[index] = !(_documentosExpandidos[index] ?? false);
+    });
+  }
+
+  String _aplicarMascaraPlaca(String texto) {
+    // Converte para maiúsculo e remove caracteres inválidos
+    final limpo = texto.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase();
+    
+    if (limpo.isEmpty) return '';
+    
+    var resultado = '';
+    
+    for (int i = 0; i < limpo.length && i < 7; i++) {
+      // Para os 3 primeiros caracteres (antes do hífen)
+      if (i < 3) {
+        // Apenas letras
+        if (limpo[i].contains(RegExp(r'[A-Z]'))) {
+          resultado += limpo[i];
+        }
+      } else {
+        // Após os 3 primeiros, permite letras e números
+        resultado += limpo[i];
+      }
+      
+      // Adiciona hífen após o terceiro caractere
+      if (i == 2 && resultado.length == 3) {
+        resultado += '-';
+      }
+    }
+    
+    return resultado;
+  }
+
+  String _aplicarMascaraLitros(String texto) {
+    final apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
+    
+    if (apenasNumeros.isEmpty) return '';
+    
+    if (apenasNumeros.length <= 3) {
+      return apenasNumeros;
+    }
+    
+    final parteInteira = apenasNumeros.substring(0, apenasNumeros.length - 3);
+    final parteDecimal = apenasNumeros.substring(apenasNumeros.length - 3);
+    
+    return '$parteInteira.$parteDecimal';
   }
 
   String _aplicarMascaraData(String texto) {
@@ -400,6 +497,13 @@ class _DialogCadastroVeiculoState extends State<DialogCadastroVeiculo> {
     }
     
     return resultado;
+  }
+
+  int? _parseLitros(String texto) {
+    if (texto.isEmpty) return null;
+    
+    final limpo = texto.replaceAll('.', '');
+    return int.tryParse(limpo);
   }
 
   bool _validarData(String texto) {
@@ -429,7 +533,6 @@ class _DialogCadastroVeiculoState extends State<DialogCadastroVeiculo> {
   Future<void> _salvarCadastro() async {
     if (_salvando) return;
 
-    // Validar placas
     for (final controller in _placasControllers) {
       final placa = controller.placaController.text.trim().toUpperCase();
       if (placa.isEmpty) {
@@ -442,7 +545,6 @@ class _DialogCadastroVeiculoState extends State<DialogCadastroVeiculo> {
       }
     }
 
-    // Validar datas
     for (final controller in _placasControllers) {
       for (final doc in _documentos) {
         final dataCtrl = controller.documentosControllers[doc];
@@ -466,7 +568,6 @@ class _DialogCadastroVeiculoState extends State<DialogCadastroVeiculo> {
           'placa': placa,
         };
 
-        // Adicionar bocas se existirem
         final bocasValidas = <int>[];
         for (int i = 0; i < controller.bocasValues.length; i++) {
           final valor = controller.bocasValues[i];
@@ -479,7 +580,6 @@ class _DialogCadastroVeiculoState extends State<DialogCadastroVeiculo> {
           dados['bocas'] = bocasValidas;
         }
 
-        // Adicionar documentos
         for (final doc in _documentos) {
           final dataCtrl = controller.documentosControllers[doc];
           if (dataCtrl != null && dataCtrl.text.isNotEmpty) {
@@ -496,7 +596,6 @@ class _DialogCadastroVeiculoState extends State<DialogCadastroVeiculo> {
       _mostrarSucesso('Veículos cadastrados com sucesso!');
       Navigator.of(context).pop();
     } catch (e) {
-      debugPrint('Erro ao cadastrar veículos: $e');
       _mostrarErro('Erro ao cadastrar: ${e.toString()}');
     } finally {
       setState(() => _salvando = false);
@@ -521,6 +620,107 @@ class _DialogCadastroVeiculoState extends State<DialogCadastroVeiculo> {
     );
   }
 
+  void _atualizarBocaValue(int placaIndex, int bocaIndex, String texto, BuildContext context) {
+    final controller = _placasControllers[placaIndex];
+    final litros = _parseLitros(texto);
+    
+    // Validação individual (boca > 65.000)
+    if (litros != null && litros > 65000) {
+      controller.bocasValues[bocaIndex] = null;
+      controller.bocasControllers[bocaIndex].text = '';
+      controller.bocasControllers[bocaIndex].value = TextEditingValue(
+        text: '',
+        selection: TextSelection.collapsed(offset: 0),
+      );
+      
+      // Mostrar dialog de erro
+      _mostrarDialogErro(context);
+      
+      setState(() {});
+      return;
+    }
+    
+    // Atualizar o valor da boca
+    controller.bocasValues[bocaIndex] = litros;
+    
+    // Calcular soma total
+    final total = controller.bocasValues.fold<int>(0, (sum, value) => sum + (value ?? 0));
+    
+    // Validação de soma total (> 65.000)
+    if (total > 65000 && litros != null) {
+      // Apenas limpar o campo atual (último digitado)
+      controller.bocasValues[bocaIndex] = null;
+      controller.bocasControllers[bocaIndex].text = '';
+      controller.bocasControllers[bocaIndex].value = TextEditingValue(
+        text: '',
+        selection: TextSelection.collapsed(offset: 0),
+      );
+      
+      // Mostrar dialog de erro
+      _mostrarDialogErro(context);
+      
+      setState(() {});
+    }
+  }
+
+  void _mostrarDialogErro(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: true, // Já permite ESC sem necessidade de PopScope
+      builder: (context) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.orange.shade700,
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "Hum... algo não parece correto.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              "Verifique as quantidades digitadas.\n\n"
+              "• Máximo por compartimento: 65.000 litros\n"
+              "• Máximo total: 65.000 litros",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14),
+            ),
+          ],
+        ),
+        actions: [
+          Center(
+            child: SizedBox(
+              width: 100,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange.shade700,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: const Text('OK'),
+              ),
+            ),
+          ),
+        ],
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     for (final controller in _placasControllers) {
@@ -538,7 +738,6 @@ class _DialogCadastroVeiculoState extends State<DialogCadastroVeiculo> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Cabeçalho
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -564,22 +763,22 @@ class _DialogCadastroVeiculoState extends State<DialogCadastroVeiculo> {
               ),
             ),
             
-            // Conteúdo
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Lista de placas
                     ..._placasControllers.asMap().entries.map((entry) {
                       final index = entry.key;
                       final controller = entry.value;
                       
-                      // Garantir que temos controllers para todas as bocas
                       while (controller.bocasControllers.length < controller.numeroBocas) {
                         controller.bocasControllers.add(TextEditingController());
                       }
+                      
+                      final totalLitros = controller.bocasValues.fold<int>(0, (sum, value) => sum + (value ?? 0));
+                      final temErroCapacidade = totalLitros > 65000;
                       
                       return Container(
                         margin: const EdgeInsets.only(bottom: 16),
@@ -593,92 +792,110 @@ class _DialogCadastroVeiculoState extends State<DialogCadastroVeiculo> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
+                                SizedBox(
+                                  width: 150,
                                   child: TextField(
                                     controller: controller.placaController,
                                     decoration: const InputDecoration(
-                                      labelText: 'Placa (ex: ABC-1234)',
                                       border: OutlineInputBorder(),
                                       isDense: true,
                                     ),
+                                    onChanged: (texto) {
+                                      final mascara = _aplicarMascaraPlaca(texto);
+                                      if (mascara != texto) {
+                                        controller.placaController.value =
+                                            TextEditingValue(
+                                          text: mascara,
+                                          selection: TextSelection.collapsed(
+                                            offset: mascara.length,
+                                          ),
+                                        );
+                                      }
+                                    },
                                   ),
                                 ),
-                                if (_placasControllers.length > 1) ...[
-                                  const SizedBox(width: 12),
+                                
+                                const SizedBox(width: 16),
+                                
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          width: 100,
+                                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                                          decoration: BoxDecoration(
+                                            border: Border.all(color: Colors.grey.shade400),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: DropdownButtonHideUnderline(
+                                            child: DropdownButton<int>(
+                                              value: controller.numeroBocas == 0 ? null : controller.numeroBocas,
+                                              isExpanded: true,
+                                              hint: const Text(''),
+                                              items: List.generate(10, (i) => i + 1)
+                                                  .map((valor) => DropdownMenuItem<int>(
+                                                        value: valor,
+                                                        child: Text('$valor'),
+                                                      ))
+                                                  .toList(),
+                                              onChanged: (valor) {
+                                                setState(() {
+                                                  if (valor != null) {
+                                                    controller.numeroBocas = valor;
+                                                    for (final ctrl in controller.bocasControllers) {
+                                                      ctrl.dispose();
+                                                    }
+                                                    controller.bocasControllers.clear();
+                                                    
+                                                    controller.bocasValues = List<int?>.filled(
+                                                      valor,
+                                                      null,
+                                                    );
+                                                    
+                                                    for (int i = 0; i < valor; i++) {
+                                                      controller.bocasControllers.add(
+                                                        TextEditingController(),
+                                                      );
+                                                    }
+                                                  }
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                        
+                                        const SizedBox(width: 8),
+                                        const Text('compartimentos'),
+                                      ],
+                                    ),
+                                    
+                                    if (temErroCapacidade)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Text(
+                                          'Verifique as quantidades digitadas',
+                                          style: TextStyle(
+                                            color: Colors.red.shade700,
+                                            fontSize: 11,
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                
+                                const Spacer(),
+                                
+                                if (_placasControllers.length > 1)
                                   IconButton(
                                     icon: const Icon(Icons.remove_circle,
                                         color: Colors.red),
                                     onPressed: () => _removerPlaca(index),
                                   ),
-                                ],
-                              ],
-                            ),
-                            
-                            const SizedBox(height: 16),
-                            
-                            // Seção de Bocas
-                            const Text(
-                              'Compartimentos',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF0D47A1),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            
-                            Row(
-                              children: [
-                                // Dropdown para número de bocas
-                                Container(
-                                  width: 100,
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.grey.shade400),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: DropdownButtonHideUnderline(
-                                    child: DropdownButton<int>(
-                                      value: controller.numeroBocas == 0 ? null : controller.numeroBocas,
-                                      isExpanded: true,
-                                      hint: const Text('Selecione'),
-                                      items: List.generate(10, (i) => i + 1)
-                                          .map((valor) => DropdownMenuItem<int>(
-                                                value: valor,
-                                                child: Text('$valor'),
-                                              ))
-                                          .toList(),
-                                      onChanged: (valor) {
-                                        setState(() {
-                                          if (valor != null) {
-                                            controller.numeroBocas = valor;
-                                            // Limpar controllers antigos
-                                            for (final ctrl in controller.bocasControllers) {
-                                              ctrl.dispose();
-                                            }
-                                            controller.bocasControllers.clear();
-                                            
-                                            // Inicializar novos valores
-                                            controller.bocasValues = List<int?>.filled(
-                                              valor,
-                                              null,
-                                            );
-                                            
-                                            // Criar novos controllers
-                                            for (int i = 0; i < valor; i++) {
-                                              controller.bocasControllers.add(
-                                                TextEditingController(),
-                                              );
-                                            }
-                                          }
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                ),
-                                
-                                const SizedBox(width: 12),
-                                const Text('bocas'),
                               ],
                             ),
                             
@@ -690,28 +907,48 @@ class _DialogCadastroVeiculoState extends State<DialogCadastroVeiculo> {
                                 children: List.generate(
                                   controller.numeroBocas,
                                   (bocaIndex) {
-                                    // Garantir que temos um controller para esta boca
                                     if (bocaIndex >= controller.bocasControllers.length) {
                                       controller.bocasControllers.add(
                                         TextEditingController(),
                                       );
                                     }
                                     
+                                    final temErroIndividual = controller.bocasValues[bocaIndex] != null && 
+                                                             controller.bocasValues[bocaIndex]! > 65000;
+                                    
                                     return SizedBox(
-                                      width: 80,
-                                      child: TextField(
-                                        controller: controller.bocasControllers[bocaIndex],
-                                        keyboardType: TextInputType.number,
-                                        decoration: InputDecoration(
-                                          labelText: 'Boca ${bocaIndex + 1}',
-                                          border: const OutlineInputBorder(),
-                                          suffixText: 'm³',
-                                          isDense: true,
-                                        ),
-                                        onChanged: (value) {
-                                          final num = int.tryParse(value);
-                                          controller.bocasValues[bocaIndex] = num;
-                                        },
+                                      width: 120,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          TextField(
+                                            controller: controller.bocasControllers[bocaIndex],
+                                            keyboardType: TextInputType.number,
+                                            decoration: InputDecoration(
+                                              border: const OutlineInputBorder(),
+                                              isDense: true,
+                                              errorText: temErroIndividual ? 'Verifique as quantidades digitadas' : null,
+                                              errorStyle: TextStyle(
+                                                color: Colors.red.shade700,
+                                                fontSize: 11,
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                            ),
+                                            onChanged: (texto) {
+                                              final mascara = _aplicarMascaraLitros(texto);
+                                              if (mascara != texto) {
+                                                controller.bocasControllers[bocaIndex].value =
+                                                    TextEditingValue(
+                                                  text: mascara,
+                                                  selection: TextSelection.collapsed(
+                                                    offset: mascara.length,
+                                                  ),
+                                                );
+                                              }
+                                              _atualizarBocaValue(index, bocaIndex, mascara, context);
+                                            },
+                                          ),
+                                        ],
                                       ),
                                     );
                                   },
@@ -721,44 +958,92 @@ class _DialogCadastroVeiculoState extends State<DialogCadastroVeiculo> {
                             
                             const SizedBox(height: 16),
                             
-                            // Seção de Documentos
-                            const Text(
-                              'Documentos (opcional)',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF0D47A1),
+                            Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(6),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            
-                            Wrap(
-                              spacing: 12,
-                              runSpacing: 8,
-                              children: _documentos.map((doc) => SizedBox(
-                                width: 150,
-                                child: TextField(
-                                  controller: controller.documentosControllers[doc],
-                                  decoration: InputDecoration(
-                                    labelText: doc,
-                                    border: const OutlineInputBorder(),
-                                    hintText: 'dd/mm/aaaa',
-                                    isDense: true,
-                                  ),
-                                  keyboardType: TextInputType.number,
-                                  onChanged: (texto) {
-                                    final mascara = _aplicarMascaraData(texto);
-                                    if (mascara != texto) {
-                                      controller.documentosControllers[doc]?.value =
-                                          TextEditingValue(
-                                        text: mascara,
-                                        selection: TextSelection.collapsed(
-                                          offset: mascara.length,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  InkWell(
+                                    onTap: () => _alternarExpansaoDocumentos(index),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade100,
+                                        border: Border(
+                                          bottom: BorderSide(
+                                            color: Colors.grey.shade300,
+                                            width: _documentosExpandidos[index] == true ? 1 : 0,
+                                          ),
                                         ),
-                                      );
-                                    }
-                                  },
-                                ),
-                              )).toList(),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            _documentosExpandidos[index] == true
+                                                ? Icons.expand_less
+                                                : Icons.expand_more,
+                                            size: 20,
+                                            color: const Color(0xFF0D47A1),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          const Text(
+                                            'Documentos (opcional)',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF0D47A1),
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  
+                                  if (_documentosExpandidos[index] == true) ...[
+                                    Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: Wrap(
+                                        spacing: 12,
+                                        runSpacing: 6,
+                                        children: _documentos.map((doc) => SizedBox(
+                                          width: 150,
+                                          child: TextField(
+                                            controller: controller.documentosControllers[doc],
+                                            decoration: const InputDecoration(
+                                              hintText: 'dd/mm/aaaa',
+                                              border: OutlineInputBorder(),
+                                              isDense: true,
+                                              contentPadding: EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 10,
+                                              ),
+                                            ),
+                                            keyboardType: TextInputType.number,
+                                            onChanged: (texto) {
+                                              final mascara = _aplicarMascaraData(texto);
+                                              if (mascara != texto) {
+                                                controller.documentosControllers[doc]?.value =
+                                                    TextEditingValue(
+                                                  text: mascara,
+                                                  selection: TextSelection.collapsed(
+                                                    offset: mascara.length,
+                                                  ),
+                                                );
+                                              }
+                                            },
+                                          ),
+                                        )).toList(),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
                             
                             if (index < _placasControllers.length - 1)
@@ -772,7 +1057,6 @@ class _DialogCadastroVeiculoState extends State<DialogCadastroVeiculo> {
                       );
                     }).toList(),
                     
-                    // Botão para adicionar mais placas
                     Center(
                       child: OutlinedButton.icon(
                         onPressed: _adicionarPlaca,
@@ -787,7 +1071,6 @@ class _DialogCadastroVeiculoState extends State<DialogCadastroVeiculo> {
               ),
             ),
             
-            // Botões de ação
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -847,7 +1130,6 @@ class PlacaController {
   final Map<String, TextEditingController> documentosControllers = {};
 
   PlacaController() {
-    // Inicializar controllers dos documentos
     final documentos = [
       'CIPP', 'CIV', 'Aferição', 'Tacógrafo', 
       'AET Federal', 'AET Bahia', 'AET Goiás', 
@@ -870,9 +1152,6 @@ class PlacaController {
   }
 }
 
-// ==============================
-// PÁGINA DE DETALHES DO VEÍCULO (Versão Compacta)
-// ==============================
 class VeiculoDetalhesPage extends StatelessWidget {
   final String placa;
   final List<int> bocas;
@@ -891,7 +1170,6 @@ class VeiculoDetalhesPage extends StatelessWidget {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // Cabeçalho
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
@@ -923,7 +1201,6 @@ class VeiculoDetalhesPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Informações básicas
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -973,23 +1250,52 @@ class VeiculoDetalhesPage extends StatelessWidget {
                             const SizedBox(width: 8),
                             Expanded(
                               child: bocas.isEmpty
-                                  ? const Text('--', 
-                                      style: TextStyle(fontStyle: FontStyle.italic))
+                                  ? const Row(
+                                      children: [
+                                        Icon(
+                                          Icons.directions_car,
+                                          size: 16,
+                                          color: Colors.grey,
+                                        ),
+                                        SizedBox(width: 6),
+                                        Text('Cavalo', 
+                                            style: TextStyle(fontStyle: FontStyle.italic)),
+                                      ],
+                                    )
                                   : Wrap(
                                       spacing: 8,
                                       runSpacing: 4,
-                                      children: bocas.map((capacidade) => Chip(
-                                        backgroundColor: _getCorBoca(capacidade)
-                                            .withOpacity(0.1),
-                                        label: Text(
-                                          '$capacidade m³',
-                                          style: TextStyle(
-                                            color: _getCorBoca(capacidade),
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
+                                      children: [
+                                        ...bocas.map((capacidade) => Chip(
+                                          backgroundColor: _getCorBoca(capacidade)
+                                              .withOpacity(0.1),
+                                          label: Text(
+                                            '$capacidade m³',
+                                            style: TextStyle(
+                                              color: _getCorBoca(capacidade),
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        )).toList(),
+                                        
+                                        Chip(
+                                          backgroundColor: Colors.blueGrey.withOpacity(0.15),
+                                          label: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                '${bocas.reduce((a, b) => a + b)} m³ total',
+                                                style: const TextStyle(
+                                                  color: Colors.blueGrey,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                      )).toList(),
+                                      ],
                                     ),
                             ),
                           ],
@@ -1000,7 +1306,6 @@ class VeiculoDetalhesPage extends StatelessWidget {
                   
                   const SizedBox(height: 16),
                   
-                  // Documentação
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -1021,8 +1326,6 @@ class VeiculoDetalhesPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
                         
-                        // Aqui você pode carregar e exibir os documentos
-                        // do banco de dados usando um FutureBuilder
                         FutureBuilder<Map<String, dynamic>?>(
                           future: _carregarDocumentos(placa),
                           builder: (context, snapshot) {
@@ -1135,7 +1438,6 @@ class VeiculoDetalhesPage extends StatelessWidget {
       
       return data;
     } catch (e) {
-      debugPrint('Erro ao carregar documentos: $e');
       return null;
     }
   }

@@ -37,7 +37,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   TextEditingController searchController = TextEditingController();
 
   final List<String> menuItems = [
-    'Sessões',
+    'Início',
     'Relatórios',
     'Configurações',
     'Ajuda'
@@ -707,7 +707,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   selectedIndex = index;
                                 });
 
-                                if (menuItems[index] == 'Sessões') {
+                                if (menuItems[index] == 'Início') {
                                   await _verificarPermissoesUsuario();
                                 }
                               },
@@ -782,7 +782,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
 
     switch (menuItems[selectedIndex]) {
-      case 'Sessões':
+      case 'Início':
         return _buildSessoesPage(usuario);
       case 'Configurações':
         return _buildConfiguracoesPage(usuario);
@@ -1834,8 +1834,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   IconData _getMenuIcon(String item) {
     switch (item) {
-      case 'Sessões':
-        return Icons.apps;
+      case 'Início':
+        return Icons.home;
       case 'Relatórios':
         return Icons.bar_chart;
       case 'Configurações':
