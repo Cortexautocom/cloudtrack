@@ -54,8 +54,8 @@ class _IniciarCircuitoPageState extends State<IniciarCircuitoPage> {
     ),
     EtapaInfo(
       etapa: EtapaCircuito.liberacao,
-      label: 'Liberação',
-      subtitle: 'Entrega concluída',
+      label: 'Expedido',
+      subtitle: 'Operação concluída',
       icon: Icons.done_outline,
       cor: Color.fromARGB(255, 42, 199, 50),
     ),

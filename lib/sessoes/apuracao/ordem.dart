@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:typed_data';
 import 'dart:convert' show base64Encode;
 import 'dart:js' as js;
-import 'certificado_pdf.dart';
+import 'ordem_pdf.dart';
 
 class CertificadoAnalisePage extends StatefulWidget {
   final VoidCallback onVoltar;
@@ -639,12 +639,11 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            // BOTÃO CONCLUIR ANÁLISE (ESQUERDA)
                             ElevatedButton.icon(
                               onPressed: (!_analiseConcluida && tipoOperacao != null) ? _confirmarConclusao : null,
                               icon: Icon(_analiseConcluida ? Icons.check_circle_outline : Icons.check_circle, size: 24),
                               label: Text(
-                                _analiseConcluida ? 'Análise Concluída' : 'Concluir análise',
+                                _analiseConcluida ? 'Ordem emitida' : 'Emitir ordem',
                                 style: const TextStyle(fontSize: 16),
                               ),
                               style: ElevatedButton.styleFrom(
@@ -1797,7 +1796,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
               children: [
                 const SizedBox(height: 8),
                 const Text(
-                  'Tem certeza que deseja concluir a análise?',
+                  'Tem certeza que deseja emitir a ordem?',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -1818,7 +1817,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Após a conclusão, qualquer edição ou correção no documento só poderá ser realizada por um supervisor nível 3.',
+                          'Após a emissão, qualquer edição ou correção no documento só poderá ser realizada por um supervisor nível 3.',
                           style: TextStyle(
                             fontSize: 14,
                             color: Color.fromARGB(255, 239, 108, 0),
@@ -1867,7 +1866,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                 ),
               ),
               child: const Text(
-                'Confirmar Conclusão',
+                'Confirmar Emissão',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
@@ -1938,27 +1937,31 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
         dadosParaBanco['produto_id'] = produtoResult['id'];
       }
       
-      // 4. Inserir no banco de dados
+      // 4. Inserir no banco de dados (ordens_analises)
       final response = await supabase
           .from('ordens_analises')
           .insert(dadosParaBanco)
-          .select('numero_controle')
+          .select('id, numero_controle')
           .single();
       
-      // 5. Fechar loading
+      // 5. Atualizar o número de controle no campo
+      campos['numeroControle']!.text = response['numero_controle'].toString();
+      
+      // 6. Salvar também na tabela de movimentações
+      dadosParaBanco['id'] = response['id']; // Adicionar ID da análise
+      await _salvarMovimentacao(dadosParaBanco);
+      
+      // 7. Fechar loading
       if (context.mounted) {
         Navigator.of(context).pop();
       }
       
-      // 6. ATUALIZAR O ESTADO - Análise concluída!
+      // 8. ATUALIZAR O ESTADO - Análise concluída!
       setState(() {
         _analiseConcluida = true;
-        
-        // Atualizar o número de controle no campo
-        campos['numeroControle']!.text = response['numero_controle'].toString();
       });
       
-      // 7. Mostrar mensagem de sucesso
+      // 9. Mostrar mensagem de sucesso
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1968,7 +1971,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '✓ Análise ${response['numero_controle']} concluída com sucesso! O PDF agora está disponível.',
+                    '✓ Ordem ${response['numero_controle']} emitida com sucesso! O PDF agora está disponível.',
                   ),
                 ),
               ],
@@ -1994,7 +1997,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
                 const Icon(Icons.error, color: Colors.white),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text('Erro ao salvar análise: ${e.toString()}'),
+                  child: Text('Erro ao emitir ordem: ${e.toString()}'),
                 ),
               ],
             ),
@@ -2004,9 +2007,152 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
         );
       }
       
-      print('Erro ao salvar análise: $e');
+      print('Erro ao emitir ordem: $e');
     }
   }
+
+  // Método para salvar na tabela de movimentações
+  Future<void> _salvarMovimentacao(Map<String, dynamic> dadosOrdem) async {
+    try {
+      final supabase = Supabase.instance.client;
+      
+      final user = supabase.auth.currentUser;
+      if (user == null) return;
+      
+      String? filialId;
+      String? empresaId;
+      
+      final usuarioData = await supabase
+          .from('usuarios')
+          .select('id_filial, empresa_id')
+          .eq('id', user.id)
+          .maybeSingle();
+      
+      if (usuarioData != null) {
+        filialId = usuarioData['id_filial']?.toString();
+        empresaId = usuarioData['empresa_id']?.toString();
+      }
+      
+      if (filialId == null) {
+        final primeiraFilial = await supabase
+            .from('filiais')
+            .select('id')
+            .limit(1)
+            .maybeSingle();
+        filialId = primeiraFilial?['id']?.toString();
+      }
+      
+      if (empresaId == null) {
+        final primeiraEmpresa = await supabase
+            .from('empresas')
+            .select('id')
+            .limit(1)
+            .maybeSingle();
+        empresaId = primeiraEmpresa?['id']?.toString();
+      }
+      
+      if (filialId == null || empresaId == null) {
+        return;
+      }
+      
+      final List<String> placasArray = [];
+      
+      void adicionarPlacaSePreenchida(String placa) {
+        final placaLimpa = placa.trim();
+        if (placaLimpa.isNotEmpty && placaLimpa != '-') {
+          placasArray.add(placaLimpa);
+        }
+      }
+      
+      adicionarPlacaSePreenchida(campos['placaCavalo']!.text);
+      adicionarPlacaSePreenchida(campos['carreta1']!.text);
+      adicionarPlacaSePreenchida(campos['carreta2']!.text);
+      
+      final isCarga = tipoOperacao == 'Carga';
+      
+      final saidaAmb = isCarga ? dadosOrdem['origem_ambiente'] : null;
+      final saidaVinte = isCarga ? dadosOrdem['origem_20c'] : null;
+      final entradaAmb = isCarga ? null : dadosOrdem['origem_ambiente'];
+      final entradaVinte = isCarga ? null : dadosOrdem['origem_20c'];
+      
+      final Map<String, dynamic> camposProduto = _mapearCamposProduto();
+      
+      final Map<String, dynamic> dadosMovimentacao = {
+        'filial_id': filialId,
+        'empresa_id': empresaId,
+        'data_mov': dadosOrdem['data_analise'],
+        'descricao': null,
+        'cliente': null,
+        'anp': false,
+        'entrada_amb': entradaAmb,
+        'entrada_vinte': entradaVinte,
+        'saida_amb': saidaAmb,
+        'saida_vinte': saidaVinte,
+        'produto_id': dadosOrdem['produto_id'],
+        'placa': placasArray.isNotEmpty ? '{${placasArray.join(',')}}' : null,
+        'codigo': null,
+        'cacl_id': null,
+        'uf': null,
+        'forma_pagamento': null,
+        'observacoes': null,
+        'quantidade': null,
+        'usuario_id': dadosOrdem['usuario_id'],
+        'created_at': DateTime.now().toIso8601String(),
+        ...camposProduto,
+      };
+      
+      await supabase
+          .from('movimentacoes')
+          .insert(dadosMovimentacao);
+      
+    } catch (e) {
+      // Não lançar exceção
+    }
+  }
+
+  Map<String, dynamic> _mapearCamposProduto() {
+    final produto = produtoSelecionado?.toLowerCase() ?? '';
+    final quantidade = _converterParaInteiro(campos['origemAmb']!.text) ?? 0;
+    
+    final camposProduto = {
+      'g_comum': 0,
+      'g_aditivada': 0,
+      'd_s10': 0,
+      'd_s500': 0,
+      'etanol': 0,
+      'anidro': 0,
+      'b100': 0,
+      'gasolina_a': 0,
+      's500_a': 0,
+      's10_a': 0,
+    };
+    
+    if (produto.contains('gasolina')) {
+      if (produto.contains('comum')) {
+        camposProduto['g_comum'] = quantidade;
+      } else if (produto.contains('aditivada')) {
+        camposProduto['g_aditivada'] = quantidade;
+      } else {
+        camposProduto['gasolina_a'] = quantidade;
+      }
+    } else if (produto.contains('diesel')) {
+      if (produto.contains('s10')) {
+        camposProduto['d_s10'] = quantidade;
+      } else if (produto.contains('s500')) {
+        camposProduto['d_s500'] = quantidade;
+      }
+    } else if (produto.contains('etanol')) {
+      if (produto.contains('anidro')) {
+        camposProduto['anidro'] = quantidade;
+      } else if (produto.contains('hidratado')) {
+        camposProduto['etanol'] = quantidade;
+      }
+    } else if (produto.contains('b100')) {
+      camposProduto['b100'] = quantidade;
+    }
+    
+    return camposProduto;
+  }  
 
   // Método para limpar/reiniciar o formulário
   void _novoDocumento() {
@@ -2219,5 +2365,5 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
     } catch (e) {
       return null;
     }
-  } 
+  }
 }
