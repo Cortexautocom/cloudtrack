@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FiltroEstoquePage extends StatefulWidget {
@@ -52,11 +51,12 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
     
     try {
       // Consulta para buscar produtos disponíveis na filial selecionada
+      // CORREÇÃO: Usar o nome correto da chave estrangeira
       final dados = await _supabase
-          .from('movimentacoes') // Tabela alterada de 'estoques' para 'movimentacoes'
+          .from('movimentacoes')
           .select('''
             produto_id,
-            produtos!inner(
+            produtos!movimentacoes_produto_id_fkey1(
               id,
               nome
             )
@@ -125,7 +125,23 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
       helpText: 'Selecione o mês',
       fieldLabelText: 'Mês de referência',
       fieldHintText: 'MM/AAAA',
-      locale: const Locale('pt', 'BR'), // Definir calendário em português
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF0D47A1),
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF0D47A1),
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     
     if (selecionado != null) {

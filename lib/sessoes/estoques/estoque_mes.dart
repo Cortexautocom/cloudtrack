@@ -97,7 +97,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             saida_vinte,
             created_at,
             produto_id,
-            produtos!inner(
+            produtos!movimentacoes_produto_id_fkey1(
               id,
               nome
             )

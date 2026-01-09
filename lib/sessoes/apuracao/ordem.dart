@@ -2073,7 +2073,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
       final saidaAmb = isCarga ? dadosOrdem['origem_ambiente'] : null;
       final saidaVinte = isCarga ? dadosOrdem['origem_20c'] : null;
       final entradaAmb = isCarga ? null : dadosOrdem['origem_ambiente'];
-      final entradaVinte = isCarga ? null : dadosOrdem['origem_20c'];
+      final entradaVinte = isCarga ? null : dadosOrdem['destino_20c'];
       
       final Map<String, dynamic> camposProduto = _mapearCamposProduto();
       
