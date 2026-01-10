@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'nova_venda.dart';
+import 'dart:convert';
 
 class ProgramacaoPage extends StatefulWidget {
   final VoidCallback onVoltar;
@@ -29,6 +30,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
       final response = await supabase
           .from("movimentacoes")
           .select("*")
+          .eq("tipo_op", "venda")
           .order("created_at", ascending: false);
 
       setState(() {
@@ -57,7 +59,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     try {
       await supabase.from("movimentacoes").update({campo: valor}).eq("id", id);
       
-      // Atualiza localmente
       setState(() {
         final index = movimentacoes.indexWhere((v) => v['id'] == id);
         if (index != -1) {
@@ -93,7 +94,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
       builder: (context) => NovaVendaDialog(
         onSalvar: (sucesso) {
           if (sucesso) {
-            // Recarrega os dados quando uma nova venda é salva
             carregar();
           }
         },
@@ -101,7 +101,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     );
 
     if (result == true) {
-      // Recarrega os dados após salvar
       await carregar();
     }
   }
@@ -142,7 +141,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
                     ],
                   ),
                 )
-              : ExcelTabela(
+              : ExcelTabelaDividida(
                   dados: movimentacoes,
                   onEdit: atualizarCampo,
                 ),
@@ -162,27 +161,103 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
 }
 
 // ==============================================================
-//                        TABELA EXCEL
+//                TABELA EXCEL DIVIDIDA EM GRUPOS
 // ==============================================================
 
-class ExcelTabela extends StatelessWidget {
+class ExcelTabelaDividida extends StatefulWidget {
   final List<Map<String, dynamic>> dados;
   final Function(String id, String campo, dynamic valor) onEdit;
 
-  const ExcelTabela({
+  const ExcelTabelaDividida({
     super.key,
     required this.dados,
     required this.onEdit,
   });
 
   @override
+  State<ExcelTabelaDividida> createState() => _ExcelTabelaDivididaState();
+}
+
+class _ExcelTabelaDivididaState extends State<ExcelTabelaDividida> {
+  int grupoAtual = 0; // 0 para Grupo 1, 1 para Grupo 2
+  final horizontalScrollController = ScrollController();
+
+  @override
   Widget build(BuildContext context) {
-    final horizontalScrollController = ScrollController();
+    return Column(
+      children: [
+        // Menu de navegação compacto
+        Container(
+          height: 32, // Altura mínima
+          color: Colors.grey.shade100,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _botaoGrupo("Grupo 1", 0),
+              const SizedBox(width: 8),
+              _botaoGrupo("Grupo 2", 1),
+            ],
+          ),
+        ),
+        
+        // Cabeçalho e conteúdo da tabela
+        Expanded(
+          child: _construirTabela(grupoAtual),
+        ),
+      ],
+    );
+  }
+
+  Widget _botaoGrupo(String texto, int grupo) {
+    final bool selecionado = grupoAtual == grupo;
+    
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          grupoAtual = grupo;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        decoration: BoxDecoration(
+          color: selecionado ? Colors.blue.shade700 : Colors.white,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: selecionado ? Colors.blue.shade700 : Colors.grey.shade400,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          texto,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: selecionado ? Colors.white : Colors.grey.shade700,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _construirTabela(int grupo) {
     final verticalScrollController = ScrollController();
 
     return Column(
       children: [
-        _cabecalho(),
+        // Cabeçalho com scroll horizontal
+        Container(
+          height: 40,
+          color: Colors.blue.shade700,
+          child: SingleChildScrollView(
+            controller: horizontalScrollController,
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _obterColunasCabecalho(grupo),
+            ),
+          ),
+        ),
+        
+        // Conteúdo da tabela
         Expanded(
           child: Scrollbar(
             controller: horizontalScrollController,
@@ -191,7 +266,7 @@ class ExcelTabela extends StatelessWidget {
               controller: horizontalScrollController,
               scrollDirection: Axis.horizontal,
               child: SizedBox(
-                width: 1900,
+                width: _obterLarguraTabela(grupo),
                 child: Scrollbar(
                   controller: verticalScrollController,
                   thumbVisibility: true,
@@ -199,8 +274,8 @@ class ExcelTabela extends StatelessWidget {
                     controller: verticalScrollController,
                     child: Column(
                       children: List.generate(
-                        dados.length,
-                        (i) => _linha(dados[i], i, context),
+                        widget.dados.length,
+                        (i) => _linha(widget.dados[i], i, grupo),
                       ),
                     ),
                   ),
@@ -213,37 +288,51 @@ class ExcelTabela extends StatelessWidget {
     );
   }
 
+  double _obterLarguraTabela(int grupo) {
+    // Largura total base das colunas fixas
+    double larguraFixa = 120 + 100 + 220 + 80 + 60 + 100; // Placa, Status, Cliente, Cód., UF, Prazo
+    
+    if (grupo == 0) {
+      return larguraFixa + (90 * 6); // 6 colunas do Grupo 1
+    } else {
+      return larguraFixa + (90 * 4); // 4 colunas do Grupo 2
+    }
+  }
+
   // ----------------------------------------------------------
   // CABEÇALHO
   // ----------------------------------------------------------
-  Widget _cabecalho() {
-    return Container(
-      height: 40,
-      color: Colors.blue.shade700,
-      child: Row(
-        children: [
-          _th("Placa", 120),
-          _th("Cliente", 220),
-          _th("Cód.", 80),
-          _th("UF", 60),
-          _th("Prazo", 100),
+  List<Widget> _obterColunasCabecalho(int grupo) {
+    final colunasFixas = [
+      _th("Placa", 120),
+      _th("Status", 100),
+      _th("Cliente", 220),
+      _th("Cód.", 80),
+      _th("UF", 60),
+      _th("Prazo", 100),
+    ];
 
-          _th("G. Com.", 90),
-          _th("G. Aditiv.", 90),
-
-          _th("D. S10", 90),
-          _th("D. S500", 90),
-
-          _th("Etanol", 90),
-          _th("Anidro", 90),
-          _th("B100", 90),
-
-          _th("G. A", 90),
-          _th("S500 A", 90),
-          _th("S10 A", 90),
-        ],
-      ),
-    );
+    if (grupo == 0) {
+      // Grupo 1: G. Com. até Etanol
+      return [
+        ...colunasFixas,
+        _th("G. Com.", 90),
+        _th("G. Aditiv.", 90),
+        _th("D. S10", 90),
+        _th("D. S500", 90),
+        _th("Etanol", 90),
+        _th("Anidro", 90),
+      ];
+    } else {
+      // Grupo 2: B100 até S10 A (sem G. Com. e G. Aditiv.)
+      return [
+        ...colunasFixas,
+        _th("B100", 90),
+        _th("G. A", 90),
+        _th("S500 A", 90),
+        _th("S10 A", 90),
+      ];
+    }
   }
 
   Widget _th(String texto, double largura) {
@@ -263,41 +352,114 @@ class ExcelTabela extends StatelessWidget {
   // ----------------------------------------------------------
   // LINHA
   // ----------------------------------------------------------
-  Widget _linha(Map<String, dynamic> l, int i, BuildContext context) {
+  Widget _linha(Map<String, dynamic> l, int i, int grupo) {
     final cor = i % 2 == 0 ? Colors.grey.shade200 : Colors.grey.shade300;
 
     return Container(
       height: 50,
       color: cor,
       child: Row(
-        children: [
-          _cell(l["id"], "placa", l["placa"]?.toString() ?? "", largura: 120),
-          _cell(l["id"], "cliente", l["cliente"]?.toString() ?? "", largura: 220),
-          _cell(l["id"], "codigo", l["codigo"]?.toString() ?? "", largura: 80),
-          _cell(l["id"], "uf", l["uf"]?.toString() ?? "", largura: 60),
-          _cell(l["id"], "forma_pagamento", l["forma_pagamento"]?.toString() ?? "", largura: 100),
-
-          // Colunas numéricas com formatação
-          _cell(l["id"], "g_comum", l["g_comum"].toString(), largura: 90, numero: true),
-          _cell(l["id"], "g_aditivada", l["g_aditivada"].toString(), largura: 90, numero: true),
-
-          _cell(l["id"], "d_s10", l["d_s10"].toString(), largura: 90, numero: true),
-          _cell(l["id"], "d_s500", l["d_s500"].toString(), largura: 90, numero: true),
-
-          _cell(l["id"], "etanol", l["etanol"].toString(), largura: 90, numero: true),
-          _cell(l["id"], "anidro", l["anidro"].toString(), largura: 90, numero: true),
-          _cell(l["id"], "b100", l["b100"].toString(), largura: 90, numero: true),
-
-          _cell(l["id"], "gasolina_a", l["gasolina_a"].toString(), largura: 90, numero: true),
-          _cell(l["id"], "s500_a", l["s500_a"].toString(), largura: 90, numero: true),
-          _cell(l["id"], "s10_a", l["s10_a"].toString(), largura: 90, numero: true),
-        ],
+        children: _obterCelulasLinha(l, grupo),
       ),
     );
   }
 
+  List<Widget> _obterCelulasLinha(Map<String, dynamic> l, int grupo) {
+    final celulasFixas = [
+      _cell(l["id"], "placa", _obterPrimeiraPlaca(l["placa"]), largura: 120),
+      _statusCell(l["status_circuito"]),
+      _cell(l["id"], "cliente", l["cliente"]?.toString() ?? "", largura: 220),
+      _cell(l["id"], "codigo", l["codigo"]?.toString() ?? "", largura: 80),
+      _cell(l["id"], "uf", l["uf"]?.toString() ?? "", largura: 60),
+      _cell(l["id"], "forma_pagamento", l["forma_pagamento"]?.toString() ?? "", largura: 100),
+    ];
+
+    if (grupo == 0) {
+      // Grupo 1: G. Com. até Anidro
+      return [
+        ...celulasFixas,
+        _cell(l["id"], "g_comum", l["g_comum"].toString(), largura: 90, numero: true),
+        _cell(l["id"], "g_aditivada", l["g_aditivada"].toString(), largura: 90, numero: true),
+        _cell(l["id"], "d_s10", l["d_s10"].toString(), largura: 90, numero: true),
+        _cell(l["id"], "d_s500", l["d_s500"].toString(), largura: 90, numero: true),
+        _cell(l["id"], "etanol", l["etanol"].toString(), largura: 90, numero: true),
+        _cell(l["id"], "anidro", l["anidro"].toString(), largura: 90, numero: true),
+      ];
+    } else {
+      // Grupo 2: B100 até S10 A (sem G. Com. e G. Aditiv.)
+      return [
+        ...celulasFixas,
+        _cell(l["id"], "b100", l["b100"].toString(), largura: 90, numero: true),
+        _cell(l["id"], "gasolina_a", l["gasolina_a"].toString(), largura: 90, numero: true),
+        _cell(l["id"], "s500_a", l["s500_a"].toString(), largura: 90, numero: true),
+        _cell(l["id"], "s10_a", l["s10_a"].toString(), largura: 90, numero: true),
+      ];
+    }
+  }
+
   // ----------------------------------------------------------
-  // CÉLULA
+  // CÉLULA DE STATUS
+  // ----------------------------------------------------------
+  Widget _statusCell(dynamic statusCircuito) {
+    final status = _obterTextoStatus(statusCircuito);
+    final corStatus = _obterCorStatus(statusCircuito);
+    
+    return Container(
+      width: 100,
+      height: 50,
+      alignment: Alignment.center,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: corStatus.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: corStatus.withOpacity(0.3), width: 1),
+        ),
+        child: Text(
+          status,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: corStatus,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _obterTextoStatus(dynamic statusCircuito) {
+    if (statusCircuito == null) return "Programado";
+    
+    final statusNum = int.tryParse(statusCircuito.toString()) ?? 1;
+    
+    switch (statusNum) {
+      case 1: return "Programado";
+      case 2: return "Em check-list";
+      case 3: return "Em operação";
+      case 4: return "Aguardando NF";
+      case 5: return "Expedido";
+      default: return "Programado";
+    }
+  }
+
+  Color _obterCorStatus(dynamic statusCircuito) {
+    if (statusCircuito == null) return Colors.blue;
+    
+    final statusNum = int.tryParse(statusCircuito.toString()) ?? 1;
+    
+    switch (statusNum) {
+      case 1: return Colors.blue; // Programado
+      case 2: return Colors.orange; // Em check-list
+      case 3: return Colors.green; // Em operação
+      case 4: return Colors.purple; // Aguardando NF
+      case 5: return Colors.grey; // Expedido
+      default: return Colors.blue;
+    }
+  }
+
+  // ----------------------------------------------------------
+  // CÉLULA EDITÁVEL
   // ----------------------------------------------------------
   Widget _cell(String id, String campo, String valor,
       {double largura = 100, bool numero = false}) {
@@ -305,8 +467,30 @@ class ExcelTabela extends StatelessWidget {
       largura: largura,
       valorInicial: valor,
       numero: numero,
-      onSubmit: (v) => onEdit(id, campo, v),
+      onSubmit: (v) => widget.onEdit(id, campo, v),
     );
+  }
+
+  // Função para obter apenas o primeiro item do array de placas
+  String _obterPrimeiraPlaca(dynamic placaData) {
+    if (placaData == null) return "";
+    
+    if (placaData is String) {
+      try {
+        final parsed = jsonDecode(placaData);
+        if (parsed is List && parsed.isNotEmpty) {
+          return parsed.first.toString();
+        }
+      } catch (e) {
+        return placaData.toString();
+      }
+    }
+    
+    if (placaData is List && placaData.isNotEmpty) {
+      return placaData.first.toString();
+    }
+    
+    return placaData.toString();
   }
 }
 
@@ -342,20 +526,16 @@ class _EditableCellState extends State<EditableCell> {
     super.initState();
   }
 
-  // Formata o valor para exibição (apenas para campos numéricos)
   String _formatarValorParaExibicao(String valor) {
     if (widget.numero && valor.isNotEmpty) {
-      // Remove qualquer formatação existente
       String apenasNumeros = valor.replaceAll(RegExp(r'\D'), '');
       
       if (apenasNumeros.isEmpty) return "";
       
-      // Converte para inteiro para remover zeros à esquerda
       try {
         int valorNumerico = int.parse(apenasNumeros);
         if (valorNumerico == 0) return "";
         
-        // Aplica formatação 999.999
         String valorString = valorNumerico.toString();
         if (valorString.length > 3) {
           return "${valorString.substring(0, valorString.length - 3)}.${valorString.substring(valorString.length - 3)}";
@@ -368,35 +548,29 @@ class _EditableCellState extends State<EditableCell> {
     return valor;
   }
 
-  // Prepara o valor para salvar no banco de dados
   String _prepararParaSalvar(String valor) {
     if (widget.numero) {
-      // Para campos numéricos, remove a formatação e mantém apenas números
       String semFormatacao = valor.replaceAll(RegExp(r'\D'), '');
       if (semFormatacao.isEmpty) return "0";
       
       try {
-        // Converte para inteiro para remover zeros à esquerda
         int valorNumerico = int.parse(semFormatacao);
         return valorNumerico.toString();
       } catch (e) {
         return "0";
       }
     } else {
-      // Para campos de texto, retorna o valor exatamente como foi digitado
       return valor.trim();
     }
   }
 
-  // Formata em tempo real enquanto o usuário digita (apenas para campos numéricos)
   String _aplicarMascaraNumerica(String valor) {
-    if (!widget.numero) return valor; // Não aplica máscara para campos não numéricos
+    if (!widget.numero) return valor;
     
     String apenasNumeros = valor.replaceAll(RegExp(r'\D'), '');
     
     if (apenasNumeros.isEmpty) return "";
     
-    // Remove zeros à esquerda
     try {
       int valorNumerico = int.tryParse(apenasNumeros) ?? 0;
       if (valorNumerico == 0) return "";
@@ -414,8 +588,6 @@ class _EditableCellState extends State<EditableCell> {
 
   @override
   Widget build(BuildContext context) {
-    // Para campos não numéricos, usamos o valor original
-    // Para campos numéricos, aplicamos a formatação na exibição
     final valorExibicao = widget.numero 
         ? _formatarValorParaExibicao(widget.valorInicial)
         : widget.valorInicial;
@@ -440,7 +612,6 @@ class _EditableCellState extends State<EditableCell> {
             ? Focus(
                 onFocusChange: (focus) {
                   if (!focus) {
-                    // Salva o valor preparado
                     widget.onSubmit(_prepararParaSalvar(controller.text));
                     setState(() => editando = false);
                   }
@@ -452,7 +623,6 @@ class _EditableCellState extends State<EditableCell> {
                   keyboardType: widget.numero ? TextInputType.number : TextInputType.text,
                   onChanged: (v) {
                     if (widget.numero) {
-                      // Aplica a máscara em tempo real apenas para campos numéricos
                       String novaFormatacao = _aplicarMascaraNumerica(v);
                       if (controller.text != novaFormatacao) {
                         controller.text = novaFormatacao;
