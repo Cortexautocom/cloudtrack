@@ -13,7 +13,7 @@ class ProgramacaoPage extends StatefulWidget {
 
 class _ProgramacaoPageState extends State<ProgramacaoPage> {
   bool carregando = true;
-  List<Map<String, dynamic>> vendas = [];
+  List<Map<String, dynamic>> movimentacoes = [];
 
   @override
   void initState() {
@@ -27,19 +27,19 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     try {
       final supabase = Supabase.instance.client;
       final response = await supabase
-          .from("vendas")
+          .from("movimentacoes")
           .select("*")
-          .order("data_criacao", ascending: false);
+          .order("created_at", ascending: false);
 
       setState(() {
-        vendas = List<Map<String, dynamic>>.from(response);
+        movimentacoes = List<Map<String, dynamic>>.from(response);
       });
     } catch (e) {
-      debugPrint("Erro ao carregar vendas: $e");
+      debugPrint("Erro ao carregar movimentacoes: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erro ao carregar vendas: $e'),
+            content: Text('Erro ao carregar movimentacoes: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -55,13 +55,13 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     final supabase = Supabase.instance.client;
 
     try {
-      await supabase.from("vendas").update({campo: valor}).eq("id", id);
+      await supabase.from("movimentacoes").update({campo: valor}).eq("id", id);
       
       // Atualiza localmente
       setState(() {
-        final index = vendas.indexWhere((v) => v['id'] == id);
+        final index = movimentacoes.indexWhere((v) => v['id'] == id);
         if (index != -1) {
-          vendas[index][campo] = valor;
+          movimentacoes[index][campo] = valor;
         }
       });
       
@@ -125,7 +125,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
       ),
       body: carregando
           ? const Center(child: CircularProgressIndicator())
-          : vendas.isEmpty
+          : movimentacoes.isEmpty
               ? const Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -143,7 +143,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
                   ),
                 )
               : ExcelTabela(
-                  dados: vendas,
+                  dados: movimentacoes,
                   onEdit: atualizarCampo,
                 ),
       floatingActionButton: FloatingActionButton(

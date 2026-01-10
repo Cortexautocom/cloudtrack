@@ -179,9 +179,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       },
       {
         'icon': Icons.directions_car,
-        'label': 'Acompanhar veículo',
-        'descricao': 'Monitorar veículo em trânsito',
-        'tipo': 'acompanhar_veiculo',
+        'label': 'Acompanhar ordem',
+        'descricao': 'Acompanhar situação da ordem',
+        'tipo': 'acompanhar_ordem',
       },
       {
         'icon': Icons.dashboard,
@@ -1519,12 +1519,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _mostrarIniciarCircuito = true;
         });
         break;
-      case 'acompanhar_veiculo':
-        debugPrint('Abrir tela para acompanhar veículo');
+      case 'acompanhar_ordem':
+        //debugPrint('Abrir tela para acompanhar ordem');
         // Implementar navegação
         break;
       case 'visao_geral_circuito':
-        debugPrint('Abrir visão geral dos circuitos');
+        //debugPrint('Abrir visão geral dos circuitos');
         // Implementar navegação
         break;
     }
