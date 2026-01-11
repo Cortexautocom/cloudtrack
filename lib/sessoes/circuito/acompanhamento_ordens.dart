@@ -26,14 +26,15 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   
   // Controllers para filtros
   final TextEditingController _filtroGeralController = TextEditingController();
+  final TextEditingController _dataFiltroController = TextEditingController();
   String? _filialFiltroId;
-  String? _filialFiltroNome;
 
   @override
   void initState() {
     super.initState();
     _carregarDados();
     _filtroGeralController.addListener(_aplicarFiltros);
+    _dataFiltroController.addListener(_aplicarFiltros);
   }
 
   Future<void> _carregarFiliais() async {
@@ -63,7 +64,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         setState(() {
           _filiais = [filialData];
           _filialFiltroId = usuario.filialId;
-          _filialFiltroNome = filialData['nome'];
         });
       }
     } catch (e) {
@@ -148,6 +148,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
 
   void _aplicarFiltros() {
     final termoBusca = _filtroGeralController.text.toLowerCase().trim();
+    final dataFiltro = _dataFiltroController.text.trim();
     
     List<Map<String, dynamic>> resultado = List.from(_movimentacoes);
 
@@ -155,6 +156,22 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     if (_filialFiltroId != null) {
       resultado = resultado.where((item) {
         return item['filial_id'] == _filialFiltroId;
+      }).toList();
+    }
+
+    // Aplicar filtro de data
+    if (dataFiltro.isNotEmpty) {
+      resultado = resultado.where((item) {
+        final dataMov = item['data_mov']?.toString() ?? '';
+        if (dataMov.isEmpty) return false;
+        
+        try {
+          final data = DateTime.parse(dataMov);
+          final dataFormatada = '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}';
+          return dataFormatada.contains(dataFiltro);
+        } catch (e) {
+          return false;
+        }
       }).toList();
     }
 
@@ -276,11 +293,11 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     final codigo = statusCodigo is int ? statusCodigo : int.tryParse(statusCodigo.toString());
     
     switch (codigo) {
-      case 1: return Colors.blue.shade700; // Azul
-      case 2: return Colors.orange.shade700; // Laranja
-      case 3: return Colors.green.shade700; // Verde
-      case 4: return Colors.purple.shade700; // Roxo
-      case 5: return Colors.grey.shade700; // Cinza
+      case 1: return Colors.blue.shade700;
+      case 2: return Colors.orange.shade700;
+      case 3: return Colors.green.shade700;
+      case 4: return Colors.purple.shade700;
+      case 5: return Colors.grey.shade700;
       default: return Colors.grey;
     }
   }
@@ -334,122 +351,86 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            const Text(
-              'Filtrar ordens',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF0D47A1),
-              ),
-            ),
-            const SizedBox(height: 12),
-            
-            Row(
-              children: [
-                // Filtro de filial (apenas para nível 3)
-                if (mostraFiltroFilial) ...[
-                  Expanded(
-                    flex: 2,
-                    child: DropdownButtonFormField<String>(
-                      value: _filialFiltroId,
-                      decoration: InputDecoration(
-                        labelText: 'Filial',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 16,
-                        ),
-                      ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('Todas as filiais'),
-                        ),
-                        ..._filiais.map((filial) {
-                          return DropdownMenuItem(
-                            value: filial['id'].toString(),
-                            child: Text(filial['nome'].toString()),
-                          );
-                        }).toList(),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          _filialFiltroId = value;
-                          _filialFiltroNome = value == null 
-                            ? null 
-                            : _filiais.firstWhere(
-                                (f) => f['id'].toString() == value,
-                                orElse: () => {'nome': ''}
-                              )['nome'].toString();
-                        });
-                        _aplicarFiltros();
-                      },
+            // Filtro de filial (apenas para nível 3)
+            if (mostraFiltroFilial) ...[
+              Expanded(
+                flex: 2,
+                child: DropdownButtonFormField<String>(
+                  value: _filialFiltroId,
+                  decoration: InputDecoration(
+                    labelText: 'Filial',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 16,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                ],
-                
-                // Filtro geral
-                Expanded(
-                  flex: 3,
-                  child: TextField(
-                    controller: _filtroGeralController,
-                    decoration: InputDecoration(
-                      labelText: 'Buscar (placa, cliente, filial, status...)',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      prefixIcon: const Icon(Icons.search),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 16,
-                      ),
+                  items: [
+                    const DropdownMenuItem(
+                      value: null,
+                      child: Text('Todas as filiais'),
                     ),
-                  ),
-                ),
-              ],
-            ),
-            
-            if (_filialFiltroNome != null || _filtroGeralController.text.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Row(
-                  children: [
-                    if (_filialFiltroNome != null)
-                      Chip(
-                        label: Text('Filial: $_filialFiltroNome'),
-                        backgroundColor: Colors.blue.shade50,
-                        deleteIcon: const Icon(Icons.close, size: 16),
-                        onDeleted: () {
-                          setState(() {
-                            _filialFiltroId = null;
-                            _filialFiltroNome = null;
-                          });
-                          _aplicarFiltros();
-                        },
-                      ),
-                    
-                    if (_filialFiltroNome != null && _filtroGeralController.text.isNotEmpty)
-                      const SizedBox(width: 8),
-                    
-                    if (_filtroGeralController.text.isNotEmpty)
-                      Chip(
-                        label: Text('Busca: ${_filtroGeralController.text}'),
-                        backgroundColor: Colors.green.shade50,
-                        deleteIcon: const Icon(Icons.close, size: 16),
-                        onDeleted: () {
-                          _filtroGeralController.clear();
-                          _aplicarFiltros();
-                        },
-                      ),
+                    ..._filiais.map((filial) {
+                      return DropdownMenuItem(
+                        value: filial['id'].toString(),
+                        child: Text(filial['nome'].toString()),
+                      );
+                    }).toList(),
                   ],
+                  onChanged: (value) {
+                    setState(() {
+                      _filialFiltroId = value;
+                    });
+                    _aplicarFiltros();
+                  },
                 ),
               ),
+              const SizedBox(width: 12),
+            ],
+            
+            // Filtro de data
+            Expanded(
+              flex: 2,
+              child: TextField(
+                controller: _dataFiltroController,
+                decoration: InputDecoration(
+                  labelText: 'Data (DD/MM)',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  prefixIcon: const Icon(Icons.calendar_today, size: 20),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 16,
+                  ),
+                ),
+              ),
+            ),
+            
+            const SizedBox(width: 12),
+            
+            // Filtro geral
+            Expanded(
+              flex: 3,
+              child: TextField(
+                controller: _filtroGeralController,
+                decoration: InputDecoration(
+                  labelText: 'Buscar (placa, cliente, status...)',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  prefixIcon: const Icon(Icons.search),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 16,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -792,6 +773,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   @override
   void dispose() {
     _filtroGeralController.dispose();
+    _dataFiltroController.dispose();
     super.dispose();
   }
 
@@ -841,19 +823,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
           children: [
             // Filtros
             _buildFiltros(),
-            
-            // Contador de resultados
-            if (!_carregando && !_erro)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  '${_movimentacoesFiltradas.length} ordem${_movimentacoesFiltradas.length != 1 ? 'ens' : ''} encontrada${_movimentacoesFiltradas.length != 1 ? 's' : ''}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                  ),
-                ),
-              ),
             
             // Lista de ordens
             Expanded(
