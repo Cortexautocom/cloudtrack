@@ -22,6 +22,7 @@ import 'sessoes/circuito/gerenciar_circuito.dart';
 import 'sessoes/gestao_de_frota/motoristas_page.dart';
 import 'sessoes/gestao_de_frota/veiculos.dart';
 import 'sessoes/circuito/acompanhamento_ordens.dart';
+import 'sessoes/estoques/transferencias.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -62,13 +63,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarEstoquePorEmpresa = false;
   bool _mostrarFiliaisDaEmpresa = false;
   bool _mostrarIniciarCircuito = false;
+  bool _mostrarTransferencias = false; // NOVA FLAG PARA TRANSFERÊNCIAS
   
   // NOVAS VARIÁVEIS PARA GESTÃO DE FROTA
   bool _mostrarVeiculos = false;
   bool _mostrarDetalhesVeiculo = false;
   Map<String, dynamic>? _veiculoSelecionado;
   bool _mostrarMotoristas = false;
-  //bool _mostrarControleDocumentos = false;
   
   // FLAG UNIFICADA PARA MOSTRAR FILHOS DE QUALQUER SESSÃO
   bool _mostrarFilhosSessao = false;
@@ -142,7 +143,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       },
     ];
 
-    // Filhos para "Estoques"
+    // Filhos para "Estoques" - ADICIONADO "Transferências"
     _filhosPorSessao['Estoques'] = [
       {
         'icon': Icons.hub,
@@ -161,6 +162,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'label': 'Movimentações',
         'descricao': 'Acompanhar entradas e saídas em geral',
         'tipo': 'movimentacoes',
+      },
+      {
+        'icon': Icons.compare_arrows,
+        'label': 'Transferências',
+        'descricao': 'Gerenciar transferências entre filiais',
+        'tipo': 'transferencias',
       },
       {
         'icon': Icons.download,
@@ -491,12 +498,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     });
   }
 
-  
-
   void _resetarTodasFlagsGestaoFrota() {
     _resetarFlagsVeiculos();
     _resetarFlagsMotoristas();
-    //_resetarFlagsDocumentacao();
   }
 
   // NOVO: Método unificado para resetar todas as flags
@@ -522,6 +526,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarEstoquePorEmpresa = false;
       _mostrarFiliaisDaEmpresa = false;
       _mostrarIniciarCircuito = false;
+      _mostrarTransferencias = false; // RESETAR FLAG DE TRANSFERÊNCIAS
       
       // Flags de Gestão de Frota
       _resetarTodasFlagsGestaoFrota();
@@ -568,13 +573,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarFiltrosEstoque = false;
       _mostrarIniciarCircuito = false;
       _mostrarCalcGerado = false;
+      _mostrarTransferencias = false; // RESETAR FLAG DE TRANSFERÊNCIAS
       
       // Resetar flags de Gestão de Frota
       _mostrarVeiculos = false;
       _mostrarDetalhesVeiculo = false;
       _veiculoSelecionado = null;
       _mostrarMotoristas = false;
-      //_mostrarControleDocumentos = false;
     });
   }
 
@@ -599,6 +604,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarFiltrosEstoque = false;
       _mostrarIniciarCircuito = false;
       _mostrarCalcGerado = false;
+      _mostrarTransferencias = false; // RESETAR FLAG DE TRANSFERÊNCIAS
       
       // Resetar TODAS as flags de Gestão de Frota
       _resetarTodasFlagsGestaoFrota();
@@ -1029,6 +1035,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         },
       );
     }
+
+    // NOVA PÁGINA DE TRANSFERÊNCIAS
+    if (_mostrarTransferencias) {
+      return TransferenciasPage(
+        key: const ValueKey('transferencias-page'),
+        onVoltar: () {
+          _mostrarFilhosDaSessao('Estoques');
+        },
+      );
+    }
     
     // Se estiver mostrando calculadora gerada
     if (_mostrarCalcGerado) {
@@ -1065,7 +1081,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         id: _veiculoSelecionado!['id'] ?? '',
         placa: _veiculoSelecionado!['placa'] ?? '',
         bocas: List<int>.from(_veiculoSelecionado!['bocas'] ?? []),
-        transportadora: _veiculoSelecionado!['transportadora'] ?? '--', // ADICIONAR TRANSPORTADORA
+        transportadora: _veiculoSelecionado!['transportadora'] ?? '--',
         onVoltar: () {
           setState(() {
             _mostrarDetalhesVeiculo = false;
@@ -1086,14 +1102,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         },
       );
     }
-
-    // NÃO MAIS USANDO _mostrarControleDocumentos - AGORA VIA Navigator.push
-    // REMOVA ESTA VERIFICAÇÃO:
-    // if (_mostrarControleDocumentos) {
-    //   return ControleDocumentosPage(
-    //     key: const ValueKey('controle-documentos-page'),
-    //   );
-    // }
     
     // =====================================
     
@@ -1528,6 +1536,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         debugPrint('Navegando para Movimentações');
         // Implementar navegação para movimentações
         break;
+      case 'transferencias': // NOVO CASO PARA TRANSFERÊNCIAS
+        setState(() {
+          _mostrarTransferencias = true;
+        });
+        break;
       case 'downloads':
         setState(() {
           _mostrarDownloads = true;
@@ -1572,7 +1585,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _mostrarDetalhesVeiculo = false;
           _veiculoSelecionado = null;
           _mostrarMotoristas = false;
-          //_mostrarControleDocumentos = false;
         });
         break;
         
@@ -1583,7 +1595,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _mostrarVeiculos = false;
           _mostrarDetalhesVeiculo = false;
           _veiculoSelecionado = null;
-          //_mostrarControleDocumentos = false;
         });
         break;
         
@@ -1777,7 +1788,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  Widget _buildSessaoCard(Map<String, dynamic> sessao) {
+  Widget _buildSessaoCard(Map<String, dynamic> sessaoData) {
     return Material(
       elevation: 1,
       color: Colors.white,
@@ -1785,20 +1796,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       clipBehavior: Clip.hardEdge,
       child: InkWell(
         onTap: () {
-          final nome = sessao['label'];
-          
-          // Resetar todas as flags
+          final nome = sessaoData['label'];
+
           _resetarTodasFlags();
           setState(() {
-            selectedIndex = 0; // Mantém na aba "Sessões"
+            selectedIndex = 0;
           });
-          
-          // Verificar se a sessão tem filhos definidos
+
           if (_filhosPorSessao.containsKey(nome)) {
-            // Sessão com filhos: mostrar página de filhos
             _mostrarFilhosDaSessao(nome);
           } else {
-            // Sessão sem filhos: navegar diretamente (comportamento antigo)
             _navegarParaSessaoSemFilhos(nome);
           }
         },
@@ -1810,11 +1817,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(sessao['icon'],
-                  color: const Color.fromARGB(255, 48, 153, 35), size: 50),
+              Icon(
+                sessaoData['icon'],
+                color: const Color.fromARGB(255, 48, 153, 35),
+                size: 50,
+              ),
               const SizedBox(height: 6),
               Text(
-                sessao['label'],
+                sessaoData['label'],
                 style: const TextStyle(
                   fontSize: 13,
                   color: Color(0xFF0D47A1),
@@ -1827,6 +1837,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       ),
     );
   }
+
 
   // NOVO: Método para navegar para sessões sem filhos (comportamento antigo)
   void _navegarParaSessaoSemFilhos(String nomeSessao) {
