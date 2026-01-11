@@ -31,7 +31,7 @@ class UsuarioAtual {
   });
 
   bool temPermissao(String idSessao) {
-    if (nivel >= 2) return true;
+    
     return sessoesPermitidas.contains(idSessao);
   }
 

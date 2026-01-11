@@ -377,7 +377,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         }
         
         if (usuario != null) {
-          if (usuario.nivel >= 2 || usuario.temPermissao(idSessao)) {
+          if (usuario.temPermissao(idSessao)) {
             filtradas.add({
               'id': idSessao,
               'label': nome,
@@ -403,32 +403,53 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
     try {
       final supabase = Supabase.instance.client;
-
-      if (usuario.nivel >= 2) {
-        UsuarioAtual.instance = UsuarioAtual(
-          id: usuario.id,
-          nome: usuario.nome,
-          empresaId: usuario.empresaId,
-          nivel: usuario.nivel,
-          filialId: usuario.filialId,
-          sessoesPermitidas: [],
-          senhaTemporaria: usuario.senhaTemporaria,
-        );
-        await _carregarSessoesDoBanco();
-        return;
-      }
-
+      
+      // 1. Consultar TODAS as sessões do sistema
+      final todasSessoes = await supabase
+          .from('sessoes')
+          .select('id');
+      
+      // 2. Consultar permissões do usuário
       final permissoes = await supabase
           .from('permissoes')
           .select('id_sessao, permitido')
           .eq('id_usuario', usuario.id);
-
-      final sessoesPermitidas = List<String>.from(
-        permissoes
+      
+      // 3. Determinar quais sessões o usuário pode ver
+      List<String> sessoesPermitidas = [];
+      
+      if (usuario.nivel >= 3) {
+        // Administrador: todas as sessões
+        sessoesPermitidas = todasSessoes
+            .map((s) => s['id'].toString())
+            .toList();
+      } else if (usuario.nivel == 2) {
+        // Gerente: verificar se tem permissões específicas
+        final permissoesUsuario = permissoes
             .where((p) => p['permitido'] == true)
-            .map((p) => p['id_sessao'].toString()),
-      );
-
+            .map((p) => p['id_sessao'].toString())
+            .toList();
+        
+        if (permissoesUsuario.isNotEmpty) {
+          // Tem permissões específicas configuradas
+          sessoesPermitidas = permissoesUsuario;
+        } else {
+          // Sem permissões específicas: ver todas
+          sessoesPermitidas = todasSessoes
+              .map((s) => s['id'].toString())
+              .toList();
+        }
+      } else {
+        // Nível 1: apenas sessões com permissão explícita
+        sessoesPermitidas = permissoes
+            .where((p) => p['permitido'] == true)
+            .map((p) => p['id_sessao'].toString())
+            .toList();
+      }
+      
+      debugPrint('✅ Sessões permitidas para ${usuario.nome} (nivel ${usuario.nivel}): ${sessoesPermitidas.length}');
+      
+      // 4. Atualizar objeto do usuário
       UsuarioAtual.instance = UsuarioAtual(
         id: usuario.id,
         nome: usuario.nome,
@@ -438,14 +459,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         sessoesPermitidas: sessoesPermitidas,
         senhaTemporaria: usuario.senhaTemporaria,
       );
-
+      
+      // 5. Carregar sessões para exibição
       await _carregarSessoesDoBanco();
+      
     } catch (e) {
       debugPrint("❌ Erro ao carregar permissões: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Erro ao carregar permissões."),
+            content: Text("Erro ao carregar permissões do usuário."),
             backgroundColor: Colors.red,
           ),
         );
