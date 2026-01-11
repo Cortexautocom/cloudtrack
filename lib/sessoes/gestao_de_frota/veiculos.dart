@@ -40,7 +40,7 @@ class _VeiculosPageState extends State<VeiculosPage> {
           .select('''
             id,
             placa, 
-            bocas,
+            tanques,
             transportadora_id,
             transportadoras!inner(nome)
           ''')
@@ -56,13 +56,13 @@ class _VeiculosPageState extends State<VeiculosPage> {
     }
   }
 
-  List<int> _parseBocas(dynamic bocasData) {
-    if (bocasData is List) return bocasData.cast<int>();
+  List<int> _parsetanques(dynamic tanquesData) {
+    if (tanquesData is List) return tanquesData.cast<int>();
     return [];
   }
 
-  int _calcularTotalBocas(List<int> bocas) {
-    return bocas.isNotEmpty ? bocas.reduce((a, b) => a + b) : 0;
+  int _calcularTotaltanques(List<int> tanques) {
+    return tanques.isNotEmpty ? tanques.reduce((a, b) => a + b) : 0;
   }
 
   List<Map<String, dynamic>> get _veiculosFiltrados {
@@ -184,36 +184,46 @@ class _VeiculosPageState extends State<VeiculosPage> {
 
   Widget _botaoAba(String texto, int aba) {
     final bool selecionado = _abaAtual == aba;
-    
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _abaAtual = aba;
-          _buscaController.clear();
-          _filtroPlaca = '';
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration: BoxDecoration(
-          color: selecionado ? const Color(0xFF0D47A1) : Colors.white,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: selecionado ? const Color(0xFF0D47A1) : Colors.grey.shade400,
-            width: 1,
+
+    return Material(
+      color: selecionado ? const Color(0xFF0D47A1) : Colors.white,
+      borderRadius: BorderRadius.circular(4),
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _abaAtual = aba;
+            _buscaController.clear();
+            _filtroPlaca = '';
+          });
+        },
+        hoverColor: const Color(0xFF0D47A1).withOpacity(0.08), // 👈 hover instantâneo
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: selecionado
+                  ? const Color(0xFF0D47A1)
+                  : Colors.grey.shade400,
+            ),
           ),
-        ),
-        child: Text(
-          texto,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: selecionado ? Colors.white : Colors.grey.shade700,
+          child: Text(
+            texto,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: selecionado ? Colors.white : Colors.grey.shade700,
+            ),
           ),
         ),
       ),
     );
   }
+
+
+
+
 
   Widget _buildVeiculosList() {
     return Column(
@@ -284,8 +294,8 @@ class _VeiculosPageState extends State<VeiculosPage> {
                         final veiculo = _veiculosFiltrados[index];
                         final placa = veiculo['placa']?.toString() ?? '';
                         final transportadora = _getNomeTransportadora(veiculo);
-                        final bocas = _parseBocas(veiculo['bocas']);
-                        final totalBocas = _calcularTotalBocas(bocas);
+                        final tanques = _parsetanques(veiculo['tanques']);
+                        final totaltanques = _calcularTotaltanques(tanques);
                         return Container(
                           height: 48,
                           decoration: BoxDecoration(
@@ -299,7 +309,7 @@ class _VeiculosPageState extends State<VeiculosPage> {
                               'id': veiculo['id'],
                               'placa': placa,
                               'transportadora': transportadora,
-                              'bocas': bocas,
+                              'tanques': tanques,
                             }),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -328,7 +338,7 @@ class _VeiculosPageState extends State<VeiculosPage> {
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: bocas.isEmpty
+                                    child: tanques.isEmpty
                                         ? Row(
                                             children: [
                                               const Icon(Icons.directions_car,
@@ -348,7 +358,7 @@ class _VeiculosPageState extends State<VeiculosPage> {
                                             spacing: 6,
                                             runSpacing: 4,
                                             children: [
-                                              ...bocas
+                                              ...tanques
                                                   .map((capacidade) => Container(
                                                         padding: const EdgeInsets.symmetric(
                                                             horizontal: 8, vertical: 3),
@@ -390,7 +400,7 @@ class _VeiculosPageState extends State<VeiculosPage> {
                                                   borderRadius: BorderRadius.circular(12),
                                                 ),
                                                 child: Text(
-                                                  '$totalBocas',
+                                                  '$totaltanques',
                                                   style: const TextStyle(
                                                     color: Colors.blueGrey,
                                                     fontSize: 11,
@@ -865,7 +875,7 @@ class _CabecalhoTabela extends StatelessWidget {
 class VeiculoDetalhesPage extends StatelessWidget {
   final String id;
   final String placa;
-  final List<int> bocas;
+  final List<int> tanques;
   final String transportadora;
   final VoidCallback onVoltar;
 
@@ -873,7 +883,7 @@ class VeiculoDetalhesPage extends StatelessWidget {
     super.key,
     required this.id,
     required this.placa,
-    required this.bocas,
+    required this.tanques,
     required this.transportadora,
     required this.onVoltar,
   });
@@ -987,7 +997,7 @@ class VeiculoDetalhesPage extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: bocas.isEmpty
+                              child: tanques.isEmpty
                                   ? const Row(
                                       children: [
                                         Icon(Icons.directions_car,
@@ -1003,7 +1013,7 @@ class VeiculoDetalhesPage extends StatelessWidget {
                                       spacing: 8,
                                       runSpacing: 4,
                                       children: [
-                                        ...bocas
+                                        ...tanques
                                             .map((capacidade) => Chip(
                                                   backgroundColor:
                                                       _getCorBoca(capacidade).withOpacity(0.1),
@@ -1024,7 +1034,7 @@ class VeiculoDetalhesPage extends StatelessWidget {
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Text(
-                                                '${bocas.reduce((a, b) => a + b)} m³ total',
+                                                '${tanques.reduce((a, b) => a + b)} m³ total',
                                                 style: const TextStyle(
                                                   color: Colors.blueGrey,
                                                   fontWeight: FontWeight.bold,
@@ -1217,5 +1227,3 @@ class VeiculoDetalhesPage extends StatelessWidget {
     return cores[capacidade % cores.length];
   }
 }
-
-// Nota: O código da ProgramacaoPage foi mantido inalterado conforme solicitado

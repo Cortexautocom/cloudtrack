@@ -247,7 +247,7 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas> {
           final valor = controller.bocasValues[i];
           if (valor != null && valor > 0) bocasValidas.add(valor);
         }
-        if (bocasValidas.isNotEmpty) dados['bocas'] = bocasValidas;
+        if (bocasValidas.isNotEmpty) dados['tanques'] = bocasValidas;
         for (final doc in _documentos) {
           final dataCtrl = controller.documentosControllers[doc];
           if (dataCtrl != null && dataCtrl.text.isNotEmpty) {

@@ -1080,7 +1080,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         key: ValueKey('detalhes-${_veiculoSelecionado!['placa']}'),
         id: _veiculoSelecionado!['id'] ?? '',
         placa: _veiculoSelecionado!['placa'] ?? '',
-        bocas: List<int>.from(_veiculoSelecionado!['bocas'] ?? []),
+        tanques: List<int>.from(_veiculoSelecionado!['tanques'] ?? []),
         transportadora: _veiculoSelecionado!['transportadora'] ?? '--',
         onVoltar: () {
           setState(() {
