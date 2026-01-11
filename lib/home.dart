@@ -225,10 +225,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     ];
 
     // Filhos para "Bombeios" (se necessário)
-    _filhosPorSessao['Bombeios'] = [
+    _filhosPorSessao['Bombeios e Cotas'] = [
       {
         'icon': Icons.invert_colors,
-        'label': 'Bombeios',
+        'label': 'Bombeios e Cotas',
         'descricao': 'Controle de bombeios',
         'tipo': 'bombeios',
       },
@@ -1457,7 +1457,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       case 'Vendas':
         _navegarParaCardVendas(tipo);
         break;
-      case 'Bombeios':
+      case 'Bombeios e Cotas':
         _navegarParaCardBombeios(tipo);
         break;
       default:
@@ -1861,7 +1861,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     if (lower.contains('tanque')) return Icons.storage;
     if (lower.contains('circuito')) return Icons.route;
     if (lower.contains('gestão') && lower.contains('frota')) return Icons.local_shipping;
-    if (lower.contains('bombeios')) return Icons.invert_colors;
+    if (lower.contains('bomb')) return Icons.invert_colors;
     return Icons.apps;
   }
 

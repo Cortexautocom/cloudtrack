@@ -39,19 +39,22 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
         return;
       }
 
-      // Verifica se a busca é um número de nível (1, 2 ou 3)
       final nivelBusca = int.tryParse(query);
-      
+
       if (nivelBusca != null && (nivelBusca >= 1 && nivelBusca <= 3)) {
-        usuariosFiltrados = usuarios
-            .where((u) => u['nivel'].toString() == query)
-            .toList();
+        usuariosFiltrados =
+            usuarios.where((u) => u['nivel'].toString() == query).toList();
       } else {
-        // Busca padrão por nome ou e-mail
         usuariosFiltrados = usuarios
             .where((u) =>
-                u['nome'].toString().toLowerCase().contains(query.toLowerCase()) ||
-                u['email'].toString().toLowerCase().contains(query.toLowerCase()))
+                u['nome']
+                    .toString()
+                    .toLowerCase()
+                    .contains(query.toLowerCase()) ||
+                u['email']
+                    .toString()
+                    .toLowerCase()
+                    .contains(query.toLowerCase()))
             .toList();
       }
     });
@@ -173,7 +176,8 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
   @override
   Widget build(BuildContext context) {
     if (carregando) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF0D47A1)));
+      return const Center(
+          child: CircularProgressIndicator(color: Color(0xFF0D47A1)));
     }
 
     if (acessoNegado) {
@@ -189,6 +193,9 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
     );
   }
 
+  // ======================
+  // LISTA DE USUÁRIOS
+  // ======================
   Widget _buildListaUsuarios() {
     return Container(
       key: const ValueKey('lista_usuarios'),
@@ -205,7 +212,10 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
               ),
               const Text(
                 "Controle de acesso — Usuários",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0D47A1)),
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0D47A1)),
               ),
               const Spacer(),
               SizedBox(
@@ -217,7 +227,8 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
                     hintText: "Nome, e-mail ou nível (1,2,3)...",
                     prefixIcon: const Icon(Icons.search, size: 20),
                     isDense: true,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    border:
+                        OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
               ),
@@ -226,17 +237,24 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
           const Divider(),
           Expanded(
             child: usuariosFiltrados.isEmpty
-                ? const Center(child: Text('Nenhum usuário encontrado.', style: TextStyle(color: Colors.grey)))
+                ? const Center(
+                    child: Text('Nenhum usuário encontrado.',
+                        style: TextStyle(color: Colors.grey)))
                 : ListView.builder(
                     itemCount: usuariosFiltrados.length,
                     itemBuilder: (context, index) {
                       final u = usuariosFiltrados[index];
                       return ListTile(
                         leading: const Icon(Icons.person, color: Colors.blue),
-                        title: Text(u['nome'], style: const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: Text("${u['email']}  •  Nível ${u['nivel']}"),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                        onTap: () => _carregarSessoes(u['id'], u['nome']),
+                        title: Text(u['nome'],
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle:
+                            Text("${u['email']}  •  Nível ${u['nivel']}"),
+                        trailing:
+                            const Icon(Icons.arrow_forward_ios, size: 16),
+                        onTap: () =>
+                            _carregarSessoes(u['id'], u['nome']),
                       );
                     },
                   ),
@@ -246,6 +264,9 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
     );
   }
 
+  // ======================
+  // LISTA DE SESSÕES
+  // ======================
   Widget _buildListaSessoes() {
     return Container(
       key: const ValueKey('lista_sessoes'),
@@ -265,38 +286,49 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
               ),
               Text(
                 "Permissões — ${usuarioSelecionadoNome ?? ''}",
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0D47A1)),
+                style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0D47A1)),
               ),
             ],
           ),
           const Divider(),
           Expanded(
             child: Align(
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: ListView.separated(
-                  itemCount: sessoes.length,
-                  separatorBuilder: (context, index) => Divider(color: Colors.grey.shade200, height: 1),
-                  itemBuilder: (context, index) {
-                    final s = sessoes[index];
-                    final permitido = permissoes[s['id']] ?? false;
-                    return CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: Text(
-                        s['nome'] ?? '',
-                        style: TextStyle(fontSize: 15, color: Colors.grey[800], fontWeight: FontWeight.w500),
-                      ),
-                      value: permitido,
-                      activeColor: const Color(0xFF2E7D32),
-                      onChanged: (valor) async {
-                        if (valor == null) return;
-                        setState(() => permissoes[s['id']] = valor);
-                        await _atualizarPermissao(s['id'], valor);
-                      },
-                    );
-                  },
+              alignment: Alignment.topLeft, // 🔴 AQUI FOI A CORREÇÃO
+              child: Padding(
+                padding: const EdgeInsets.only(left: 10),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: ListView.separated(
+                    itemCount: sessoes.length,
+                    separatorBuilder: (context, index) =>
+                        Divider(color: Colors.grey.shade200, height: 1),
+                    itemBuilder: (context, index) {
+                      final s = sessoes[index];
+                      final permitido = permissoes[s['id']] ?? false;
+
+                      return CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        title: Text(
+                          s['nome'] ?? '',
+                          style: TextStyle(
+                              fontSize: 15,
+                              color: Colors.grey[800],
+                              fontWeight: FontWeight.w500),
+                        ),
+                        value: permitido,
+                        activeColor: const Color(0xFF2E7D32),
+                        onChanged: (valor) async {
+                          if (valor == null) return;
+                          setState(() => permissoes[s['id']] = valor);
+                          await _atualizarPermissao(s['id'], valor);
+                        },
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
