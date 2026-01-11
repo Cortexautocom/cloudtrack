@@ -1,0 +1,881 @@
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../login_page.dart';
+
+class AcompanhamentoOrdensPage extends StatefulWidget {
+  final VoidCallback onVoltar;
+
+  const AcompanhamentoOrdensPage({
+    super.key,
+    required this.onVoltar,
+  });
+
+  @override
+  State<AcompanhamentoOrdensPage> createState() => _AcompanhamentoOrdensPageState();
+}
+
+class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
+  final SupabaseClient _supabase = Supabase.instance.client;
+  List<Map<String, dynamic>> _movimentacoes = [];
+  List<Map<String, dynamic>> _movimentacoesFiltradas = [];
+  List<Map<String, dynamic>> _filiais = [];
+  bool _carregando = true;
+  bool _erro = false;
+  String _mensagemErro = '';
+  String? _empresaId;
+  
+  // Controllers para filtros
+  final TextEditingController _filtroGeralController = TextEditingController();
+  String? _filialFiltroId;
+  String? _filialFiltroNome;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarDados();
+    _filtroGeralController.addListener(_aplicarFiltros);
+  }
+
+  Future<void> _carregarFiliais() async {
+    try {
+      final usuario = UsuarioAtual.instance;
+      if (usuario == null) return;
+
+      if (usuario.nivel == 3) {
+        // Administrador: carrega todas as filiais da empresa
+        final dados = await _supabase
+            .from('filiais')
+            .select('id, nome')
+            .eq('empresa_id', _empresaId!)
+            .order('nome');
+
+        setState(() {
+          _filiais = List<Map<String, dynamic>>.from(dados);
+        });
+      } else if (usuario.filialId != null) {
+        // Usuário normal: carrega apenas sua filial
+        final filialData = await _supabase
+            .from('filiais')
+            .select('id, nome')
+            .eq('id', usuario.filialId!)
+            .single();
+
+        setState(() {
+          _filiais = [filialData];
+          _filialFiltroId = usuario.filialId;
+          _filialFiltroNome = filialData['nome'];
+        });
+      }
+    } catch (e) {
+      debugPrint('Erro ao carregar filiais: $e');
+    }
+  }
+
+  Future<void> _carregarDados() async {
+    setState(() {
+      _carregando = true;
+      _erro = false;
+    });
+
+    try {
+      final usuario = UsuarioAtual.instance;
+      if (usuario == null) {
+        throw Exception('Usuário não autenticado');
+      }
+
+      _empresaId = usuario.empresaId;
+
+      if (_empresaId == null || _empresaId!.isEmpty) {
+        throw Exception('Não foi possível identificar a empresa do usuário');
+      }
+
+      // Carregar filiais primeiro
+      await _carregarFiliais();
+
+      // Construir a query base
+      var query = _supabase
+          .from('movimentacoes')
+          .select('''
+            id,
+            placa,
+            entrada_amb,
+            saida_amb,
+            cliente,
+            status_circuito,
+            data_mov,
+            filial_id,
+            empresa_id,
+            filiais!inner(
+              id,
+              nome
+            )
+          ''')
+          .eq('empresa_id', _empresaId!)
+          .order('data_mov', ascending: false);
+
+      final dados = await query;
+
+      // Filtrar para mostrar apenas ordens da filial do usuário (se não for admin)
+      List<Map<String, dynamic>> movimentacoesFiltradas = [];
+      
+      if (usuario.nivel < 3 && usuario.filialId != null) {
+        movimentacoesFiltradas = dados.where((item) {
+          return item['filial_id'] == usuario.filialId;
+        }).toList();
+      } else {
+        movimentacoesFiltradas = List<Map<String, dynamic>>.from(dados);
+      }
+
+      if (mounted) {
+        setState(() {
+          _movimentacoes = movimentacoesFiltradas;
+          _movimentacoesFiltradas = List.from(movimentacoesFiltradas);
+          _carregando = false;
+        });
+      }
+      
+    } catch (e) {
+      debugPrint('Erro ao carregar movimentações: $e');
+      if (mounted) {
+        setState(() {
+          _carregando = false;
+          _erro = true;
+          _mensagemErro = e.toString();
+        });
+      }
+    }
+  }
+
+  void _aplicarFiltros() {
+    final termoBusca = _filtroGeralController.text.toLowerCase().trim();
+    
+    List<Map<String, dynamic>> resultado = List.from(_movimentacoes);
+
+    // Aplicar filtro de filial
+    if (_filialFiltroId != null) {
+      resultado = resultado.where((item) {
+        return item['filial_id'] == _filialFiltroId;
+      }).toList();
+    }
+
+    // Aplicar filtro geral
+    if (termoBusca.isNotEmpty) {
+      resultado = resultado.where((item) {
+        final placa = _formatarPlacaParaBusca(item['placa'] ?? '');
+        final cliente = (item['cliente'] ?? '').toString().toLowerCase();
+        final quantidade = _obterQuantidade(item).toString();
+        final filial = (item['filiais']?['nome'] ?? '').toString().toLowerCase();
+        final status = _obterStatusTexto(item['status_circuito']).toLowerCase();
+
+        return placa.toLowerCase().contains(termoBusca) ||
+               cliente.contains(termoBusca) ||
+               quantidade.contains(termoBusca) ||
+               filial.contains(termoBusca) ||
+               status.contains(termoBusca);
+      }).toList();
+    }
+
+    setState(() {
+      _movimentacoesFiltradas = resultado;
+    });
+  }
+
+  // Função para formatar placa para busca
+  String _formatarPlacaParaBusca(dynamic placaData) {
+    if (placaData == null) return '';
+    
+    if (placaData is List) {
+      return placaData.join(', ');
+    } else if (placaData is String) {
+      // Tenta converter string formatada para array
+      try {
+        if (placaData.startsWith('{') && placaData.endsWith('}')) {
+          final limpo = placaData.substring(1, placaData.length - 1);
+          return limpo.split(',').map((p) => p.trim()).join(', ');
+        }
+        return placaData;
+      } catch (e) {
+        return placaData.toString();
+      }
+    }
+    return placaData.toString();
+  }
+
+  // Função para obter a quantidade formatada
+  String _obterQuantidadeFormatada(Map<String, dynamic> movimentacao) {
+    final quantidade = _obterQuantidade(movimentacao);
+    return _formatarNumero(quantidade);
+  }
+
+  // Função para formatar número com separador de milhar
+  String _formatarNumero(int valor) {
+    if (valor == 0) return '0';
+    
+    String valorString = valor.toString();
+    String resultado = '';
+    int contador = 0;
+    
+    for (int i = valorString.length - 1; i >= 0; i--) {
+      contador++;
+      resultado = valorString[i] + resultado;
+      
+      if (contador % 3 == 0 && i > 0) {
+        resultado = '.$resultado';
+      }
+    }
+    
+    return resultado;
+  }
+
+  // Função para obter a quantidade
+  int _obterQuantidade(Map<String, dynamic> movimentacao) {
+    final entradaAmb = movimentacao['entrada_amb'];
+    final saidaAmb = movimentacao['saida_amb'];
+    
+    if (entradaAmb != null && entradaAmb > 0) {
+      return entradaAmb as int;
+    } else if (saidaAmb != null && saidaAmb > 0) {
+      return saidaAmb as int;
+    }
+    return 0;
+  }
+
+  // Função para obter o tipo da movimentação
+  String _obterTipoMovimentacao(Map<String, dynamic> movimentacao) {
+    final entradaAmb = movimentacao['entrada_amb'];
+    final saidaAmb = movimentacao['saida_amb'];
+    
+    if (entradaAmb != null && entradaAmb > 0) {
+      return 'Entrada';
+    } else if (saidaAmb != null && saidaAmb > 0) {
+      return 'Saída';
+    }
+    return 'N/A';
+  }
+
+  // Função para obter status como texto
+  String _obterStatusTexto(dynamic statusCodigo) {
+    if (statusCodigo == null) return 'Sem status';
+    
+    final codigo = statusCodigo is int ? statusCodigo : int.tryParse(statusCodigo.toString());
+    
+    switch (codigo) {
+      case 1: return 'Programado';
+      case 2: return 'Em check-list';
+      case 3: return 'Em operação';
+      case 4: return 'Aguardando NF';
+      case 5: return 'Expedido';
+      default: return 'Sem status';
+    }
+  }
+
+  // Função para obter a cor do status
+  Color _obterCorStatus(dynamic statusCodigo) {
+    if (statusCodigo == null) return Colors.grey;
+    
+    final codigo = statusCodigo is int ? statusCodigo : int.tryParse(statusCodigo.toString());
+    
+    switch (codigo) {
+      case 1: return Colors.blue.shade700; // Azul
+      case 2: return Colors.orange.shade700; // Laranja
+      case 3: return Colors.green.shade700; // Verde
+      case 4: return Colors.purple.shade700; // Roxo
+      case 5: return Colors.grey.shade700; // Cinza
+      default: return Colors.grey;
+    }
+  }
+
+  // Função para formatar placas
+  String _formatarPlacas(dynamic placaData) {
+    if (placaData == null) return 'N/I';
+    
+    if (placaData is List) {
+      return placaData.where((p) => p != null && p.toString().isNotEmpty)
+                      .map((p) => p.toString())
+                      .join(', ');
+    } else if (placaData is String) {
+      // Tenta converter string formatada do PostgreSQL para array
+      try {
+        if (placaData.startsWith('{') && placaData.endsWith('}')) {
+          final limpo = placaData.substring(1, placaData.length - 1);
+          final placas = limpo.split(',')
+                              .map((p) => p.trim())
+                              .where((p) => p.isNotEmpty && p != 'null')
+                              .toList();
+          return placas.join(', ');
+        }
+        return placaData;
+      } catch (e) {
+        return placaData;
+      }
+    }
+    return placaData.toString();
+  }
+
+  // Função para formatar a data
+  String _formatarData(String? dataString) {
+    if (dataString == null) return 'Data não informada';
+    
+    try {
+      final data = DateTime.parse(dataString);
+      return '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}';
+    } catch (e) {
+      return dataString;
+    }
+  }
+
+  // Widget para os filtros
+  Widget _buildFiltros() {
+    final usuario = UsuarioAtual.instance;
+    final mostraFiltroFilial = usuario?.nivel == 3;
+
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Filtrar ordens',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0D47A1),
+              ),
+            ),
+            const SizedBox(height: 12),
+            
+            Row(
+              children: [
+                // Filtro de filial (apenas para nível 3)
+                if (mostraFiltroFilial) ...[
+                  Expanded(
+                    flex: 2,
+                    child: DropdownButtonFormField<String>(
+                      value: _filialFiltroId,
+                      decoration: InputDecoration(
+                        labelText: 'Filial',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 16,
+                        ),
+                      ),
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('Todas as filiais'),
+                        ),
+                        ..._filiais.map((filial) {
+                          return DropdownMenuItem(
+                            value: filial['id'].toString(),
+                            child: Text(filial['nome'].toString()),
+                          );
+                        }).toList(),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          _filialFiltroId = value;
+                          _filialFiltroNome = value == null 
+                            ? null 
+                            : _filiais.firstWhere(
+                                (f) => f['id'].toString() == value,
+                                orElse: () => {'nome': ''}
+                              )['nome'].toString();
+                        });
+                        _aplicarFiltros();
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                
+                // Filtro geral
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: _filtroGeralController,
+                    decoration: InputDecoration(
+                      labelText: 'Buscar (placa, cliente, filial, status...)',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      prefixIcon: const Icon(Icons.search),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            
+            if (_filialFiltroNome != null || _filtroGeralController.text.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Row(
+                  children: [
+                    if (_filialFiltroNome != null)
+                      Chip(
+                        label: Text('Filial: $_filialFiltroNome'),
+                        backgroundColor: Colors.blue.shade50,
+                        deleteIcon: const Icon(Icons.close, size: 16),
+                        onDeleted: () {
+                          setState(() {
+                            _filialFiltroId = null;
+                            _filialFiltroNome = null;
+                          });
+                          _aplicarFiltros();
+                        },
+                      ),
+                    
+                    if (_filialFiltroNome != null && _filtroGeralController.text.isNotEmpty)
+                      const SizedBox(width: 8),
+                    
+                    if (_filtroGeralController.text.isNotEmpty)
+                      Chip(
+                        label: Text('Busca: ${_filtroGeralController.text}'),
+                        backgroundColor: Colors.green.shade50,
+                        deleteIcon: const Icon(Icons.close, size: 16),
+                        onDeleted: () {
+                          _filtroGeralController.clear();
+                          _aplicarFiltros();
+                        },
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCarregando() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(color: Color(0xFF0D47A1)),
+          SizedBox(height: 20),
+          Text(
+            'Carregando ordens...',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErro() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.error_outline,
+            color: Colors.red,
+            size: 60,
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Erro ao carregar dados',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.red,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              _mensagemErro,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: _carregarDados,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D47A1),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Tentar novamente'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSemDados() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.list_alt_outlined,
+            color: Colors.grey,
+            size: 60,
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Nenhuma ordem encontrada',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Não há movimentações registradas no momento.',
+            style: TextStyle(color: Colors.grey),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: _carregarDados,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D47A1),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Atualizar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildItemOrdem(Map<String, dynamic> movimentacao, int index) {
+    final filial = movimentacao['filiais'] as Map<String, dynamic>?;
+    final filialNome = filial?['nome']?.toString() ?? 'Filial não informada';
+    final placasFormatadas = _formatarPlacas(movimentacao['placa']);
+    final quantidadeFormatada = _obterQuantidadeFormatada(movimentacao);
+    final tipoMovimentacao = _obterTipoMovimentacao(movimentacao);
+    final cliente = movimentacao['cliente']?.toString() ?? 'Não informado';
+    final statusCodigo = movimentacao['status_circuito'];
+    final statusTexto = _obterStatusTexto(statusCodigo);
+    final statusCor = _obterCorStatus(statusCodigo);
+    final dataMov = _formatarData(movimentacao['data_mov']?.toString());
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              debugPrint('Clicou na ordem: ${movimentacao['id']}');
+            },
+            onHover: (hovering) {},
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Status (coluna esquerda)
+                  Container(
+                    width: 100,
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: statusCor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: statusCor.withOpacity(0.3)),
+                          ),
+                          child: Text(
+                            statusTexto,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: statusCor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          dataMov,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Informações principais (coluna central)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Primeira linha: Placas e Filial
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.directions_car,
+                                    size: 14,
+                                    color: Colors.grey,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      placasFormatadas,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF0D47A1),
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                filialNome,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        
+                        const SizedBox(height: 8),
+                        
+                        // Segunda linha: Quantidade, Tipo e Cliente
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: tipoMovimentacao == 'Entrada' 
+                                    ? Colors.green.shade50 
+                                    : Colors.red.shade50,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    '$quantidadeFormatada Amb.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: tipoMovimentacao == 'Entrada' 
+                                          ? Colors.green.shade800 
+                                          : Colors.red.shade800,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 1,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: tipoMovimentacao == 'Entrada' 
+                                          ? Colors.green.shade100 
+                                          : Colors.red.shade100,
+                                      borderRadius: BorderRadius.circular(3),
+                                    ),
+                                    child: Text(
+                                      tipoMovimentacao,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: tipoMovimentacao == 'Entrada' 
+                                            ? Colors.green.shade800 
+                                            : Colors.red.shade800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            
+                            const SizedBox(width: 12),
+                            
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.location_on,
+                                    size: 14,
+                                    color: Colors.grey,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      cliente,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.black87,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Ícone de ação (coluna direita)
+                  IconButton(
+                    icon: const Icon(
+                      Icons.arrow_forward_ios,
+                      size: 16,
+                      color: Colors.grey,
+                    ),
+                    onPressed: () {
+                      debugPrint('Abrir detalhes da ordem: ${movimentacao['id']}');
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _filtroGeralController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
+        elevation: 1,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF0D47A1),
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Acompanhamento de Ordens',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              'Circuito > Ordens',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: widget.onVoltar,
+        ),
+        actions: [
+          if (!_carregando && !_erro)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _carregarDados,
+              tooltip: 'Atualizar ordens',
+            ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Filtros
+            _buildFiltros(),
+            
+            // Contador de resultados
+            if (!_carregando && !_erro)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  '${_movimentacoesFiltradas.length} ordem${_movimentacoesFiltradas.length != 1 ? 'ens' : ''} encontrada${_movimentacoesFiltradas.length != 1 ? 's' : ''}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
+                ),
+              ),
+            
+            // Lista de ordens
+            Expanded(
+              child: _carregando
+                  ? _buildCarregando()
+                  : _erro
+                      ? _buildErro()
+                      : _movimentacoesFiltradas.isEmpty
+                          ? _buildSemDados()
+                          : ListView.builder(
+                              itemCount: _movimentacoesFiltradas.length,
+                              itemBuilder: (context, index) {
+                                return _buildItemOrdem(
+                                  _movimentacoesFiltradas[index],
+                                  index,
+                                );
+                              },
+                            ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

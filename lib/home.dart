@@ -21,6 +21,7 @@ import 'sessoes/estoques/estoque_mes.dart';
 import 'sessoes/circuito/gerenciar_circuito.dart';
 import 'sessoes/gestao_de_frota/motoristas_page.dart';
 import 'sessoes/gestao_de_frota/veiculos.dart';
+import 'sessoes/circuito/acompanhamento_ordens.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -1520,8 +1521,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         });
         break;
       case 'acompanhar_ordem':
-        //debugPrint('Abrir tela para acompanhar ordem');
-        // Implementar navegação
+        // Navegação via Navigator.push (nova rota completa)
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AcompanhamentoOrdensPage(
+              onVoltar: () {
+                Navigator.pop(context);
+              },
+            ),
+          ),
+        );
         break;
       case 'visao_geral_circuito':
         //debugPrint('Abrir visão geral dos circuitos');
