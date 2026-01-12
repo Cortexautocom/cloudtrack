@@ -175,7 +175,7 @@ class _VeiculosPageState extends State<VeiculosPage> {
 
           // Conteúdo da aba selecionada
           Expanded(
-            child: _abaAtual == 0 ? _buildVeiculosList() : ConjuntosPage(),
+            child: _abaAtual == 0 ? _buildVeiculosList() : const ConjuntosPage(),
           ),
         ],
       ),
@@ -196,7 +196,7 @@ class _VeiculosPageState extends State<VeiculosPage> {
             _filtroPlaca = '';
           });
         },
-        hoverColor: const Color(0xFF0D47A1).withOpacity(0.08), // 👈 hover instantâneo
+        hoverColor: const Color(0xFF0D47A1).withOpacity(0.08),
         borderRadius: BorderRadius.circular(4),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -220,10 +220,6 @@ class _VeiculosPageState extends State<VeiculosPage> {
       ),
     );
   }
-
-
-
-
 
   Widget _buildVeiculosList() {
     return Column(
@@ -428,65 +424,121 @@ class _VeiculosPageState extends State<VeiculosPage> {
 // PÁGINA DE CONJUNTOS
 // ==============================
 class ConjuntosPage extends StatefulWidget {
+  const ConjuntosPage({super.key});
+
   @override
   State<ConjuntosPage> createState() => _ConjuntosPageState();
 }
 
 class _ConjuntosPageState extends State<ConjuntosPage> {
-  // Dados mockados para demonstração da UI
-  final List<Map<String, dynamic>> _conjuntosMock = [
-    {
-      'id': '1',
-      'nome': 'Combo 01',
-      'motorista': 'João Silva',
-      'motorista_id': '001',
-      'placa1': 'ABC-1234',
-      'placa2': 'DEF-5678',
-      'placa3': 'GHI-9012',
-      'status': 'ativo',
-      'criado_em': '2024-01-15',
-    },
-    {
-      'id': '2',
-      'nome': 'Combo 02',
-      'motorista': 'Maria Santos',
-      'motorista_id': '002',
-      'placa1': 'JKL-3456',
-      'placa2': 'MNO-7890',
-      'placa3': 'PQR-1234',
-      'status': 'ativo',
-      'criado_em': '2024-01-18',
-    },
-    {
-      'id': '3',
-      'nome': 'Combo 03',
-      'motorista': 'Pedro Oliveira',
-      'motorista_id': '003',
-      'placa1': 'STU-5678',
-      'placa2': 'VWX-9012',
-      'placa3': 'YZA-3456',
-      'status': 'inativo',
-      'criado_em': '2024-01-20',
-    },
-    {
-      'id': '4',
-      'nome': 'Combo 04',
-      'motorista': 'Ana Costa',
-      'motorista_id': '004',
-      'placa1': 'BCD-7890',
-      'placa2': 'EFG-1234',
-      'placa3': 'HIJ-5678',
-      'status': 'ativo',
-      'criado_em': '2024-01-22',
-    },
-  ];
+  List<Map<String, dynamic>> _conjuntos = [];
+  bool _carregando = true;
+  final TextEditingController _buscaController = TextEditingController();
 
-  bool _carregando = false;
+  @override
+  void initState() {
+    super.initState();
+    _carregarConjuntos();
+  }
+
+  Future<void> _carregarConjuntos() async {
+    setState(() => _carregando = true);
+    try {
+      final data = await Supabase.instance.client
+          .from('conjuntos')
+          .select()
+          .order('id', ascending: false);
+      
+      setState(() {
+        _conjuntos = List<Map<String, dynamic>>.from(data);
+      });
+    } catch (e) {
+      print('Erro ao carregar conjuntos: $e');
+      setState(() {
+        _conjuntos = [];
+      });
+    } finally {
+      setState(() => _carregando = false);
+    }
+  }
+
+  String _formatarNumero(dynamic valor) {
+    if (valor == null) return '--';
+    return valor.toString();
+  }
+
+  String _formatarPBT(dynamic valor) {
+    if (valor == null) return '--';
+    if (valor is double) {
+      return '${valor.toStringAsFixed(1)} kg';
+    }
+    return '$valor kg';
+  }
+
+  List<Map<String, dynamic>> get _conjuntosFiltrados {
+    final filtro = _buscaController.text.toLowerCase();
+    if (filtro.isEmpty) return _conjuntos;
+    
+    return _conjuntos.where((c) {
+      final cavalo = c['cavalo']?.toString().toLowerCase() ?? '';
+      final reboque1 = c['reboque_um']?.toString().toLowerCase() ?? '';
+      final reboque2 = c['reboque_dois']?.toString().toLowerCase() ?? '';
+      final motorista = c['motorista']?.toString().toLowerCase() ?? '';
+      final capac = c['capac']?.toString().toLowerCase() ?? '';
+      final tanques = c['tanques']?.toString().toLowerCase() ?? '';
+      final pbt = c['pbt']?.toString().toLowerCase() ?? '';
+      
+      return cavalo.contains(filtro) ||
+             reboque1.contains(filtro) ||
+             reboque2.contains(filtro) ||
+             motorista.contains(filtro) ||
+             capac.contains(filtro) ||
+             tanques.contains(filtro) ||
+             pbt.contains(filtro);
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // Barra de busca específica para conjuntos
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _buscaController,
+                  onChanged: (value) => setState(() {}),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar por placa, motorista, capacidade...',
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                onPressed: _carregarConjuntos,
+                icon: const Icon(Icons.refresh, color: Color(0xFF0D47A1)),
+                tooltip: 'Atualizar',
+              ),
+            ],
+          ),
+        ),
+        
         // Cabeçalho da tabela de conjuntos
         Container(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
@@ -496,17 +548,6 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
           ),
           child: const Row(
             children: [
-              Expanded(
-                child: Text(
-                  'NOME',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0D47A1),
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-              SizedBox(width: 8),
               Expanded(
                 flex: 2,
                 child: Text(
@@ -521,7 +562,7 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
               SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'PLACA 1',
+                  'CAVALO',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF0D47A1),
@@ -532,7 +573,7 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
               SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'PLACA 2',
+                  'REBOQUE 1',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF0D47A1),
@@ -543,7 +584,7 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
               SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'PLACA 3',
+                  'REBOQUE 2',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF0D47A1),
@@ -552,8 +593,39 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
                 ),
               ),
               SizedBox(width: 8),
-              _CabecalhoTabela(texto: 'STATUS', largura: 80),
-              _CabecalhoTabela(texto: 'AÇÕES', largura: 100),
+              Expanded(
+                child: Text(
+                  'CAPACIDADE',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0D47A1),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'TANQUES',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0D47A1),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'PBT',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0D47A1),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              _CabecalhoTabela(texto: 'AÇÕES', largura: 80),
             ],
           ),
         ),
@@ -564,7 +636,7 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
               ? const Center(
                   child: CircularProgressIndicator(color: Color(0xFF0D47A1)),
                 )
-              : _conjuntosMock.isEmpty
+              : _conjuntosFiltrados.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -572,9 +644,11 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
                           const Icon(Icons.directions_car_filled_outlined,
                               size: 48, color: Colors.grey),
                           const SizedBox(height: 16),
-                          const Text(
-                            'Nenhum conjunto cadastrado',
-                            style: TextStyle(fontSize: 16, color: Colors.grey),
+                          Text(
+                            _buscaController.text.isEmpty
+                                ? 'Nenhum conjunto cadastrado'
+                                : 'Nenhum conjunto encontrado',
+                            style: const TextStyle(fontSize: 16, color: Colors.grey),
                           ),
                           const SizedBox(height: 8),
                           TextButton(
@@ -590,11 +664,9 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
                       ),
                     )
                   : ListView.builder(
-                      itemCount: _conjuntosMock.length,
+                      itemCount: _conjuntosFiltrados.length,
                       itemBuilder: (context, index) {
-                        final conjunto = _conjuntosMock[index];
-                        final status = conjunto['status'];
-                        final isAtivo = status == 'ativo';
+                        final conjunto = _conjuntosFiltrados[index];
                         
                         return Container(
                           height: 56,
@@ -608,26 +680,6 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: Row(
                               children: [
-                                // Nome do conjunto
-                                Expanded(
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.group_work,
-                                          size: 16, color: const Color(0xFF0D47A1).withOpacity(0.7)),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        conjunto['nome'] ?? '--',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w500,
-                                          fontSize: 13,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                
                                 // Motorista
                                 Expanded(
                                   flex: 2,
@@ -645,26 +697,13 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
                                       ),
                                       const SizedBox(width: 8),
                                       Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Text(
-                                              conjunto['motorista'] ?? '--',
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            Text(
-                                              'ID: ${conjunto['motorista_id'] ?? '--'}',
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                color: Colors.grey,
-                                              ),
-                                            ),
-                                          ],
+                                        child: Text(
+                                          conjunto['motorista']?.toString() ?? '--',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
                                     ],
@@ -672,56 +711,54 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
                                 ),
                                 const SizedBox(width: 8),
                                 
-                                // Placa 1
+                                // Cavalo
                                 Expanded(
-                                  child: _buildPlacaChip(conjunto['placa1']),
+                                  child: _buildPlacaChip(conjunto['cavalo']),
                                 ),
                                 const SizedBox(width: 8),
                                 
-                                // Placa 2
+                                // Reboque 1
                                 Expanded(
-                                  child: _buildPlacaChip(conjunto['placa2']),
+                                  child: _buildPlacaChip(conjunto['reboque_um']),
                                 ),
                                 const SizedBox(width: 8),
                                 
-                                // Placa 3
+                                // Reboque 2
                                 Expanded(
-                                  child: _buildPlacaChip(conjunto['placa3']),
+                                  child: _buildPlacaChip(conjunto['reboque_dois']),
                                 ),
                                 const SizedBox(width: 8),
                                 
-                                // Status
-                                SizedBox(
-                                  width: 80,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: isAtivo
-                                          ? Colors.green.withOpacity(0.1)
-                                          : Colors.grey.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: isAtivo
-                                            ? Colors.green.withOpacity(0.3)
-                                            : Colors.grey.withOpacity(0.3),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      isAtivo ? 'Ativo' : 'Inativo',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w500,
-                                        color: isAtivo ? Colors.green : Colors.grey,
-                                      ),
-                                    ),
+                                // Capacidade
+                                Expanded(
+                                  child: _buildInfoChip(
+                                    '${_formatarNumero(conjunto['capac'])} m³',
+                                    Colors.blue,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                
+                                // Tanques
+                                Expanded(
+                                  child: _buildInfoChip(
+                                    _formatarNumero(conjunto['tanques']),
+                                    Colors.green,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                
+                                // PBT
+                                Expanded(
+                                  child: _buildInfoChip(
+                                    _formatarPBT(conjunto['pbt']),
+                                    Colors.orange,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
                                 
                                 // Ações
                                 SizedBox(
-                                  width: 100,
+                                  width: 80,
                                   child: Row(
                                     children: [
                                       IconButton(
@@ -740,16 +777,6 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
                                         },
                                         icon: const Icon(Icons.delete_outline,
                                             size: 18, color: Colors.red),
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      IconButton(
-                                        onPressed: () {
-                                          // TODO: Implementar visualização de detalhes
-                                        },
-                                        icon: const Icon(Icons.visibility,
-                                            size: 18, color: Colors.grey),
                                         padding: EdgeInsets.zero,
                                         constraints: const BoxConstraints(),
                                       ),
@@ -778,7 +805,7 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '${_conjuntosMock.length} conjunto${_conjuntosMock.length != 1 ? 's' : ''} encontrado${_conjuntosMock.length != 1 ? 's' : ''}',
+                '${_conjuntosFiltrados.length} conjunto${_conjuntosFiltrados.length != 1 ? 's' : ''} encontrado${_conjuntosFiltrados.length != 1 ? 's' : ''}',
                 style: const TextStyle(
                   fontSize: 12,
                   color: Colors.grey,
@@ -841,6 +868,26 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
           fontSize: 12,
           fontWeight: FontWeight.w500,
           color: Color(0xFF0D47A1),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoChip(String texto, Color cor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: cor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: cor.withOpacity(0.3)),
+      ),
+      child: Text(
+        texto,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: cor,
         ),
       ),
     );
@@ -1002,9 +1049,9 @@ class VeiculoDetalhesPage extends StatelessWidget {
                                       children: [
                                         Icon(Icons.directions_car,
                                             size: 16, color: Colors.grey),
-                                        const SizedBox(width: 6),
+                                        SizedBox(width: 6),
                                         Text(
-                                          'Cavalo',
+                                          'CAVALO',
                                           style: TextStyle(fontStyle: FontStyle.italic),
                                         ),
                                       ],
