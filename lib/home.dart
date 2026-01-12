@@ -10,8 +10,7 @@ import 'sessoes/gestao_de_frota/controle_documentos.dart';
 import 'sessoes/apuracao/emitir_cacl.dart';
 import 'sessoes/apuracao/tanques.dart';
 import 'sessoes/apuracao/escolherfilial.dart';
-import 'sessoes/vendas/programacao.dart';
-import 'sessoes/apuracao/ordem.dart';
+import 'sessoes/vendas/programacao.dart'; 
 import 'sessoes/estoques/estoque_geral.dart';
 import 'sessoes/apuracao/historico_cacl.dart';
 import 'sessoes/apuracao/listar_cacls.dart';
@@ -23,6 +22,8 @@ import 'sessoes/gestao_de_frota/motoristas_page.dart';
 import 'sessoes/gestao_de_frota/veiculos.dart';
 import 'sessoes/circuito/acompanhamento_ordens.dart';
 import 'sessoes/estoques/transferencias.dart';
+import 'sessoes/apuracao/listar_ordens.dart';
+
 
 
 class HomePage extends StatefulWidget {
@@ -861,7 +862,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     if (_mostrarFiltrosEstoque && _filialParaFiltroId != null) {
       return _buildFiltrosEstoquePage();
     }
-    
+
     if (_mostrarDownloads) {
       return DownloadsPage(
         key: const ValueKey('downloads-page'),
@@ -870,7 +871,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         },
       );
     }
-    
+
     if (showConversaoList) {
       return TabelasDeConversao(
         key: const ValueKey('tabelas'),
@@ -879,7 +880,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         },
       );
     }
-    
+
     if (_mostrarListarCacls && _filialSelecionadaId != null) {
       return ListarCaclsPage(
         key: ValueKey('listar-cacls-$_filialSelecionadaId'),
@@ -907,16 +908,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         },
       );
     }
-    
+
+    // ✅ LISTA DE ORDENS DEVE ESTAR DENTRO DE MATERIAL
     if (_mostrarOrdensAnalise) {
-      return CertificadoAnalisePage(
-        key: const ValueKey('ordens-analise'),
-        onVoltar: () {
-          _mostrarFilhosDaSessao('Apuração');
-        },
+      return Material(
+        type: MaterialType.canvas,
+        color: Colors.white,
+        child: ListarOrdensAnalisesPage(
+          key: const ValueKey('listar-ordens-analise'),
+          onVoltar: () {
+            _mostrarFilhosDaSessao('Apuração');
+          },
+        ),
       );
     }
-    
+
     if (_mostrarHistorico) {
       return HistoricoCaclPage(
         key: const ValueKey('historico-cacl'),
@@ -925,7 +931,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         },
       );
     }
-    
+
     if (_mostrarEscolherFilial) {
       return EscolherFilialPage(
         key: ValueKey('escolher-filial-$_contextoEscolhaFilial'),
@@ -977,7 +983,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             : 'Selecionar filial para gerenciar tanques:',
       );
     }
-    
+
     if (_mostrarMedicaoTanques) {
       return MedicaoTanquesPage(
         key: const ValueKey('medicao-tanques'),
@@ -997,7 +1003,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         },
       );
     }
-    
+
     if (_mostrarTanques && _filialSelecionadaId != null) {
       return GerenciamentoTanquesPage(
         key: const ValueKey('gerenciamento-tanques'),
@@ -1018,15 +1024,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         filialSelecionadaId: _filialSelecionadaId,
       );
     }
-    
+
     if (_mostrarFiliaisDaEmpresa) {
       return _buildFiliaisDaEmpresaPage();
     }
-    
+
     if (_mostrarEstoquePorEmpresa) {
       return _buildEstoquePorEmpresaPage();
     }
-    
+
     if (_mostrarIniciarCircuito) {
       return IniciarCircuitoPage(
         key: const ValueKey('iniciar-circuito'),
@@ -1036,7 +1042,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       );
     }
 
-    // NOVA PÁGINA DE TRANSFERÊNCIAS
     if (_mostrarTransferencias) {
       return TransferenciasPage(
         key: const ValueKey('transferencias-page'),
@@ -1045,8 +1050,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         },
       );
     }
-    
-    // Se estiver mostrando calculadora gerada
+
     if (_mostrarCalcGerado) {
       return CalcPage(
         key: const ValueKey('calc-page'),
@@ -1054,9 +1058,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       );
     }
 
-    // ========== GESTÃO DE FROTA ==========
-    // ESTAS VERIFICAÇÕES DEVEM VIR ANTES DE _mostrarFilhosSessao!
-    
+    // ===== Gestão de Frota =====
     if (_mostrarVeiculos && !_mostrarDetalhesVeiculo) {
       return VeiculosPage(
         key: const ValueKey('veiculos-page'),
@@ -1102,17 +1104,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         },
       );
     }
-    
-    // =====================================
-    
-    // SÓ DEPOIS DE TODAS AS PÁGINAS ESPECÍFICAS, verifica se está mostrando filhos
+
+    // Se estiver mostrando os cards filhos
     if (_mostrarFilhosSessao && _sessaoAtual != null) {
       return _buildFilhosSessaoPage();
     }
-    
-    // Página padrão com cards pai
+
+    // Página padrão
     return _buildGridWithSearch(sessoes);
   }
+
 
   // NOVO: Método unificado para construir página de filhos
   Widget _buildFilhosSessaoPage() {
