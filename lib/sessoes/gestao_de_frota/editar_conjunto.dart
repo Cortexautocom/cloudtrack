@@ -9,7 +9,8 @@ class SelecionarPlacaDialog extends StatefulWidget {
   final String? placaAtual;
   final String campoConjunto; // 'cavalo', 'reboque_um' ou 'reboque_dois'
   final String conjuntoId;
-  final bool apenasReboques; // Se true, mostra apenas placas com tanques
+  final bool apenasCavalos; // Se true, mostra apenas placas SEM tanques (para cavalos)
+  final bool apenasReboques; // Se true, mostra apenas placas COM tanques (para reboques)
   
   const SelecionarPlacaDialog({
     super.key,
@@ -17,6 +18,7 @@ class SelecionarPlacaDialog extends StatefulWidget {
     this.placaAtual,
     required this.campoConjunto,
     required this.conjuntoId,
+    this.apenasCavalos = false,
     this.apenasReboques = false,
   });
 
@@ -78,14 +80,21 @@ class _SelecionarPlacaDialogState extends State<SelecionarPlacaDialog> {
       // Filtrar equipamentos conforme necessário
       List<Map<String, dynamic>> equipamentosFiltrados;
       
-      if (widget.apenasReboques) {
-        // Para reboques: apenas placas que têm tanques (array não vazio)
+      if (widget.apenasCavalos) {
+        // Para cavalos: apenas placas SEM tanques (array vazia ou null)
+        equipamentosFiltrados = equipamentosData.where((equipamento) {
+          final tanques = equipamento['tanques'];
+          return tanques == null || 
+                 (tanques is List && tanques.isEmpty);
+        }).toList();
+      } else if (widget.apenasReboques) {
+        // Para reboques: apenas placas COM tanques (array não vazia)
         equipamentosFiltrados = equipamentosData.where((equipamento) {
           final tanques = equipamento['tanques'];
           return tanques is List && tanques.isNotEmpty;
         }).toList();
       } else {
-        // Para cavalo: todos os equipamentos
+        // Para ambos (fallback): todos os equipamentos
         equipamentosFiltrados = List.from(equipamentosData);
       }
       
@@ -252,19 +261,35 @@ class _SelecionarPlacaDialogState extends State<SelecionarPlacaDialog> {
         
         const SizedBox(height: 12),
         
-        // Legenda
-        if (_buscaController.text.isEmpty)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: const Text(
-              'Digite para filtrar ou selecione abaixo',
-              style: TextStyle(fontSize: 11, color: Colors.grey),
-            ),
+        // Legenda informativa
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(4),
           ),
+          child: Row(
+            children: [
+              Icon(
+                widget.apenasCavalos ? Icons.directions_car : Icons.local_shipping,
+                size: 14,
+                color: Colors.grey.shade600,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  widget.apenasCavalos 
+                      ? 'Mostrando apenas equipamentos SEM tanques (cavalos)'
+                      : 'Mostrando apenas equipamentos COM tanques (reboques)',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         
         const SizedBox(height: 8),
         
@@ -282,7 +307,9 @@ class _SelecionarPlacaDialogState extends State<SelecionarPlacaDialog> {
                     child: Text(
                       _buscaController.text.isNotEmpty
                           ? 'Nenhuma placa encontrada'
-                          : 'Nenhuma placa disponível',
+                          : widget.apenasCavalos
+                              ? 'Nenhum cavalo disponível (sem tanques)'
+                              : 'Nenhum reboque disponível (com tanques)',
                       style: const TextStyle(color: Colors.grey),
                     ),
                   ),
@@ -295,6 +322,9 @@ class _SelecionarPlacaDialogState extends State<SelecionarPlacaDialog> {
                     final placa = equipamento['placa']?.toString() ?? '';
                     final estaDuplicada = _placaEstaDuplicada(placa);
                     final selecionada = _placaSelecionada == placa;
+                    final temTanques = equipamento['tanques'] != null && 
+                                      equipamento['tanques'] is List &&
+                                      (equipamento['tanques'] as List).isNotEmpty;
                     
                     return InkWell(
                       onTap: () {
@@ -355,20 +385,29 @@ class _SelecionarPlacaDialogState extends State<SelecionarPlacaDialog> {
                                       ],
                                     ],
                                   ),
-                                  // Mostrar tanques se for equipamento com tanques
-                                  if (equipamento['tanques'] != null && 
-                                      equipamento['tanques'] is List &&
-                                      (equipamento['tanques'] as List).isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 4),
-                                      child: Text(
-                                        'Tanques: ${_formatarTanques(equipamento['tanques'])}',
-                                        style: const TextStyle(
-                                          fontSize: 11,
+                                  // Mostrar informação sobre tanques
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          temTanques ? Icons.local_shipping : Icons.directions_car,
+                                          size: 12,
                                           color: Colors.grey,
                                         ),
-                                      ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          temTanques 
+                                              ? 'Reboque (tem tanques)'
+                                              : 'Cavalo (sem tanques)',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ],
                                     ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -381,14 +420,6 @@ class _SelecionarPlacaDialogState extends State<SelecionarPlacaDialog> {
         ),
       ],
     );
-  }
-
-  String _formatarTanques(dynamic tanquesData) {
-    if (tanquesData is List) {
-      final lista = tanquesData.cast<int>();
-      return lista.join(' + ');
-    }
-    return '--';
   }
 
   @override
@@ -411,19 +442,6 @@ class _SelecionarPlacaDialogState extends State<SelecionarPlacaDialog> {
                 color: Color(0xFF0D47A1),
               ),
             ),
-            
-            if (widget.apenasReboques)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  'Mostrando apenas equipamentos com tanques',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ),
             
             const SizedBox(height: 16),
             
@@ -491,6 +509,7 @@ Future<bool?> mostrarDialogEditarPlaca({
   required String? placaAtual,
   required String campoConjunto,
   required String conjuntoId,
+  bool apenasCavalos = false,
   bool apenasReboques = false,
 }) async {
   return await showDialog<bool>(
@@ -501,6 +520,7 @@ Future<bool?> mostrarDialogEditarPlaca({
       placaAtual: placaAtual,
       campoConjunto: campoConjunto,
       conjuntoId: conjuntoId,
+      apenasCavalos: apenasCavalos,
       apenasReboques: apenasReboques,
     ),
   );
@@ -516,22 +536,26 @@ Future<bool> atualizarPlacaConjunto({
   String? placaAtual,
 }) async {
   String titulo;
+  bool apenasCavalos;
   bool apenasReboques;
   
   switch (campo) {
     case 'cavalo':
       titulo = 'Selecione o novo cavalo';
-      apenasReboques = false; // Cavalo pode ser qualquer equipamento
+      apenasCavalos = true; // Cavalo deve ser SEM tanques
+      apenasReboques = false;
       break;
     case 'reboque_um':
     case 'reboque_dois':
       titulo = campo == 'reboque_um' 
           ? 'Selecione o novo reboque 1' 
           : 'Selecione o novo reboque 2';
+      apenasCavalos = false;
       apenasReboques = true; // Reboques devem ter tanques
       break;
     default:
       titulo = 'Selecione a nova placa';
+      apenasCavalos = false;
       apenasReboques = false;
   }
 
@@ -541,6 +565,7 @@ Future<bool> atualizarPlacaConjunto({
     placaAtual: placaAtual,
     campoConjunto: campo,
     conjuntoId: conjuntoId,
+    apenasCavalos: apenasCavalos,
     apenasReboques: apenasReboques,
   );
 
@@ -556,6 +581,8 @@ class PlacaClicavelWidget extends StatefulWidget {
   final String campoConjunto;
   final VoidCallback? onAtualizado;
   final Map<String, List<String>> placasDuplicadas;
+  final bool isTemporario;
+  final Function(String?)? onPlacaAtualizada;
   
   const PlacaClicavelWidget({
     super.key,
@@ -564,6 +591,8 @@ class PlacaClicavelWidget extends StatefulWidget {
     required this.campoConjunto,
     this.onAtualizado,
     required this.placasDuplicadas,
+    this.isTemporario = false,
+    this.onPlacaAtualizada,
   });
 
   @override
@@ -624,28 +653,54 @@ class _PlacaClicavelWidgetState extends State<PlacaClicavelWidget> {
       placaAtual: widget.placa,
     );
     
-    if (atualizado && widget.onAtualizado != null) {
-      widget.onAtualizado!();
+    if (atualizado) {
+      if (widget.onAtualizado != null) {
+        widget.onAtualizado!();
+      }
+      if (widget.onPlacaAtualizada != null) {
+        widget.onPlacaAtualizada!(widget.placa);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (widget.placa == null || widget.placa!.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: const Text(
-          '--',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey,
-            fontStyle: FontStyle.italic,
+      return MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: _onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: widget.isTemporario
+                  ? Colors.orange.withOpacity(0.1)
+                  : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: widget.isTemporario
+                    ? Colors.orange.withOpacity(0.3)
+                    : Colors.grey.shade300,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '--',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: widget.isTemporario ? Colors.orange : Colors.grey,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+                if (widget.isTemporario) ...[
+                  const SizedBox(width: 4),
+                  const Icon(Icons.add, size: 12, color: Colors.orange),
+                ],
+              ],
+            ),
           ),
         ),
       );
@@ -662,14 +717,18 @@ class _PlacaClicavelWidgetState extends State<PlacaClicavelWidget> {
                 ? const Color(0xFF0D47A1).withOpacity(0.2)
                 : _estaDuplicada
                     ? Colors.red.shade50
-                    : const Color(0xFF0D47A1).withOpacity(0.05),
+                    : widget.isTemporario
+                        ? Colors.orange.withOpacity(0.1)
+                        : const Color(0xFF0D47A1).withOpacity(0.05),
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: _clicado
                   ? const Color(0xFF0D47A1)
                   : _estaDuplicada
                       ? Colors.red.withOpacity(0.3)
-                      : const Color(0xFF0D47A1).withOpacity(0.2),
+                      : widget.isTemporario
+                          ? Colors.orange.withOpacity(0.3)
+                          : const Color(0xFF0D47A1).withOpacity(0.2),
               width: _estaDuplicada ? 1.5 : 1,
             ),
           ),
@@ -686,12 +745,18 @@ class _PlacaClicavelWidgetState extends State<PlacaClicavelWidget> {
                       ? const Color(0xFF0D47A1)
                       : _estaDuplicada
                           ? Colors.red
-                          : const Color(0xFF0D47A1).withOpacity(0.8),
+                          : widget.isTemporario
+                              ? Colors.orange
+                              : const Color(0xFF0D47A1).withOpacity(0.8),
                 ),
               ),
               if (_estaDuplicada) ...[
                 const SizedBox(width: 4),
                 const Icon(Icons.warning, size: 12, color: Colors.red),
+              ],
+              if (widget.isTemporario && !_estaDuplicada) ...[
+                const SizedBox(width: 4),
+                const Icon(Icons.edit, size: 12, color: Colors.orange),
               ],
             ],
           ),

@@ -129,28 +129,6 @@ class _VeiculosPageState extends State<VeiculosPage> {
                 const Text('Veículos',
                   style: TextStyle(fontSize: 20, color: Color(0xFF0D47A1), fontWeight: FontWeight.bold)),
                 const Spacer(),
-                SizedBox(
-                  width: 200,
-                  child: TextField(
-                    controller: _buscaController,
-                    decoration: InputDecoration(
-                      hintText: _abaAtual == 0 
-                          ? 'Buscar placa ou transportadora...'
-                          : 'Buscar conjunto...',
-                      filled: true,
-                      fillColor: Colors.grey.shade50,
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      isDense: true,
-                    ),
-                    onChanged: (v) => setState(() => _filtroPlaca = v),
-                  ),
-                ),
-                const SizedBox(width: 12),
                 IconButton(
                   onPressed: _carregarVeiculos,
                   icon: const Icon(Icons.refresh, color: Color(0xFF0D47A1)),
@@ -174,9 +152,42 @@ class _VeiculosPageState extends State<VeiculosPage> {
             ),
           ),
 
+          // Barra de busca única para ambas as abas
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+            ),
+            child: TextField(
+              controller: _buscaController,
+              onChanged: (value) {
+                setState(() {
+                  _filtroPlaca = value;
+                });
+              },
+              decoration: InputDecoration(
+                hintText: _abaAtual == 0 
+                    ? 'Buscar placa ou transportadora...'
+                    : 'Buscar por placa, motorista, capacidade...',
+                filled: true,
+                fillColor: Colors.grey.shade50,
+                prefixIcon: const Icon(Icons.search, size: 20),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                isDense: true,
+              ),
+            ),
+          ),
+
           // Conteúdo da aba selecionada
           Expanded(
-            child: _abaAtual == 0 ? _buildVeiculosList() : const ConjuntosPage(),
+            child: _abaAtual == 0 ? _buildVeiculosList() : ConjuntosPage(
+              buscaController: _buscaController,
+            ),
           ),
         ],
       ),
@@ -425,7 +436,12 @@ class _VeiculosPageState extends State<VeiculosPage> {
 // PÁGINA DE CONJUNTOS
 // ==============================
 class ConjuntosPage extends StatefulWidget {
-  const ConjuntosPage({super.key});
+  final TextEditingController buscaController;
+  
+  const ConjuntosPage({
+    super.key,
+    required this.buscaController,
+  });
 
   @override
   State<ConjuntosPage> createState() => _ConjuntosPageState();
@@ -433,14 +449,25 @@ class ConjuntosPage extends StatefulWidget {
 
 class _ConjuntosPageState extends State<ConjuntosPage> {
   List<Map<String, dynamic>> _conjuntos = [];
+  List<Map<String, dynamic>> _conjuntosTemporarios = [];
   bool _carregando = true;
-  final TextEditingController _buscaController = TextEditingController();
   final Map<String, List<String>> _placasDuplicadas = {};
 
   @override
   void initState() {
     super.initState();
+    widget.buscaController.addListener(_onBuscaChanged);
     _carregarConjuntos();
+  }
+
+  @override
+  void dispose() {
+    widget.buscaController.removeListener(_onBuscaChanged);
+    super.dispose();
+  }
+
+  void _onBuscaChanged() {
+    setState(() {});
   }
 
   Future<void> _carregarConjuntos() async {
@@ -513,10 +540,12 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
   }
 
   List<Map<String, dynamic>> get _conjuntosFiltrados {
-    final filtro = _buscaController.text.toLowerCase();
-    if (filtro.isEmpty) return _conjuntos;
+    final filtro = widget.buscaController.text.toLowerCase();
+    final todosConjuntos = [..._conjuntos, ..._conjuntosTemporarios];
     
-    return _conjuntos.where((c) {
+    if (filtro.isEmpty) return todosConjuntos;
+    
+    return todosConjuntos.where((c) {
       final cavalo = c['cavalo']?.toString().toLowerCase() ?? '';
       final reboque1 = c['reboque_um']?.toString().toLowerCase() ?? '';
       final reboque2 = c['reboque_dois']?.toString().toLowerCase() ?? '';
@@ -535,47 +564,131 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
     }).toList();
   }
 
+  void _adicionarConjuntoTemporario() {
+    final novoConjunto = {
+      'id': 'temp_${DateTime.now().millisecondsSinceEpoch}',
+      'motorista': '--',
+      'cavalo': null,
+      'reboque_um': null,
+      'reboque_dois': null,
+      'capac': null,
+      'tanques': null,
+      'pbt': null,
+      'isTemporario': true,
+    };
+    
+    setState(() {
+      _conjuntosTemporarios.add(novoConjunto);
+    });
+  }
+
+  Future<void> _salvarConjuntoTemporario(Map<String, dynamic> conjunto) async {
+    try {
+      final dadosParaSalvar = {
+        'motorista': conjunto['motorista'],
+        'cavalo': conjunto['cavalo'],
+        'reboque_um': conjunto['reboque_um'],
+        'reboque_dois': conjunto['reboque_dois'],
+        'capac': conjunto['capac'],
+        'tanques': conjunto['tanques'],
+        'pbt': conjunto['pbt'],
+      };
+      
+      final resultado = await Supabase.instance.client
+          .from('conjuntos')
+          .insert(dadosParaSalvar)
+          .select();
+      
+      if (resultado.isNotEmpty) {
+        // Remover o temporário e adicionar o real
+        setState(() {
+          _conjuntosTemporarios.removeWhere((c) => c['id'] == conjunto['id']);
+        });
+        await _carregarConjuntos();
+      }
+    } catch (e) {
+      print('Erro ao salvar conjunto: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao salvar conjunto: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _atualizarPlacaTemporaria({
+    required Map<String, dynamic> conjunto,
+    required String campo,
+    required String? novaPlaca,
+  }) async {
+    final index = _conjuntosTemporarios.indexWhere((c) => c['id'] == conjunto['id']);
+    if (index != -1) {
+      setState(() {
+        _conjuntosTemporarios[index][campo] = novaPlaca;
+      });
+      
+      // Se todas as placas necessárias foram preenchidas, salva no banco
+      final conj = _conjuntosTemporarios[index];
+      if (conj['cavalo'] != null || conj['reboque_um'] != null || conj['reboque_dois'] != null) {
+        await _salvarConjuntoTemporario(conj);
+      }
+    }
+  }
+
+  Widget _buildPlacaWidget({
+    required Map<String, dynamic> conjunto,
+    required String campo,
+    required bool isTemporario,
+  }) {
+    final placa = conjunto[campo];
+    
+    return PlacaClicavelWidget(
+      placa: placa,
+      conjuntoId: conjunto['id'],
+      campoConjunto: campo,
+      onAtualizado: isTemporario 
+          ? () async {
+              // Para conjuntos temporários, precisamos atualizar o estado
+              await _carregarConjuntos();
+            }
+          : _carregarConjuntos,
+      placasDuplicadas: _placasDuplicadas,
+      isTemporario: isTemporario,
+      onPlacaAtualizada: isTemporario 
+          ? (novaPlaca) => _atualizarPlacaTemporaria(
+                conjunto: conjunto,
+                campo: campo,
+                novaPlaca: novaPlaca,
+              )
+          : null,
+    );
+  }
+
+  Widget _buildInfoChip(String texto, Color cor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: cor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: cor.withOpacity(0.3)),
+      ),
+      child: Text(
+        texto,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: cor,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Barra de busca específica para conjuntos
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _buscaController,
-                  onChanged: (value) => setState(() {}),
-                  decoration: InputDecoration(
-                    hintText: 'Buscar por placa, motorista, capacidade...',
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    isDense: true,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              IconButton(
-                onPressed: _carregarConjuntos,
-                icon: const Icon(Icons.refresh, color: Color(0xFF0D47A1)),
-                tooltip: 'Atualizar',
-              ),
-            ],
-          ),
-        ),
-        
         // Cabeçalho da tabela de conjuntos
         Container(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
@@ -662,7 +775,6 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
                   ),
                 ),
               ),
-              _CabecalhoTabela(texto: 'AÇÕES', largura: 80),
             ],
           ),
         ),
@@ -673,7 +785,7 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
               ? const Center(
                   child: CircularProgressIndicator(color: Color(0xFF0D47A1)),
                 )
-              : _conjuntosFiltrados.isEmpty
+              : _conjuntosFiltrados.isEmpty && widget.buscaController.text.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -681,17 +793,13 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
                           const Icon(Icons.directions_car_filled_outlined,
                               size: 48, color: Colors.grey),
                           const SizedBox(height: 16),
-                          Text(
-                            _buscaController.text.isEmpty
-                                ? 'Nenhum conjunto cadastrado'
-                                : 'Nenhum conjunto encontrado',
-                            style: const TextStyle(fontSize: 16, color: Colors.grey),
+                          const Text(
+                            'Nenhum conjunto cadastrado',
+                            style: TextStyle(fontSize: 16, color: Colors.grey),
                           ),
                           const SizedBox(height: 8),
                           TextButton(
-                            onPressed: () {
-                              // TODO: Implementar criação de novo conjunto
-                            },
+                            onPressed: _adicionarConjuntoTemporario,
                             child: const Text(
                               'Criar primeiro conjunto',
                               style: TextStyle(color: Color(0xFF0D47A1)),
@@ -704,13 +812,20 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
                       itemCount: _conjuntosFiltrados.length,
                       itemBuilder: (context, index) {
                         final conjunto = _conjuntosFiltrados[index];
+                        final isTemporario = conjunto['isTemporario'] == true;
                         
                         return Container(
                           height: 56,
                           decoration: BoxDecoration(
-                            color: index.isEven ? Colors.white : Colors.grey.shade50,
+                            color: isTemporario 
+                                ? Colors.yellow.shade50 
+                                : (index.isEven ? Colors.white : Colors.grey.shade50),
                             border: Border(
-                              bottom: BorderSide(color: Colors.grey.shade200),
+                              bottom: BorderSide(
+                                color: isTemporario 
+                                    ? Colors.orange.shade200 
+                                    : Colors.grey.shade200,
+                              ),
                             ),
                           ),
                           child: Padding(
@@ -726,19 +841,26 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
                                         width: 32,
                                         height: 32,
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF0D47A1).withOpacity(0.1),
+                                          color: isTemporario
+                                              ? Colors.orange.withOpacity(0.1)
+                                              : const Color(0xFF0D47A1).withOpacity(0.1),
                                           shape: BoxShape.circle,
                                         ),
-                                        child: const Icon(Icons.person,
-                                            size: 16, color: Color(0xFF0D47A1)),
+                                        child: Icon(
+                                          isTemporario ? Icons.add : Icons.person,
+                                          size: 16,
+                                          color: isTemporario ? Colors.orange : const Color(0xFF0D47A1),
+                                        ),
                                       ),
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
                                           conjunto['motorista']?.toString() ?? '--',
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w500,
+                                            color: isTemporario ? Colors.orange : Colors.black,
+                                            fontStyle: isTemporario ? FontStyle.italic : FontStyle.normal,
                                           ),
                                           overflow: TextOverflow.ellipsis,
                                         ),
@@ -750,36 +872,30 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
                                 
                                 // Cavalo
                                 Expanded(
-                                  child: PlacaClicavelWidget(
-                                    placa: conjunto['cavalo'],
-                                    conjuntoId: conjunto['id'],
-                                    campoConjunto: 'cavalo',
-                                    onAtualizado: _carregarConjuntos,
-                                    placasDuplicadas: _placasDuplicadas,
+                                  child: _buildPlacaWidget(
+                                    conjunto: conjunto,
+                                    campo: 'cavalo',
+                                    isTemporario: isTemporario,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
                                 
                                 // Reboque 1
                                 Expanded(
-                                  child: PlacaClicavelWidget(
-                                    placa: conjunto['reboque_um'],
-                                    conjuntoId: conjunto['id'],
-                                    campoConjunto: 'reboque_um',
-                                    onAtualizado: _carregarConjuntos,
-                                    placasDuplicadas: _placasDuplicadas,
+                                  child: _buildPlacaWidget(
+                                    conjunto: conjunto,
+                                    campo: 'reboque_um',
+                                    isTemporario: isTemporario,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
                                 
                                 // Reboque 2
                                 Expanded(
-                                  child: PlacaClicavelWidget(
-                                    placa: conjunto['reboque_dois'],
-                                    conjuntoId: conjunto['id'],
-                                    campoConjunto: 'reboque_dois',
-                                    onAtualizado: _carregarConjuntos,
-                                    placasDuplicadas: _placasDuplicadas,
+                                  child: _buildPlacaWidget(
+                                    conjunto: conjunto,
+                                    campo: 'reboque_dois',
+                                    isTemporario: isTemporario,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -788,7 +904,7 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
                                 Expanded(
                                   child: _buildInfoChip(
                                     '${_formatarNumero(conjunto['capac'])} m³',
-                                    Colors.blue,
+                                    isTemporario ? Colors.orange : Colors.blue,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -797,7 +913,7 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
                                 Expanded(
                                   child: _buildInfoChip(
                                     _formatarNumero(conjunto['tanques']),
-                                    Colors.green,
+                                    isTemporario ? Colors.orange : Colors.green,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -806,36 +922,7 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
                                 Expanded(
                                   child: _buildInfoChip(
                                     _formatarPBT(conjunto['pbt']),
-                                    Colors.orange,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                
-                                // Ações
-                                SizedBox(
-                                  width: 80,
-                                  child: Row(
-                                    children: [
-                                      IconButton(
-                                        onPressed: () {
-                                          // TODO: Implementar edição completa do conjunto
-                                        },
-                                        icon: const Icon(Icons.edit,
-                                            size: 18, color: Color(0xFF0D47A1)),
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      IconButton(
-                                        onPressed: () {
-                                          // TODO: Implementar exclusão do conjunto
-                                        },
-                                        icon: const Icon(Icons.delete_outline,
-                                            size: 18, color: Colors.red),
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                      ),
-                                    ],
+                                    isTemporario ? Colors.orange : Colors.orange,
                                   ),
                                 ),
                               ],
@@ -853,7 +940,6 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
             color: Colors.white,
             border: Border(
               top: BorderSide(color: Colors.grey.shade300),
-              bottom: BorderSide(color: Colors.grey.shade300),
             ),
           ),
           child: Row(
@@ -867,9 +953,7 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
                 ),
               ),
               ElevatedButton.icon(
-                onPressed: () {
-                  // TODO: Implementar criação de novo conjunto
-                },
+                onPressed: _adicionarConjuntoTemporario,
                 icon: const Icon(Icons.add, size: 16),
                 label: const Text('Novo Conjunto'),
                 style: ElevatedButton.styleFrom(
@@ -885,26 +969,6 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildInfoChip(String texto, Color cor) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: cor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: cor.withOpacity(0.3)),
-      ),
-      child: Text(
-        texto,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          color: cor,
-        ),
-      ),
     );
   }
 }
@@ -1288,7 +1352,4 @@ class VeiculoDetalhesPage extends StatelessWidget {
     ];
     return cores[capacidade % cores.length];
   }
-
-
-
 }
