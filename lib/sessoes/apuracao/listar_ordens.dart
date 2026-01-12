@@ -27,6 +27,9 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
   int? _nivel;
 
   int? _hoverIndex;
+  
+  // ===== NOVO ESTADO PARA NAVEGAÇÃO INLINE =====
+  bool _mostrandoCertificado = false;
 
   @override
   void initState() {
@@ -45,7 +48,6 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
       _carregarOrdensNivel3();
     }
   }
-
 
   Future<void> _carregarFiliais() async {
     final dados = await supabase.from('filiais').select('id, nome').order('nome');
@@ -122,8 +124,38 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
         .any((v) => v.toLowerCase().contains(b));
   }
 
+  // ===== MÉTODOS PARA NAVEGAÇÃO INLINE =====
+  void _mostrarCertificado() {
+    setState(() {
+      _mostrandoCertificado = true;
+    });
+  }
+
+  void _abrirOrdemExistente() {
+    setState(() {
+      _mostrandoCertificado = true;
+    });
+  }
+
+  void _voltarParaLista() {
+    setState(() {
+      _mostrandoCertificado = false;
+    });
+    _refreshData(); // Atualiza a lista ao voltar
+  }
+
   @override
   Widget build(BuildContext context) {
+    // ===== SE ESTÁ MOSTRANDO CERTIFICADO =====
+    if (_mostrandoCertificado) {
+      return Scaffold(
+        body: CertificadoAnalisePage(
+          onVoltar: _voltarParaLista,
+        ),
+      );
+    }
+
+    // ===== SE ESTÁ MOSTRANDO A LISTA =====
     final lista = _ordens.where(_matchBusca).toList();
 
     return Column(
@@ -146,6 +178,30 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
               ),
             ),
             const Spacer(),
+
+            // ===== BOTÃO DE EMITIR ORDEM (CENTRALIZADO) =====
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              child: ElevatedButton.icon(
+                onPressed: _mostrarCertificado,
+                icon: const Icon(Icons.add, size: 20),
+                label: const Text(
+                  'Emitir Ordem',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0D47A1),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
 
             if (_nivel == 3)
               SizedBox(
@@ -172,6 +228,13 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
                 ),
               ),
             const SizedBox(width: 10),
+            
+            // ===== BOTÃO DE ATUALIZAR =====
+            IconButton(
+              icon: const Icon(Icons.refresh, color: Color(0xFF0D47A1)),
+              onPressed: _refreshData,
+              tooltip: 'Atualizar lista',
+            ),
           ],
         ),
 
@@ -195,7 +258,34 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
           child: _carregando
               ? const Center(child: CircularProgressIndicator())
               : lista.isEmpty
-                  ? const Center(child: Text('Nenhuma ordem encontrada'))
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.assignment_outlined,
+                            size: 60,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'Nenhuma ordem encontrada',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 16,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Clique em "Emitir Ordem" para criar uma nova',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
                   : ListView.separated(
                       padding: const EdgeInsets.all(16),
                       itemCount: lista.length,
@@ -209,18 +299,7 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
                           onEnter: (_) => setState(() => _hoverIndex = index),
                           onExit: (_) => setState(() => _hoverIndex = null),
                           child: GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => CertificadoAnalisePage(
-                                    onVoltar: () {
-                                      Navigator.pop(context);
-                                    },
-                                  ),
-                                ),
-                              );
-                            },
+                            onTap: _abrirOrdemExistente,
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 180),
                               decoration: BoxDecoration(
@@ -323,5 +402,14 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
       _ordens = List<Map<String, dynamic>>.from(filtrados);
       _carregando = false;
     });
+  }
+
+  // ===== MÉTODO PARA ATUALIZAR OS DADOS =====
+  Future<void> _refreshData() async {
+    if (_nivel == 3) {
+      await _carregarOrdensNivel3();
+    } else {
+      await _carregarOrdens();
+    }
   }
 }
