@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'dart:convert' show base64Encode;
 import 'dart:js' as js;
 import 'ordem_pdf.dart';
+import '../../login_page.dart';
 
 class CertificadoAnalisePage extends StatefulWidget {
   final VoidCallback onVoltar;
@@ -1898,6 +1899,11 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
       if (user == null) {
         throw Exception('Usuário não autenticado');
       }
+
+      final usuario = UsuarioAtual.instance;
+      if (usuario == null || usuario.filialId == null) {
+        throw Exception('Usuário sem filial vinculada.');
+      }
       
       // 2. Formatar os dados para o banco
       final Map<String, dynamic> dadosParaBanco = {
@@ -1923,6 +1929,7 @@ class _CertificadoAnalisePageState extends State<CertificadoAnalisePage> {
         'analise_concluida': true,
         'data_conclusao': DateTime.now().toIso8601String(),
         'usuario_id': user.id,
+        'filial_id': usuario.filialId,
         'status': 'concluida',
       };
       

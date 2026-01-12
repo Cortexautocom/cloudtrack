@@ -125,7 +125,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       },
       {
         'icon': Icons.assignment,
-        'label': 'Ordens / Análise',
+        'label': 'Ordens / Análises',
         'descricao': 'Geração e gestão de ordens',
         'tipo': 'ordens_analise',
       },
