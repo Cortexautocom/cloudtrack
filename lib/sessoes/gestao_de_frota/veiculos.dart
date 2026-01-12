@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dialog_cadastro_placas.dart';
+import 'editar_conjunto.dart';
 
 // ==============================
 // PÁGINA PRINCIPAL DE VEÍCULOS
@@ -434,6 +435,7 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
   List<Map<String, dynamic>> _conjuntos = [];
   bool _carregando = true;
   final TextEditingController _buscaController = TextEditingController();
+  final Map<String, List<String>> _placasDuplicadas = {};
 
   @override
   void initState() {
@@ -449,6 +451,32 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
           .select()
           .order('id', ascending: false);
       
+      // Limpar mapa de duplicadas
+      _placasDuplicadas.clear();
+      
+      // Processar dados para encontrar duplicidades
+      for (final conjunto in data) {
+        final conjuntoId = conjunto['id'].toString();
+        
+        // Cavalo
+        if (conjunto['cavalo'] != null) {
+          final placa = conjunto['cavalo'].toString();
+          _adicionarPlacaDuplicada(placa, conjuntoId);
+        }
+        
+        // Reboque 1
+        if (conjunto['reboque_um'] != null) {
+          final placa = conjunto['reboque_um'].toString();
+          _adicionarPlacaDuplicada(placa, conjuntoId);
+        }
+        
+        // Reboque 2
+        if (conjunto['reboque_dois'] != null) {
+          final placa = conjunto['reboque_dois'].toString();
+          _adicionarPlacaDuplicada(placa, conjuntoId);
+        }
+      }
+      
       setState(() {
         _conjuntos = List<Map<String, dynamic>>.from(data);
       });
@@ -459,6 +487,15 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
       });
     } finally {
       setState(() => _carregando = false);
+    }
+  }
+
+  void _adicionarPlacaDuplicada(String placa, String conjuntoId) {
+    if (!_placasDuplicadas.containsKey(placa)) {
+      _placasDuplicadas[placa] = [];
+    }
+    if (!_placasDuplicadas[placa]!.contains(conjuntoId)) {
+      _placasDuplicadas[placa]!.add(conjuntoId);
     }
   }
 
@@ -713,19 +750,37 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
                                 
                                 // Cavalo
                                 Expanded(
-                                  child: _buildPlacaChip(conjunto['cavalo']),
+                                  child: PlacaClicavelWidget(
+                                    placa: conjunto['cavalo'],
+                                    conjuntoId: conjunto['id'],
+                                    campoConjunto: 'cavalo',
+                                    onAtualizado: _carregarConjuntos,
+                                    placasDuplicadas: _placasDuplicadas,
+                                  ),
                                 ),
                                 const SizedBox(width: 8),
                                 
                                 // Reboque 1
                                 Expanded(
-                                  child: _buildPlacaChip(conjunto['reboque_um']),
+                                  child: PlacaClicavelWidget(
+                                    placa: conjunto['reboque_um'],
+                                    conjuntoId: conjunto['id'],
+                                    campoConjunto: 'reboque_um',
+                                    onAtualizado: _carregarConjuntos,
+                                    placasDuplicadas: _placasDuplicadas,
+                                  ),
                                 ),
                                 const SizedBox(width: 8),
                                 
                                 // Reboque 2
                                 Expanded(
-                                  child: _buildPlacaChip(conjunto['reboque_dois']),
+                                  child: PlacaClicavelWidget(
+                                    placa: conjunto['reboque_dois'],
+                                    conjuntoId: conjunto['id'],
+                                    campoConjunto: 'reboque_dois',
+                                    onAtualizado: _carregarConjuntos,
+                                    placasDuplicadas: _placasDuplicadas,
+                                  ),
                                 ),
                                 const SizedBox(width: 8),
                                 
@@ -763,7 +818,7 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
                                     children: [
                                       IconButton(
                                         onPressed: () {
-                                          // TODO: Implementar edição do conjunto
+                                          // TODO: Implementar edição completa do conjunto
                                         },
                                         icon: const Icon(Icons.edit,
                                             size: 18, color: Color(0xFF0D47A1)),
@@ -830,46 +885,6 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildPlacaChip(String? placa) {
-    if (placa == null || placa.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: const Text(
-          '--',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey,
-            fontStyle: FontStyle.italic,
-          ),
-        ),
-      );
-    }
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D47A1).withOpacity(0.05),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFF0D47A1).withOpacity(0.2)),
-      ),
-      child: Text(
-        placa,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFF0D47A1),
-        ),
-      ),
     );
   }
 
@@ -1273,4 +1288,7 @@ class VeiculoDetalhesPage extends StatelessWidget {
     ];
     return cores[capacidade % cores.length];
   }
+
+
+
 }
