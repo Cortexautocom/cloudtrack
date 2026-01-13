@@ -110,7 +110,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   // NOVO: Método unificado para inicializar todos os filhos
   void _inicializarFilhosPorSessao() {
-    // Filhos para "Apuração"
+    // Filhos para "Apuração" - REMOVIDO "Tanques" (agora está em Estoques)
     _filhosPorSessao['Apuração'] = [
       {
         'icon': Icons.analytics,
@@ -118,12 +118,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'descricao': 'Emitir CACL',
         'tipo': 'cacl',
       },      
-      {
-        'icon': Icons.oil_barrel,
-        'label': 'Tanques',
-        'descricao': 'Gerenciamento de tanques',
-        'tipo': 'tanques',
-      },
       {
         'icon': Icons.assignment,
         'label': 'Ordens / Análises',
@@ -144,8 +138,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       },
     ];
 
-    // Filhos para "Estoques" - ADICIONADO "Transferências"
+    // Filhos para "Estoques" - ADICIONADO "Tanques"
     _filhosPorSessao['Estoques'] = [
+      {
+        'icon': Icons.oil_barrel,
+        'label': 'Tanques',
+        'descricao': 'Gerenciamento de tanques',
+        'tipo': 'tanques',
+      },
       {
         'icon': Icons.hub,
         'label': 'Estoque Geral',
@@ -169,12 +169,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'label': 'Transferências',
         'descricao': 'Gerenciar transferências entre filiais',
         'tipo': 'transferencias',
-      },
-      {
-        'icon': Icons.download,
-        'label': 'Downloads',
-        'descricao': 'Baixar relatórios e dados',
-        'tipo': 'downloads',
       },
     ];
 
@@ -200,13 +194,19 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       },
     ];
 
-    // Filhos para "Gestão de Frota"
+    // Filhos para "Gestão de Frota" - ADICIONADO "Veículos de terceiros"
     _filhosPorSessao['Gestão de Frota'] = [
       {
         'icon': Icons.directions_car,
         'label': 'Veículos',
         'descricao': 'Gerenciar frota de veículos',
         'tipo': 'veiculos',
+      },
+      {
+        'icon': Icons.local_shipping,
+        'label': 'Veículos de terceiros',
+        'descricao': 'Gerenciar veículos de transportadoras',
+        'tipo': 'veiculos_terceiros',
       },
       {
         'icon': Icons.people,
@@ -738,6 +738,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
                                 if (menuItems[index] == 'Início') {
                                   await _verificarPermissoesUsuario();
+                                } else if (menuItems[index] == 'Relatórios') {
+                                  // Navega para Downloads dentro de Relatórios
+                                  setState(() {
+                                    _mostrarDownloads = true;
+                                  });
                                 }
                               },
                               child: AnimatedContainer(
@@ -813,6 +818,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     switch (menuItems[selectedIndex]) {
       case 'Início':
         return _buildSessoesPage(usuario);
+      case 'Relatórios':
+        return _buildRelatoriosPage();
       case 'Configurações':
         return _buildConfiguracoesPage(usuario);
       default:
@@ -827,6 +834,86 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
         );
     }
+  }
+
+  Widget _buildRelatoriosPage() {
+    return Padding(
+      padding: const EdgeInsets.all(30),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Relatórios",
+            style: TextStyle(
+              fontSize: 24,
+              color: Color(0xFF0D47A1),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Divider(color: Colors.grey),
+          const SizedBox(height: 20),
+          
+          // Card de Downloads (movido de Estoques para Relatórios)
+          Material(
+            elevation: 2,
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            clipBehavior: Clip.hardEdge,
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  _mostrarDownloads = true;
+                });
+              },
+              hoverColor: const Color(0xFFE8F5E9),
+              child: Container(
+                width: 150,
+                height: 150,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.download,
+                      color: const Color.fromARGB(255, 48, 153, 35),
+                      size: 50,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Downloads',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF0D47A1),
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Text(
+                        'Baixar relatórios e dados',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildSessoesPage(UsuarioAtual? usuario) {
@@ -867,7 +954,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       return DownloadsPage(
         key: const ValueKey('downloads-page'),
         onVoltar: () {
-          _mostrarFilhosDaSessao('Estoques');
+          if (selectedIndex == 1) { // Relatórios
+            setState(() {
+              _mostrarDownloads = false;
+            });
+          } else {
+            _mostrarFilhosDaSessao('Estoques');
+          }
         },
       );
     }
@@ -1016,7 +1109,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               _mostrarEscolherFilial = true;
               _contextoEscolhaFilial = 'tanques';
             } else {
-              _mostrarFilhosDaSessao('Apuração');
+              _mostrarFilhosDaSessao('Estoques'); // Alterado de Apuração para Estoques
             }
           });
         },
@@ -1112,7 +1205,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     // Página padrão
     return _buildGridWithSearch(sessoes);
   }
-
 
   // NOVO: Método unificado para construir página de filhos
   Widget _buildFilhosSessaoPage() {
@@ -1488,16 +1580,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           }
         });
         break;
-      case 'tanques':
-        setState(() {
-          if (usuario!.nivel == 3) {
-            _mostrarEscolherFilial = true;
-            _contextoEscolhaFilial = 'tanques';
-          } else {
-            _mostrarTanques = true;
-          }
-        });
-        break;
       case 'ordens_analise':
         setState(() {
           _mostrarOrdensAnalise = true;
@@ -1518,6 +1600,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   void _navegarParaCardEstoques(String tipo) {
     switch (tipo) {
+      case 'tanques': // AGORA ESTÁ EM ESTOQUES
+        final usuario = UsuarioAtual.instance;
+        setState(() {
+          if (usuario!.nivel == 3) {
+            _mostrarEscolherFilial = true;
+            _contextoEscolhaFilial = 'tanques';
+          } else {
+            _mostrarTanques = true;
+          }
+        });
+        break;
       case 'estoque_geral':
         Navigator.push(
           context,
@@ -1536,14 +1629,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         debugPrint('Navegando para Movimentações');
         // Implementar navegação para movimentações
         break;
-      case 'transferencias': // NOVO CASO PARA TRANSFERÊNCIAS
+      case 'transferencias':
         setState(() {
           _mostrarTransferencias = true;
-        });
-        break;
-      case 'downloads':
-        setState(() {
-          _mostrarDownloads = true;
         });
         break;
     }
@@ -1586,6 +1674,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _veiculoSelecionado = null;
           _mostrarMotoristas = false;
         });
+        break;
+        
+      case 'veiculos_terceiros': // NOVO CARD ADICIONADO
+        debugPrint('Abrir tela de veículos de terceiros');
+        // Implementar navegação quando criar a página
+        // Navigator.push(
+        //   context,
+        //   MaterialPageRoute(builder: (_) => const VeiculosTerceirosPage()),
+        // );
         break;
         
       case 'motoristas':
@@ -1838,7 +1935,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-
   // NOVO: Método para navegar para sessões sem filhos (comportamento antigo)
   void _navegarParaSessaoSemFilhos(String nomeSessao) {
     // Este método pode ser usado para sessões que ainda não foram migradas
@@ -1904,8 +2000,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           SizedBox(height: 20),
           Text(
             usuario != null 
-              ? 'Olá, ${usuario.nome}! Bem-vindo ao CloudTrack!'
-              : 'Bem-vindo ao CloudTrack!',
+              ? 'Olá, ${usuario.nome}! Bem-vindo ao VoxPower!'
+              : 'Bem-vindo ao VoxPower!',
             style: TextStyle(
               fontSize: 24,
               color: Color(0xFF0D47A1),
@@ -1916,7 +2012,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           Container(
             padding: EdgeInsets.symmetric(horizontal: 40),
             child: Text(
-              'Seu ambiente moderno de gestão de estoques e logística em nuvem',
+              'Seu ambiente moderno de gestão de estoques e logística em nuvem.',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey[700],

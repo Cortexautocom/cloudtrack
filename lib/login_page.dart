@@ -326,7 +326,7 @@ class _LoginPageState extends State<LoginPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  "© 2025 Aero, LLC. All rights reserved.",
+                  "© 2025 VoxPower, LLC. All rights reserved.",
                   style: TextStyle(
                     color: Colors.grey.shade400,
                     fontSize: 13,
