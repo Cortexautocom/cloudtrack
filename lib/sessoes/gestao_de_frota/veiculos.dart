@@ -103,6 +103,7 @@ class _VeiculosPageState extends State<VeiculosPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: null,
       backgroundColor: Colors.white,
       floatingActionButton: _abaAtual == 0 ? FloatingActionButton(
         onPressed: _abrirCadastroVeiculo,
@@ -114,7 +115,7 @@ class _VeiculosPageState extends State<VeiculosPage> {
         children: [
           // Cabeçalho com navegação
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 1),
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
@@ -138,48 +139,55 @@ class _VeiculosPageState extends State<VeiculosPage> {
             ),
           ),
 
-          // Menu de navegação entre veículos e conjuntos
-          Container(
-            height: 40,
-            color: Colors.grey.shade100,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _botaoAba("Veículos", 0),
-                const SizedBox(width: 16),
-                _botaoAba("Conjuntos", 1),
-              ],
-            ),
-          ),
-
-          // Barra de busca única para ambas as abas
+          // Linha com botões de navegação e busca
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Colors.grey.shade100,
               border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
             ),
-            child: TextField(
-              controller: _buscaController,
-              onChanged: (value) {
-                setState(() {
-                  _filtroPlaca = value;
-                });
-              },
-              decoration: InputDecoration(
-                hintText: _abaAtual == 0 
-                    ? 'Buscar placa ou transportadora...'
-                    : 'Buscar por placa, motorista, capacidade...',
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                prefixIcon: const Icon(Icons.search, size: 20),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
+            child: Row(
+              children: [
+                // Botões de navegação alinhados à esquerda
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    _botaoAba("Veículos", 0),
+                    const SizedBox(width: 16),
+                    _botaoAba("Conjuntos", 1),
+                  ],
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                isDense: true,
-              ),
+                
+                // Espaço flexível para empurrar a busca para a direita
+                const Spacer(),
+                
+                // Caixa de busca alinhada à direita
+                Container(
+                  width: 300,
+                  child: TextField(
+                    controller: _buscaController,
+                    onChanged: (value) {
+                      setState(() {
+                        _filtroPlaca = value;
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: _abaAtual == 0 
+                          ? 'Buscar placa ou transportadora...'
+                          : 'Buscar por placa, motorista, capacidade...',
+                      filled: true,
+                      fillColor: Colors.white,
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -258,6 +266,8 @@ class _VeiculosPageState extends State<VeiculosPage> {
                   ),
                 ),
               ),
+              SizedBox(width: 8),
+              _CabecalhoTabela(texto: 'RENAVAM', largura: 120),
               SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -341,6 +351,19 @@ class _VeiculosPageState extends State<VeiculosPage> {
                                     child: Text(
                                       transportadora,
                                       style: const TextStyle(fontSize: 13),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  SizedBox(
+                                    width: 120,
+                                    child: Text(
+                                      '--', // Placeholder para Renavam - você pode ajustar conforme sua estrutura de dados
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey,
+                                        fontStyle: FontStyle.italic,
+                                      ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
