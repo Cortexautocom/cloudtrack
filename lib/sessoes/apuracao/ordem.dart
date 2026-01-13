@@ -1,12 +1,276 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:async';
 import 'dart:typed_data';
 import 'dart:convert' show base64Encode;
 import 'dart:js' as js;
 import 'ordem_pdf.dart';
 import '../../login_page.dart';
 
+// ================= COMPONENTE PLACA AUTOCOMPLETE =================
+class PlacaAutocompleteField extends StatefulWidget {
+  final TextEditingController controller;
+  final String label;
+  final FocusNode? focusNode;
+  final void Function(String)? onChanged;
+
+  const PlacaAutocompleteField({
+    super.key,
+    required this.controller,
+    required this.label,
+    this.focusNode,
+    this.onChanged,
+  });
+
+  @override
+  State<PlacaAutocompleteField> createState() => _PlacaAutocompleteFieldState();
+}
+
+class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
+  final List<String> _sugestoes = [];
+  bool _carregando = false;
+  Timer? _debounceTimer;
+  OverlayEntry? _overlayEntry;
+  final LayerLink _layerLink = LayerLink();
+  final FocusNode _internalFocusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _internalFocusNode.addListener(_onFocusChanged);
+    
+    // Se um focusNode externo foi fornecido, sincronize com o interno
+    if (widget.focusNode != null) {
+      widget.focusNode!.addListener(_onExternalFocusChanged);
+    }
+  }
+
+  void _onExternalFocusChanged() {
+    if (widget.focusNode!.hasFocus && !_internalFocusNode.hasFocus) {
+      _internalFocusNode.requestFocus();
+    } else if (!widget.focusNode!.hasFocus && _internalFocusNode.hasFocus) {
+      _internalFocusNode.unfocus();
+    }
+  }
+
+  void _onFocusChanged() {
+    if (_internalFocusNode.hasFocus) {
+      _mostrarOverlay();
+    } else {
+      // Pequeno delay para permitir clique nos itens
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (!_internalFocusNode.hasFocus) {
+          _fecharOverlay();
+        }
+      });
+    }
+  }
+
+  Future<void> _buscarPlacas(String texto) async {
+    if (texto.length < 3) {
+      setState(() {
+        _sugestoes.clear();
+      });
+      _fecharOverlay();
+      return;
+    }
+
+    setState(() {
+      _carregando = true;
+    });
+
+    try {
+      final res = await Supabase.instance.client
+          .from('vw_placas')
+          .select('placa')
+          .ilike('placa', '$texto%')
+          .order('placa')
+          .limit(10);
+
+      final sugestoes = res.map<String>((p) => p['placa'].toString()).toList();
+
+      setState(() {
+        _sugestoes.clear();
+        _sugestoes.addAll(sugestoes);
+        _carregando = false;
+      });
+
+      if (_sugestoes.isNotEmpty && _internalFocusNode.hasFocus) {
+        _mostrarOverlay();
+      } else {
+        _fecharOverlay();
+      }
+    } catch (e) {
+      print('Erro ao buscar placas: $e');
+      setState(() {
+        _sugestoes.clear();
+        _carregando = false;
+      });
+      _fecharOverlay();
+    }
+  }
+
+  void _onTextChanged(String texto) {
+    // Cancelar timer anterior
+    _debounceTimer?.cancel();
+    
+    // Limpar sugestões imediatamente se texto muito curto
+    if (texto.length < 3) {
+      setState(() {
+        _sugestoes.clear();
+      });
+      _fecharOverlay();
+      return;
+    }
+
+    // Configurar novo timer de debounce
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        _buscarPlacas(texto);
+      }
+    });
+
+    // Chamar callback externo se fornecido
+    if (widget.onChanged != null) {
+      widget.onChanged!(texto);
+    }
+  }
+
+  void _onPlacaSelecionada(String placa) {
+    widget.controller.text = placa;
+    setState(() {
+      _sugestoes.clear();
+    });
+    _fecharOverlay();
+    _internalFocusNode.unfocus();
+    
+    // Mover cursor para o final
+    widget.controller.selection = TextSelection.fromPosition(
+      TextPosition(offset: placa.length),
+    );
+  }
+
+  void _mostrarOverlay() {
+    if (_sugestoes.isEmpty || _overlayEntry != null) return;
+
+    final renderBox = context.findRenderObject() as RenderBox;
+    final size = renderBox.size;
+    final offset = renderBox.localToGlobal(Offset.zero);
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        left: offset.dx,
+        top: offset.dy + size.height + 4,
+        width: size.width,
+        child: CompositedTransformFollower(
+          link: _layerLink,
+          showWhenUnlinked: false,
+          offset: Offset(0, size.height + 4),
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(4),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.3,
+              ),
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: _sugestoes.length,
+                itemBuilder: (context, index) {
+                  final placa = _sugestoes[index];
+                  return ListTile(
+                    title: Text(
+                      placa,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    onTap: () => _onPlacaSelecionada(placa),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _fecharOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    _fecharOverlay();
+    _internalFocusNode.removeListener(_onFocusChanged);
+    _internalFocusNode.dispose();
+    
+    if (widget.focusNode != null) {
+      widget.focusNode!.removeListener(_onExternalFocusChanged);
+    }
+    
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextFormField(
+            controller: widget.controller,
+            focusNode: _internalFocusNode,
+            maxLength: 8,
+            textCapitalization: TextCapitalization.characters,
+            onChanged: _onTextChanged,
+            decoration: InputDecoration(
+              labelText: widget.label,
+              counterText: '',
+              hintText: '',
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
+              suffixIcon: _carregando
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ================= PÁGINA PRINCIPAL (COM AS ALTERAÇÕES) =================
 class EmitirOrdemPage extends StatefulWidget {
   final VoidCallback onVoltar;
 
@@ -33,7 +297,7 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
   final FocusNode _focusDestino20 = FocusNode();
   final FocusNode _focusOrigem20 = FocusNode();
 
-  final Map<String, TextEditingController> campos = {
+  final Map<String, TextEditingController?> campos = {
     // Cabeçalho
     'numeroControle': TextEditingController(),
     'transportadora': TextEditingController(),
@@ -381,69 +645,27 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
                                   },
                                 ]),
                                 const SizedBox(height: 12),                                
-                                // LINHA COM OS 3 CAMPOS DE PLACA - FORMATO ABC-1D23
+                                // LINHA COM OS 3 CAMPOS DE PLACA - COM AUTOCOMPLETE
                                 _linhaFlexivel([
                                   {
                                     'flex': 4, // Placa do cavalo
-                                    'widget': TextFormField(
-                                      controller: campos['placaCavalo'],
-                                      maxLength: 8, // 3 letras + hífen + 4 caracteres = 8 caracteres totais
-                                      textCapitalization: TextCapitalization.characters,
-                                      onChanged: (value) {
-                                        final masked = _aplicarMascaraPlaca(value);
-                                        if (masked != value) {
-                                          campos['placaCavalo']!.value = TextEditingValue(
-                                            text: masked,
-                                            selection: TextSelection.collapsed(offset: masked.length),
-                                          );
-                                        }
-                                      },
-                                      decoration: _decoration('Placa do cavalo').copyWith(
-                                        counterText: '',
-                                        hintText: '', // SEM HINT
-                                      ),
+                                    'widget': PlacaAutocompleteField(
+                                      controller: campos['placaCavalo']!,
+                                      label: 'Placa do cavalo',
                                     ),
                                   },
                                   {
                                     'flex': 4, // Carreta 1
-                                    'widget': TextFormField(
-                                      controller: campos['carreta1'],
-                                      maxLength: 8, // 3 letras + hífen + 4 caracteres = 8 caracteres totais
-                                      textCapitalization: TextCapitalization.characters,
-                                      onChanged: (value) {
-                                        final masked = _aplicarMascaraPlaca(value);
-                                        if (masked != value) {
-                                          campos['carreta1']!.value = TextEditingValue(
-                                            text: masked,
-                                            selection: TextSelection.collapsed(offset: masked.length),
-                                          );
-                                        }
-                                      },
-                                      decoration: _decoration('Carreta 1').copyWith(
-                                        counterText: '',
-                                        hintText: '', // SEM HINT
-                                      ),
+                                    'widget': PlacaAutocompleteField(
+                                      controller: campos['carreta1']!,
+                                      label: 'Carreta 1',
                                     ),
                                   },
                                   {
                                     'flex': 4, // Carreta 2
-                                    'widget': TextFormField(
-                                      controller: campos['carreta2'],
-                                      maxLength: 8, // 3 letras + hífen + 4 caracteres = 8 caracteres totais
-                                      textCapitalization: TextCapitalization.characters,
-                                      onChanged: (value) {
-                                        final masked = _aplicarMascaraPlaca(value);
-                                        if (masked != value) {
-                                          campos['carreta2']!.value = TextEditingValue(
-                                            text: masked,
-                                            selection: TextSelection.collapsed(offset: masked.length),
-                                          );
-                                        }
-                                      },
-                                      decoration: _decoration('Carreta 2').copyWith(
-                                        counterText: '',
-                                        hintText: '', // SEM HINT
-                                      ),
+                                    'widget': PlacaAutocompleteField(
+                                      controller: campos['carreta2']!,
+                                      label: 'Carreta 2',
                                     ),
                                   },
                                 ]),
@@ -1608,59 +1830,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
     return resultado;
   }
 
-  String _aplicarMascaraPlaca(String texto) {
-    // Remove tudo que não é letra, número ou hífen
-    String limpo = texto
-        .replaceAll(RegExp(r'[^A-Za-z0-9-]'), '')
-        .toUpperCase();
-    
-    if (limpo.isEmpty) return '';
-    
-    // Remove hífens para facilitar o processamento
-    String semHifen = limpo.replaceAll('-', '');
-    
-    // Limita a 7 caracteres (3 letras + 4 caracteres)
-    if (semHifen.length > 7) {
-      semHifen = semHifen.substring(0, 7);
-    }
-    
-    // Separa letras (antes do hífen) e caracteres (depois do hífen)
-    String letras = '';
-    String segundoBloco = '';
-    
-    for (int i = 0; i < semHifen.length; i++) {
-      String char = semHifen[i];
-      
-      // Até 3 caracteres: aceita apenas letras
-      if (letras.length < 3) {
-        if (RegExp(r'[A-Z]').hasMatch(char)) {
-          letras += char;
-        }
-        // Ignora números antes de completar 3 letras
-      } else {
-        // Após 3 letras: aceita letras E números
-        if (RegExp(r'[A-Z0-9]').hasMatch(char)) {
-          segundoBloco += char;
-        }
-      }
-    }
-    
-    // Limita segundo bloco a 4 caracteres
-    if (segundoBloco.length > 4) {
-      segundoBloco = segundoBloco.substring(0, 4);
-    }
-    
-    // Formata com hífen
-    if (letras.isEmpty) {
-      return '';
-    } else if (segundoBloco.isEmpty) {
-      return letras + '-';
-    } else {
-      return '$letras-$segundoBloco';
-    }
-  }
-
-  // Função para calcular destino a 20°C automaticamente
   // Função para calcular destino a 20°C automaticamente
   void _calcularDestino20CAutomatico() {
     try {
@@ -2292,7 +2461,7 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
       
       // 3. Limpa todos os controllers
       for (var controller in campos.values) {
-        controller.clear();
+        controller?.clear();
       }
       
       // 4. Limpa o produto selecionado
@@ -2348,7 +2517,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
   }
 
   // Função para converter campo de texto para decimal (NUMERIC)
-  // CORRIGIDO: Função para converter campo de texto para decimal (NUMERIC)
   double? _converterParaDecimal(String texto) {
     if (texto.isEmpty || texto == '-') return null;
     
@@ -2361,7 +2529,7 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
     }
   }
 
-  // CORRIGIDO: Função para converter campo de texto para inteiro
+  // Função para converter campo de texto para inteiro
   int? _converterParaInteiro(String texto) {
     if (texto.isEmpty) return null;
     
