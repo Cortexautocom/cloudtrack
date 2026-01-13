@@ -149,7 +149,7 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
     // ===== SE ESTÁ MOSTRANDO CERTIFICADO =====
     if (_mostrandoCertificado) {
       return Scaffold(
-        body: CertificadoAnalisePage(
+        body: EmitirOrdemPage(
           onVoltar: _voltarParaLista,
         ),
       );
