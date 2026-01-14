@@ -25,6 +25,7 @@ import 'sessoes/estoques/transferencias.dart';
 import 'sessoes/apuracao/listar_ordens.dart';
 import 'sessoes/apuracao/temp_dens_media.dart';
 import 'home_cards.dart';
+import 'sessoes/ajuda/arquiteto.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -861,18 +862,25 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   Widget _buildAjudaPage() {
     return HomeCards(
       menuSelecionado: 'Ajuda',
-      onCardSelecionado: (tipoCard) {
+      // ALTERADO: Agora recebe (context, tipo)
+      onCardSelecionado: (context, tipoCard) {
         switch (tipoCard) {
           case 'grande_arquiteto':
-            // Aqui você pode navegar para a página do Grande Arquiteto
-            // Por enquanto, apenas mostra um snackbar
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Abrindo Grande Arquiteto...'),
-                duration: Duration(seconds: 1),
+            // Navegação para a página do Grande Arquiteto
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const GrandeArquitetoPage(),
               ),
             );
             break;
+          default:
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Funcionalidade $tipoCard em desenvolvimento...'),
+                duration: const Duration(seconds: 1),
+              ),
+            );
         }
       },
       onVoltar: () {

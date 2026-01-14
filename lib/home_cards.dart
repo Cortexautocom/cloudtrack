@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class HomeCards extends StatelessWidget {
   final String menuSelecionado;
-  final Function(String) onCardSelecionado;
+  final void Function(BuildContext context, String tipo) onCardSelecionado;
   final Function() onVoltar;
   
   const HomeCards({
@@ -44,17 +44,18 @@ class HomeCards extends StatelessWidget {
 
           // Conteúdo dos cards baseado no menu selecionado
           Expanded(
-            child: _buildCardsConteudo(),
+            child: _buildCardsConteudo(context), // ALTERADO: Passa context
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCardsConteudo() {
+  // ALTERADO: Recebe context como parâmetro
+  Widget _buildCardsConteudo(BuildContext context) {
     switch (menuSelecionado) {
       case 'Ajuda':
-        return _buildCardsAjuda();
+        return _buildCardsAjuda(context); // ALTERADO: Passa context
       default:
         return const Center(
           child: Text(
@@ -65,10 +66,11 @@ class HomeCards extends StatelessWidget {
     }
   }
 
-  Widget _buildCardsAjuda() {
+  // ALTERADO: Recebe context como parâmetro
+  Widget _buildCardsAjuda(BuildContext context) {
     final List<Map<String, dynamic>> cards = [
       {
-        'titulo': 'Grande Arquiteto',
+        'titulo': 'O Grande Arquiteto',
         'descricao': 'Dicionário de dados, relações e estruturas do sistema',
         'icone': Icons.architecture,
         'cor': const Color(0xFF0D47A1),
@@ -82,18 +84,21 @@ class HomeCards extends StatelessWidget {
       crossAxisSpacing: 15,
       mainAxisSpacing: 15,
       childAspectRatio: 1,
-      children: cards.map((card) => _buildCardItem(card)).toList(),
+      // ALTERADO: Passa context para o map
+      children: cards.map((card) => _buildCardItem(card, context)).toList(),
     );
   }
 
-  Widget _buildCardItem(Map<String, dynamic> card) {
+  // ALTERADO: Recebe context como parâmetro
+  Widget _buildCardItem(Map<String, dynamic> card, BuildContext context) {
     return Material(
       elevation: 2,
       color: Colors.white,
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.hardEdge,
       child: InkWell(
-        onTap: () => onCardSelecionado(card['tipo']),
+        // CORRIGIDO: Agora tem acesso ao context
+        onTap: () => onCardSelecionado(context, card['tipo']),
         hoverColor: const Color(0xFFE8F5E9),
         child: Container(
           decoration: BoxDecoration(
