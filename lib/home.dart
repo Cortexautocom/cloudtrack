@@ -23,8 +23,9 @@ import 'sessoes/gestao_de_frota/veiculos.dart';
 import 'sessoes/circuito/acompanhamento_ordens.dart';
 import 'sessoes/estoques/transferencias.dart';
 import 'sessoes/apuracao/listar_ordens.dart';
-// ADICIONE ESTE IMPORT DA NOVA PÁGINA
 import 'sessoes/apuracao/temp_dens_media.dart';
+import 'home_cards.dart';
+
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -65,6 +66,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarFiliaisDaEmpresa = false;
   bool _mostrarIniciarCircuito = false;
   bool _mostrarTransferencias = false;
+  bool _mostrarMenuAjuda = false;
   // NOVA FLAG PARA TEMPERATURA E DENSIDADE
   bool _mostrarTempDensMedia = false;
   
@@ -519,7 +521,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarFiliaisDaEmpresa = false;
       _mostrarIniciarCircuito = false;
       _mostrarTransferencias = false;
-      _mostrarTempDensMedia = false; // NOVA FLAG RESETADA
+      _mostrarTempDensMedia = false;
+      _mostrarMenuAjuda = false;
       _resetarTodasFlagsGestaoFrota();
       _mostrarFilhosSessao = false;
       _sessaoAtual = null;
@@ -559,7 +562,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarIniciarCircuito = false;
       _mostrarCalcGerado = false;
       _mostrarTransferencias = false;
-      _mostrarTempDensMedia = false; // NOVA FLAG RESETADA
+      _mostrarTempDensMedia = false;
+      _mostrarMenuAjuda = false;
       _mostrarVeiculos = false;
       _mostrarDetalhesVeiculo = false;
       _veiculoSelecionado = null;
@@ -587,7 +591,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarIniciarCircuito = false;
       _mostrarCalcGerado = false;
       _mostrarTransferencias = false;
-      _mostrarTempDensMedia = false; // NOVA FLAG RESETADA
+      _mostrarTempDensMedia = false;
+      _mostrarMenuAjuda = false;
       _resetarTodasFlagsGestaoFrota();
       _filialSelecionadaNome = null;
       _dadosCalcGerado = null;
@@ -709,17 +714,47 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                             bool isSelected = selectedIndex == index;
                             return InkWell(
                               onTap: () async {
+                                // Primeiro, reseta todas as flags
                                 _resetarTodasFlags();
+                                
+                                // Atualiza o índice selecionado
                                 setState(() {
                                   selectedIndex = index;
                                 });
 
-                                if (menuItems[index] == 'Início') {
-                                  await _verificarPermissoesUsuario();
-                                } else if (menuItems[index] == 'Relatórios') {
-                                  setState(() {
-                                    _mostrarDownloads = true;
-                                  });
+                                final itemSelecionado = menuItems[index];
+                                
+                                switch (itemSelecionado) {
+                                  case 'Início':
+                                    await _verificarPermissoesUsuario();
+                                    // Flags já foram resetadas pelo _resetarTodasFlags
+                                    break;
+                                  
+                                  case 'Relatórios':
+                                    setState(() {
+                                      _mostrarDownloads = true;
+                                    });
+                                    break;
+                                  
+                                  case 'Configurações':
+                                    // Nada específico a fazer aqui, as flags já foram resetadas
+                                    // O método _buildConfiguracoesPage irá construir o conteúdo apropriado
+                                    break;
+                                  
+                                  case 'Ajuda':
+                                    setState(() {
+                                      _mostrarMenuAjuda = true;
+                                      // Garantir que nenhuma outra flag de conteúdo esteja ativa
+                                      _mostrarDownloads = false;
+                                      _mostrarFilhosSessao = false;
+                                      _sessaoAtual = null;
+                                      _filhosSessaoAtual = [];
+                                    });
+                                    break;
+                                  
+                                  default:
+                                    // Para qualquer outro item do menu, apenas resetar as flags
+                                    break;
                                 }
                               },
                               child: AnimatedContainer(
@@ -799,6 +834,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         return _buildRelatoriosPage();
       case 'Configurações':
         return _buildConfiguracoesPage(usuario);
+      case 'Ajuda':
+        // Quando o menu Ajuda está selecionado, forçar mostrar a página de ajuda
+        if (!_mostrarMenuAjuda) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            setState(() {
+              _mostrarMenuAjuda = true;
+            });
+          });
+        }
+        return _buildAjudaPage();
       default:
         return Center(
           child: Text(
@@ -811,6 +856,32 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
         );
     }
+  }
+
+  Widget _buildAjudaPage() {
+    return HomeCards(
+      menuSelecionado: 'Ajuda',
+      onCardSelecionado: (tipoCard) {
+        switch (tipoCard) {
+          case 'grande_arquiteto':
+            // Aqui você pode navegar para a página do Grande Arquiteto
+            // Por enquanto, apenas mostra um snackbar
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Abrindo Grande Arquiteto...'),
+                duration: Duration(seconds: 1),
+              ),
+            );
+            break;
+        }
+      },
+      onVoltar: () {
+        setState(() {
+          _mostrarMenuAjuda = false;
+          selectedIndex = -1; // Volta para a página inicial
+        });
+      },
+    );
   }
 
   Widget _buildRelatoriosPage() {
@@ -920,7 +991,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildConteudoSessoes() {
-    // Páginas específicas (fluxos complexos)
+
+    if (_mostrarMenuAjuda) {
+      return _buildAjudaPage();
+    }
+    
     if (_mostrarFiltrosEstoque && _filialParaFiltroId != null) {
       return _buildFiltrosEstoquePage();
     }
