@@ -19,11 +19,20 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
   bool carregando = true;
   List<Map<String, dynamic>> transferencias = [];
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _horizontalScrollController = ScrollController();
+  final ScrollController _verticalScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     carregar();
+  }
+
+  @override
+  void dispose() {
+    _horizontalScrollController.dispose();
+    _verticalScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> carregar() async {
@@ -37,7 +46,7 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
             *,
             motoristas!motorista_id(nome),
             produtos!produto_id(nome),
-            transportadoras!transportadora_id(nome),
+            transportadoras!transportadora_id(nome_dois),
             origem_filial:filiais!filial_origem_id(nome_dois),
             destino_filial:filiais!filial_destino_id(nome_dois)
           ''')
@@ -86,7 +95,7 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
           (t['quantidade']?.toString().toLowerCase() ?? '').contains(query) ||
           (t['motoristas']?['nome']?.toString().toLowerCase() ?? '').contains(query) ||
           (t['produtos']?['nome']?.toString().toLowerCase() ?? '').contains(query) ||
-          (t['transportadoras']?['nome']?.toString().toLowerCase() ?? '').contains(query) ||
+          (t['transportadoras']?['nome_dois']?.toString().toLowerCase() ?? '').contains(query) ||
           (t['origem_filial']?['nome_dois']?.toString().toLowerCase() ?? '').contains(query) ||
           (t['destino_filial']?['nome_dois']?.toString().toLowerCase() ?? '').contains(query);
     }).toList();
@@ -225,86 +234,115 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
   }
 
   Widget _buildTabelaConteudo() {
-    //final hoje = DateTime.now();
     
     return Scrollbar(
+      controller: _verticalScrollController,
+      thumbVisibility: true,
       child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
+        controller: _verticalScrollController,
         child: SizedBox(
-          width: 1350, // Reduzido para caber na viewport
+          width: MediaQuery.of(context).size.width,
           child: Column(
             children: [
-              // Cabeçalho da tabela
-              Container(
-                height: 40,
-                color: const Color(0xFF0D47A1),
-                child: Row(
-                  children: [
-                    _th("Data", 80),
-                    _th("Placa", 100),
-                    _th("Motorista", 140),
-                    _th("Produto", 120),
-                    _th("Qtd", 80),
-                    _th("Transp.", 140),
-                    _th("Cavalo", 100),
-                    _th("Reboq. 1", 100),
-                    _th("Reboq. 2", 100),
-                    _th("Origem", 140),
-                    _th("Destino", 140),
-                  ],
+              // Cabeçalho da tabela com rolagem horizontal
+              Scrollbar(
+                controller: _horizontalScrollController,
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  controller: _horizontalScrollController,
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: 1350,
+                    child: Container(
+                      height: 40,
+                      color: const Color(0xFF0D47A1),
+                      child: Row(
+                        children: [
+                          _th("Data", 80),
+                          _th("Placa", 100),
+                          _th("Motorista", 140),
+                          _th("Produto", 120),
+                          _th("Qtd", 80),
+                          _th("Transportadora", 140),
+                          _th("Cavalo", 100),
+                          _th("Reboq. 1", 100),
+                          _th("Reboq. 2", 100),
+                          _th("Origem", 140),
+                          _th("Destino", 140),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
               
-              // Conteúdo da tabela
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _transferenciasFiltradas.length,
-                itemBuilder: (context, index) {
-                  final t = _transferenciasFiltradas[index];
-                  final data = t['data_mov'] is String
-                      ? DateTime.parse(t['data_mov'])
-                      : (t['data_mov'] is DateTime ? t['data_mov'] : DateTime.now());
-                  final isHoje = _isHoje(data);
-                  
-                  // Extrair nomes das relações
-                  final motoristaNome = t['motoristas']?['nome']?.toString() ?? '';
-                  final produtoNome = t['produtos']?['nome']?.toString() ?? '';
-                  final transportadoraNome = t['transportadoras']?['nome']?.toString() ?? '';
-                  final origemNome = t['origem_filial']?['nome_dois']?.toString() ?? '';
-                  final destinoNome = t['destino_filial']?['nome_dois']?.toString() ?? '';
-                  
-                  return Container(
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: index % 2 == 0 
-                          ? Colors.grey.shade50 
-                          : Colors.white,
-                      border: Border(
-                        bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
-                      ),
+              // Conteúdo da tabela com rolagem horizontal
+              Scrollbar(
+                controller: _horizontalScrollController,
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  controller: _horizontalScrollController,
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: 1350,
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _transferenciasFiltradas.length,
+                      itemBuilder: (context, index) {
+                        final t = _transferenciasFiltradas[index];
+                        final data = t['data_mov'] is String
+                            ? DateTime.parse(t['data_mov'])
+                            : (t['data_mov'] is DateTime ? t['data_mov'] : DateTime.now());
+                        final isHoje = _isHoje(data);
+                        
+                        // Extrair nomes das relações
+                        final motoristaNome = t['motoristas']?['nome']?.toString() ?? '';
+                        final produtoNome = t['produtos']?['nome']?.toString() ?? '';
+                        final transportadoraNome = t['transportadoras']?['nome_dois']?.toString() ?? '';
+                        final origemNome = t['origem_filial']?['nome_dois']?.toString() ?? '';
+                        final destinoNome = t['destino_filial']?['nome_dois']?.toString() ?? '';
+                        
+                        // Formatar quantidade
+                        final quantidade = t['quantidade']?.toString() ?? '';
+                        final quantidadeFormatada = quantidade.isNotEmpty && quantidade != '0'
+                            ? _formatarQuantidade(quantidade)
+                            : '';
+                        
+                        return Container(
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: index % 2 == 0 
+                                ? Colors.grey.shade50 
+                                : Colors.white,
+                            border: Border(
+                              bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              _cell(
+                                '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}',
+                                80,
+                                isHoje: isHoje,
+                              ),
+                              _cell(_extrairPrimeiraPlaca(t['placa']), 100, isHoje: isHoje),
+                              _cell(motoristaNome, 140, isHoje: isHoje),
+                              _cell(produtoNome, 120, isHoje: isHoje),
+                              _cell(quantidadeFormatada, 80, isHoje: isHoje, isNumber: true),
+                              _cell(transportadoraNome, 140, isHoje: isHoje),
+                              _cell(t['cavalo']?.toString() ?? '', 100, isHoje: isHoje),
+                              _cell(t['reboque1']?.toString() ?? '', 100, isHoje: isHoje),
+                              _cell(t['reboque2']?.toString() ?? '', 100, isHoje: isHoje),
+                              _cell(origemNome, 140, isHoje: isHoje),
+                              _cell(destinoNome, 140, isHoje: isHoje),
+                            ],
+                          ),
+                        );
+                      },
                     ),
-                    child: Row(
-                      children: [
-                        _cell(
-                          '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}',
-                          80,
-                          isHoje: isHoje,
-                        ),
-                        _cell(_extrairPrimeiraPlaca(t['placa']), 100, isHoje: isHoje),
-                        _cell(motoristaNome, 140, isHoje: isHoje),
-                        _cell(produtoNome, 120, isHoje: isHoje),
-                        _cell(t['quantidade']?.toString() ?? '', 80, isHoje: isHoje, isNumber: true),
-                        _cell(transportadoraNome, 140, isHoje: isHoje),
-                        _cell(t['cavalo']?.toString() ?? '', 100, isHoje: isHoje),
-                        _cell(t['reboque1']?.toString() ?? '', 100, isHoje: isHoje),
-                        _cell(t['reboque2']?.toString() ?? '', 100, isHoje: isHoje),
-                        _cell(origemNome, 140, isHoje: isHoje),
-                        _cell(destinoNome, 140, isHoje: isHoje),
-                      ],
-                    ),
-                  );
-                },
+                  ),
+                ),
               ),
               
               // Contador de resultados
@@ -362,6 +400,28 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
         overflow: TextOverflow.ellipsis,
       ),
     );
+  }
+
+  String _formatarQuantidade(String quantidade) {
+    try {
+      // Remove caracteres não numéricos
+      final apenasNumeros = quantidade.replaceAll(RegExp(r'[^\d]'), '');
+      if (apenasNumeros.isEmpty) return '';
+      
+      final valor = int.parse(apenasNumeros);
+      if (valor == 0) return '';
+      
+      // Formata como 999.999
+      if (valor > 999) {
+        final parteMilhar = (valor ~/ 1000).toString();
+        final parteCentena = (valor % 1000).toString().padLeft(3, '0');
+        return '$parteMilhar.$parteCentena';
+      }
+      
+      return valor.toString();
+    } catch (e) {
+      return quantidade;
+    }
   }
 }
 
@@ -554,7 +614,7 @@ class _AutocompleteFieldState<T> extends State<AutocompleteField<T>> {
                     child: InkWell(
                       onTap: () => _onItemSelecionado(item),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                         child: Text(
                           widget.obterTextoExibicao(item),
                           style: const TextStyle(fontSize: 14),
@@ -662,6 +722,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
   // Listas para dropdowns
   List<Map<String, dynamic>> _produtos = [];
   List<Map<String, dynamic>> _filiais = [];
+  List<String> _datasFormatadas = [];
   List<DateTime> _datasDisponiveis = [];
   
   // Valores selecionados
@@ -687,6 +748,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       hoje.add(const Duration(days: 3)),
       hoje.add(const Duration(days: 4)),
     ];
+    _datasFormatadas = _datasDisponiveis.map(_formatarData).toList();
   }
 
   Future<void> _carregarDadosUsuario() async {
@@ -766,9 +828,9 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     final supabase = Supabase.instance.client;
     final response = await supabase
         .from('transportadoras')
-        .select('id, nome')
-        .ilike('nome', '%$texto%')
-        .order('nome')
+        .select('id, nome_dois')
+        .ilike('nome_dois', '%$texto%')
+        .order('nome_dois')
         .limit(10);
     
     return List<Map<String, dynamic>>.from(response);
@@ -788,7 +850,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     return response.map<String>((p) => p['placa'].toString()).toList();
   }
 
-  // Máscara para quantidade (999.999)
+  // Formatar quantidade no formato "999.999"
   String _aplicarMascaraQuantidade(String texto) {
     // Remove tudo que não é número
     String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
@@ -808,6 +870,10 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     }
 
     return apenasNumeros;
+  }
+
+  String _removerMascaraQuantidade(String texto) {
+    return texto.replaceAll('.', '');
   }
 
   Future<void> _salvar() async {
@@ -863,8 +929,13 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       adicionarPlacaSePreenchida(_reboque2Controller);
       
       // Converter quantidade para número (remover a máscara)
-      final quantidadeLimpa = _quantidadeController.text.replaceAll('.', '');
+      final quantidadeLimpa = _removerMascaraQuantidade(_quantidadeController.text);
       final quantidade = int.tryParse(quantidadeLimpa) ?? 0;
+      
+      // Validar quantidade
+      if (quantidade <= 0) {
+        throw Exception('Quantidade deve ser maior que zero');
+      }
       
       // Criar objeto para salvar com todas as regras especificadas
       final Map<String, dynamic> dadosTransferencia = {
@@ -969,26 +1040,25 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                         SizedBox(
                           width: 150,
                           child: DropdownButtonFormField<String>(
-                            initialValue: _formatarData(_dataSelecionada), // Convertendo para string
+                            initialValue: _formatarData(_dataSelecionada),
                             decoration: const InputDecoration(
                               labelText: 'Data',
                               border: OutlineInputBorder(),
                               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                             ),
-                            items: _datasDisponiveis.map((data) {
-                              return DropdownMenuItem<String>( // Especificando tipo String
-                                value: _formatarData(data), // Valor também como string
-                                child: Text(_formatarData(data)),
+                            items: _datasFormatadas.map((dataStr) {
+                              return DropdownMenuItem<String>(
+                                value: dataStr,
+                                child: Text(dataStr),
                               );
                             }).toList(),
                             onChanged: (dataString) {
                               if (dataString != null) {
                                 // Encontrar o DateTime correspondente à string selecionada
-                                final selectedDate = _datasDisponiveis.firstWhere(
-                                  (date) => _formatarData(date) == dataString,
-                                  orElse: () => DateTime.now(),
-                                );
-                                setState(() => _dataSelecionada = selectedDate);
+                                final index = _datasFormatadas.indexOf(dataString);
+                                if (index >= 0) {
+                                  setState(() => _dataSelecionada = _datasDisponiveis[index]);
+                                }
                               }
                             },
                           ),
@@ -997,14 +1067,14 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                         // Campo Produto (dropdown simples)
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _produtoSelecionado,
+                            initialValue: _produtoSelecionado,
                             decoration: const InputDecoration(
                               labelText: 'Produto *',
                               border: OutlineInputBorder(),
                               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                             ),
                             items: _produtos.map((produto) {
-                              return DropdownMenuItem(
+                              return DropdownMenuItem<String>(
                                 value: produto['id']?.toString(),
                                 child: Text(produto['nome']?.toString() ?? ''),
                               );
@@ -1043,6 +1113,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                               border: OutlineInputBorder(),
                               counterText: '',
                               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                              suffixText: 'litros',
                             ),
                           ),
                         ),
@@ -1073,7 +1144,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                             controller: _transportadoraController,
                             label: 'Transportadora',
                             buscarItens: _buscarTransportadoras,
-                            obterTextoExibicao: (item) => item['nome']?.toString() ?? '',
+                            obterTextoExibicao: (item) => item['nome_dois']?.toString() ?? '',
                             obterId: (item) => item['id']?.toString() ?? '',
                             validarParaBusca: (texto) => texto.length >= 3,
                             onSelecionado: (transportadora) {
@@ -1131,14 +1202,14 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _origemSelecionada,
+                            initialValue: _origemSelecionada,
                             decoration: const InputDecoration(
                               labelText: 'Origem *',
                               border: OutlineInputBorder(),
                               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                             ),
                             items: _filiais.map((filial) {
-                              return DropdownMenuItem(
+                              return DropdownMenuItem<String>(
                                 value: filial['id']?.toString(),
                                 child: Text(filial['nome_dois']?.toString() ?? ''),
                               );
@@ -1154,14 +1225,14 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _destinoSelecionado,
+                            initialValue: _destinoSelecionado,
                             decoration: const InputDecoration(
                               labelText: 'Destino *',
                               border: OutlineInputBorder(),
                               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                             ),
                             items: _filiais.map((filial) {
-                              return DropdownMenuItem(
+                              return DropdownMenuItem<String>(
                                 value: filial['id']?.toString(),
                                 child: Text(filial['nome_dois']?.toString() ?? ''),
                               );
