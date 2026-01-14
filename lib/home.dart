@@ -23,8 +23,8 @@ import 'sessoes/gestao_de_frota/veiculos.dart';
 import 'sessoes/circuito/acompanhamento_ordens.dart';
 import 'sessoes/estoques/transferencias.dart';
 import 'sessoes/apuracao/listar_ordens.dart';
-
-
+// ADICIONE ESTE IMPORT DA NOVA PÁGINA
+import 'sessoes/apuracao/temp_dens_media.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -64,7 +64,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarEstoquePorEmpresa = false;
   bool _mostrarFiliaisDaEmpresa = false;
   bool _mostrarIniciarCircuito = false;
-  bool _mostrarTransferencias = false; // NOVA FLAG PARA TRANSFERÊNCIAS
+  bool _mostrarTransferencias = false;
+  // NOVA FLAG PARA TEMPERATURA E DENSIDADE
+  bool _mostrarTempDensMedia = false;
   
   // NOVAS VARIÁVEIS PARA GESTÃO DE FROTA
   bool _mostrarVeiculos = false;
@@ -74,8 +76,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   
   // FLAG UNIFICADA PARA MOSTRAR FILHOS DE QUALQUER SESSÃO
   bool _mostrarFilhosSessao = false;
-  String? _sessaoAtual; // Nome da sessão pai atual
-  List<Map<String, dynamic>> _filhosSessaoAtual = []; // Filhos da sessão atual
+  String? _sessaoAtual;
+  List<Map<String, dynamic>> _filhosSessaoAtual = [];
   
   // DADOS PARA NAVEGAÇÃO
   String? _filialSelecionadaNome;
@@ -98,19 +100,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   String? _empresaSelecionadaNome;
   String? _empresaSelecionadaId;
 
-  // NOVO: MAPA UNIFICADO DE FILHOS POR SESSÃO
+  // MAPA UNIFICADO DE FILHOS POR SESSÃO
   final Map<String, List<Map<String, dynamic>>> _filhosPorSessao = {};
 
   @override
   void initState() {
     super.initState();
-    _inicializarFilhosPorSessao(); // NOVO: Inicializar todos os filhos de uma vez
+    _inicializarFilhosPorSessao();
     selectedIndex = -1;
   }
 
-  // NOVO: Método unificado para inicializar todos os filhos
   void _inicializarFilhosPorSessao() {
-    // Filhos para "Apuração" - REMOVIDO "Tanques" (agora está em Estoques)
+    // Filhos para "Apuração" - ADICIONADO "Temperatura e Densidade média"
     _filhosPorSessao['Apuração'] = [
       {
         'icon': Icons.analytics,
@@ -136,9 +137,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'descricao': 'Tabelas de conversão de densidade e temperatura',
         'tipo': 'tabelas_conversao',
       },
+      {
+        'icon': Icons.thermostat,
+        'label': 'Temperatura e Densidade média',
+        'descricao': 'Cálculo de temperatura e densidade média',
+        'tipo': 'temp_dens_media',
+      },
     ];
 
-    // Filhos para "Estoques" - ADICIONADO "Tanques"
+    // Filhos para "Estoques"
     _filhosPorSessao['Estoques'] = [
       {
         'icon': Icons.oil_barrel,
@@ -194,7 +201,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       },
     ];
 
-    // Filhos para "Gestão de Frota" - ADICIONADO "Veículos de terceiros"
+    // Filhos para "Gestão de Frota"
     _filhosPorSessao['Gestão de Frota'] = [
       {
         'icon': Icons.directions_car,
@@ -222,7 +229,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       },
     ];
 
-    // Filhos para "Vendas" (se necessário)
+    // Filhos para "Vendas"
     _filhosPorSessao['Vendas'] = [
       {
         'icon': Icons.local_gas_station,
@@ -232,7 +239,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       },
     ];
 
-    // Filhos para "Bombeios" (se necessário)
+    // Filhos para "Bombeios"
     _filhosPorSessao['Bombeios e Cotas'] = [
       {
         'icon': Icons.invert_colors,
@@ -379,7 +386,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         final idSessao = s['id'].toString();
         final nome = s['nome'] ?? 'Sem nome';
         
-        // "Tabelas de conversão" não aparece como card pai, apenas como filho
         if (nome == 'Tabelas de conversão') {
           continue;
         }
@@ -412,43 +418,35 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     try {
       final supabase = Supabase.instance.client;
       
-      // 1. Consultar TODAS as sessões do sistema
       final todasSessoes = await supabase
           .from('sessoes')
           .select('id');
       
-      // 2. Consultar permissões do usuário
       final permissoes = await supabase
           .from('permissoes')
           .select('id_sessao, permitido')
           .eq('id_usuario', usuario.id);
       
-      // 3. Determinar quais sessões o usuário pode ver
       List<String> sessoesPermitidas = [];
       
       if (usuario.nivel >= 3) {
-        // Administrador: todas as sessões
         sessoesPermitidas = todasSessoes
             .map((s) => s['id'].toString())
             .toList();
       } else if (usuario.nivel == 2) {
-        // Gerente: verificar se tem permissões específicas
         final permissoesUsuario = permissoes
             .where((p) => p['permitido'] == true)
             .map((p) => p['id_sessao'].toString())
             .toList();
         
         if (permissoesUsuario.isNotEmpty) {
-          // Tem permissões específicas configuradas
           sessoesPermitidas = permissoesUsuario;
         } else {
-          // Sem permissões específicas: ver todas
           sessoesPermitidas = todasSessoes
               .map((s) => s['id'].toString())
               .toList();
         }
       } else {
-        // Nível 1: apenas sessões com permissão explícita
         sessoesPermitidas = permissoes
             .where((p) => p['permitido'] == true)
             .map((p) => p['id_sessao'].toString())
@@ -457,7 +455,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       
       debugPrint('✅ Sessões permitidas para ${usuario.nome} (nivel ${usuario.nivel}): ${sessoesPermitidas.length}');
       
-      // 4. Atualizar objeto do usuário
       UsuarioAtual.instance = UsuarioAtual(
         id: usuario.id,
         nome: usuario.nome,
@@ -468,7 +465,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         senhaTemporaria: usuario.senhaTemporaria,
       );
       
-      // 5. Carregar sessões para exibição
       await _carregarSessoesDoBanco();
       
     } catch (e) {
@@ -484,7 +480,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
-  // MÉTODOS PARA GERENCIAR FLAGS DE VEÍCULOS
   void _resetarFlagsVeiculos() {
     setState(() {
       _mostrarVeiculos = false;
@@ -504,10 +499,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     _resetarFlagsMotoristas();
   }
 
-  // NOVO: Método unificado para resetar todas as flags
   void _resetarTodasFlags() {
     setState(() {
-      // Flags gerais
       selectedIndex = -1;
       showConversaoList = false;
       showControleAcesso = false;
@@ -515,8 +508,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       showUsuarios = false;
       _mostrarCalcGerado = false;
       _mostrarDownloads = false;
-      
-      // Flags para sessões específicas
       _mostrarMedicaoTanques = false;
       _mostrarTanques = false;
       _mostrarOrdensAnalise = false;
@@ -527,17 +518,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarEstoquePorEmpresa = false;
       _mostrarFiliaisDaEmpresa = false;
       _mostrarIniciarCircuito = false;
-      _mostrarTransferencias = false; // RESETAR FLAG DE TRANSFERÊNCIAS
-      
-      // Flags de Gestão de Frota
+      _mostrarTransferencias = false;
+      _mostrarTempDensMedia = false; // NOVA FLAG RESETADA
       _resetarTodasFlagsGestaoFrota();
-      
-      // Flag unificada
       _mostrarFilhosSessao = false;
       _sessaoAtual = null;
       _filhosSessaoAtual = [];
-      
-      // Dados de navegação
       _filialSelecionadaNome = null;
       _dadosCalcGerado = null;
       _filialSelecionadaId = null;
@@ -551,7 +537,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     });
   }
 
-  // NOVO: Método unificado para mostrar filhos de uma sessão
   void _mostrarFilhosDaSessao(String nomeSessao) {
     final filhos = _filhosPorSessao[nomeSessao] ?? [];
     
@@ -560,7 +545,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _sessaoAtual = nomeSessao;
       _filhosSessaoAtual = filhos;
       
-      // Resetar TODAS as outras flags
       showConversaoList = false;
       _mostrarDownloads = false;
       _mostrarListarCacls = false;
@@ -574,9 +558,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarFiltrosEstoque = false;
       _mostrarIniciarCircuito = false;
       _mostrarCalcGerado = false;
-      _mostrarTransferencias = false; // RESETAR FLAG DE TRANSFERÊNCIAS
-      
-      // Resetar flags de Gestão de Frota
+      _mostrarTransferencias = false;
+      _mostrarTempDensMedia = false; // NOVA FLAG RESETADA
       _mostrarVeiculos = false;
       _mostrarDetalhesVeiculo = false;
       _veiculoSelecionado = null;
@@ -584,14 +567,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     });
   }
 
-  // NOVO: Método unificado para voltar aos cards pai
   void _voltarParaCardsPai() {
     setState(() {
       _mostrarFilhosSessao = false;
       _sessaoAtual = null;
       _filhosSessaoAtual = [];
       
-      // Resetar TODAS as flags de páginas específicas
       showConversaoList = false;
       _mostrarDownloads = false;
       _mostrarListarCacls = false;
@@ -605,12 +586,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarFiltrosEstoque = false;
       _mostrarIniciarCircuito = false;
       _mostrarCalcGerado = false;
-      _mostrarTransferencias = false; // RESETAR FLAG DE TRANSFERÊNCIAS
-      
-      // Resetar TODAS as flags de Gestão de Frota
+      _mostrarTransferencias = false;
+      _mostrarTempDensMedia = false; // NOVA FLAG RESETADA
       _resetarTodasFlagsGestaoFrota();
-      
-      // Resetar outras flags importantes
       _filialSelecionadaNome = null;
       _dadosCalcGerado = null;
       _filialSelecionadaId = null;
@@ -739,7 +717,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                 if (menuItems[index] == 'Início') {
                                   await _verificarPermissoesUsuario();
                                 } else if (menuItems[index] == 'Relatórios') {
-                                  // Navega para Downloads dentro de Relatórios
                                   setState(() {
                                     _mostrarDownloads = true;
                                   });
@@ -854,7 +831,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           const Divider(color: Colors.grey),
           const SizedBox(height: 20),
           
-          // Card de Downloads (movido de Estoques para Relatórios)
           Material(
             elevation: 2,
             color: Colors.white,
@@ -943,7 +919,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  // NOVO: Método unificado para construir o conteúdo das sessões
   Widget _buildConteudoSessoes() {
     // Páginas específicas (fluxos complexos)
     if (_mostrarFiltrosEstoque && _filialParaFiltroId != null) {
@@ -954,7 +929,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       return DownloadsPage(
         key: const ValueKey('downloads-page'),
         onVoltar: () {
-          if (selectedIndex == 1) { // Relatórios
+          if (selectedIndex == 1) {
             setState(() {
               _mostrarDownloads = false;
             });
@@ -1109,7 +1084,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               _mostrarEscolherFilial = true;
               _contextoEscolhaFilial = 'tanques';
             } else {
-              _mostrarFilhosDaSessao('Estoques'); // Alterado de Apuração para Estoques
+              _mostrarFilhosDaSessao('Estoques');
             }
           });
         },
@@ -1141,6 +1116,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _mostrarFilhosDaSessao('Estoques');
         },
       );
+    }
+
+    if (_mostrarTempDensMedia) {
+      return TemperaturaDensidadeMediaPage();
     }
 
     if (_mostrarCalcGerado) {
@@ -1206,7 +1185,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     return _buildGridWithSearch(sessoes);
   }
 
-  // NOVO: Método unificado para construir página de filhos
   Widget _buildFilhosSessaoPage() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1355,7 +1333,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  // NOVO: Método unificado para construir card filho
   Widget _buildCardFilho(Map<String, dynamic> card) {
     return Material(
       elevation: 2,
@@ -1535,7 +1512,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  // NOVO: Método unificado para navegar para card filho
   void _navegarParaCardFilho(Map<String, dynamic> card) {
     final usuario = UsuarioAtual.instance;
     final tipo = card['tipo'];
@@ -1565,7 +1541,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
-  // Métodos específicos para cada sessão
   void _navegarParaCardApuracao(String tipo, UsuarioAtual? usuario) {
     switch (tipo) {
       case 'cacl':
@@ -1595,12 +1570,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           showConversaoList = true;
         });
         break;
+      case 'temp_dens_media':
+        setState(() {
+          _mostrarTempDensMedia = true;
+        });
+        break;
     }
   }
 
   void _navegarParaCardEstoques(String tipo) {
     switch (tipo) {
-      case 'tanques': // AGORA ESTÁ EM ESTOQUES
+      case 'tanques':
         final usuario = UsuarioAtual.instance;
         setState(() {
           if (usuario!.nivel == 3) {
@@ -1627,12 +1607,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         break;
       case 'movimentacoes':
         debugPrint('Navegando para Movimentações');
-        // Implementar navegação para movimentações
         break;
       case 'transferencias':
-        setState(() {
-          _mostrarTransferencias = true;
-        });
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TransferenciasPage(
+              onVoltar: () {
+                Navigator.pop(context);
+              },
+            ),
+          ),
+        );
         break;
     }
   }
@@ -1645,7 +1631,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         });
         break;
       case 'acompanhar_ordem':
-        // Navegação via Navigator.push (nova rota completa)
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -1658,8 +1643,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         );
         break;
       case 'visao_geral_circuito':
-        //debugPrint('Abrir visão geral dos circuitos');
-        // Implementar navegação
         break;
     }
   }
@@ -1667,7 +1650,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   void _navegarParaCardGestaoFrota(String tipo) {
     switch (tipo) {
       case 'veiculos':
-        // Navegação via setState (mantendo dentro da home)
         setState(() {
           _mostrarVeiculos = true;
           _mostrarDetalhesVeiculo = false;
@@ -1676,17 +1658,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         });
         break;
         
-      case 'veiculos_terceiros': // NOVO CARD ADICIONADO
+      case 'veiculos_terceiros':
         debugPrint('Abrir tela de veículos de terceiros');
-        // Implementar navegação quando criar a página
-        // Navigator.push(
-        //   context,
-        //   MaterialPageRoute(builder: (_) => const VeiculosTerceirosPage()),
-        // );
         break;
         
       case 'motoristas':
-        // Navegação via setState (mantendo dentro da home)
         setState(() {
           _mostrarMotoristas = true;
           _mostrarVeiculos = false;
@@ -1696,7 +1672,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         break;
         
       case 'documentacao':
-        // Navegação via Navigator.push (nova rota completa)
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -1728,11 +1703,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     switch (tipo) {
       case 'bombeios':
         debugPrint('Abrir tela de bombeios');
-        // Implementar navegação quando criar a página
-        // Navigator.push(
-        //   context,
-        //   MaterialPageRoute(builder: (_) => const BombeiosPage()),
-        // );
         break;
     }
   }
@@ -1935,21 +1905,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  // NOVO: Método para navegar para sessões sem filhos (comportamento antigo)
   void _navegarParaSessaoSemFilhos(String nomeSessao) {
-    // Este método pode ser usado para sessões que ainda não foram migradas
-    // para a nova arquitetura ou que têm comportamentos específicos
     debugPrint('Navegando para sessão sem filhos: $nomeSessao');
-    
-    // Exemplo: se alguma sessão precisa de comportamento específico
-    // switch (nomeSessao) {
-    //   case 'Sessão Especial':
-    //     // Comportamento específico
-    //     break;
-    //   default:
-    //     // Comportamento padrão
-    //     break;
-    // }
   }
 
   IconData _definirIcone(String nome) {
