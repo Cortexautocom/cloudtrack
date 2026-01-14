@@ -242,9 +242,20 @@ class _ExcelTabelaDivididaState extends State<ExcelTabelaDividida> {
   Widget _construirTabela(int grupo) {
     final verticalScrollController = ScrollController();
 
+    // 1. Filtrar os dados para o grupo atual
+    final dadosFiltrados = widget.dados.where((l) {
+      if (grupo == 0) {
+        return ['g_comum', 'g_aditivada', 'd_s10', 'd_s500', 'etanol', 'anidro']
+            .any((k) => (double.tryParse(l[k]?.toString() ?? '0') ?? 0) > 0);
+      } else {
+        return ['b100', 'gasolina_a', 's500_a', 's10_a']
+            .any((k) => (double.tryParse(l[k]?.toString() ?? '0') ?? 0) > 0);
+      }
+    }).toList();
+
     return Column(
       children: [
-        // Cabeçalho com scroll horizontal
+        // Cabeçalho (Aqui é onde chamamos a função que estava 'sem uso')
         Container(
           height: 40,
           color: Colors.blue.shade700,
@@ -252,12 +263,12 @@ class _ExcelTabelaDivididaState extends State<ExcelTabelaDividida> {
             controller: horizontalScrollController,
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: _obterColunasCabecalho(grupo),
+              children: _obterColunasCabecalho(grupo), // Chamada restaurada
             ),
           ),
         ),
         
-        // Conteúdo da tabela
+        // Conteúdo filtrado
         Expanded(
           child: Scrollbar(
             controller: horizontalScrollController,
@@ -266,7 +277,7 @@ class _ExcelTabelaDivididaState extends State<ExcelTabelaDividida> {
               controller: horizontalScrollController,
               scrollDirection: Axis.horizontal,
               child: SizedBox(
-                width: _obterLarguraTabela(grupo),
+                width: _obterLarguraTabela(grupo), // Chamada restaurada
                 child: Scrollbar(
                   controller: verticalScrollController,
                   thumbVisibility: true,
@@ -274,8 +285,8 @@ class _ExcelTabelaDivididaState extends State<ExcelTabelaDividida> {
                     controller: verticalScrollController,
                     child: Column(
                       children: List.generate(
-                        widget.dados.length,
-                        (i) => _linha(widget.dados[i], i, grupo),
+                        dadosFiltrados.length,
+                        (i) => _linha(dadosFiltrados[i], i, grupo),
                       ),
                     ),
                   ),
@@ -365,17 +376,37 @@ class _ExcelTabelaDivididaState extends State<ExcelTabelaDividida> {
   }
 
   List<Widget> _obterCelulasLinha(Map<String, dynamic> l, int grupo) {
+    // 1. Verificar se há valores nos produtos do grupo atual
+    bool temProduto = false;
+    if (grupo == 0) {
+      // Grupo 1
+      temProduto = [
+        'g_comum', 'g_aditivada', 'd_s10', 'd_s500', 'etanol', 'anidro'
+      ].any((k) => (double.tryParse(l[k]?.toString() ?? '0') ?? 0) > 0);
+    } else {
+      // Grupo 2
+      temProduto = [
+        'b100', 'gasolina_a', 's500_a', 's10_a'
+      ].any((k) => (double.tryParse(l[k]?.toString() ?? '0') ?? 0) > 0);
+    }
+
+    // 2. Definir o que exibir nas colunas condicionais
+    String codigo = temProduto ? (l["codigo"]?.toString() ?? "") : "";
+    String uf = temProduto ? (l["uf"]?.toString() ?? "") : "";
+    String prazo = temProduto ? (l["forma_pagamento"]?.toString() ?? "") : "";
+
+    // 3. Montar as células fixas com os valores condicionados
     final celulasFixas = [
       _cell(l["id"], "placa", _obterPrimeiraPlaca(l["placa"]), largura: 120),
       _statusCell(l["status_circuito"]),
       _cell(l["id"], "cliente", l["cliente"]?.toString() ?? "", largura: 220),
-      _cell(l["id"], "codigo", l["codigo"]?.toString() ?? "", largura: 80),
-      _cell(l["id"], "uf", l["uf"]?.toString() ?? "", largura: 60),
-      _cell(l["id"], "forma_pagamento", l["forma_pagamento"]?.toString() ?? "", largura: 100),
+      _cell(l["id"], "codigo", codigo, largura: 80), // Valor condicionado
+      _cell(l["id"], "uf", uf, largura: 60),         // Valor condicionado
+      _cell(l["id"], "forma_pagamento", prazo, largura: 100), // Valor condicionado
     ];
 
+    // Retorno dos grupos (permanece igual, apenas usando as novas celulasFixas)
     if (grupo == 0) {
-      // Grupo 1: G. Com. até Anidro
       return [
         ...celulasFixas,
         _cell(l["id"], "g_comum", l["g_comum"].toString(), largura: 90, numero: true),
@@ -386,7 +417,6 @@ class _ExcelTabelaDivididaState extends State<ExcelTabelaDividida> {
         _cell(l["id"], "anidro", l["anidro"].toString(), largura: 90, numero: true),
       ];
     } else {
-      // Grupo 2: B100 até S10 A (sem G. Com. e G. Aditiv.)
       return [
         ...celulasFixas,
         _cell(l["id"], "b100", l["b100"].toString(), largura: 90, numero: true),

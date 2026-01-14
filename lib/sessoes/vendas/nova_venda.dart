@@ -98,23 +98,20 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
   void _formatarPlaca() {
     for (var controller in _placasControllers) {
       final text = controller.text.replaceAll('-', '').toUpperCase();
-      
-      if (text.length <= 3) {
-        if (controller.text != text) {
-          controller.text = text;
-          controller.selection = TextSelection.collapsed(offset: text.length);
-        }
-      } else if (text.length <= 7) {
-        final formatted = '${text.substring(0, 3)}-${text.substring(3)}';
-        if (controller.text != formatted) {
-          controller.text = formatted;
-          controller.selection = TextSelection.collapsed(offset: formatted.length);
-        }
-      } else {
-        // Limita a 7 caracteres + traço = 8
-        controller.text = text.substring(0, 7);
-        controller.text = '${text.substring(0, 3)}-${text.substring(3, 7)}';
-        controller.selection = TextSelection.collapsed(offset: 8);
+      String formatted = text;
+
+      if (text.length > 3) {
+        final parte1 = text.substring(0, 3);
+        final parte2 = text.substring(3, text.length > 7 ? 7 : text.length);
+        formatted = '$parte1-$parte2';
+      }
+
+      // AQUI ESTÁ O SEGREDO: Só atualiza se o texto for diferente do atual
+      if (controller.text != formatted) {
+        controller.value = TextEditingValue(
+          text: formatted,
+          selection: TextSelection.collapsed(offset: formatted.length),
+        );
       }
     }
   }
@@ -123,24 +120,23 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     final text = _quantidadeController.text.replaceAll(RegExp(r'[^\d]'), '');
     
     if (text.isEmpty) {
-      _quantidadeController.text = '';
-      _quantidadeController.selection = TextSelection.collapsed(offset: 0);
+      if (_quantidadeController.text != '') {
+        _quantidadeController.text = '';
+      }
       return;
     }
 
-    // Formata como 123.456
-    String formatted = '';
-    if (text.length <= 3) {
-      formatted = text;
-    } else if (text.length <= 6) {
+    String formatted = text;
+    if (text.length > 3) {
       formatted = '${text.substring(0, text.length - 3)}.${text.substring(text.length - 3)}';
-    } else {
-      formatted = '${text.substring(0, text.length - 3)}.${text.substring(text.length - 3, text.length)}';
     }
 
+    // Verifica antes de atribuir para evitar o loop
     if (_quantidadeController.text != formatted) {
-      _quantidadeController.text = formatted;
-      _quantidadeController.selection = TextSelection.collapsed(offset: formatted.length);
+      _quantidadeController.value = TextEditingValue(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
+      );
     }
   }
 
@@ -247,13 +243,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       
       // Remove pontos da quantidade e converte para double
       final quantidadeTexto = _quantidadeController.text.replaceAll('.', '');
-      final quantidade = double.tryParse(quantidadeTexto) ?? 0;
-
-      // Pega a primeira placa preenchida
-      final placaPrincipal = _placasControllers.firstWhere(
-        (controller) => controller.text.isNotEmpty,
-        orElse: () => _placasControllers.first,
-      ).text;
+      final quantidade = double.tryParse(quantidadeTexto) ?? 0;      
 
       // Pega o primeiro produto selecionado
       final produtoPrincipal = _produtosSelecionados.firstWhere(
@@ -269,7 +259,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
 
       // Prepara os dados para inserção
       final dadosVenda = {
-        'placa': placaPrincipal,
+        'placa': _placasControllers.where((c) => c.text.isNotEmpty).map((c) => c.text).toList(), 'data_mov': DateTime.now().toIso8601String(), 'tipo_op': 'venda',
         'cliente': _clienteController.text,
         'observacoes': _obsController.text.isEmpty ? null : _obsController.text,
         'produto_id': produtoPrincipal,
@@ -295,7 +285,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
         }
       }
 
-      await supabase.from('vendas').insert(dadosVenda);
+      await supabase.from('movimentacoes').insert(dadosVenda);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
