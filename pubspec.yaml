@@ -12,16 +12,16 @@ dependencies:
     sdk: flutter
   url_strategy: ^0.2.0
 
-  # Ícones do iOS
+  # Ícones iOS
   cupertino_icons: ^1.0.8
 
   # Banco de dados e autenticação
   supabase_flutter: ^2.10.3
 
-  # Variáveis de ambiente (.env)
+  # Variáveis de ambiente
   flutter_dotenv: ^6.0.0
 
-  # Animações e melhorias visuais (opcional, mas útil para futuras telas)
+  # Animações e utilidades
   flutter_animate: ^4.5.0
   dio: ^5.9.0
   path_provider: ^2.1.5
@@ -29,11 +29,12 @@ dependencies:
   universal_html: ^2.2.4
   mask_text_input_formatter: ^2.9.0
 
+  # PDF e IO
   pdf: ^3.10.4
-  universal_io: ^2.3.0  # Para detectar plataforma
+  universal_io: ^2.3.0
   mime: ^1.0.4
-  http: ^1.1.0  
-  
+  http: ^1.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -47,3 +48,10 @@ flutter:
     - assets/background_login.jpg
     - assets/logo_top_login.png
     - assets/arquiteto.png
+
+  fonts:
+    - family: Cinzel
+      fonts:
+        - asset: assets/fonts/Cinzel-Regular.ttf
+        - asset: assets/fonts/Cinzel-Bold.ttf
+          weight: 700
