@@ -872,7 +872,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               MaterialPageRoute(
                 builder: (context) => const GrandeArquitetoPage(),
               ),
-            );
+            ).then((result) {
+              if (result == 'voltar_ajuda') {
+                setState(() {
+                  selectedIndex = 3;      // Ajuda
+                  _mostrarMenuAjuda = true;
+                });
+              }
+            });
+
             break;
           default:
             ScaffoldMessenger.of(context).showSnackBar(
