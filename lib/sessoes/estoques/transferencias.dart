@@ -887,15 +887,41 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     }
 
     return apenasNumeros;
+  }  
+
+  // PASSO 1 — MAPA FIXO UUID → COLUNA (conforme tabela fornecida)
+  String _resolverColunaProduto(String produtoId) {
+    // MAPA: UUID do produto → Coluna na tabela movimentacoes
+    const mapaProdutoColuna = {
+      '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 's10_a',     // Diesel A-S10
+      '4da89784-301f-4abe-b97e-c48729969e3d': 's500_a',    // Diesel A-S500
+      '58ce20cf-f252-4291-9ef6-f4821f22c29e': 'd_s10',     // Diesel S10-B
+      '66ca957a-5698-4a02-8c9e-987770b6a151': 'etanol',    // Hidratado
+      '82c348c8-efa1-4d1a-953a-ee384d5780fc': 'g_comum',   // Gasolina Comum
+      '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 'g_aditivada', // Gasolina Aditivada
+      'c77a6e31-52f0-4fe1-bdc8-685df83f3a1': 'd_s500',     // Diesel S500-B
+      'cecab8eb-297a-4640-81ae-e88335b88db8': 'anidro',    // Anidro
+      'ec9d1066-e763-42e3-8a0e-d982ea6da535': 'b100',      // B100
+      'f8e95435-471a-424c-947f-def8809053a0': 'gasolina_a', // Gasolina A
+    };
+
+    // Normalizar UUID (remover espaços, converter para minúsculas)
+    final uuidNormalizado = produtoId.trim().toLowerCase();
+    
+    final coluna = mapaProdutoColuna[uuidNormalizado];
+
+    if (coluna == null) {
+      throw Exception('Produto (UUID: $produtoId) sem coluna de movimentação configurada');
+    }
+
+    return coluna;
   }
 
-  String _removerMascaraQuantidade(String texto) {
-    return texto.replaceAll('.', '');
-  }
-
+  // PASSO 2 — FUNÇÃO _salvar() ATUALIZADA PARA 2 LINHAS
   Future<void> _salvar() async {
-    // Validações
-    if (_produtoId == null || _origemId == null || _destinoId == null || 
+    if (_produtoId == null ||
+        _origemId == null ||
+        _destinoId == null ||
         _quantidadeController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -919,7 +945,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     if (_empresaId == null || _usuarioId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Erro: Usuário ou empresa não identificados'),
+          content: Text('Usuário ou empresa não identificados'),
           backgroundColor: Colors.red,
         ),
       );
@@ -931,75 +957,93 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     try {
       final supabase = Supabase.instance.client;
 
-      // Preparar placas
-      final List<String> placasArray = [];
-      
-      void adicionarPlacaSePreenchida(TextEditingController controller) {
-        final placa = controller.text.trim();
-        if (placa.isNotEmpty) {
-          placasArray.add(placa);
-        }
-      }
-      
-      adicionarPlacaSePreenchida(_cavaloController);
-      adicionarPlacaSePreenchida(_reboque1Controller);
-      adicionarPlacaSePreenchida(_reboque2Controller);
-      
-      // Converter quantidade para número (remover a máscara)
-      final quantidadeLimpa = _removerMascaraQuantidade(_quantidadeController.text);
-      final quantidade = int.tryParse(quantidadeLimpa) ?? 0;
-      
-      // Validar quantidade
-      if (quantidade <= 0) {
-        throw Exception('Quantidade deve ser maior que zero');
-      }
-      
-      // Criar objeto para salvar com todas as regras especificadas
-      final Map<String, dynamic> dadosTransferencia = {
+      final quantidade =
+          int.parse(_quantidadeController.text.replaceAll('.', ''));
+
+      // PASSO 4 — COLUNA DO PRODUTO ESPECÍFICA (baseado no UUID)
+      final colunaProduto = _resolverColunaProduto(_produtoId!);
+
+      // placas
+      final placas = <String>[];
+      if (_cavaloController.text.isNotEmpty) placas.add(_cavaloController.text);
+      if (_reboque1Controller.text.isNotEmpty) placas.add(_reboque1Controller.text);
+      if (_reboque2Controller.text.isNotEmpty) placas.add(_reboque2Controller.text);
+
+      // Dados base para ambas as linhas
+      final base = {
         'tipo_op': 'Transf',
-        'tipo_mov_origem': 'saida',
-        'tipo_mov_destino': 'entrada',
-        'data_mov': _dataSelecionada.toIso8601String().split('T')[0],
+        'produto_id': _produtoId,
         'quantidade': quantidade,
         'descricao': 'Transferência',
-        'placa': placasArray.isNotEmpty ? placasArray : null,
+        'placa': placas.isNotEmpty ? placas : null,
         'usuario_id': _usuarioId,
         'empresa_id': _empresaId,
-        'produto_id': _produtoId,
         'motorista_id': _motoristaId,
         'transportadora_id': _transportadoraId,
+        'data_mov': _dataSelecionada.toIso8601String().split('T')[0],
         'filial_origem_id': _origemId,
         'filial_destino_id': _destinoId,
         'created_at': DateTime.now().toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
+        
+        // PASSO 3 — COLUNAS DE PRODUTO INICIALIZADAS COM 0
+        'g_comum': 0,
+        'g_aditivada': 0,
+        'd_s10': 0,
+        'd_s500': 0,
+        'etanol': 0,
+        'anidro': 0,
+        'b100': 0,
+        'gasolina_a': 0,
+        's500_a': 0,
+        's10_a': 0,
+      };
+
+      // PASSO 4 — 1ª LINHA: SAÍDA DA ORIGEM
+      final saida = {
+        ...base,
+        'filial_id': _origemId,
+        'tipo_mov': 'saida',
       };
       
-      // Inserir no banco
-      await supabase.from('movimentacoes').insert(dadosTransferencia);
+      // Atribuir quantidade apenas na coluna correta
+      saida[colunaProduto] = quantidade;
+
+      // PASSO 4 — 2ª LINHA: ENTRADA NO DESTINO
+      final entrada = {
+        ...base,
+        'filial_id': _destinoId,
+        'tipo_mov': 'entrada',
+      };
+      
+      // Atribuir quantidade apenas na coluna correta
+      entrada[colunaProduto] = quantidade;
+
+      // PASSO 3 — NÃO USAR entrada_amb, entrada_vinte, saida_amb, saida_vinte
+      // PASSO 4 — INSERIR AS 2 LINHAS
+      await supabase.from('movimentacoes').insert([saida, entrada]);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Transferência criada com sucesso!'),
+            content: Text('Transferência registrada com sucesso'),
             backgroundColor: Colors.green,
           ),
         );
         Navigator.of(context).pop(true);
       }
     } catch (e) {
-      debugPrint('Erro ao salvar: $e');
+      debugPrint('Erro ao salvar transferência: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erro ao salvar: ${e.toString()}'),
+            content: Text('Erro: $e'),
             backgroundColor: Colors.red,
           ),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _salvando = false);
-      }
+      if (mounted) setState(() => _salvando = false);
     }
   }
 
