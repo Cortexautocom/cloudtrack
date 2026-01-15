@@ -19,18 +19,35 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
   bool carregando = true;
   List<Map<String, dynamic>> transferencias = [];
   final TextEditingController _searchController = TextEditingController();
-  final ScrollController _horizontalScrollController = ScrollController();
+  final ScrollController _horizontalHeaderController = ScrollController();
+  final ScrollController _horizontalBodyController = ScrollController();
   final ScrollController _verticalScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     carregar();
+
+    _horizontalHeaderController.addListener(() {
+      if (_horizontalBodyController.hasClients &&
+          _horizontalBodyController.offset != _horizontalHeaderController.offset) {
+        _horizontalBodyController.jumpTo(_horizontalHeaderController.offset);
+      }
+    });
+
+    _horizontalBodyController.addListener(() {
+      if (_horizontalHeaderController.hasClients &&
+          _horizontalHeaderController.offset != _horizontalBodyController.offset) {
+        _horizontalHeaderController.jumpTo(_horizontalBodyController.offset);
+      }
+    });
   }
+
 
   @override
   void dispose() {
-    _horizontalScrollController.dispose();
+    _horizontalHeaderController.dispose();
+    _horizontalBodyController.dispose();
     _verticalScrollController.dispose();
     super.dispose();
   }
@@ -246,10 +263,10 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
             children: [
               // Cabeçalho da tabela com rolagem horizontal
               Scrollbar(
-                controller: _horizontalScrollController,
+                controller: _horizontalHeaderController,
                 thumbVisibility: true,
                 child: SingleChildScrollView(
-                  controller: _horizontalScrollController,
+                  controller: _horizontalHeaderController,
                   scrollDirection: Axis.horizontal,
                   child: SizedBox(
                     width: 1350,
@@ -278,10 +295,10 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
               
               // Conteúdo da tabela com rolagem horizontal
               Scrollbar(
-                controller: _horizontalScrollController,
+                controller: _horizontalBodyController,
                 thumbVisibility: true,
                 child: SingleChildScrollView(
-                  controller: _horizontalScrollController,
+                  controller: _horizontalBodyController,
                   scrollDirection: Axis.horizontal,
                   child: SizedBox(
                     width: 1350,
