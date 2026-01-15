@@ -26,6 +26,7 @@ import 'sessoes/apuracao/listar_ordens.dart';
 import 'sessoes/apuracao/temp_dens_media.dart';
 import 'home_cards.dart';
 import 'sessoes/ajuda/arquiteto.dart';
+import 'sessoes/estoques/filtro_moviment.dart';
 
 
 class HomePage extends StatefulWidget {
@@ -66,7 +67,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarEstoquePorEmpresa = false;
   bool _mostrarFiliaisDaEmpresa = false;
   bool _mostrarIniciarCircuito = false;
-  bool _mostrarTransferencias = false;
+  bool _mostrarFiltroMovimentacoes = false;
   bool _mostrarMenuAjuda = false;
   // NOVA FLAG PARA TEMPERATURA E DENSIDADE
   bool _mostrarTempDensMedia = false;
@@ -521,7 +522,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarEstoquePorEmpresa = false;
       _mostrarFiliaisDaEmpresa = false;
       _mostrarIniciarCircuito = false;
-      _mostrarTransferencias = false;
+      _mostrarFiltroMovimentacoes = false;
       _mostrarTempDensMedia = false;
       _mostrarMenuAjuda = false;
       _resetarTodasFlagsGestaoFrota();
@@ -562,7 +563,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarFiltrosEstoque = false;
       _mostrarIniciarCircuito = false;
       _mostrarCalcGerado = false;
-      _mostrarTransferencias = false;
       _mostrarTempDensMedia = false;
       _mostrarMenuAjuda = false;
       _mostrarVeiculos = false;
@@ -591,7 +591,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarFiltrosEstoque = false;
       _mostrarIniciarCircuito = false;
       _mostrarCalcGerado = false;
-      _mostrarTransferencias = false;
       _mostrarTempDensMedia = false;
       _mostrarMenuAjuda = false;
       _resetarTodasFlagsGestaoFrota();
@@ -1200,11 +1199,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       );
     }
 
-    if (_mostrarTransferencias) {
-      return TransferenciasPage(
-        key: const ValueKey('transferencias-page'),
+    if (_mostrarFiltroMovimentacoes) {
+      return FiltroMovimentacoesPage(
         onVoltar: () {
-          _mostrarFilhosDaSessao('Estoques');
+          setState(() {
+            _mostrarFiltroMovimentacoes = false;
+            _mostrarFilhosDaSessao('Estoques');
+          });
         },
       );
     }
@@ -1697,7 +1698,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         });
         break;
       case 'movimentacoes':
-        debugPrint('Navegando para Movimentações');
+        setState(() {
+          _mostrarFiltroMovimentacoes = true;
+        });
         break;
       case 'transferencias':
         Navigator.push(
