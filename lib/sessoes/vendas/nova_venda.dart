@@ -259,17 +259,19 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
 
       // Prepara os dados para inserção
       final dadosVenda = {
-        'placa': _placasControllers.where((c) => c.text.isNotEmpty).map((c) => c.text).toList(), 'data_mov': DateTime.now().toIso8601String(), 'tipo_op': 'venda',
+        'placa': _placasControllers.where((c) => c.text.isNotEmpty).map((c) => c.text).toList(),
+        'data_mov': DateTime.now().toIso8601String(),
+        'tipo_op': 'venda',
+        'tipo_mov': 'saida',
         'cliente': _clienteController.text,
         'observacoes': _obsController.text.isEmpty ? null : _obsController.text,
         'produto_id': produtoPrincipal,
         'quantidade': quantidade,
         'forma_pagamento': _formaPagamentoController.text,
         'usuario_id': usuario?.id,
-        'uf': null, // Será preenchido depois se necessário
-        'codigo': null, // Será preenchido depois se necessário
+        'uf': null,
+        'codigo': null,
         'anp': false,
-        // Define o valor na coluna correta
         colunaProduto: quantidade,
       };
 

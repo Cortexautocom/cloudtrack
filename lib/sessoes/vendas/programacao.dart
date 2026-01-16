@@ -62,7 +62,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
           .from("movimentacoes")
           .select("*")
           .eq("tipo_op", "venda")
-          .order("created_at", ascending: false);
+          .order("created_at", ascending: true);
 
       setState(() {
         movimentacoes = List<Map<String, dynamic>>.from(response);

@@ -959,7 +959,15 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
 
       final quantidade =
           int.parse(_quantidadeController.text.replaceAll('.', ''));
-
+      
+      final destinoNome = _filiais
+        .firstWhere(
+          (f) => f['id']?.toString() == _destinoId,
+          orElse: () => {'nome_dois': ''},
+        )['nome_dois']
+        ?.toString() ??
+        '';
+      
       // PASSO 4 — COLUNA DO PRODUTO ESPECÍFICA (baseado no UUID)
       final colunaProduto = _resolverColunaProduto(_produtoId!);
 
@@ -974,7 +982,9 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         'tipo_op': 'Transf',
         'produto_id': _produtoId,
         'quantidade': quantidade,
-        'descricao': 'Transferência',
+        'descricao': destinoNome.isNotEmpty
+          ? 'Transferência para $destinoNome'
+          : 'Transferência',
         'placa': placas.isNotEmpty ? placas : null,
         'usuario_id': _usuarioId,
         'empresa_id': _empresaId,
