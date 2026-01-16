@@ -68,7 +68,8 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
             destino_filial:filiais!filial_destino_id(nome_dois)
           ''')
           .eq("tipo_op", "Transf")
-          .order("data_mov", ascending: false);
+          .eq("tipo_mov", "saida")
+          .order("ts_mov", ascending: true);
 
       setState(() {
         transferencias = List<Map<String, dynamic>>.from(response);
@@ -900,8 +901,8 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       '82c348c8-efa1-4d1a-953a-ee384d5780fc': 'g_comum',   // Gasolina Comum
       '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 'g_aditivada', // Gasolina Aditivada
       'c77a6e31-52f0-4fe1-bdc8-685df83f3a1': 'd_s500',     // Diesel S500-B
-      'cecab8eb-297a-4640-81ae-e88335b88db8': 'anidro',    // Anidro
-      'ec9d1066-e763-42e3-8a0e-d982ea6da535': 'b100',      // B100
+      'cecab8eb-297a-4640-81ae-e88335b88d8b': 'anidro',    // Anidro
+      'ecd91066-e763-42e3-8a0e-d982ea6da535': 'b100',      // B100
       'f8e95435-471a-424c-947f-def8809053a0': 'gasolina_a', // Gasolina A
     };
 
@@ -967,7 +968,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         )['nome_dois']
         ?.toString() ??
         '';
-      
+
       // PASSO 4 — COLUNA DO PRODUTO ESPECÍFICA (baseado no UUID)
       final colunaProduto = _resolverColunaProduto(_produtoId!);
 
@@ -993,7 +994,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         'data_mov': _dataSelecionada.toIso8601String().split('T')[0],
         'filial_origem_id': _origemId,
         'filial_destino_id': _destinoId,
-        'created_at': DateTime.now().toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
         
         // PASSO 3 — COLUNAS DE PRODUTO INICIALIZADAS COM 0

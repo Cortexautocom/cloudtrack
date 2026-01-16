@@ -79,7 +79,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
               widget.dataInicio.toIso8601String().split('T')[0])
           .lte("data_mov",
               widget.dataFim.toIso8601String().split('T')[0])
-          .order("data_mov", ascending: false);
+          .order("ts_mov", ascending: true);
 
       List<Map<String, dynamic>> lista =
           List<Map<String, dynamic>>.from(response);

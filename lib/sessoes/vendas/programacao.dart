@@ -61,8 +61,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
       final response = await supabase
           .from("movimentacoes")
           .select("*")
-          .eq("tipo_op", "venda")
-          .order("created_at", ascending: true);
+          .eq("tipo_op", "venda");
 
       setState(() {
         movimentacoes = List<Map<String, dynamic>>.from(response);

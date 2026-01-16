@@ -41,11 +41,11 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
   void initState() {
     super.initState();
 
-    // Inicializar datas padrão (1º do mês até hoje)
+    // Inicializar datas padrão com a data atual em ambos os campos
     final now = DateTime.now();
-    final primeiroDia = DateTime(now.year, now.month, 1);
-    _dataInicioController.text = _formatarData(primeiroDia);
-    _dataFimController.text = _formatarData(now);
+    final hojeFormatado = _formatarData(now);
+    _dataInicioController.text = hojeFormatado;
+    _dataFimController.text = hojeFormatado;
 
     _init();
   }
