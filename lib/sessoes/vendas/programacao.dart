@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'nova_venda.dart';
-import 'dart:convert';
+//import 'dart:convert';
+import 'dart:async';
+
+// ==============================================================
+//                PÁGINA DE PROGRAMAÇÃO DE VENDAS
+// ==============================================================
 
 class ProgramacaoPage extends StatefulWidget {
   final VoidCallback onVoltar;
@@ -15,11 +20,38 @@ class ProgramacaoPage extends StatefulWidget {
 class _ProgramacaoPageState extends State<ProgramacaoPage> {
   bool carregando = true;
   List<Map<String, dynamic>> movimentacoes = [];
+  final TextEditingController _searchController = TextEditingController();
+  final ScrollController _horizontalHeaderController = ScrollController();
+  final ScrollController _horizontalBodyController = ScrollController();
+  final ScrollController _verticalScrollController = ScrollController();
+  int grupoAtual = 0;
 
   @override
   void initState() {
     super.initState();
     carregar();
+
+    _horizontalHeaderController.addListener(() {
+      if (_horizontalBodyController.hasClients &&
+          _horizontalBodyController.offset != _horizontalHeaderController.offset) {
+        _horizontalBodyController.jumpTo(_horizontalHeaderController.offset);
+      }
+    });
+
+    _horizontalBodyController.addListener(() {
+      if (_horizontalHeaderController.hasClients &&
+          _horizontalHeaderController.offset != _horizontalBodyController.offset) {
+        _horizontalHeaderController.jumpTo(_horizontalBodyController.offset);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _horizontalHeaderController.dispose();
+    _horizontalBodyController.dispose();
+    _verticalScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> carregar() async {
@@ -41,7 +73,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erro ao carregar movimentacoes: $e'),
+            content: Text('Erro ao carregar movimentações: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -50,41 +82,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
 
     if (mounted) {
       setState(() => carregando = false);
-    }
-  }
-
-  Future<void> atualizarCampo(String id, String campo, dynamic valor) async {
-    final supabase = Supabase.instance.client;
-
-    try {
-      await supabase.from("movimentacoes").update({campo: valor}).eq("id", id);
-      
-      setState(() {
-        final index = movimentacoes.indexWhere((v) => v['id'] == id);
-        if (index != -1) {
-          movimentacoes[index][campo] = valor;
-        }
-      });
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Campo atualizado com sucesso!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 1),
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint("Erro ao atualizar: $e");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao atualizar: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
 
@@ -105,145 +102,21 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Programação de Vendas"),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: widget.onVoltar,
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: carregar,
-            tooltip: 'Atualizar',
-          ),
-        ],
-      ),
-      body: carregando
-          ? const Center(child: CircularProgressIndicator())
-          : movimentacoes.isEmpty
-              ? const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.list, size: 64, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text(
-                        'Nenhuma venda encontrada',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : ExcelTabelaDividida(
-                  dados: movimentacoes,
-                  onEdit: atualizarCampo,
-                ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _mostrarDialogNovaVenda,
-        backgroundColor: const Color(0xFF0D47A1),
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        elevation: 4,
-        child: const Icon(Icons.add_box, size: 32),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-    );
-  }
-}
+  List<Map<String, dynamic>> get _movimentacoesFiltradas {
+    final query = _searchController.text.toLowerCase().trim();
+    if (query.isEmpty) return _obterDadosFiltrados(grupoAtual);
 
-// ==============================================================
-//                TABELA EXCEL DIVIDIDA EM GRUPOS
-// ==============================================================
-
-class ExcelTabelaDividida extends StatefulWidget {
-  final List<Map<String, dynamic>> dados;
-  final Function(String id, String campo, dynamic valor) onEdit;
-
-  const ExcelTabelaDividida({
-    super.key,
-    required this.dados,
-    required this.onEdit,
-  });
-
-  @override
-  State<ExcelTabelaDividida> createState() => _ExcelTabelaDivididaState();
-}
-
-class _ExcelTabelaDivididaState extends State<ExcelTabelaDividida> {
-  int grupoAtual = 0; // 0 para Grupo 1, 1 para Grupo 2
-  final horizontalScrollController = ScrollController();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Menu de navegação compacto
-        Container(
-          height: 32, // Altura mínima
-          color: Colors.grey.shade100,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _botaoGrupo("Grupo 1", 0),
-              const SizedBox(width: 8),
-              _botaoGrupo("Grupo 2", 1),
-            ],
-          ),
-        ),
-        
-        // Cabeçalho e conteúdo da tabela
-        Expanded(
-          child: _construirTabela(grupoAtual),
-        ),
-      ],
-    );
+    return _obterDadosFiltrados(grupoAtual).where((t) {
+      return (t['cliente']?.toString().toLowerCase() ?? '').contains(query) ||
+          (t['placa']?.toString().toLowerCase() ?? '').contains(query) ||
+          (t['forma_pagamento']?.toString().toLowerCase() ?? '').contains(query) ||
+          (t['codigo']?.toString().toLowerCase() ?? '').contains(query) ||
+          (t['uf']?.toString().toLowerCase() ?? '').contains(query);
+    }).toList();
   }
 
-  Widget _botaoGrupo(String texto, int grupo) {
-    final bool selecionado = grupoAtual == grupo;
-    
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          grupoAtual = grupo;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        decoration: BoxDecoration(
-          color: selecionado ? Colors.blue.shade700 : Colors.white,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: selecionado ? Colors.blue.shade700 : Colors.grey.shade400,
-            width: 1,
-          ),
-        ),
-        child: Text(
-          texto,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: selecionado ? Colors.white : Colors.grey.shade700,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _construirTabela(int grupo) {
-    final verticalScrollController = ScrollController();
-
-    // 1. Filtrar os dados para o grupo atual
-    final dadosFiltrados = widget.dados.where((l) {
+  List<Map<String, dynamic>> _obterDadosFiltrados(int grupo) {
+    return movimentacoes.where((l) {
       if (grupo == 0) {
         return ['g_comum', 'g_aditivada', 'd_s10', 'd_s500', 'etanol', 'anidro']
             .any((k) => (double.tryParse(l[k]?.toString() ?? '0') ?? 0) > 0);
@@ -252,210 +125,6 @@ class _ExcelTabelaDivididaState extends State<ExcelTabelaDividida> {
             .any((k) => (double.tryParse(l[k]?.toString() ?? '0') ?? 0) > 0);
       }
     }).toList();
-
-    return Column(
-      children: [
-        // Cabeçalho (Aqui é onde chamamos a função que estava 'sem uso')
-        Container(
-          height: 40,
-          color: Colors.blue.shade700,
-          child: SingleChildScrollView(
-            controller: horizontalScrollController,
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: _obterColunasCabecalho(grupo), // Chamada restaurada
-            ),
-          ),
-        ),
-        
-        // Conteúdo filtrado
-        Expanded(
-          child: Scrollbar(
-            controller: horizontalScrollController,
-            thumbVisibility: true,
-            child: SingleChildScrollView(
-              controller: horizontalScrollController,
-              scrollDirection: Axis.horizontal,
-              child: SizedBox(
-                width: _obterLarguraTabela(grupo), // Chamada restaurada
-                child: Scrollbar(
-                  controller: verticalScrollController,
-                  thumbVisibility: true,
-                  child: SingleChildScrollView(
-                    controller: verticalScrollController,
-                    child: Column(
-                      children: List.generate(
-                        dadosFiltrados.length,
-                        (i) => _linha(dadosFiltrados[i], i, grupo),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  double _obterLarguraTabela(int grupo) {
-    // Largura total base das colunas fixas
-    double larguraFixa = 120 + 100 + 220 + 80 + 60 + 100; // Placa, Status, Cliente, Cód., UF, Prazo
-    
-    if (grupo == 0) {
-      return larguraFixa + (90 * 6); // 6 colunas do Grupo 1
-    } else {
-      return larguraFixa + (90 * 4); // 4 colunas do Grupo 2
-    }
-  }
-
-  // ----------------------------------------------------------
-  // CABEÇALHO
-  // ----------------------------------------------------------
-  List<Widget> _obterColunasCabecalho(int grupo) {
-    final colunasFixas = [
-      _th("Placa", 120),
-      _th("Status", 100),
-      _th("Cliente", 220),
-      _th("Cód.", 80),
-      _th("UF", 60),
-      _th("Prazo", 100),
-    ];
-
-    if (grupo == 0) {
-      // Grupo 1: G. Com. até Etanol
-      return [
-        ...colunasFixas,
-        _th("G. Com.", 90),
-        _th("G. Aditiv.", 90),
-        _th("D. S10", 90),
-        _th("D. S500", 90),
-        _th("Etanol", 90),
-        _th("Anidro", 90),
-      ];
-    } else {
-      // Grupo 2: B100 até S10 A (sem G. Com. e G. Aditiv.)
-      return [
-        ...colunasFixas,
-        _th("B100", 90),
-        _th("G. A", 90),
-        _th("S500 A", 90),
-        _th("S10 A", 90),
-      ];
-    }
-  }
-
-  Widget _th(String texto, double largura) {
-    return Container(
-      width: largura,
-      alignment: Alignment.center,
-      child: Text(
-        texto,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  // ----------------------------------------------------------
-  // LINHA
-  // ----------------------------------------------------------
-  Widget _linha(Map<String, dynamic> l, int i, int grupo) {
-    final cor = i % 2 == 0 ? Colors.grey.shade200 : Colors.grey.shade300;
-
-    return Container(
-      height: 50,
-      color: cor,
-      child: Row(
-        children: _obterCelulasLinha(l, grupo),
-      ),
-    );
-  }
-
-  List<Widget> _obterCelulasLinha(Map<String, dynamic> l, int grupo) {
-    // 1. Verificar se há valores nos produtos do grupo atual
-    bool temProduto = false;
-    if (grupo == 0) {
-      // Grupo 1
-      temProduto = [
-        'g_comum', 'g_aditivada', 'd_s10', 'd_s500', 'etanol', 'anidro'
-      ].any((k) => (double.tryParse(l[k]?.toString() ?? '0') ?? 0) > 0);
-    } else {
-      // Grupo 2
-      temProduto = [
-        'b100', 'gasolina_a', 's500_a', 's10_a'
-      ].any((k) => (double.tryParse(l[k]?.toString() ?? '0') ?? 0) > 0);
-    }
-
-    // 2. Definir o que exibir nas colunas condicionais
-    String codigo = temProduto ? (l["codigo"]?.toString() ?? "") : "";
-    String uf = temProduto ? (l["uf"]?.toString() ?? "") : "";
-    String prazo = temProduto ? (l["forma_pagamento"]?.toString() ?? "") : "";
-
-    // 3. Montar as células fixas com os valores condicionados
-    final celulasFixas = [
-      _cell(l["id"], "placa", _obterPrimeiraPlaca(l["placa"]), largura: 120),
-      _statusCell(l["status_circuito"]),
-      _cell(l["id"], "cliente", l["cliente"]?.toString() ?? "", largura: 220),
-      _cell(l["id"], "codigo", codigo, largura: 80), // Valor condicionado
-      _cell(l["id"], "uf", uf, largura: 60),         // Valor condicionado
-      _cell(l["id"], "forma_pagamento", prazo, largura: 100), // Valor condicionado
-    ];
-
-    // Retorno dos grupos (permanece igual, apenas usando as novas celulasFixas)
-    if (grupo == 0) {
-      return [
-        ...celulasFixas,
-        _cell(l["id"], "g_comum", l["g_comum"].toString(), largura: 90, numero: true),
-        _cell(l["id"], "g_aditivada", l["g_aditivada"].toString(), largura: 90, numero: true),
-        _cell(l["id"], "d_s10", l["d_s10"].toString(), largura: 90, numero: true),
-        _cell(l["id"], "d_s500", l["d_s500"].toString(), largura: 90, numero: true),
-        _cell(l["id"], "etanol", l["etanol"].toString(), largura: 90, numero: true),
-        _cell(l["id"], "anidro", l["anidro"].toString(), largura: 90, numero: true),
-      ];
-    } else {
-      return [
-        ...celulasFixas,
-        _cell(l["id"], "b100", l["b100"].toString(), largura: 90, numero: true),
-        _cell(l["id"], "gasolina_a", l["gasolina_a"].toString(), largura: 90, numero: true),
-        _cell(l["id"], "s500_a", l["s500_a"].toString(), largura: 90, numero: true),
-        _cell(l["id"], "s10_a", l["s10_a"].toString(), largura: 90, numero: true),
-      ];
-    }
-  }
-
-  // ----------------------------------------------------------
-  // CÉLULA DE STATUS
-  // ----------------------------------------------------------
-  Widget _statusCell(dynamic statusCircuito) {
-    final status = _obterTextoStatus(statusCircuito);
-    final corStatus = _obterCorStatus(statusCircuito);
-    
-    return Container(
-      width: 100,
-      height: 50,
-      alignment: Alignment.center,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-        decoration: BoxDecoration(
-          color: corStatus.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: corStatus.withOpacity(0.3), width: 1),
-        ),
-        child: Text(
-          status,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            color: corStatus,
-          ),
-        ),
-      ),
-    );
   }
 
   String _obterTextoStatus(dynamic statusCircuito) {
@@ -479,48 +148,458 @@ class _ExcelTabelaDivididaState extends State<ExcelTabelaDividida> {
     final statusNum = int.tryParse(statusCircuito.toString()) ?? 1;
     
     switch (statusNum) {
-      case 1: return Colors.blue; // Programado
-      case 2: return Colors.orange; // Em check-list
-      case 3: return Colors.green; // Em operação
-      case 4: return Colors.purple; // Aguardando NF
-      case 5: return Colors.grey; // Expedido
+      case 1: return Colors.blue;
+      case 2: return Colors.orange;
+      case 3: return Colors.green;
+      case 4: return Colors.purple;
+      case 5: return Colors.grey;
       default: return Colors.blue;
     }
   }
 
-  // ----------------------------------------------------------
-  // CÉLULA EDITÁVEL
-  // ----------------------------------------------------------
-  Widget _cell(String id, String campo, String valor,
-      {double largura = 100, bool numero = false}) {
-    return EditableCell(
-      largura: largura,
-      valorInicial: valor,
-      numero: numero,
-      onSubmit: (v) => widget.onEdit(id, campo, v),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Programação de Vendas"),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: widget.onVoltar,
+        ),
+        actions: [
+          Container(
+            width: 300,
+            margin: const EdgeInsets.only(right: 16),
+            child: _buildSearchField(),
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: carregar,
+            tooltip: 'Atualizar',
+          ),
+        ],
+      ),
+      body: carregando
+          ? const Center(child: CircularProgressIndicator())
+          : _movimentacoesFiltradas.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.list, size: 64, color: Colors.grey.shade400),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Nenhuma venda encontrada',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      if (_searchController.text.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            'Tente alterar os termos da pesquisa',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                )
+              : _buildTabelaConteudo(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _mostrarDialogNovaVenda,
+        backgroundColor: const Color(0xFF0D47A1),
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        elevation: 4,
+        child: const Icon(Icons.add_box, size: 28),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
-  // Função para obter apenas o primeiro item do array de placas
-  String _obterPrimeiraPlaca(dynamic placaData) {
-    if (placaData == null) return "";
+  Widget _buildSearchField() {
+    return Container(
+      height: 40,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 12),
+          Icon(Icons.search, color: Colors.grey.shade600, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                hintText: 'Pesquisar...',
+                hintStyle: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                ),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+          if (_searchController.text.isNotEmpty)
+            IconButton(
+              icon: Icon(Icons.clear, color: Colors.grey.shade600, size: 20),
+              onPressed: () {
+                _searchController.clear();
+                setState(() {});
+              },
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabelaConteudo() {
+    return Scrollbar(
+      controller: _verticalScrollController,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _verticalScrollController,
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width,
+          child: Column(
+            children: [
+              // Menu de navegação de grupos
+              Container(
+                height: 40,
+                color: Colors.grey.shade100,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildGrupoButton("Grupo 1", 0),
+                    const SizedBox(width: 16),
+                    _buildGrupoButton("Grupo 2", 1),
+                  ],
+                ),
+              ),
+              
+              // Contador de registros
+              Container(
+                height: 32,
+                color: Colors.grey.shade50,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '${_movimentacoesFiltradas.length} venda(s)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              
+              // Cabeçalho da tabela com rolagem horizontal
+              _buildHeader(),
+              
+              // Conteúdo da tabela com rolagem horizontal
+              _buildBody(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGrupoButton(String texto, int grupo) {
+    final bool selecionado = grupoAtual == grupo;
     
-    if (placaData is String) {
-      try {
-        final parsed = jsonDecode(placaData);
-        if (parsed is List && parsed.isNotEmpty) {
-          return parsed.first.toString();
-        }
-      } catch (e) {
-        return placaData.toString();
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          grupoAtual = grupo;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+        decoration: BoxDecoration(
+          color: selecionado ? Colors.blue.shade700 : Colors.white,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: selecionado ? Colors.blue.shade700 : Colors.grey.shade400,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          texto,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: selecionado ? Colors.white : Colors.grey.shade700,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    final larguraTabela = _obterLarguraTabela();
+    
+    return Scrollbar(
+      controller: _horizontalHeaderController,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _horizontalHeaderController,
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: larguraTabela,
+          child: Container(
+            height: 40,
+            color: const Color(0xFF0D47A1),
+            child: Row(
+              children: _obterColunasCabecalho(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    final larguraTabela = _obterLarguraTabela();
+
+    return Scrollbar(
+      controller: _horizontalBodyController,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _horizontalBodyController,
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: larguraTabela,
+          child: ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _movimentacoesFiltradas.length,
+            itemBuilder: (context, index) {
+              final t = _movimentacoesFiltradas[index];
+              final statusCircuito = t['status_circuito'];
+              final statusTexto = _obterTextoStatus(statusCircuito);
+              final corStatus = _obterCorStatus(statusCircuito);
+              
+              // Verificar se há valores nos produtos do grupo atual
+              bool temProduto = false;
+              String codigo = "";
+              String uf = "";
+              String prazo = "";
+              
+              if (grupoAtual == 0) {
+                temProduto = [
+                  'g_comum', 'g_aditivada', 'd_s10', 'd_s500', 'etanol', 'anidro'
+                ].any((k) => (double.tryParse(t[k]?.toString() ?? '0') ?? 0) > 0);
+              } else {
+                temProduto = [
+                  'b100', 'gasolina_a', 's500_a', 's10_a'
+                ].any((k) => (double.tryParse(t[k]?.toString() ?? '0') ?? 0) > 0);
+              }
+              
+              if (temProduto) {
+                codigo = t["codigo"]?.toString() ?? "";
+                uf = t["uf"]?.toString() ?? "";
+                prazo = t["forma_pagamento"]?.toString() ?? "";
+              }
+              
+              return Container(
+                height: 50,
+                decoration: BoxDecoration(
+                  color: index % 2 == 0 ? Colors.grey.shade50 : Colors.white,
+                  border: Border(
+                    bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
+                  ),
+                ),
+                child: Row(
+                  children: _obterCelulasLinha(t, statusTexto, corStatus, codigo, uf, prazo),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  double _obterLarguraTabela() {
+    double larguraFixa = 120 + 100 + 220 + 80 + 60 + 100;
+    
+    if (grupoAtual == 0) {
+      return larguraFixa + (90 * 6); // 6 colunas do Grupo 1
+    } else {
+      return larguraFixa + (90 * 4); // 4 colunas do Grupo 2
+    }
+  }
+
+  List<Widget> _obterColunasCabecalho() {
+    final colunasFixas = [
+      _th("Placa", 120),
+      _th("Status", 100),
+      _th("Cliente", 220),
+      _th("Cód.", 80),
+      _th("UF", 60),
+      _th("Prazo", 100),
+    ];
+
+    if (grupoAtual == 0) {
+      return [
+        ...colunasFixas,
+        _th("G. Com.", 90),
+        _th("G. Aditiv.", 90),
+        _th("D. S10", 90),
+        _th("D. S500", 90),
+        _th("Etanol", 90),
+        _th("Anidro", 90),
+      ];
+    } else {
+      return [
+        ...colunasFixas,
+        _th("B100", 90),
+        _th("G. A", 90),
+        _th("S500 A", 90),
+        _th("S10 A", 90),
+      ];
+    }
+  }
+
+  Widget _th(String texto, double largura) {
+    return Container(
+      width: largura,
+      alignment: Alignment.center,
+      child: Text(
+        texto,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  List<Widget> _obterCelulasLinha(
+    Map<String, dynamic> t,
+    String statusTexto,
+    Color corStatus,
+    String codigo,
+    String uf,
+    String prazo,
+  ) {
+    final placas = t["placa"];
+    final placaText = placas is List && placas.isNotEmpty 
+        ? placas.first.toString() 
+        : placas?.toString() ?? "";
+
+    final celulasFixas = [
+      _cell(placaText, 120),
+      _statusCell(statusTexto, corStatus),
+      _cell(t["cliente"]?.toString() ?? "", 220),
+      _cell(codigo, 80),
+      _cell(uf, 60),
+      _cell(prazo, 100),
+    ];
+
+    if (grupoAtual == 0) {
+      return [
+        ...celulasFixas,
+        _cell(_formatarQuantidade(t["g_comum"].toString()), 90, isNumber: true),
+        _cell(_formatarQuantidade(t["g_aditivada"].toString()), 90, isNumber: true),
+        _cell(_formatarQuantidade(t["d_s10"].toString()), 90, isNumber: true),
+        _cell(_formatarQuantidade(t["d_s500"].toString()), 90, isNumber: true),
+        _cell(_formatarQuantidade(t["etanol"].toString()), 90, isNumber: true),
+        _cell(_formatarQuantidade(t["anidro"].toString()), 90, isNumber: true),
+      ];
+    } else {
+      return [
+        ...celulasFixas,
+        _cell(_formatarQuantidade(t["b100"].toString()), 90, isNumber: true),
+        _cell(_formatarQuantidade(t["gasolina_a"].toString()), 90, isNumber: true),
+        _cell(_formatarQuantidade(t["s500_a"].toString()), 90, isNumber: true),
+        _cell(_formatarQuantidade(t["s10_a"].toString()), 90, isNumber: true),
+      ];
+    }
+  }
+
+  Widget _cell(String texto, double largura, {bool isNumber = false}) {
+    return Container(
+      width: largura,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      alignment: Alignment.center,
+      child: Text(
+        texto.isNotEmpty ? texto : '-',
+        style: TextStyle(
+          fontSize: 12,
+          color: Colors.grey.shade700,
+          fontWeight: isNumber ? FontWeight.w600 : FontWeight.normal,
+        ),
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  Widget _statusCell(String statusTexto, Color corStatus) {
+    return Container(
+      width: 100,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      alignment: Alignment.center,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: corStatus.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: corStatus.withOpacity(0.3), width: 1),
+        ),
+        child: Text(
+          statusTexto,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: corStatus,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+  }
+
+  String _formatarQuantidade(String quantidade) {
+    try {
+      final apenasNumeros = quantidade.replaceAll(RegExp(r'[^\d]'), '');
+      if (apenasNumeros.isEmpty || apenasNumeros == '0') return '';
+      
+      final valor = int.parse(apenasNumeros);
+      if (valor == 0) return '';
+      
+      if (valor > 999) {
+        final parteMilhar = (valor ~/ 1000).toString();
+        final parteCentena = (valor % 1000).toString().padLeft(3, '0');
+        return '$parteMilhar.$parteCentena';
       }
+      
+      return valor.toString();
+    } catch (e) {
+      return quantidade;
     }
-    
-    if (placaData is List && placaData.isNotEmpty) {
-      return placaData.first.toString();
-    }
-    
-    return placaData.toString();
   }
 }
 
@@ -692,6 +771,7 @@ class _EditableCellState extends State<EditableCell> {
                     fontWeight: widget.numero ? FontWeight.w500 : FontWeight.normal,
                     color: valorExibicao.isEmpty ? Colors.grey : Colors.black,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
       ),
