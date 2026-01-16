@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'nova_venda.dart';
-//import 'dart:convert';
 import 'dart:async';
 
 // ==============================================================
@@ -125,7 +124,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
             .any((k) => (double.tryParse(l[k]?.toString() ?? '0') ?? 0) > 0);
       }
     }).toList();
-  }
+  }  
 
   String _obterTextoStatus(dynamic statusCircuito) {
     if (statusCircuito == null) return "Programado";
@@ -181,35 +180,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
       ),
       body: carregando
           ? const Center(child: CircularProgressIndicator())
-          : _movimentacoesFiltradas.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.list, size: 64, color: Colors.grey.shade400),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Nenhuma venda encontrada',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      if (_searchController.text.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            'Tente alterar os termos da pesquisa',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade500,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                )
-              : _buildTabelaConteudo(),
+          : _buildBodyContent(),
       floatingActionButton: FloatingActionButton(
         onPressed: _mostrarDialogNovaVenda,
         backgroundColor: const Color(0xFF0D47A1),
@@ -221,6 +192,91 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
         child: const Icon(Icons.add_box, size: 28),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+    );
+  }
+
+  Widget _buildBodyContent() {
+    return Scrollbar(
+      controller: _verticalScrollController,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _verticalScrollController,
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width,
+          child: Column(
+            children: [
+              // Menu de navegação de grupos - SEMPRE VISÍVEL
+              Container(
+                height: 40,
+                color: Colors.grey.shade100,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildGrupoButton("Grupo 1", 0),
+                    const SizedBox(width: 16),
+                    _buildGrupoButton("Grupo 2", 1),
+                  ],
+                ),
+              ),
+              
+              // Contador de registros - SEMPRE VISÍVEL
+              Container(
+                height: 32,
+                color: Colors.grey.shade50,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '${_movimentacoesFiltradas.length} venda(s)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              
+              // Conteúdo da tabela ou mensagem vazia
+              if (_movimentacoesFiltradas.isEmpty)
+                _buildEmptyState()
+              else
+                _buildTabelaConteudo(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Container(
+      padding: const EdgeInsets.only(top: 60),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.list, size: 64, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              'Nenhuma venda encontrada',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            if (_searchController.text.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Tente alterar os termos da pesquisa',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -269,54 +325,14 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
   }
 
   Widget _buildTabelaConteudo() {
-    return Scrollbar(
-      controller: _verticalScrollController,
-      thumbVisibility: true,
-      child: SingleChildScrollView(
-        controller: _verticalScrollController,
-        child: SizedBox(
-          width: MediaQuery.of(context).size.width,
-          child: Column(
-            children: [
-              // Menu de navegação de grupos
-              Container(
-                height: 40,
-                color: Colors.grey.shade100,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildGrupoButton("Grupo 1", 0),
-                    const SizedBox(width: 16),
-                    _buildGrupoButton("Grupo 2", 1),
-                  ],
-                ),
-              ),
-              
-              // Contador de registros
-              Container(
-                height: 32,
-                color: Colors.grey.shade50,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  '${_movimentacoesFiltradas.length} venda(s)',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              
-              // Cabeçalho da tabela com rolagem horizontal
-              _buildHeader(),
-              
-              // Conteúdo da tabela com rolagem horizontal
-              _buildBody(),
-            ],
-          ),
-        ),
-      ),
+    return Column(
+      children: [
+        // Cabeçalho da tabela com rolagem horizontal
+        _buildHeader(),
+        
+        // Conteúdo da tabela com rolagem horizontal
+        _buildBody(),
+      ],
     );
   }
 
