@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
+import 'movimentacoes.dart';
 
 class FiltroMovimentacoesPage extends StatefulWidget {
   final VoidCallback onVoltar;
@@ -23,8 +24,11 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
   String? _produtoSelecionado = 'todos';
   String _tipoMov = 'todos';
   String _tipoOp = 'todos';
-  int _anoSelecionado = DateTime.now().year;
-  int _mesSelecionado = DateTime.now().month;
+
+  // Datas
+  final TextEditingController _dataInicioController = TextEditingController();
+  final TextEditingController _dataFimController = TextEditingController();
+
   String _modoRelatorio = 'sintetico';
 
   // ===== LISTAS =====
@@ -36,7 +40,48 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
   @override
   void initState() {
     super.initState();
+
+    // Inicializar datas padrão (1º do mês até hoje)
+    final now = DateTime.now();
+    final primeiroDia = DateTime(now.year, now.month, 1);
+    _dataInicioController.text = _formatarData(primeiroDia);
+    _dataFimController.text = _formatarData(now);
+
     _init();
+  }
+
+  @override
+  void dispose() {
+    _dataInicioController.dispose();
+    _dataFimController.dispose();
+    super.dispose();
+  }
+
+  // ===================== UTIL =====================
+
+  String _formatarData(DateTime data) {
+    final dia = data.day.toString().padLeft(2, '0');
+    final mes = data.month.toString().padLeft(2, '0');
+    final ano = data.year.toString();
+    return '$dia/$mes/$ano';
+  }
+
+  void _aplicarMascaraData(
+      TextEditingController controller, String valorAntigo, String valorNovo) {
+    if (valorNovo.length < valorAntigo.length) return;
+
+    final digitos = valorNovo.replaceAll(RegExp(r'[^0-9]'), '');
+    final digitosLimitados = digitos.length > 8 ? digitos.substring(0, 8) : digitos;
+
+    String resultado = '';
+    for (int i = 0; i < digitosLimitados.length; i++) {
+      if (i == 2 || i == 4) resultado += '/';
+      resultado += digitosLimitados[i];
+    }
+
+    controller.text = resultado;
+    controller.selection =
+        TextSelection.collapsed(offset: resultado.length);
   }
 
   Future<void> _init() async {
@@ -47,6 +92,8 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
 
     if (usuario.nivel < 3) {
       _filialSelecionada = usuario.filialId;
+    } else {
+      _filialSelecionada = 'todas';
     }
 
     setState(() => _carregando = false);
@@ -63,7 +110,16 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
         .eq('empresa_id', usuario.empresaId!)
         .order('nome');
 
-    _filiais = List<Map<String, dynamic>>.from(dados);
+    final lista = List<Map<String, dynamic>>.from(dados);
+
+    if (usuario.nivel == 3) {
+      _filiais = [
+        {'id': 'todas', 'nome': 'Todas'},
+        ...lista,
+      ];
+    } else {
+      _filiais = lista;
+    }
   }
 
   Future<void> _carregarProdutos() async {
@@ -145,41 +201,40 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
             ),
             const SizedBox(height: 16),
 
-            // FILIAL
-            _buildDropdown(
-              label: 'Filial',
-              value: _filialSelecionada,
-              items: _filiais
-                  .map((f) => DropdownMenuItem(
-                        value: f['id'],
-                        child: Text(f['nome']),
-                      ))
-                  .toList(),
-              onChanged: usuario.nivel == 3
-                  ? (v) => setState(() => _filialSelecionada = v)
-                  : null,
-            ),
-
-            const SizedBox(height: 12),
-
-            // PRODUTO
-            _buildDropdown(
-              label: 'Produto',
-              value: _produtoSelecionado,
-              items: _produtos
-                  .map((p) => DropdownMenuItem(
-                        value: p['id'],
-                        child: Text(p['nome']),
-                      ))
-                  .toList(),
-              onChanged: (v) => setState(() => _produtoSelecionado = v),
-            ),
-
-            const SizedBox(height: 12),
-
-            // TIPO MOV / OP
             Row(
               children: [
+                Expanded(
+                  child: _buildDropdown(
+                    label: 'Filial',
+                    value: _filialSelecionada,
+                    items: _filiais
+                        .map((f) => DropdownMenuItem(
+                              value: f['id'],
+                              child: Text(f['nome']),
+                            ))
+                        .toList(),
+                    onChanged: usuario.nivel == 3
+                        ? (v) => setState(() => _filialSelecionada = v)
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                Expanded(
+                  child: _buildDropdown(
+                    label: 'Produto',
+                    value: _produtoSelecionado,
+                    items: _produtos
+                        .map((p) => DropdownMenuItem(
+                              value: p['id'],
+                              child: Text(p['nome']),
+                            ))
+                        .toList(),
+                    onChanged: (v) => setState(() => _produtoSelecionado = v),
+                  ),
+                ),
+                const SizedBox(width: 12),
+
                 Expanded(
                   child: _buildDropdown(
                     label: 'Tipo movimentação',
@@ -193,6 +248,7 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
                   ),
                 ),
                 const SizedBox(width: 12),
+
                 Expanded(
                   child: _buildDropdown(
                     label: 'Tipo operação',
@@ -200,7 +256,8 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
                     items: const [
                       DropdownMenuItem(value: 'todos', child: Text('Todos')),
                       DropdownMenuItem(value: 'venda', child: Text('Venda')),
-                      DropdownMenuItem(value: 'transf', child: Text('Transferência')),
+                      DropdownMenuItem(
+                          value: 'transf', child: Text('Transferência')),
                     ],
                     onChanged: (v) => setState(() => _tipoOp = v!),
                   ),
@@ -210,22 +267,32 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
 
             const SizedBox(height: 12),
 
-            // ANO / MÊS / MODO
             Row(
               children: [
-                Expanded(child: _buildAno()),
+                Expanded(
+                    child: _buildCampoData(
+                        label: 'Data início',
+                        controller: _dataInicioController)),
                 const SizedBox(width: 12),
-                Expanded(child: _buildMes()),
+                Expanded(
+                    child: _buildCampoData(
+                        label: 'Data fim',
+                        controller: _dataFimController)),
                 const SizedBox(width: 12),
-                Expanded(child: _buildDropdown(
-                  label: 'Relatório',
-                  value: _modoRelatorio,
-                  items: const [
-                    DropdownMenuItem(value: 'sintetico', child: Text('Sintético')),
-                    DropdownMenuItem(value: 'analitico', child: Text('Analítico')),
-                  ],
-                  onChanged: (v) => setState(() => _modoRelatorio = v!),
-                )),
+                Expanded(
+                  child: _buildDropdown(
+                    label: 'Relatório',
+                    value: _modoRelatorio,
+                    items: const [
+                      DropdownMenuItem(
+                          value: 'sintetico', child: Text('Sintético')),
+                      DropdownMenuItem(
+                          value: 'analitico', child: Text('Analítico')),
+                    ],
+                    onChanged: (v) =>
+                        setState(() => _modoRelatorio = v!),
+                  ),
+                ),
               ],
             ),
           ],
@@ -234,34 +301,28 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
     );
   }
 
-  Widget _buildAno() {
-    return _buildDropdown(
-      label: 'Ano',
-      value: _anoSelecionado,
-      items: List.generate(11, (i) {
-        final ano = 2020 + i;
-        return DropdownMenuItem(value: ano, child: Text(ano.toString()));
-      }),
-      onChanged: (v) => setState(() => _anoSelecionado = v as int),
-    );
-  }
-
-  Widget _buildMes() {
-    final meses = [
-      'Janeiro','Fevereiro','Março','Abril','Maio','Junho',
-      'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'
-    ];
-
-    return _buildDropdown(
-      label: 'Mês',
-      value: _mesSelecionado,
-      items: List.generate(12, (i) {
-        return DropdownMenuItem(
-          value: i + 1,
-          child: Text(meses[i]),
-        );
-      }),
-      onChanged: (v) => setState(() => _mesSelecionado = v as int),
+  Widget _buildCampoData({
+    required String label,
+    required TextEditingController controller,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 13)),
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: controller,
+          keyboardType: TextInputType.datetime,
+          decoration: const InputDecoration(
+            isDense: true,
+            border: OutlineInputBorder(),
+            hintText: 'dd/mm/aaaa',
+          ),
+          onChanged: (novoValor) {
+            _aplicarMascaraData(controller, controller.text, novoValor);
+          },
+        ),
+      ],
     );
   }
 
@@ -294,7 +355,48 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
         SizedBox(
           width: 200,
           child: ElevatedButton(
-            onPressed: null, // proposital
+            onPressed: () {
+              try {
+                final partesInicio =
+                    _dataInicioController.text.split('/');
+                final partesFim =
+                    _dataFimController.text.split('/');
+
+                final dataInicio = DateTime(
+                  int.parse(partesInicio[2]),
+                  int.parse(partesInicio[1]),
+                  int.parse(partesInicio[0]),
+                );
+
+                final dataFim = DateTime(
+                  int.parse(partesFim[2]),
+                  int.parse(partesFim[1]),
+                  int.parse(partesFim[0]),
+                );
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MovimentacoesPage(
+                      filialId: _filialSelecionada ?? 'todas',
+                      dataInicio: dataInicio,
+                      dataFim: dataFim,
+                      produtoId: _produtoSelecionado ?? 'todos',
+                      tipoMov: _tipoMov,
+                      tipoOp: _tipoOp,
+                    ),
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content:
+                        Text('Data inválida. Use o formato dd/mm/aaaa'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              }
+            },
             child: const Text('Consultar'),
           ),
         ),
