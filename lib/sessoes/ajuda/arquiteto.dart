@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
 
 // ============================================
@@ -244,7 +245,7 @@ class GrandeArquitetoPageState extends State<GrandeArquitetoPage>
 }
 
 // ============================================
-// PÁGINA DE ENVIO DE SUGESTÕES (CORRIGIDA)
+// PÁGINA DE ENVIO DE SUGESTÕES (COM SUPABASE)
 // ============================================
 
 class EnviarSugestaoPage extends StatefulWidget {
@@ -316,24 +317,53 @@ class EnviarSugestaoPageState extends State<EnviarSugestaoPage> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(
-              'Vou acrescentar',
-              style: TextStyle(color: Colors.grey),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          Row(
+            children: [
+              // Botão esquerdo - "Vou acrescentar"
+              Expanded(
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text(
+                    'Vou acrescentar',
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
               ),
-            ),
-            child: const Text('Sim, enviar'),
+              const SizedBox(width: 12),
+              
+              // Botão direito - "Sim, enviar" com largura ajustada
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 12,
+                  ),
+                  minimumSize: Size.zero, // Permite que o botão seja menor
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'Sim, enviar',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -347,14 +377,63 @@ class EnviarSugestaoPageState extends State<EnviarSugestaoPage> {
   Future<void> _submitMessage() async {
     setState(() => _isSubmitting = true);
 
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      final supabase = Supabase.instance.client;
+      
+      // Obtém o ID do usuário atual (se disponível)
+      final usuarioId = UsuarioAtual.instance?.id;
+      final texto = _textController.text.trim();
+      
+      if (texto.isEmpty) {
+        throw Exception('A mensagem não pode estar vazia.');
+      }
 
-    // Verifica se o widget ainda está montado antes de usar context
-    if (!mounted) {
-      setState(() => _isSubmitting = false);
-      return;
+      // Prepara os dados para inserir na tabela 'ajuda'
+      final data = {
+        'usuario_id': usuarioId, // Pode ser null se não houver usuário
+        'texto': texto, // O texto completo da mensagem
+        'data_criacao': DateTime.now().toIso8601String(),
+        'status': 'pendente', // Status padrão
+      };
+
+      // Insere na tabela 'ajuda' do Supabase
+      final response = await supabase
+          .from('ajuda')
+          .insert(data)
+          .select();
+
+      // Verifica se a inserção foi bem-sucedida
+      if (response.isEmpty) {
+        throw Exception('Falha ao salvar a mensagem no banco de dados.');
+      }
+
+      // Aguarda um pouco para mostrar o feedback visual
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Verifica se o widget ainda está montado antes de usar context
+      if (!mounted) {
+        setState(() => _isSubmitting = false);
+        return;
+      }
+
+      // Mensagem salva com sucesso
+      await _mostrarDialogoSucesso();
+      
+    } catch (e) {
+      print('Erro ao salvar mensagem: $e');
+      
+      // Trata erros
+      if (mounted) {
+        await _mostrarDialogoErro(mensagem: 'Erro ao enviar mensagem: ${e.toString()}');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
+  }
 
+  Future<void> _mostrarDialogoSucesso() async {
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -386,8 +465,8 @@ class EnviarSugestaoPageState extends State<EnviarSugestaoPage> {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Sua mensagem foi enviada para o oráculo e será analisada com atenção.\n\n'
-                'Responderemos por email assim que possível. Obrigado por contribuir!',
+                'Sua mensagem foi salva e será analisada com atenção.\n\n'
+                'O Grande Arquiteto agradece sua contribuição!',
                 style: TextStyle(
                   color: Colors.white70,
                   fontSize: 16,
@@ -425,10 +504,28 @@ class EnviarSugestaoPageState extends State<EnviarSugestaoPage> {
         ),
       ),
     );
+  }
 
-    if (mounted) {
-      setState(() => _isSubmitting = false);
-    }
+  Future<void> _mostrarDialogoErro({String mensagem = 'Ocorreu um erro ao enviar sua mensagem. Tente novamente.'}) async {
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(
+          'Erro no Envio',
+          style: TextStyle(
+            color: Colors.red,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(mensagem),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showTipsDialog() {
