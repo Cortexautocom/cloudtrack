@@ -34,6 +34,23 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   String _mensagemErro = '';
   String? _nomeProdutoSelecionado;
   
+  // ScrollControllers
+  final ScrollController _verticalScrollController = ScrollController();
+  final ScrollController _horizontalHeaderController = ScrollController();
+  final ScrollController _horizontalBodyController = ScrollController();
+  
+  // Constantes de layout
+  static const double _larguraTabela = 1260; // Largura total da tabela
+  static const double _alturaCabecalho = 40;
+  static const double _alturaLinha = 40;
+  static const double _alturaRodape = 32;
+  
+  // Larguras das colunas
+  static const double _larguraData = 120;
+  static const double _larguraProduto = 180;
+  static const double _larguraDescricao = 240;
+  static const double _larguraNumerica = 120;
+  
   Color _getCorFundoEntrada() {
     return Colors.green.shade50.withOpacity(0.3);
   }
@@ -49,7 +66,32 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   @override
   void initState() {
     super.initState();
+    _setupScrollControllers();
     _carregarDados();
+  }
+  
+  void _setupScrollControllers() {
+    _horizontalHeaderController.addListener(() {
+      if (_horizontalBodyController.hasClients &&
+          _horizontalBodyController.offset != _horizontalHeaderController.offset) {
+        _horizontalBodyController.jumpTo(_horizontalHeaderController.offset);
+      }
+    });
+
+    _horizontalBodyController.addListener(() {
+      if (_horizontalHeaderController.hasClients &&
+          _horizontalHeaderController.offset != _horizontalBodyController.offset) {
+        _horizontalHeaderController.jumpTo(_horizontalBodyController.offset);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _horizontalHeaderController.dispose();
+    _horizontalBodyController.dispose();
+    _verticalScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _carregarDados() async {
@@ -95,7 +137,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             entrada_vinte,
             saida_amb,
             saida_vinte,
-            created_at,
             produto_id,
             produtos!movimentacoes_produto_id_fkey1(
               id,
@@ -719,262 +760,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     return resultado;
   }
 
-  Widget _buildTabela() {
-    bool mostrarColunaProduto =
-        widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
-
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.vertical,
-        child: DataTable(
-          columnSpacing: 0,
-          sortColumnIndex: _getSortColumnIndex(mostrarColunaProduto),
-          sortAscending: _ordenacaoAscendente,
-          headingRowHeight: 48,
-          dataRowHeight: 44,
-          headingRowColor:
-              MaterialStateProperty.all(Colors.grey.shade100),
-          columns: [
-            DataColumn(
-              label: SizedBox(
-                width: 110,
-                child: const Center(
-                  child: Text(
-                    '     Data',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-              onSort: (_, __) => _onSort('data_mov'),
-            ),
-            if (mostrarColunaProduto)
-              DataColumn(
-                label: SizedBox(
-                  width: 160,
-                  child: const Center(
-                    child: Text(
-                      '        Produto',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-                onSort: (_, __) => _onSort('produto_nome'),
-              ),
-            DataColumn(
-              label: SizedBox(
-                width: 220,
-                child: const Center(
-                  child: Text(
-                    'Descrição',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-              onSort: (_, __) => _onSort('descricao'),
-            ),
-            DataColumn(
-              label: const Center(child: Text('Entrada (Amb.)   ')),
-              numeric: true,
-              onSort: (_, __) => _onSort('entrada_amb'),
-            ),
-            DataColumn(
-              label: const Center(child: Text('Entrada (20ºC)   ')),
-              numeric: true,
-              onSort: (_, __) => _onSort('entrada_vinte'),
-            ),
-            DataColumn(
-              label: const Center(child: Text('Saída (Amb.)   ')),
-              numeric: true,
-              onSort: (_, __) => _onSort('saida_amb'),
-            ),
-            DataColumn(
-              label: const Center(child: Text('Saída (20ºC)   ')),
-              numeric: true,
-              onSort: (_, __) => _onSort('saida_vinte'),
-            ),
-            DataColumn(
-              label: const Center(child: Text('Saldo (Amb.)   ')),
-              numeric: true,
-              onSort: (_, __) => _onSort('saldo_amb'),
-            ),
-            DataColumn(
-              label: const Center(child: Text('Saldo (20ºC)   ')),
-              numeric: true,
-              onSort: (_, __) => _onSort('saldo_vinte'),
-            ),
-          ],
-          rows: _movimentacoesOrdenadas.map((e) {
-            final saldoAmb = e['saldo_amb'] ?? 0;
-            final saldoVinte = e['saldo_vinte'] ?? 0;
-
-            return DataRow(
-              cells: [
-                DataCell(
-                  Container(
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: _buildCelulaSelecionavel(
-                      _formatarData(e['data_mov']),
-                    ),
-                  ),
-                ),
-
-                if (mostrarColunaProduto)
-                  DataCell(
-                    Container(
-                      alignment: Alignment.center,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: _buildCelulaSelecionavel(
-                        e['produto_nome'] ?? '-',
-                        maxLines: 1,
-                      ),
-                    ),
-                  ),
-
-                DataCell(
-                  Container(
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: _buildCelulaSelecionavel(
-                      e['descricao'] ?? '-',
-                      maxLines: 2,
-                    ),
-                  ),
-                ),
-
-                DataCell(
-                  Container(
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    color: _getCorFundoEntrada(),
-                    child: _buildCelulaSelecionavel(
-                      _formatarNumero(e['entrada_amb']),
-                    ),
-                  ),
-                ),
-
-                DataCell(
-                  Container(
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    color: _getCorFundoEntrada(),
-                    child: _buildCelulaSelecionavel(
-                      _formatarNumero(e['entrada_vinte']),
-                    ),
-                  ),
-                ),
-
-                DataCell(
-                  Container(
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    color: _getCorFundoSaida(),
-                    child: _buildCelulaSelecionavel(
-                      _formatarNumero(e['saida_amb']),
-                    ),
-                  ),
-                ),
-
-                DataCell(
-                  Container(
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    color: _getCorFundoSaida(),
-                    child: _buildCelulaSelecionavel(
-                      _formatarNumero(e['saida_vinte']),
-                    ),
-                  ),
-                ),
-
-                DataCell(
-                  Container(
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: _buildCelulaSelecionavel(
-                      _formatarNumero(saldoAmb),
-                      cor: saldoAmb < 0 ? Colors.red : Colors.black,
-                    ),
-                  ),
-                ),
-
-                DataCell(
-                  Container(
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: _buildCelulaSelecionavel(
-                      _formatarNumero(saldoVinte),
-                      cor: saldoVinte < 0 ? Colors.red : Colors.black,
-                    ),
-                  ),
-                ),
-              ],
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCelulaSelecionavel(
-    String texto, {
-    Color cor = Colors.black,
-    AlignmentGeometry alinhamento = Alignment.center,
-    FontWeight fontWeight = FontWeight.normal,
-    int maxLines = 1,
-  }) {
-    return Align(
-      alignment: alinhamento,
-      child: SelectableText(
-        texto,
-        textAlign: alinhamento == Alignment.center 
-            ? TextAlign.center 
-            : (alinhamento == Alignment.centerRight 
-                ? TextAlign.right 
-                : TextAlign.left),
-        style: TextStyle(
-          fontSize: 13,
-          color: cor,
-          fontWeight: fontWeight,
-        ),
-        maxLines: maxLines,
-      ),
-    );
-  }
-
-  int? _getSortColumnIndex(bool mostrarColunaProduto) {
-    switch (_colunaOrdenacao) {
-      case 'data_mov':
-        return 0;
-      case 'produto_nome':
-        return mostrarColunaProduto ? 1 : null;
-      case 'descricao':
-        return mostrarColunaProduto ? 2 : 1;
-      case 'entrada_amb':
-        return mostrarColunaProduto ? 3 : 2;
-      case 'entrada_vinte':
-        return mostrarColunaProduto ? 4 : 3;
-      case 'saida_amb':
-        return mostrarColunaProduto ? 5 : 4;
-      case 'saida_vinte':
-        return mostrarColunaProduto ? 6 : 5;
-      case 'saldo_amb':
-        return mostrarColunaProduto ? 7 : 6;
-      case 'saldo_vinte':
-        return mostrarColunaProduto ? 8 : 7;
-      default:
-        return 0;
-    }
-  }
-  
+  // Método para formatar data
   String _formatarData(String dataString) {
     try {
       final data = DateTime.parse(dataString);
@@ -982,5 +768,203 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     } catch (e) {
       return dataString;
     }
+  }
+
+  // Método principal da tabela
+  Widget _buildTabela() {
+    return Scrollbar(
+      controller: _verticalScrollController,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _verticalScrollController,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Column(
+            children: [
+              _buildTabelaCabecalho(),
+              _buildTabelaCorpo(),
+              _buildContadorResultados(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Cabeçalho da tabela com scroll horizontal
+  Widget _buildTabelaCabecalho() {
+    bool mostrarColunaProduto = widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
+    
+    return Scrollbar(
+      controller: _horizontalHeaderController,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _horizontalHeaderController,
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: _larguraTabela,
+          child: Container(
+            height: _alturaCabecalho,
+            color: const Color(0xFF0D47A1),
+            child: Row(
+              children: [
+                _th('Data', _larguraData, onTap: () => _onSort('data_mov')),
+                if (mostrarColunaProduto) 
+                  _th('Produto', _larguraProduto, onTap: () => _onSort('produto_nome')),
+                _th('Descrição', _larguraDescricao, onTap: () => _onSort('descricao')),
+                _th('Entrada (Amb)', _larguraNumerica, onTap: () => _onSort('entrada_amb')),
+                _th('Entrada (20ºC)', _larguraNumerica, onTap: () => _onSort('entrada_vinte')),
+                _th('Saída (Amb)', _larguraNumerica, onTap: () => _onSort('saida_amb')),
+                _th('Saída (20ºC)', _larguraNumerica, onTap: () => _onSort('saida_vinte')),
+                _th('Saldo (Amb)', _larguraNumerica, onTap: () => _onSort('saldo_amb')),
+                _th('Saldo (20ºC)', _larguraNumerica, onTap: () => _onSort('saldo_vinte')),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Célula de cabeçalho
+  Widget _th(String texto, double largura, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: largura,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        alignment: Alignment.center,
+        child: SelectableText(
+          texto,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+            overflow: TextOverflow.ellipsis,
+          ),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+        ),
+      ),
+    );
+  }
+
+  // Corpo da tabela com scroll horizontal sincronizado
+  Widget _buildTabelaCorpo() {
+    bool mostrarColunaProduto = widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
+    
+    return Scrollbar(
+      controller: _horizontalBodyController,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _horizontalBodyController,
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: _larguraTabela,
+          child: ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _movimentacoesOrdenadas.length,
+            itemBuilder: (context, index) {
+              final e = _movimentacoesOrdenadas[index];
+              final saldoAmb = e['saldo_amb'] ?? 0;
+              final saldoVinte = e['saldo_vinte'] ?? 0;
+
+              return Container(
+                height: _alturaLinha,
+                decoration: BoxDecoration(
+                  color: index % 2 == 0
+                      ? Colors.grey.shade50
+                      : Colors.white,
+                  border: Border(
+                    bottom: BorderSide(
+                      color: Colors.grey.shade200,
+                      width: 0.5,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    _cell(_formatarData(e['data_mov']), _larguraData),
+                    if (mostrarColunaProduto)
+                      _cell(e['produto_nome'] ?? '-', _larguraProduto),
+                    _cell(e['descricao'] ?? '-', _larguraDescricao),
+                    _cell(_formatarNumero(e['entrada_amb']), _larguraNumerica, 
+                          fundo: _getCorFundoEntrada(), isNumber: true),
+                    _cell(_formatarNumero(e['entrada_vinte']), _larguraNumerica, 
+                          fundo: _getCorFundoEntrada(), isNumber: true),
+                    _cell(_formatarNumero(e['saida_amb']), _larguraNumerica, 
+                          fundo: _getCorFundoSaida(), isNumber: true),
+                    _cell(_formatarNumero(e['saida_vinte']), _larguraNumerica, 
+                          fundo: _getCorFundoSaida(), isNumber: true),
+                    _cell(
+                      _formatarNumero(saldoAmb),
+                      _larguraNumerica,
+                      cor: saldoAmb < 0 ? Colors.red : Colors.black,
+                      isNumber: true,
+                    ),
+                    _cell(
+                      _formatarNumero(saldoVinte),
+                      _larguraNumerica,
+                      cor: saldoVinte < 0 ? Colors.red : Colors.black,
+                      isNumber: true,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Célula genérica para o corpo da tabela
+  Widget _cell(
+    String texto,
+    double largura, {
+    Color? fundo,
+    Color? cor,
+    bool isNumber = false,
+  }) {
+    return Container(
+      width: largura,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      alignment: Alignment.center,
+      color: fundo,
+      child: SelectableText(
+        texto.isNotEmpty ? texto : '-',
+        style: TextStyle(
+          fontSize: 12,
+          color: cor ?? Colors.grey.shade700,
+          fontWeight: isNumber ? FontWeight.w600 : FontWeight.normal,
+          overflow: TextOverflow.ellipsis,
+        ),
+        textAlign: TextAlign.center,
+        maxLines: 1,
+      ),
+    );
+  }
+
+  // Rodapé com contador de resultados
+  Widget _buildContadorResultados() {
+    return Container(
+      height: _alturaRodape,
+      color: Colors.grey.shade100,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      alignment: Alignment.centerLeft,
+      child: Text(
+        '${_movimentacoesOrdenadas.length} movimentação(ões)',
+        style: TextStyle(
+          fontSize: 12,
+          color: Colors.grey.shade600,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
   }
 }
