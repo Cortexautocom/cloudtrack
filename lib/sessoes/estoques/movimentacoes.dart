@@ -180,6 +180,14 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
         : int.tryParse(movimentacao['quantidade']?.toString() ?? '0') ?? 0;
   }
 
+  // Função para formatar quantidade para "999.999"
+  String _formatarQuantidade(int quantidade) {
+    return quantidade.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]}.',
+    );
+  }
+
   // Função para determinar se é entrada ou saída para a filial específica
   String _obterTipoMovimentoParaFilial(Map<String, dynamic> movimentacao, String filialId) {
     if (movimentacao['filial_origem_id'] == filialId) {
@@ -209,6 +217,23 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
     return descricao;
   }
 
+  // Função para obter o destino formatado
+  String _obterDestinoFormatado(Map<String, dynamic> movimentacao) {
+    final tipoOp = movimentacao['tipo_op']?.toString().toLowerCase() ?? '';
+    
+    // Se for venda, mostrar o nome do cliente
+    if (tipoOp == 'venda' || tipoOp.contains('venda')) {
+      final cliente = movimentacao['cliente']?.toString();
+      if (cliente != null && cliente.isNotEmpty) {
+        return cliente;
+      }
+    }
+    
+    // Para outros casos, mostrar o nome da filial destino
+    final destinoNome = movimentacao['destino_filial']?['nome_dois']?.toString() ?? '';
+    return destinoNome;
+  }
+
   List<Map<String, dynamic>> get _movimentacoesFiltradas {
     final query = _searchController.text.toLowerCase().trim();
     if (query.isEmpty) return movimentacoes;
@@ -225,7 +250,8 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
           (m['origem_filial']?['nome_dois']?.toString().toLowerCase() ?? '')
               .contains(query) ||
           (m['destino_filial']?['nome_dois']?.toString().toLowerCase() ?? '')
-              .contains(query);
+              .contains(query) ||
+          (m['cliente']?.toString().toLowerCase() ?? '').contains(query);
     }).toList();
   }
 
@@ -334,18 +360,18 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
 
   Widget _buildTabelaConteudo() {
     // Usar List<double> para evitar erro de tipo
+    // REMOVIDA a coluna 'Tipo' (índice 1)
     final List<double> larguras = [
       90.0,   // Data
-      70.0,   // Tipo
-      90.0,   // Operação
-      130.0,  // Produto
-      170.0,  // Descrição
-      90.0,   // Quantidade
-      130.0,  // Origem
-      130.0,  // Destino
+      90.0,   // Operação (antigo índice 2)
+      130.0,  // Produto (antigo índice 3)
+      170.0,  // Descrição (antigo índice 4)
+      90.0,   // Quantidade (antigo índice 5)
+      130.0,  // Origem (antigo índice 6)
+      130.0,  // Destino (antigo índice 7)
     ];
     
-    final larguraTotal = larguras.reduce((a, b) => a + b); // 900.0 pixels
+    final larguraTotal = larguras.reduce((a, b) => a + b); // 830.0 pixels
 
     return Scrollbar(
       controller: _verticalScrollController,
@@ -369,13 +395,12 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                     child: Row(
                       children: [
                         _th("Data", larguras[0]),
-                        _th("Tipo", larguras[1]),
-                        _th("Operação", larguras[2]),
-                        _th("Produto", larguras[3]),
-                        _th("Descrição", larguras[4]),
-                        _th("Quantidade", larguras[5]),
-                        _th("Origem", larguras[6]),
-                        _th("Destino", larguras[7]),
+                        _th("Operação", larguras[1]),
+                        _th("Produto", larguras[2]),
+                        _th("Descrição", larguras[3]),
+                        _th("Quantidade", larguras[4]),
+                        _th("Origem", larguras[5]),
+                        _th("Destino", larguras[6]),
                       ],
                     ),
                   ),
@@ -403,6 +428,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                           : m['data_mov'];
                       final produtoNome = m['produtos']?['nome']?.toString() ?? '';
                       final quantidade = _obterQuantidadeProduto(m);
+                      final quantidadeFormatada = _formatarQuantidade(quantidade);
                       
                       String tipoMovimento = 'N/A';
                       if (widget.filialId != 'todas') {
@@ -411,7 +437,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                       
                       final descricaoFormatada = _obterDescricaoFormatada(m, widget.filialId);
                       final origemNome = m['origem_filial']?['nome_dois']?.toString() ?? '';
-                      final destinoNome = m['destino_filial']?['nome_dois']?.toString() ?? '';
+                      final destinoFormatado = _obterDestinoFormatado(m);
                       
                       Color corFundo = Colors.white;
                       if (index % 2 == 0) {
@@ -441,22 +467,16 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                               '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}',
                               larguras[0],
                             ),
+                            _cell(m['tipo_op']?.toString() ?? '', larguras[1]),
+                            _cell(produtoNome, larguras[2]),
+                            _cell(descricaoFormatada, larguras[3]),
                             _cell(
-                              tipoMovimento,
-                              larguras[1],
-                              isEntrada: tipoMovimento == 'Entrada',
-                              isSaida: tipoMovimento == 'Saída',
-                            ),
-                            _cell(m['tipo_op']?.toString() ?? '', larguras[2]),
-                            _cell(produtoNome, larguras[3]),
-                            _cell(descricaoFormatada, larguras[4]),
-                            _cell(
-                              quantidade.toString(),
-                              larguras[5],
+                              quantidadeFormatada,
+                              larguras[4],
                               isNumber: true,
                             ),
-                            _cell(origemNome, larguras[6]),
-                            _cell(destinoNome, larguras[7]),
+                            _cell(origemNome, larguras[5]),
+                            _cell(destinoFormatado, larguras[6]),
                           ],
                         ),
                       );
@@ -564,7 +584,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
     return Container(
       width: largura,
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      alignment: Alignment.center,
+      alignment: isNumber ? Alignment.centerRight : Alignment.center,
       child: Text(
         texto.isNotEmpty ? texto : '-',
         style: TextStyle(
@@ -572,7 +592,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
           color: corTexto,
           fontWeight: peso,
         ),
-        textAlign: TextAlign.center,
+        textAlign: isNumber ? TextAlign.right : TextAlign.center,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
