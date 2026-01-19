@@ -43,7 +43,6 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
     });
   }
 
-
   @override
   void dispose() {
     _horizontalHeaderController.dispose();
@@ -67,8 +66,7 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
             origem_filial:filiais!filial_origem_id(nome_dois),
             destino_filial:filiais!filial_destino_id(nome_dois)
           ''')
-          .eq("tipo_op", "Transf")
-          .eq("tipo_mov", "saida")
+          .eq("tipo_op", "Transf")  // REMOVIDO: .eq("tipo_mov", "saida")
           .order("ts_mov", ascending: true);
 
       setState(() {
@@ -918,7 +916,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     return coluna;
   }
 
-  // PASSO 2 — FUNÇÃO _salvar() ATUALIZADA PARA 2 LINHAS
+  // PASSO 2 — FUNÇÃO _salvar() ATUALIZADA PARA 1 LINHA APENAS
   Future<void> _salvar() async {
     if (_produtoId == null ||
         _origemId == null ||
@@ -961,6 +959,15 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       final quantidade =
           int.parse(_quantidadeController.text.replaceAll('.', ''));
       
+      // Buscar nomes das filiais para a descrição
+      final origemNome = _filiais
+        .firstWhere(
+          (f) => f['id']?.toString() == _origemId,
+          orElse: () => {'nome_dois': ''},
+        )['nome_dois']
+        ?.toString() ??
+        '';
+      
       final destinoNome = _filiais
         .firstWhere(
           (f) => f['id']?.toString() == _destinoId,
@@ -978,14 +985,12 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       if (_reboque1Controller.text.isNotEmpty) placas.add(_reboque1Controller.text);
       if (_reboque2Controller.text.isNotEmpty) placas.add(_reboque2Controller.text);
 
-      // Dados base para ambas as linhas
-      final base = {
+      // Criar UMA ÚNICA LINHA com todos os dados da transferência
+      final transferencia = {
         'tipo_op': 'Transf',
         'produto_id': _produtoId,
         'quantidade': quantidade,
-        'descricao': destinoNome.isNotEmpty
-          ? 'Transferência para $destinoNome'
-          : 'Transferência',
+        'descricao': '$origemNome → $destinoNome',  // Descrição formatada
         'placa': placas.isNotEmpty ? placas : null,
         'usuario_id': _usuarioId,
         'empresa_id': _empresaId,
@@ -996,7 +1001,13 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         'filial_destino_id': _destinoId,
         'updated_at': DateTime.now().toIso8601String(),
         
-        // PASSO 3 — COLUNAS DE PRODUTO INICIALIZADAS COM 0
+        // NOVOS CAMPOS - APENAS 1 LINHA
+        'filial_id': null,            // NULL pois não é específico de uma filial
+        'tipo_mov': null,             // NULL pois não usamos mais
+        'tipo_mov_orig': 'saida',     // Movimento na origem
+        'tipo_mov_dest': 'entrada',   // Movimento no destino
+        
+        // COLUNAS DE PRODUTO INICIALIZADAS COM 0
         'g_comum': 0,
         'g_aditivada': 0,
         'd_s10': 0,
@@ -1008,30 +1019,12 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         's500_a': 0,
         's10_a': 0,
       };
-
-      // PASSO 4 — 1ª LINHA: SAÍDA DA ORIGEM
-      final saida = {
-        ...base,
-        'filial_id': _origemId,
-        'tipo_mov': 'saida',
-      };
       
-      // Atribuir quantidade apenas na coluna correta
-      saida[colunaProduto] = quantidade;
+      // Atribuir quantidade apenas na coluna correta do produto
+      transferencia[colunaProduto] = quantidade;
 
-      // PASSO 4 — 2ª LINHA: ENTRADA NO DESTINO
-      final entrada = {
-        ...base,
-        'filial_id': _destinoId,
-        'tipo_mov': 'entrada',
-      };
-      
-      // Atribuir quantidade apenas na coluna correta
-      entrada[colunaProduto] = quantidade;
-
-      // PASSO 3 — NÃO USAR entrada_amb, entrada_vinte, saida_amb, saida_vinte
-      // PASSO 4 — INSERIR AS 2 LINHAS
-      await supabase.from('movimentacoes').insert([saida, entrada]);
+      // INSERIR APENAS 1 LINHA
+      await supabase.from('movimentacoes').insert([transferencia]);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
