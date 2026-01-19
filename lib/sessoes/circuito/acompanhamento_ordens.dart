@@ -355,6 +355,21 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     }
   }
 
+  String _obterTipoOpTexto(String tipoOp) {
+    switch (tipoOp.toLowerCase()) {
+      case 'transf':
+        return 'Transferência';
+      case 'venda':
+        return 'Venda';
+      case 'emprestimo':
+        return 'Empréstimo';
+      case 'outras_op':
+        return 'Outras Op.';
+      default:
+        return tipoOp;
+    }
+  }
+
   Color _obterCorTipoOp(String tipoOp) {
     switch (tipoOp.toLowerCase()) {
       case 'usina':
@@ -363,6 +378,10 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         return Colors.purple.shade700;
       case 'venda':
         return Colors.green.shade700;
+      case 'emprestimo':
+        return Colors.orange.shade700;
+      case 'outras_op':
+        return Colors.grey.shade700;
       default:
         return Colors.grey.shade700;
     }
@@ -404,19 +423,20 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     }
   }
 
-  String _obterNomeFilial(Map<String, dynamic> movimentacao) {
+  String _obterDescricaoParaCard(Map<String, dynamic> movimentacao) {
     final tipoOp = (movimentacao['tipo_op']?.toString() ?? 'venda').toLowerCase();
     
-    if (tipoOp == 'usina') {
-      final filialDestino = movimentacao['filial_destino'] as Map<String, dynamic>?;
-      return filialDestino?['nome']?.toString() ?? 'Destino não informado';
-    } else if (tipoOp == 'transf') {
+    if (tipoOp == 'transf') {
       final origem = movimentacao['filial_origem'] as Map<String, dynamic>?;
       final destino = movimentacao['filial_destino'] as Map<String, dynamic>?;
       final origemNome = origem?['nome']?.toString() ?? 'Origem';
       final destinoNome = destino?['nome']?.toString() ?? 'Destino';
       return '$origemNome → $destinoNome';
+    } else if (tipoOp == 'venda') {
+      final cliente = movimentacao['cliente']?.toString() ?? '';
+      return cliente.isNotEmpty ? cliente : 'Cliente não informado';
     } else {
+      // Para outros tipos, você pode adicionar lógica específica se necessário
       final filial = movimentacao['filiais'] as Map<String, dynamic>?;
       return filial?['nome']?.toString() ?? 'Filial não informada';
     }
@@ -614,22 +634,21 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   }
 
   Widget _buildItemOrdem(Map<String, dynamic> movimentacao, int index) {
-    final usuario = UsuarioAtual.instance;
     final tipoOp = movimentacao['tipo_op']?.toString() ?? 'venda';
-    final filialNome = _obterNomeFilial(movimentacao);
-    final placasFormatadas = _formatarPlacas(movimentacao['placa']);
-    final quantidadeFormatada = _obterQuantidadeFormatada(movimentacao);
-    final tipoMovimentacao = _obterTipoMovimentacao(movimentacao);
-    final cliente = movimentacao['cliente']?.toString() ?? 'Não informado';
+    final tipoOpTexto = _obterTipoOpTexto(tipoOp);
+    final descricao = _obterDescricaoParaCard(movimentacao);
     final statusCodigo = movimentacao['status_circuito'];
     final statusTexto = _obterStatusTexto(statusCodigo);
     final statusCor = _obterCorStatus(statusCodigo);
     final tipoOpCor = _obterCorTipoOp(tipoOp);
+    
+    // Dados da segunda linha
+    final placasFormatadas = _formatarPlacas(movimentacao['placa']);
+    final quantidadeFormatada = _obterQuantidadeFormatada(movimentacao);
+    final tipoMovimentacao = _obterTipoMovimentacao(movimentacao);
     final dataMov = _formatarData(movimentacao['data_mov']?.toString());
     
-    final entradaSaida = usuario?.nivel == 3 && _filialFiltroId != null
-        ? _determinarEntradaSaida(movimentacao, filialEspecifica: _filialFiltroId)
-        : _determinarEntradaSaida(movimentacao);
+    final entradaSaida = _determinarEntradaSaida(movimentacao);
     final entradaSaidaCor = _obterCorEntradaSaida(entradaSaida);
 
     return MouseRegion(
@@ -656,213 +675,202 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             borderRadius: BorderRadius.circular(8),
             child: Container(
               padding: const EdgeInsets.all(16),
-              child: Row(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 120,
-                    padding: const EdgeInsets.only(right: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          margin: const EdgeInsets.only(bottom: 4),
-                          decoration: BoxDecoration(
-                            color: tipoOpCor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: tipoOpCor.withOpacity(0.3)),
-                          ),
-                          child: Text(
-                            tipoOp.toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: tipoOpCor,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: statusCor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: statusCor.withOpacity(0.3)),
-                          ),
-                          child: Text(
-                            statusTexto,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: statusCor,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          dataMov,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                  // PRIMEIRA LINHA: Tipo da operação, Descrição e Status
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Row(
                           children: [
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.directions_car,
-                                    size: 14,
-                                    color: Colors.grey,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      placasFormatadas,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFF0D47A1),
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 16),
+                            // Tipo da operação
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
+                                color: tipoOpCor.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: tipoOpCor.withOpacity(0.3)),
                               ),
                               child: Text(
-                                filialNome,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey,
+                                tipoOpTexto,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: tipoOpCor,
                                 ),
-                                maxLines: 2,
+                              ),
+                            ),
+                            
+                            const SizedBox(width: 12),
+                            
+                            // Descrição
+                            Expanded(
+                              child: Text(
+                                descricao,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black87,
+                                ),
                                 overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
                               ),
                             ),
                           ],
                         ),
-                        
-                        const SizedBox(height: 8),
-                        
-                        Row(
+                      ),
+                      
+                      const SizedBox(width: 12),
+                      
+                      // Status (alinhado à direita)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusCor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: statusCor.withOpacity(0.3)),
+                        ),
+                        child: Text(
+                          statusTexto,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: statusCor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  // SEGUNDA LINHA: Detalhes da ordem
+                  Row(
+                    children: [
+                      // Data
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.calendar_today,
+                            size: 14,
+                            color: Colors.grey,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            dataMov,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                      
+                      const SizedBox(width: 16),
+                      
+                      // Placas
+                      Expanded(
+                        child: Row(
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
+                            const Icon(
+                              Icons.directions_car,
+                              size: 14,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                placasFormatadas,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black87,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
                               ),
-                              decoration: BoxDecoration(
-                                color: tipoMovimentacao == 'Entrada' 
-                                    ? Colors.green.shade50 
-                                    : Colors.red.shade50,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Row(
-                                children: [
-                                  Text(
-                                    '$quantidadeFormatada Amb.',
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      const SizedBox(width: 16),
+                      
+                      // Quantidade
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: tipoMovimentacao == 'Entrada' 
+                                  ? Colors.green.shade50 
+                                  : Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              children: [
+                                Text(
+                                  '$quantidadeFormatada Amb.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: tipoMovimentacao == 'Entrada' 
+                                        ? Colors.green.shade800 
+                                        : Colors.red.shade800,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: tipoMovimentacao == 'Entrada' 
+                                        ? Colors.green.shade100 
+                                        : Colors.red.shade100,
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                  child: Text(
+                                    tipoMovimentacao,
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 10,
                                       fontWeight: FontWeight.w600,
                                       color: tipoMovimentacao == 'Entrada' 
                                           ? Colors.green.shade800 
                                           : Colors.red.shade800,
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 1,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: tipoMovimentacao == 'Entrada' 
-                                          ? Colors.green.shade100 
-                                          : Colors.red.shade100,
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                    child: Text(
-                                      tipoMovimentacao,
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                        color: tipoMovimentacao == 'Entrada' 
-                                          ? Colors.green.shade800 
-                                          : Colors.red.shade800,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                            
-                            const SizedBox(width: 12),
-                            
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.location_on,
-                                    size: 14,
-                                    color: Colors.grey,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      cliente,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.black87,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
+                          ),
+                        ],
+                      ),
+                      
+                      const SizedBox(width: 12),
+                      
+                      // Entrada/Saída
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
+                          horizontal: 8,
+                          vertical: 4,
                         ),
                         decoration: BoxDecoration(
                           color: entradaSaidaCor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(4),
                           border: Border.all(
                             color: entradaSaidaCor.withOpacity(0.3),
                             width: 1,
@@ -880,7 +888,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                               size: 14,
                               color: entradaSaidaCor,
                             ),
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 4),
                             Text(
                               entradaSaida,
                               style: TextStyle(
@@ -893,19 +901,13 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                         ),
                       ),
                       
-                      const SizedBox(height: 8),
+                      const SizedBox(width: 8),
                       
-                      IconButton(
-                        icon: const Icon(
-                          Icons.arrow_forward_ios,
-                          size: 16,
-                          color: Colors.grey,
-                        ),
-                        onPressed: () {
-                          debugPrint('Abrir detalhes da ordem: ${movimentacao['id']}');
-                        },
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
+                      // Ícone de seta
+                      const Icon(
+                        Icons.arrow_forward_ios,
+                        size: 16,
+                        color: Colors.grey,
                       ),
                     ],
                   ),
