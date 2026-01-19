@@ -24,7 +24,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   String _mensagemErro = '';
   String? _empresaId;
   
-  // Controllers para filtros
   final TextEditingController _filtroGeralController = TextEditingController();
   final TextEditingController _dataFiltroController = TextEditingController();
   String? _filialFiltroId;
@@ -43,7 +42,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       if (usuario == null) return;
 
       if (usuario.nivel == 3) {
-        // Administrador: carrega todas as filiais da empresa
         final dados = await _supabase
             .from('filiais')
             .select('id, nome')
@@ -52,9 +50,11 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
 
         setState(() {
           _filiais = List<Map<String, dynamic>>.from(dados);
+          if (_filialFiltroId == null && _filiais.isNotEmpty) {
+            _filialFiltroId = _filiais.first['id'].toString();
+          }
         });
       } else if (usuario.filialId != null) {
-        // Usuário normal: carrega apenas sua filial
         final filialData = await _supabase
             .from('filiais')
             .select('id, nome')
@@ -89,10 +89,12 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         throw Exception('Não foi possível identificar a empresa do usuário');
       }
 
-      // Carregar filiais primeiro
       await _carregarFiliais();
 
-      // Construir a query base
+      final String? filialUsuario = usuario.nivel == 3 
+          ? _filialFiltroId
+          : usuario.filialId;
+
       var query = _supabase
           .from('movimentacoes')
           .select('''
@@ -105,25 +107,58 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             data_mov,
             filial_id,
             empresa_id,
-            filiais!inner(
-              id,
-              nome
-            )
+            tipo_op,
+            filial_origem_id,
+            filial_destino_id,
+            produtos!produto_id(nome),
+            filiais!estoques_filial_id_fkey(id, nome),
+            filial_origem:filiais!movimentacoes_filial_origem_id_fkey(id, nome),
+            filial_destino:filiais!movimentacoes_filial_destino_id_fkey(id, nome)
           ''')
           .eq('empresa_id', _empresaId!)
           .order('data_mov', ascending: false);
 
       final dados = await query;
-
-      // Filtrar para mostrar apenas ordens da filial do usuário (se não for admin)
       List<Map<String, dynamic>> movimentacoesFiltradas = [];
-      
-      if (usuario.nivel < 3 && usuario.filialId != null) {
-        movimentacoesFiltradas = dados.where((item) {
-          return item['filial_id'] == usuario.filialId;
-        }).toList();
-      } else {
-        movimentacoesFiltradas = List<Map<String, dynamic>>.from(dados);
+
+      if (usuario.nivel < 3) {
+        if (filialUsuario != null) {
+          movimentacoesFiltradas = dados.where((item) {
+            final tipoOp = (item['tipo_op']?.toString() ?? 'venda').toLowerCase();
+            final filialId = item['filial_id']?.toString();
+            final filialOrigemId = item['filial_origem_id']?.toString();
+            final filialDestinoId = item['filial_destino_id']?.toString();
+            
+            if (tipoOp == 'usina') {
+              return filialDestinoId == filialUsuario;
+            } else if (tipoOp == 'transf') {
+              return filialOrigemId == filialUsuario || filialDestinoId == filialUsuario;
+            } else if (tipoOp == 'venda') {
+              return filialId == filialUsuario;
+            }
+            return false;
+          }).toList();
+        }
+      } else if (usuario.nivel == 3) {
+        if (_filialFiltroId != null && _filialFiltroId!.isNotEmpty) {
+          movimentacoesFiltradas = dados.where((item) {
+            final tipoOp = (item['tipo_op']?.toString() ?? 'venda').toLowerCase();
+            final filialId = item['filial_id']?.toString();
+            final filialOrigemId = item['filial_origem_id']?.toString();
+            final filialDestinoId = item['filial_destino_id']?.toString();
+            
+            if (tipoOp == 'usina') {
+              return filialDestinoId == _filialFiltroId;
+            } else if (tipoOp == 'transf') {
+              return filialOrigemId == _filialFiltroId || filialDestinoId == _filialFiltroId;
+            } else if (tipoOp == 'venda') {
+              return filialId == _filialFiltroId;
+            }
+            return false;
+          }).toList();
+        } else {
+          movimentacoesFiltradas = List<Map<String, dynamic>>.from(dados);
+        }
       }
 
       if (mounted) {
@@ -152,14 +187,21 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     
     List<Map<String, dynamic>> resultado = List.from(_movimentacoes);
 
-    // Aplicar filtro de filial
     if (_filialFiltroId != null) {
       resultado = resultado.where((item) {
-        return item['filial_id'] == _filialFiltroId;
+        final tipoOp = (item['tipo_op']?.toString() ?? 'venda').toLowerCase();
+        
+        if (tipoOp == 'usina') {
+          return item['filial_destino_id'] == _filialFiltroId;
+        } else if (tipoOp == 'transf') {
+          return item['filial_origem_id'] == _filialFiltroId || 
+                 item['filial_destino_id'] == _filialFiltroId;
+        } else {
+          return item['filial_id'] == _filialFiltroId;
+        }
       }).toList();
     }
 
-    // Aplicar filtro de data
     if (dataFiltro.isNotEmpty) {
       resultado = resultado.where((item) {
         final dataMov = item['data_mov']?.toString() ?? '';
@@ -175,20 +217,21 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       }).toList();
     }
 
-    // Aplicar filtro geral
     if (termoBusca.isNotEmpty) {
       resultado = resultado.where((item) {
         final placa = _formatarPlacaParaBusca(item['placa'] ?? '');
         final cliente = (item['cliente'] ?? '').toString().toLowerCase();
         final quantidade = _obterQuantidade(item).toString();
-        final filial = (item['filiais']?['nome'] ?? '').toString().toLowerCase();
+        final filial = _obterNomeFilialParaBusca(item).toLowerCase();
         final status = _obterStatusTexto(item['status_circuito']).toLowerCase();
+        final tipoOp = (item['tipo_op'] ?? '').toString().toLowerCase();
 
         return placa.toLowerCase().contains(termoBusca) ||
                cliente.contains(termoBusca) ||
                quantidade.contains(termoBusca) ||
                filial.contains(termoBusca) ||
-               status.contains(termoBusca);
+               status.contains(termoBusca) ||
+               tipoOp.contains(termoBusca);
       }).toList();
     }
 
@@ -197,14 +240,30 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     });
   }
 
-  // Função para formatar placa para busca
+  String _obterNomeFilialParaBusca(Map<String, dynamic> item) {
+    final tipoOp = (item['tipo_op']?.toString() ?? 'venda').toLowerCase();
+    
+    if (tipoOp == 'usina') {
+      final filialDestino = item['filial_destino'] as Map<String, dynamic>?;
+      return filialDestino?['nome']?.toString() ?? '';
+    } else if (tipoOp == 'transf') {
+      final filialOrigem = item['filial_origem'] as Map<String, dynamic>?;
+      final filialDestino = item['filial_destino'] as Map<String, dynamic>?;
+      final origemNome = filialOrigem?['nome']?.toString() ?? '';
+      final destinoNome = filialDestino?['nome']?.toString() ?? '';
+      return '$origemNome $destinoNome';
+    } else {
+      final filial = item['filiais'] as Map<String, dynamic>?;
+      return filial?['nome']?.toString() ?? '';
+    }
+  }
+
   String _formatarPlacaParaBusca(dynamic placaData) {
     if (placaData == null) return '';
     
     if (placaData is List) {
       return placaData.join(', ');
     } else if (placaData is String) {
-      // Tenta converter string formatada para array
       try {
         if (placaData.startsWith('{') && placaData.endsWith('}')) {
           final limpo = placaData.substring(1, placaData.length - 1);
@@ -218,13 +277,11 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     return placaData.toString();
   }
 
-  // Função para obter a quantidade formatada
   String _obterQuantidadeFormatada(Map<String, dynamic> movimentacao) {
     final quantidade = _obterQuantidade(movimentacao);
     return _formatarNumero(quantidade);
   }
 
-  // Função para formatar número com separador de milhar
   String _formatarNumero(int valor) {
     if (valor == 0) return '0';
     
@@ -244,7 +301,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     return resultado;
   }
 
-  // Função para obter a quantidade
   int _obterQuantidade(Map<String, dynamic> movimentacao) {
     final entradaAmb = movimentacao['entrada_amb'];
     final saidaAmb = movimentacao['saida_amb'];
@@ -257,7 +313,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     return 0;
   }
 
-  // Função para obter o tipo da movimentação
   String _obterTipoMovimentacao(Map<String, dynamic> movimentacao) {
     final entradaAmb = movimentacao['entrada_amb'];
     final saidaAmb = movimentacao['saida_amb'];
@@ -270,7 +325,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     return 'N/A';
   }
 
-  // Função para obter status como texto
   String _obterStatusTexto(dynamic statusCodigo) {
     if (statusCodigo == null) return 'Sem status';
     
@@ -286,7 +340,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     }
   }
 
-  // Função para obter a cor do status
   Color _obterCorStatus(dynamic statusCodigo) {
     if (statusCodigo == null) return Colors.grey;
     
@@ -302,7 +355,19 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     }
   }
 
-  // Função para formatar placas
+  Color _obterCorTipoOp(String tipoOp) {
+    switch (tipoOp.toLowerCase()) {
+      case 'usina':
+        return Colors.blue.shade700;
+      case 'transf':
+        return Colors.purple.shade700;
+      case 'venda':
+        return Colors.green.shade700;
+      default:
+        return Colors.grey.shade700;
+    }
+  }
+
   String _formatarPlacas(dynamic placaData) {
     if (placaData == null) return 'N/I';
     
@@ -311,7 +376,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                       .map((p) => p.toString())
                       .join(', ');
     } else if (placaData is String) {
-      // Tenta converter string formatada do PostgreSQL para array
       try {
         if (placaData.startsWith('{') && placaData.endsWith('}')) {
           final limpo = placaData.substring(1, placaData.length - 1);
@@ -329,7 +393,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     return placaData.toString();
   }
 
-  // Função para formatar a data
   String _formatarData(String? dataString) {
     if (dataString == null) return 'Data não informada';
     
@@ -341,7 +404,24 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     }
   }
 
-  // Widget para os filtros
+  String _obterNomeFilial(Map<String, dynamic> movimentacao) {
+    final tipoOp = (movimentacao['tipo_op']?.toString() ?? 'venda').toLowerCase();
+    
+    if (tipoOp == 'usina') {
+      final filialDestino = movimentacao['filial_destino'] as Map<String, dynamic>?;
+      return filialDestino?['nome']?.toString() ?? 'Destino não informado';
+    } else if (tipoOp == 'transf') {
+      final origem = movimentacao['filial_origem'] as Map<String, dynamic>?;
+      final destino = movimentacao['filial_destino'] as Map<String, dynamic>?;
+      final origemNome = origem?['nome']?.toString() ?? 'Origem';
+      final destinoNome = destino?['nome']?.toString() ?? 'Destino';
+      return '$origemNome → $destinoNome';
+    } else {
+      final filial = movimentacao['filiais'] as Map<String, dynamic>?;
+      return filial?['nome']?.toString() ?? 'Filial não informada';
+    }
+  }
+
   Widget _buildFiltros() {
     final usuario = UsuarioAtual.instance;
     final mostraFiltroFilial = usuario?.nivel == 3;
@@ -353,14 +433,13 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            // Filtro de filial (apenas para nível 3)
             if (mostraFiltroFilial) ...[
               Expanded(
                 flex: 2,
                 child: DropdownButtonFormField<String>(
                   value: _filialFiltroId,
                   decoration: InputDecoration(
-                    labelText: 'Filial',
+                    labelText: 'Filial *',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -368,31 +447,33 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                       horizontal: 12,
                       vertical: 16,
                     ),
+                    suffixIcon: _filialFiltroId == null 
+                        ? Icon(Icons.error, color: Colors.orange, size: 20)
+                        : null,
                   ),
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text('Todas as filiais'),
-                    ),
-                    ..._filiais.map((filial) {
-                      return DropdownMenuItem(
-                        value: filial['id'].toString(),
-                        child: Text(filial['nome'].toString()),
-                      );
-                    }).toList(),
-                  ],
+                  items: _filiais.map((filial) {
+                    return DropdownMenuItem(
+                      value: filial['id'].toString(),
+                      child: Text(filial['nome'].toString()),
+                    );
+                  }).toList(),
                   onChanged: (value) {
                     setState(() {
                       _filialFiltroId = value;
                     });
-                    _aplicarFiltros();
+                    _carregarDados();
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Selecione uma filial';
+                    }
+                    return null;
                   },
                 ),
               ),
               const SizedBox(width: 12),
             ],
             
-            // Filtro de data
             Expanded(
               flex: 2,
               child: TextField(
@@ -413,7 +494,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             
             const SizedBox(width: 12),
             
-            // Filtro geral
             Expanded(
               flex: 3,
               child: TextField(
@@ -534,8 +614,9 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   }
 
   Widget _buildItemOrdem(Map<String, dynamic> movimentacao, int index) {
-    final filial = movimentacao['filiais'] as Map<String, dynamic>?;
-    final filialNome = filial?['nome']?.toString() ?? 'Filial não informada';
+    final usuario = UsuarioAtual.instance;
+    final tipoOp = movimentacao['tipo_op']?.toString() ?? 'venda';
+    final filialNome = _obterNomeFilial(movimentacao);
     final placasFormatadas = _formatarPlacas(movimentacao['placa']);
     final quantidadeFormatada = _obterQuantidadeFormatada(movimentacao);
     final tipoMovimentacao = _obterTipoMovimentacao(movimentacao);
@@ -543,7 +624,13 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     final statusCodigo = movimentacao['status_circuito'];
     final statusTexto = _obterStatusTexto(statusCodigo);
     final statusCor = _obterCorStatus(statusCodigo);
+    final tipoOpCor = _obterCorTipoOp(tipoOp);
     final dataMov = _formatarData(movimentacao['data_mov']?.toString());
+    
+    final entradaSaida = usuario?.nivel == 3 && _filialFiltroId != null
+        ? _determinarEntradaSaida(movimentacao, filialEspecifica: _filialFiltroId)
+        : _determinarEntradaSaida(movimentacao);
+    final entradaSaidaCor = _obterCorEntradaSaida(entradaSaida);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -564,22 +651,40 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
           color: Colors.transparent,
           child: InkWell(
             onTap: () {
-              debugPrint('Clicou na ordem: ${movimentacao['id']}');
+              debugPrint('Clicou na ordem: ${movimentacao['id']} (tipo: $tipoOp)');
             },
-            onHover: (hovering) {},
             borderRadius: BorderRadius.circular(8),
             child: Container(
               padding: const EdgeInsets.all(16),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Status (coluna esquerda)
                   Container(
-                    width: 100,
+                    width: 120,
                     padding: const EdgeInsets.only(right: 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          margin: const EdgeInsets.only(bottom: 4),
+                          decoration: BoxDecoration(
+                            color: tipoOpCor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: tipoOpCor.withOpacity(0.3)),
+                          ),
+                          child: Text(
+                            tipoOp.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: tipoOpCor,
+                            ),
+                          ),
+                        ),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
@@ -611,12 +716,10 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                     ),
                   ),
                   
-                  // Informações principais (coluna central)
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Primeira linha: Placas e Filial
                         Row(
                           children: [
                             Expanded(
@@ -646,7 +749,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
-                                vertical: 2,
+                                vertical: 4,
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.grey.shade100,
@@ -658,6 +761,8 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                                   fontSize: 11,
                                   color: Colors.grey,
                                 ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
@@ -665,7 +770,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                         
                         const SizedBox(height: 8),
                         
-                        // Segunda linha: Quantidade, Tipo e Cliente
                         Row(
                           children: [
                             Container(
@@ -709,8 +813,8 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                                         fontSize: 10,
                                         fontWeight: FontWeight.w600,
                                         color: tipoMovimentacao == 'Entrada' 
-                                            ? Colors.green.shade800 
-                                            : Colors.red.shade800,
+                                          ? Colors.green.shade800 
+                                          : Colors.red.shade800,
                                       ),
                                     ),
                                   ),
@@ -748,18 +852,62 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                     ),
                   ),
                   
-                  // Ícone de ação (coluna direita)
-                  IconButton(
-                    icon: const Icon(
-                      Icons.arrow_forward_ios,
-                      size: 16,
-                      color: Colors.grey,
-                    ),
-                    onPressed: () {
-                      debugPrint('Abrir detalhes da ordem: ${movimentacao['id']}');
-                    },
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: entradaSaidaCor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: entradaSaidaCor.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              entradaSaida == 'Entrada' 
+                                ? Icons.download
+                                : entradaSaida == 'Saída'
+                                  ? Icons.upload
+                                  : Icons.swap_horiz,
+                              size: 14,
+                              color: entradaSaidaCor,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              entradaSaida,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: entradaSaidaCor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 8),
+                      
+                      IconButton(
+                        icon: const Icon(
+                          Icons.arrow_forward_ios,
+                          size: 16,
+                          color: Colors.grey,
+                        ),
+                        onPressed: () {
+                          debugPrint('Abrir detalhes da ordem: ${movimentacao['id']}');
+                        },
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -821,10 +969,8 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Filtros
             _buildFiltros(),
             
-            // Lista de ordens
             Expanded(
               child: _carregando
                   ? _buildCarregando()
@@ -846,5 +992,44 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         ),
       ),
     );
+  }
+  
+  String _determinarEntradaSaida(Map<String, dynamic> movimentacao, {String? filialEspecifica}) {
+    final tipoOp = (movimentacao['tipo_op']?.toString() ?? 'venda').toLowerCase();
+    final filialOrigemId = movimentacao['filial_origem_id']?.toString();
+    final filialDestinoId = movimentacao['filial_destino_id']?.toString();
+    
+    final usuario = UsuarioAtual.instance;
+    final filialParaComparar = filialEspecifica ?? usuario?.filialId;
+    
+    if (tipoOp == 'usina') {
+      return 'Entrada';
+    } else if (tipoOp == 'transf') {
+      if (filialParaComparar != null) {
+        if (filialOrigemId == filialParaComparar) {
+          return 'Saída';
+        } else if (filialDestinoId == filialParaComparar) {
+          return 'Entrada';
+        }
+      }
+      return 'Transferência';
+    } else if (tipoOp == 'venda') {
+      return 'Saída';
+    }
+    
+    return 'Indefinido';
+  }
+
+  Color _obterCorEntradaSaida(String tipo) {
+    switch (tipo) {
+      case 'Entrada':
+        return Colors.green.shade700;
+      case 'Saída':
+        return Colors.red.shade700;
+      case 'Transferência':
+        return Colors.purple.shade700;
+      default:
+        return Colors.grey.shade700;
+    }
   }
 }
