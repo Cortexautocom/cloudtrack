@@ -262,7 +262,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
         'placa': _placasControllers.where((c) => c.text.isNotEmpty).map((c) => c.text).toList(),
         'data_mov': DateTime.now().toIso8601String(),
         'tipo_op': 'venda',
-        'tipo_mov': 'saida',
+        'tipo_mov_orig': 'saida', // ALTERADO: salva 'saida' em 'tipo_mov_orig'
         'cliente': _clienteController.text,
         'observacoes': _obsController.text.isEmpty ? null : _obsController.text,
         'produto_id': produtoPrincipal,
