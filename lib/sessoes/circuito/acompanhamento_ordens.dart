@@ -633,6 +633,18 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     );
   }
 
+  Color _obterCorFundoCard(Map<String, dynamic> movimentacao) {
+    final tipoMovimentacao = _obterTipoMovimentacao(movimentacao);
+    
+    if (tipoMovimentacao == 'Entrada') {
+      return Colors.blue.shade50; // Azul claro para entrada
+    } else if (tipoMovimentacao == 'Saída') {
+      return Colors.red.shade50; // Vermelho claro para saída
+    }
+    
+    return Colors.white; // Branco para outros casos
+  }
+
   Widget _buildItemOrdem(Map<String, dynamic> movimentacao, int index) {
     final tipoOp = movimentacao['tipo_op']?.toString() ?? 'venda';
     final tipoOpTexto = _obterTipoOpTexto(tipoOp);
@@ -645,18 +657,17 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     // Dados da segunda linha
     final placasFormatadas = _formatarPlacas(movimentacao['placa']);
     final quantidadeFormatada = _obterQuantidadeFormatada(movimentacao);
-    final tipoMovimentacao = _obterTipoMovimentacao(movimentacao);
     final dataMov = _formatarData(movimentacao['data_mov']?.toString());
     
-    final entradaSaida = _determinarEntradaSaida(movimentacao);
-    final entradaSaidaCor = _obterCorEntradaSaida(entradaSaida);
+    // Cor de fundo do card baseada no tipo de movimento
+    final corFundoCard = _obterCorFundoCard(movimentacao);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: corFundoCard,
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
@@ -675,16 +686,47 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             borderRadius: BorderRadius.circular(8),
             child: Container(
               padding: const EdgeInsets.all(16),
-              child: Column(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // PRIMEIRA LINHA: Tipo da operação, Descrição e Status
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Row(
+                  // Status (ocupando as duas linhas, 100px de largura)
+                  Container(
+                    width: 100,
+                    height: 60, // Altura para ocupar as duas linhas
+                    margin: const EdgeInsets.only(right: 12),
+                    decoration: BoxDecoration(
+                      color: statusCor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: statusCor.withOpacity(0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Text(
+                          statusTexto,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: statusCor,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // PRIMEIRA LINHA: Tipo da operação e Descrição
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Tipo da operação
                             Container(
@@ -724,192 +766,97 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                             ),
                           ],
                         ),
-                      ),
-                      
-                      const SizedBox(width: 12),
-                      
-                      // Status (alinhado à direita)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: statusCor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: statusCor.withOpacity(0.3)),
-                        ),
-                        child: Text(
-                          statusTexto,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: statusCor,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 12),
-                  
-                  // SEGUNDA LINHA: Detalhes da ordem
-                  Row(
-                    children: [
-                      // Data
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.calendar_today,
-                            size: 14,
-                            color: Colors.grey,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            dataMov,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
-                      
-                      const SizedBox(width: 16),
-                      
-                      // Placas
-                      Expanded(
-                        child: Row(
+                        
+                        const SizedBox(height: 12),
+                        
+                        // SEGUNDA LINHA: Detalhes da ordem
+                        Row(
                           children: [
-                            const Icon(
-                              Icons.directions_car,
-                              size: 14,
-                              color: Colors.grey,
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                placasFormatadas,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.black87,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      
-                      const SizedBox(width: 16),
-                      
-                      // Quantidade
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: tipoMovimentacao == 'Entrada' 
-                                  ? Colors.green.shade50 
-                                  : Colors.red.shade50,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Row(
+                            // Data
+                            Row(
                               children: [
-                                Text(
-                                  '$quantidadeFormatada Amb.',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: tipoMovimentacao == 'Entrada' 
-                                        ? Colors.green.shade800 
-                                        : Colors.red.shade800,
-                                  ),
+                                const Icon(
+                                  Icons.calendar_today,
+                                  size: 14,
+                                  color: Colors.grey,
                                 ),
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: tipoMovimentacao == 'Entrada' 
-                                        ? Colors.green.shade100 
-                                        : Colors.red.shade100,
-                                    borderRadius: BorderRadius.circular(3),
-                                  ),
-                                  child: Text(
-                                    tipoMovimentacao,
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                      color: tipoMovimentacao == 'Entrada' 
-                                          ? Colors.green.shade800 
-                                          : Colors.red.shade800,
-                                    ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  dataMov,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
                                   ),
                                 ),
                               ],
                             ),
-                          ),
-                        ],
-                      ),
-                      
-                      const SizedBox(width: 12),
-                      
-                      // Entrada/Saída
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: entradaSaidaCor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: entradaSaidaCor.withOpacity(0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              entradaSaida == 'Entrada' 
-                                ? Icons.download
-                                : entradaSaida == 'Saída'
-                                  ? Icons.upload
-                                  : Icons.swap_horiz,
-                              size: 14,
-                              color: entradaSaidaCor,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              entradaSaida,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: entradaSaidaCor,
+                            
+                            const SizedBox(width: 16),
+                            
+                            // Placas
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.directions_car,
+                                    size: 14,
+                                    color: Colors.grey,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      placasFormatadas,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.black87,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
+                                ],
                               ),
+                            ),
+                            
+                            const SizedBox(width: 16),
+                            
+                            // Quantidade (alinhada à esquerda)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: Colors.grey.shade300,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                '$quantidadeFormatada Amb.',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ),
+                            
+                            const SizedBox(width: 12),
+                            
+                            // Ícone de seta
+                            const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 16,
+                              color: Colors.grey,
                             ),
                           ],
                         ),
-                      ),
-                      
-                      const SizedBox(width: 8),
-                      
-                      // Ícone de seta
-                      const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: Colors.grey,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
