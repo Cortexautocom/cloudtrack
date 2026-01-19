@@ -69,36 +69,66 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
     try {
       final supabase = Supabase.instance.client;
 
-      final response = await supabase
+      // SOLUÇÃO SIMPLES: Usar 'dynamic' para evitar erros de tipo
+      dynamic query = supabase
           .from("movimentacoes")
           .select('''
             *,
-            produtos!produto_id(nome)
+            produtos!produto_id(nome),
+            origem_filial:filiais!filial_origem_id(nome_dois),
+            destino_filial:filiais!filial_destino_id(nome_dois)
           ''')
           .gte("data_mov",
               widget.dataInicio.toIso8601String().split('T')[0])
           .lte("data_mov",
-              widget.dataFim.toIso8601String().split('T')[0])
-          .order("ts_mov", ascending: true);
+              widget.dataFim.toIso8601String().split('T')[0]);
+
+      // Aplicar filtro por filial se necessário
+      if (widget.filialId != 'todas') {
+        // CORREÇÃO: Remover 'referencedTable' ou usar null
+        query = query.or('filial_origem_id.eq.${widget.filialId},filial_destino_id.eq.${widget.filialId}');
+      }
+
+      // Aplicar filtros adicionais
+      if (widget.produtoId != 'todos') {
+        query = query.eq('produto_id', widget.produtoId);
+      }
+
+      if (widget.tipoOp != 'todos') {
+        query = query.eq('tipo_op', widget.tipoOp);
+      }
+
+      // Ordenar por timestamp
+      query = query.order("ts_mov", ascending: true);
+
+      final response = await query;
 
       List<Map<String, dynamic>> lista =
           List<Map<String, dynamic>>.from(response);
 
-      lista = lista.where((m) {
-        if (widget.filialId != 'todas' &&
-            m['filial_id'] != widget.filialId) return false;
-
-        if (widget.produtoId != 'todos' &&
-            m['produto_id'] != widget.produtoId) return false;
-
-        if (widget.tipoMov != 'todos' &&
-            m['tipo_mov'] != widget.tipoMov) return false;
-
-        if (widget.tipoOp != 'todos' &&
-            m['tipo_op'] != widget.tipoOp) return false;
-
-        return true;
-      }).toList();
+      // Filtrar localmente por tipo de movimento (entrada/saída) se necessário
+      if (widget.tipoMov != 'todos' && widget.filialId != 'todas') {
+        lista = lista.where((m) {
+          final filialUsuarioId = widget.filialId;
+          
+          // Determinar se para esta filial específica é entrada ou saída
+          bool isEntradaParaFilial = false;
+          bool isSaidaParaFilial = false;
+          
+          if (m['filial_origem_id'] == filialUsuarioId) {
+            // A filial do usuário é a origem
+            isSaidaParaFilial = m['tipo_mov_orig'] == 'saida';
+          } else if (m['filial_destino_id'] == filialUsuarioId) {
+            // A filial do usuário é o destino
+            isEntradaParaFilial = m['tipo_mov_dest'] == 'entrada';
+          }
+          
+          // Aplicar o filtro
+          if (widget.tipoMov == 'entrada') return isEntradaParaFilial;
+          if (widget.tipoMov == 'saida') return isSaidaParaFilial;
+          return true;
+        }).toList();
+      }
 
       setState(() {
         movimentacoes = lista;
@@ -120,6 +150,65 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
     }
   }
 
+  // Função para obter a quantidade específica do produto
+  int _obterQuantidadeProduto(Map<String, dynamic> movimentacao) {
+    // Lista de colunas de produtos
+    final colunasProduto = [
+      'g_comum',
+      'g_aditivada',
+      'd_s10',
+      'd_s500',
+      'etanol',
+      'anidro',
+      'b100',
+      'gasolina_a',
+      's500_a',
+      's10_a'
+    ];
+    
+    // Buscar a coluna que tem valor diferente de 0
+    for (final coluna in colunasProduto) {
+      final valor = movimentacao[coluna];
+      if (valor != null && valor != 0) {
+        return (valor is int) ? valor : int.tryParse(valor.toString()) ?? 0;
+      }
+    }
+    
+    // Se não encontrar, usar a quantidade geral
+    return movimentacao['quantidade'] is int 
+        ? movimentacao['quantidade'] 
+        : int.tryParse(movimentacao['quantidade']?.toString() ?? '0') ?? 0;
+  }
+
+  // Função para determinar se é entrada ou saída para a filial específica
+  String _obterTipoMovimentoParaFilial(Map<String, dynamic> movimentacao, String filialId) {
+    if (movimentacao['filial_origem_id'] == filialId) {
+      return 'Saída';
+    } else if (movimentacao['filial_destino_id'] == filialId) {
+      return 'Entrada';
+    }
+    return 'N/A';
+  }
+
+  // Função para obter a descrição formatada
+  String _obterDescricaoFormatada(Map<String, dynamic> movimentacao, String filialId) {
+    final origemNome = movimentacao['origem_filial']?['nome_dois']?.toString() ?? '';
+    final destinoNome = movimentacao['destino_filial']?['nome_dois']?.toString() ?? '';
+    final descricao = movimentacao['descricao']?.toString() ?? '';
+    
+    // Se for transferência
+    if (movimentacao['tipo_op'] == 'Transf') {
+      if (movimentacao['filial_origem_id'] == filialId) {
+        return 'Transferência para $destinoNome';
+      } else if (movimentacao['filial_destino_id'] == filialId) {
+        return 'Transferência de $origemNome';
+      }
+    }
+    
+    // Para outros tipos (venda, etc.)
+    return descricao;
+  }
+
   List<Map<String, dynamic>> get _movimentacoesFiltradas {
     final query = _searchController.text.toLowerCase().trim();
     if (query.isEmpty) return movimentacoes;
@@ -132,6 +221,10 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
           (m['quantidade']?.toString().toLowerCase() ?? '')
               .contains(query) ||
           (m['produtos']?['nome']?.toString().toLowerCase() ?? '')
+              .contains(query) ||
+          (m['origem_filial']?['nome_dois']?.toString().toLowerCase() ?? '')
+              .contains(query) ||
+          (m['destino_filial']?['nome_dois']?.toString().toLowerCase() ?? '')
               .contains(query);
     }).toList();
   }
@@ -222,12 +315,38 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
               color: Colors.grey.shade600,
             ),
           ),
+          if (widget.filialId != 'todas')
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Filtro aplicado: ${widget.tipoMov != 'todos' ? widget.tipoMov : ''} '
+                '${widget.tipoOp != 'todos' ? widget.tipoOp : ''}',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade500,
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
   Widget _buildTabelaConteudo() {
+    // Usar List<double> para evitar erro de tipo
+    final List<double> larguras = [
+      90.0,   // Data
+      70.0,   // Tipo
+      90.0,   // Operação
+      130.0,  // Produto
+      170.0,  // Descrição
+      90.0,   // Quantidade
+      130.0,  // Origem
+      130.0,  // Destino
+    ];
+    
+    final larguraTotal = larguras.reduce((a, b) => a + b); // 900.0 pixels
+
     return Scrollbar(
       controller: _verticalScrollController,
       thumbVisibility: true,
@@ -243,16 +362,20 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                 controller: _horizontalHeaderController,
                 scrollDirection: Axis.horizontal,
                 child: SizedBox(
-                  width: 600,
+                  width: larguraTotal,
                   child: Container(
                     height: 40,
                     color: const Color(0xFF0D47A1),
                     child: Row(
                       children: [
-                        _th("Data", 120),
-                        _th("Produto", 200),
-                        _th("Descrição", 200),
-                        _th("Quantidade", 80),
+                        _th("Data", larguras[0]),
+                        _th("Tipo", larguras[1]),
+                        _th("Operação", larguras[2]),
+                        _th("Produto", larguras[3]),
+                        _th("Descrição", larguras[4]),
+                        _th("Quantidade", larguras[5]),
+                        _th("Origem", larguras[6]),
+                        _th("Destino", larguras[7]),
                       ],
                     ),
                   ),
@@ -268,52 +391,72 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                 controller: _horizontalBodyController,
                 scrollDirection: Axis.horizontal,
                 child: SizedBox(
-                  width: 600,
+                  width: larguraTotal,
                   child: ListView.builder(
                     shrinkWrap: true,
-                    physics:
-                        const NeverScrollableScrollPhysics(),
-                    itemCount:
-                        _movimentacoesFiltradas.length,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _movimentacoesFiltradas.length,
                     itemBuilder: (context, index) {
-                      final m =
-                          _movimentacoesFiltradas[index];
-
+                      final m = _movimentacoesFiltradas[index];
                       final data = m['data_mov'] is String
                           ? DateTime.parse(m['data_mov'])
                           : m['data_mov'];
-
-                      final produtoNome =
-                          m['produtos']?['nome']?.toString() ?? '';
-
-                      final quantidade =
-                          m['quantidade']?.toString() ?? '';
+                      final produtoNome = m['produtos']?['nome']?.toString() ?? '';
+                      final quantidade = _obterQuantidadeProduto(m);
+                      
+                      String tipoMovimento = 'N/A';
+                      if (widget.filialId != 'todas') {
+                        tipoMovimento = _obterTipoMovimentoParaFilial(m, widget.filialId);
+                      }
+                      
+                      final descricaoFormatada = _obterDescricaoFormatada(m, widget.filialId);
+                      final origemNome = m['origem_filial']?['nome_dois']?.toString() ?? '';
+                      final destinoNome = m['destino_filial']?['nome_dois']?.toString() ?? '';
+                      
+                      Color corFundo = Colors.white;
+                      if (index % 2 == 0) {
+                        corFundo = Colors.grey.shade50;
+                      }
+                      
+                      if (tipoMovimento == 'Entrada') {
+                        corFundo = Colors.green.shade50;
+                      } else if (tipoMovimento == 'Saída') {
+                        corFundo = Colors.red.shade50;
+                      }
 
                       return Container(
                         height: 40,
                         decoration: BoxDecoration(
-                          color: index % 2 == 0
-                              ? Colors.grey.shade50
-                              : Colors.white,
+                          color: corFundo,
                           border: Border(
                             bottom: BorderSide(
-                                color:
-                                    Colors.grey.shade200,
-                                width: 0.5),
+                              color: Colors.grey.shade200,
+                              width: 0.5,
+                            ),
                           ),
                         ),
                         child: Row(
                           children: [
                             _cell(
-                                '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}',
-                                120),
-                            _cell(produtoNome, 200),
+                              '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}',
+                              larguras[0],
+                            ),
                             _cell(
-                                m['descricao']?.toString() ??
-                                    '',
-                                200),
-                            _cell(quantidade, 80,
-                                isNumber: true),
+                              tipoMovimento,
+                              larguras[1],
+                              isEntrada: tipoMovimento == 'Entrada',
+                              isSaida: tipoMovimento == 'Saída',
+                            ),
+                            _cell(m['tipo_op']?.toString() ?? '', larguras[2]),
+                            _cell(produtoNome, larguras[3]),
+                            _cell(descricaoFormatada, larguras[4]),
+                            _cell(
+                              quantidade.toString(),
+                              larguras[5],
+                              isNumber: true,
+                            ),
+                            _cell(origemNome, larguras[6]),
+                            _cell(destinoNome, larguras[7]),
                           ],
                         ),
                       );
@@ -327,16 +470,60 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
             Container(
               height: 32,
               color: Colors.grey.shade100,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               alignment: Alignment.centerLeft,
-              child: Text(
-                '${_movimentacoesFiltradas.length} movimentação(ões)',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w500,
-                ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${_movimentacoesFiltradas.length} movimentação(ões)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (widget.filialId != 'todas')
+                    Row(
+                      children: [
+                        Container(
+                          width: 12,
+                          height: 12,
+                          margin: const EdgeInsets.only(right: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade100,
+                            border: Border.all(color: Colors.green.shade300),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        Text(
+                          'Entrada',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          width: 12,
+                          height: 12,
+                          margin: const EdgeInsets.only(right: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade100,
+                            border: Border.all(color: Colors.red.shade300),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        Text(
+                          'Saída',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
               ),
             ),
           ],
@@ -362,7 +549,18 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
   }
 
   Widget _cell(String texto, double largura,
-      {bool isNumber = false}) {
+      {bool isNumber = false, bool isEntrada = false, bool isSaida = false}) {
+    Color corTexto = Colors.grey.shade700;
+    FontWeight peso = isNumber ? FontWeight.w600 : FontWeight.normal;
+    
+    if (isEntrada) {
+      corTexto = Colors.green.shade800;
+      peso = FontWeight.w600;
+    } else if (isSaida) {
+      corTexto = Colors.red.shade800;
+      peso = FontWeight.w600;
+    }
+
     return Container(
       width: largura,
       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -371,9 +569,8 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
         texto.isNotEmpty ? texto : '-',
         style: TextStyle(
           fontSize: 12,
-          color: Colors.grey.shade700,
-          fontWeight:
-              isNumber ? FontWeight.w600 : FontWeight.normal,
+          color: corTexto,
+          fontWeight: peso,
         ),
         textAlign: TextAlign.center,
         maxLines: 1,
