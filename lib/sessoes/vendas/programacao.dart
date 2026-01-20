@@ -124,12 +124,68 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     if (query.isEmpty) return _obterDadosFiltrados(grupoAtual);
 
     return _obterDadosFiltrados(grupoAtual).where((t) {
-      return (t['cliente']?.toString().toLowerCase() ?? '').contains(query) ||
+      // Verifica campos de texto existentes
+      if ((t['cliente']?.toString().toLowerCase() ?? '').contains(query) ||
           (t['placa']?.toString().toLowerCase() ?? '').contains(query) ||
           (t['forma_pagamento']?.toString().toLowerCase() ?? '').contains(query) ||
           (t['codigo']?.toString().toLowerCase() ?? '').contains(query) ||
-          (t['uf']?.toString().toLowerCase() ?? '').contains(query);
+          (t['uf']?.toString().toLowerCase() ?? '').contains(query)) {
+        return true;
+      }
+
+      // Verifica quantidades para o grupo atual
+      if (grupoAtual == 0) {
+        // Grupo 1: G. Comum, G. Aditivada, D. S10, D. S500, Etanol
+        return _verificarQuantidades(t, query, [
+          'g_comum', 'g_aditivada', 'd_s10', 'd_s500', 'etanol'
+        ]);
+      } else {
+        // Grupo 2: B100, G. A, S500 A, S10 A, Anidro
+        return _verificarQuantidades(t, query, [
+          'b100', 'gasolina_a', 's500_a', 's10_a', 'anidro'
+        ]);
+      }
     }).toList();
+  }
+
+  bool _verificarQuantidades(Map<String, dynamic> item, String query, List<String> campos) {
+    for (final campo in campos) {
+      final valor = item[campo]?.toString() ?? '';
+      if (valor.isNotEmpty) {
+        // Tenta verificar como número formatado (ex: 1.000)
+        final quantidadeFormatada = _formatarQuantidadeParaBusca(valor);
+        if (quantidadeFormatada.contains(query)) {
+          return true;
+        }
+        
+        // Tenta verificar como número puro (ex: 1000)
+        final apenasNumeros = valor.replaceAll(RegExp(r'[^\d]'), '');
+        if (apenasNumeros.contains(query)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  String _formatarQuantidadeParaBusca(String quantidade) {
+    try {
+      final apenasNumeros = quantidade.replaceAll(RegExp(r'[^\d]'), '');
+      if (apenasNumeros.isEmpty || apenasNumeros == '0') return '';
+      
+      final valor = int.parse(apenasNumeros);
+      if (valor == 0) return '';
+      
+      if (valor > 999) {
+        final parteMilhar = (valor ~/ 1000).toString();
+        final parteCentena = (valor % 1000).toString().padLeft(3, '0');
+        return '$parteMilhar.$parteCentena';
+      }
+      
+      return valor.toString();
+    } catch (e) {
+      return quantidade;
+    }
   }
 
   List<Map<String, dynamic>> _obterDadosFiltrados(int grupo) {
