@@ -9,8 +9,17 @@ import 'dart:async';
 
 class ProgramacaoPage extends StatefulWidget {
   final VoidCallback onVoltar;
+  final String? filialId;
+  final String? filialNome;
+  final String? filialNomeDois;
 
-  const ProgramacaoPage({super.key, required this.onVoltar});
+  const ProgramacaoPage({
+    super.key, 
+    required this.onVoltar,
+    this.filialId,
+    this.filialNome,
+    this.filialNomeDois,
+  });
 
   @override
   State<ProgramacaoPage> createState() => _ProgramacaoPageState();
@@ -58,16 +67,22 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
 
     try {
       final supabase = Supabase.instance.client;
-      final response = await supabase
+      
+      var query = supabase
           .from("movimentacoes")
           .select("*")
           .eq("tipo_op", "venda");
+      
+      if (widget.filialId != null && widget.filialId!.isNotEmpty) {
+        query = query.eq('filial_id', widget.filialId!);
+      }
+      
+      final response = await query;
 
       setState(() {
         movimentacoes = List<Map<String, dynamic>>.from(response);
       });
     } catch (e) {
-      debugPrint("Erro ao carregar movimentacoes: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -92,6 +107,8 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
             carregar();
           }
         },
+        filialId: widget.filialId,
+        filialNome: widget.filialNome,
       ),
     );
 
@@ -116,10 +133,12 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
   List<Map<String, dynamic>> _obterDadosFiltrados(int grupo) {
     return movimentacoes.where((l) {
       if (grupo == 0) {
-        return ['g_comum', 'g_aditivada', 'd_s10', 'd_s500', 'etanol', 'anidro']
+        // Grupo 1: G. Comum, G. Aditivada, D. S10, D. S500, Etanol
+        return ['g_comum', 'g_aditivada', 'd_s10', 'd_s500', 'etanol']
             .any((k) => (double.tryParse(l[k]?.toString() ?? '0') ?? 0) > 0);
       } else {
-        return ['b100', 'gasolina_a', 's500_a', 's10_a']
+        // Grupo 2: B100, G. A, S500 A, S10 A, Anidro
+        return ['b100', 'gasolina_a', 's500_a', 's10_a', 'anidro']
             .any((k) => (double.tryParse(l[k]?.toString() ?? '0') ?? 0) > 0);
       }
     }).toList();
@@ -157,9 +176,16 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
 
   @override
   Widget build(BuildContext context) {
+    String tituloAppBar = "Programação de Vendas";
+    if (widget.filialNomeDois != null && widget.filialNomeDois!.isNotEmpty) {
+      tituloAppBar = "Programação ${widget.filialNomeDois}";
+    } else if (widget.filialNome != null && widget.filialNome!.isNotEmpty) {
+      tituloAppBar = "Programação ${widget.filialNome}";
+    }
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Programação de Vendas"),
+        title: Text(tituloAppBar),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: widget.onVoltar,
@@ -418,11 +444,11 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
               
               if (grupoAtual == 0) {
                 temProduto = [
-                  'g_comum', 'g_aditivada', 'd_s10', 'd_s500', 'etanol', 'anidro'
+                  'g_comum', 'g_aditivada', 'd_s10', 'd_s500', 'etanol'
                 ].any((k) => (double.tryParse(t[k]?.toString() ?? '0') ?? 0) > 0);
               } else {
                 temProduto = [
-                  'b100', 'gasolina_a', 's500_a', 's10_a'
+                  'b100', 'gasolina_a', 's500_a', 's10_a', 'anidro'
                 ].any((k) => (double.tryParse(t[k]?.toString() ?? '0') ?? 0) > 0);
               }
               
@@ -455,9 +481,11 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     double larguraFixa = 120 + 100 + 220 + 80 + 60 + 100;
     
     if (grupoAtual == 0) {
-      return larguraFixa + (90 * 6); // 6 colunas do Grupo 1
+      // Grupo 1: 5 colunas (G. Comum, G. Aditivada, D. S10, D. S500, Etanol)
+      return larguraFixa + (90 * 5);
     } else {
-      return larguraFixa + (90 * 4); // 4 colunas do Grupo 2
+      // Grupo 2: 5 colunas (B100, G. A, S500 A, S10 A, Anidro)
+      return larguraFixa + (90 * 5);
     }
   }
 
@@ -479,7 +507,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
         _th("D. S10", 90),
         _th("D. S500", 90),
         _th("Etanol", 90),
-        _th("Anidro", 90),
       ];
     } else {
       return [
@@ -488,6 +515,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
         _th("G. A", 90),
         _th("S500 A", 90),
         _th("S10 A", 90),
+        _th("Anidro", 90),
       ];
     }
   }
@@ -538,7 +566,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
         _cell(_formatarQuantidade(t["d_s10"].toString()), 90, isNumber: true),
         _cell(_formatarQuantidade(t["d_s500"].toString()), 90, isNumber: true),
         _cell(_formatarQuantidade(t["etanol"].toString()), 90, isNumber: true),
-        _cell(_formatarQuantidade(t["anidro"].toString()), 90, isNumber: true),
       ];
     } else {
       return [
@@ -547,6 +574,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
         _cell(_formatarQuantidade(t["gasolina_a"].toString()), 90, isNumber: true),
         _cell(_formatarQuantidade(t["s500_a"].toString()), 90, isNumber: true),
         _cell(_formatarQuantidade(t["s10_a"].toString()), 90, isNumber: true),
+        _cell(_formatarQuantidade(t["anidro"].toString()), 90, isNumber: true),
       ];
     }
   }

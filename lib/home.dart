@@ -107,11 +107,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   // MAPA UNIFICADO DE FILHOS POR SESSÃO
   final Map<String, List<Map<String, dynamic>>> _filhosPorSessao = {};
 
+  // NOVA LISTA PARA ARMAZENAR FILIAIS PARA PROGRAMACAO
+  List<Map<String, dynamic>> _filiaisProgramacao = [];
+
   @override
   void initState() {
     super.initState();
     _inicializarFilhosPorSessao();
     selectedIndex = -1;
+    // Carregar filiais para programação
+    _carregarFilialParaProgramacao();
   }
 
   void _inicializarFilhosPorSessao() {
@@ -233,14 +238,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       },
     ];
 
-    // Filhos para "Vendas"
+    // Filhos para "Vendas" - REMOVIDO o card único "Programação"
     _filhosPorSessao['Vendas'] = [
-      {
-        'icon': Icons.local_gas_station,
-        'label': 'Programação',
-        'descricao': 'Programação de vendas',
-        'tipo': 'programacao_vendas',
-      },
+      // Card único removido para ser substituído pelos cards dinâmicos por filial
     ];
 
     // Filhos para "Bombeios"
@@ -252,6 +252,75 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'tipo': 'bombeios',
       },
     ];
+  }
+
+  // NOVO MÉTODO PARA CARREGAR FILIAIS PARA PROGRAMACAO
+  Future<void> _carregarFilialParaProgramacao() async {
+    final supabase = Supabase.instance.client;
+    final usuario = UsuarioAtual.instance;
+    
+    try {
+      dynamic queryResult;
+      
+      if (usuario != null && usuario.nivel < 3) {
+        List<String> filiaisPermitidas = [];
+        
+        if (usuario.filialId != null) {
+          filiaisPermitidas.add(usuario.filialId!);
+        }
+        
+        if (filiaisPermitidas.isEmpty) {
+          queryResult = await supabase
+              .from('filiais')
+              .select('id, nome, nome_dois, cidade')
+              .eq('id', '00000000-0000-0000-0000-000000000000')
+              .order('nome');
+        } else {
+          queryResult = await supabase
+              .from('filiais')
+              .select('id, nome, nome_dois, cidade')
+              .inFilter('id', filiaisPermitidas)
+              .order('nome');
+        }
+      } else {
+        queryResult = await supabase
+            .from('filiais')
+            .select('id, nome, nome_dois, cidade')
+            .order('nome');
+      }
+      
+      List<Map<String, dynamic>> dados = [];
+      
+      if (queryResult is List) {
+        for (var item in queryResult) {
+          if (item is Map<String, dynamic>) {
+            dados.add(item);
+          } else {
+            final map = Map<String, dynamic>.from(item as Map);
+            dados.add(map);
+          }
+        }
+      }
+      
+      setState(() {
+        _filiaisProgramacao = dados.map((filial) {
+          final nomeFilial = filial['nome_dois'] ?? filial['nome'];
+          return {
+            'id': filial['id'],
+            'label': '$nomeFilial',
+            'descricao': filial['cidade'],
+            'tipo': 'programacao_filial',
+            'filial_id': filial['id'],
+            'filial_nome': filial['nome'],
+            'filial_nome_dois': nomeFilial,
+            'icon': Icons.local_gas_station,
+          };
+        }).toList();
+      });
+      
+    } catch (e) {
+      debugPrint("❌ Erro ao carregar filiais para programação: $e");
+    }
   }
 
   Future<void> _carregarEmpresas() async {
@@ -543,7 +612,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   void _mostrarFilhosDaSessao(String nomeSessao) {
-    final filhos = _filhosPorSessao[nomeSessao] ?? [];
+    List<Map<String, dynamic>> filhos = [];
+    
+    if (nomeSessao == 'Vendas') {
+      // Para a sessão Vendas, usar os cards dinâmicos de programação por filial
+      filhos = List.from(_filiaisProgramacao);
+    } else {
+      // Para outras sessões, usar os filhos predefinidos
+      filhos = List.from(_filhosPorSessao[nomeSessao] ?? []);
+    }
     
     setState(() {
       _mostrarFilhosSessao = true;
@@ -1623,7 +1700,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         _navegarParaCardGestaoFrota(tipo);
         break;
       case 'Vendas':
-        _navegarParaCardVendas(tipo);
+        _navegarParaCardVendas(tipo, card);
         break;
       case 'Bombeios e Cotas':
         _navegarParaCardBombeios(tipo);
@@ -1776,9 +1853,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
-  void _navegarParaCardVendas(String tipo) {
+  // MODIFICADO: Agora recebe o card completo para extrair dados da filial
+  void _navegarParaCardVendas(String tipo, Map<String, dynamic> card) {
     switch (tipo) {
-      case 'programacao_vendas':
+      case 'programacao_filial':
+        final filialId = card['filial_id'];
+        final filialNome = card['filial_nome'];
+        final filialNomeDois = card['filial_nome_dois'];
+        
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -1786,6 +1868,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               onVoltar: () {
                 Navigator.pop(context);
               },
+              filialId: filialId,
+              filialNome: filialNome,
+              filialNomeDois: filialNomeDois,
             ),
           ),
         );

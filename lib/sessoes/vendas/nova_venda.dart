@@ -3,10 +3,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NovaVendaDialog extends StatefulWidget {
   final Function(bool sucesso)? onSalvar;
+  final String? filialId;
+  final String? filialNome;
 
   const NovaVendaDialog({
     super.key,
     this.onSalvar,
+    this.filialId,
+    this.filialNome,
   });
 
   @override
@@ -262,7 +266,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
         'placa': _placasControllers.where((c) => c.text.isNotEmpty).map((c) => c.text).toList(),
         'data_mov': DateTime.now().toIso8601String(),
         'tipo_op': 'venda',
-        'tipo_mov_orig': 'saida', // ALTERADO: salva 'saida' em 'tipo_mov_orig'
+        'tipo_mov_orig': 'saida',
         'cliente': _clienteController.text,
         'observacoes': _obsController.text.isEmpty ? null : _obsController.text,
         'produto_id': produtoPrincipal,
@@ -273,6 +277,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
         'codigo': null,
         'anp': false,
         colunaProduto: quantidade,
+        'filial_id': widget.filialId,
       };
 
       // Define zero nas outras colunas
