@@ -114,6 +114,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
           .from('cacl')
           .select('''
             id,
+            numero_controle,
             data,
             produto,
             tanque_id,
@@ -561,6 +562,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                           final tanqueNome = cacl['tanques']?['referencia']?.toString();
                           final tanque = tanqueNome ?? '-';
                           final produto = cacl['produto'] ?? 'Produto não informado';
+                          final numeroControle = cacl['numero_controle']?.toString() ?? '';
                           final data = _formatarData(cacl['data']);
                           final horario = _formatarHorario(
                             cacl['horario_inicial'],
@@ -682,7 +684,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                                               ),
                                               const SizedBox(height: 4),
                                               
-                                              // Linha 2: Produto
+                                              // Linha 2: Produto e Número de Controle
                                               Row(
                                                 children: [
                                                   Icon(
@@ -693,17 +695,42 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                                                         : Colors.black54,
                                                   ),
                                                   const SizedBox(width: 6),
-                                                  Expanded(
-                                                    child: Text(
-                                                      produto,
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        color: isCancelado 
-                                                            ? Colors.grey 
-                                                            : Colors.black87,
-                                                      ),
-                                                      maxLines: 1,
+                                                  Flexible(
+                                                    child: RichText(
                                                       overflow: TextOverflow.ellipsis,
+                                                      maxLines: 1,
+                                                      text: TextSpan(
+                                                        children: [
+                                                          TextSpan(
+                                                            text: produto,
+                                                            style: TextStyle(
+                                                              fontSize: 14,
+                                                              color: isCancelado 
+                                                                  ? Colors.grey 
+                                                                  : Colors.black87,
+                                                            ),
+                                                          ),
+                                                          if (numeroControle.isNotEmpty) ...[
+                                                            const TextSpan(
+                                                              text: '  •  ',
+                                                              style: TextStyle(
+                                                                fontSize: 12,
+                                                                color: Colors.grey,
+                                                              ),
+                                                            ),
+                                                            TextSpan(
+                                                              text: 'CACL: $numeroControle',
+                                                              style: TextStyle(
+                                                                fontSize: 13,
+                                                                color: isCancelado 
+                                                                    ? Colors.grey 
+                                                                    : const Color.fromARGB(255, 92, 92, 92),
+                                                                fontStyle: FontStyle.italic,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ],
+                                                      ),
                                                     ),
                                                   ),
                                                 ],

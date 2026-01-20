@@ -342,8 +342,8 @@ class CACLPdf {
         
         _linhaMedicaoTabelaCompacta(
           "Volume produto (ambiente):",
-          _obterValorMedicaoPDF(medicoes['volumeTotalInicial']),
-          _obterValorMedicaoPDF(medicoes['volumeTotalFinal']),
+          _obterValorMedicaoPDF(medicoes['volumeTotalLiquidoInicial']),
+          _obterValorMedicaoPDF(medicoes['volumeTotalLiquidoFinal']),
         ),
         
         _linhaMedicaoTabelaCompacta(
@@ -414,8 +414,8 @@ class CACLPdf {
       return double.tryParse(somenteNumeros) ?? 0;
     }
     
-    final volumeInicial = extrairNumero(medicoes['volumeTotalInicial']?.toString());
-    final volumeFinal = extrairNumero(medicoes['volumeTotalFinal']?.toString());
+    final volumeInicial = extrairNumero(medicoes['volumeProdutoInicial']?.toString());
+    final volumeFinal = extrairNumero(medicoes['volumeProdutoFinal']?.toString());
     final volume20Inicial = extrairNumero(medicoes['volume20Inicial']?.toString());
     final volume20Final = extrairNumero(medicoes['volume20Final']?.toString());
     
