@@ -33,6 +33,8 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
   final ScrollController _horizontalBodyController = ScrollController();
   final ScrollController _verticalScrollController = ScrollController();
   int grupoAtual = 0;
+  bool _hoverGrupo1 = false;
+  bool _hoverGrupo2 = false;
 
   @override
   void initState() {
@@ -184,28 +186,68 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     }
     
     return Scaffold(
-      appBar: AppBar(
-        title: Text(tituloAppBar),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: widget.onVoltar,
-        ),
-        actions: [
+      appBar: null,
+      body: Column(
+        children: [
+          // AppBar personalizada FIXA
           Container(
-            width: 300,
-            margin: const EdgeInsets.only(right: 16),
-            child: _buildSearchField(),
+            height: kToolbarHeight + MediaQuery.of(context).padding.top,
+            padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top,
+              left: 16, // Adiciona padding à esquerda
+              right: 16, // Adiciona padding à direita
+            ),
+            color: Colors.white,
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.black),
+                  onPressed: widget.onVoltar,
+                ),
+                const SizedBox(width: 8), // Espaço entre botão e título
+                // Título alinhado à esquerda
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft, // Alinha à esquerda
+                    child: Text(
+                      tituloAppBar,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
+                      ),
+                      overflow: TextOverflow.ellipsis, // Trunca texto longo
+                      maxLines: 1, // Mantém em uma linha
+                    ),
+                  ),
+                ),
+                // Campo de busca e botão de atualizar
+                Container(
+                  width: 250, // Reduzido para dar mais espaço
+                  margin: const EdgeInsets.only(right: 12),
+                  child: _buildSearchField(),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh, color: Colors.black),
+                  onPressed: carregar,
+                  tooltip: 'Atualizar',
+                ),
+              ],
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: carregar,
-            tooltip: 'Atualizar',
+          // Linha divisória opcional
+          Container(
+            height: 1,
+            color: Colors.grey.shade300,
+          ),
+          // Resto do conteúdo
+          Expanded(
+            child: carregando
+                ? const Center(child: CircularProgressIndicator())
+                : _buildBodyContent(),
           ),
         ],
       ),
-      body: carregando
-          ? const Center(child: CircularProgressIndicator())
-          : _buildBodyContent(),
       floatingActionButton: FloatingActionButton(
         onPressed: _mostrarDialogNovaVenda,
         backgroundColor: const Color(0xFF0D47A1),
@@ -221,55 +263,149 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
   }
 
   Widget _buildBodyContent() {
+    return Column(
+      children: [
+        // Painel fixo com controles e cabeçalho da tabela
+        _buildFixedPanel(),
+        
+        // Corpo rolável da tabela
+        Expanded(
+          child: _buildScrollableTable(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFixedPanel() {
+    return Column(
+      children: [
+        // Menu de navegação de grupos - FIXO
+        Container(
+          height: 40,
+          color: Colors.grey.shade100,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildGrupoButton("Grupo 1", 0),
+              const SizedBox(width: 16),
+              _buildGrupoButton("Grupo 2", 1),
+            ],
+          ),
+        ),
+        
+        // Contador de registros - FIXO
+        Container(
+          height: 32,
+          color: Colors.grey.shade50,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          alignment: Alignment.centerLeft,
+          child: Text(
+            '${_movimentacoesFiltradas.length} venda(s)',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        
+        // Cabeçalho da tabela - FIXO
+        if (_movimentacoesFiltradas.isNotEmpty)
+          _buildFixedHeader(),
+      ],
+    );
+  }
+
+  Widget _buildFixedHeader() {
+    final larguraTabela = _obterLarguraTabela();
+    
     return Scrollbar(
-      controller: _verticalScrollController,
+      controller: _horizontalHeaderController,
       thumbVisibility: true,
       child: SingleChildScrollView(
-        controller: _verticalScrollController,
+        controller: _horizontalHeaderController,
+        scrollDirection: Axis.horizontal,
         child: SizedBox(
-          width: MediaQuery.of(context).size.width,
-          child: Column(
-            children: [
-              // Menu de navegação de grupos - SEMPRE VISÍVEL
-              Container(
-                height: 40,
-                color: Colors.grey.shade100,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildGrupoButton("Grupo 1", 0),
-                    const SizedBox(width: 16),
-                    _buildGrupoButton("Grupo 2", 1),
-                  ],
-                ),
-              ),
-              
-              // Contador de registros - SEMPRE VISÍVEL
-              Container(
-                height: 32,
-                color: Colors.grey.shade50,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  '${_movimentacoesFiltradas.length} venda(s)',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              
-              // Conteúdo da tabela ou mensagem vazia
-              if (_movimentacoesFiltradas.isEmpty)
-                _buildEmptyState()
-              else
-                _buildTabelaConteudo(),
-            ],
+          width: larguraTabela,
+          child: Container(
+            height: 40,
+            color: const Color(0xFF0D47A1),
+            child: Row(
+              children: _obterColunasCabecalho(),
+            ),
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildScrollableTable() {
+    return _movimentacoesFiltradas.isEmpty
+        ? _buildEmptyState()
+        : Scrollbar(
+            controller: _verticalScrollController,
+            thumbVisibility: true,
+            child: SingleChildScrollView(
+              controller: _verticalScrollController,
+              child: Scrollbar(
+                controller: _horizontalBodyController,
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  controller: _horizontalBodyController,
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: _obterLarguraTabela(),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _movimentacoesFiltradas.length,
+                      itemBuilder: (context, index) {
+                        final t = _movimentacoesFiltradas[index];
+                        final statusCircuito = t['status_circuito'];
+                        final statusTexto = _obterTextoStatus(statusCircuito);
+                        final corStatus = _obterCorStatus(statusCircuito);
+                        
+                        // Verificar se há valores nos produtos do grupo atual
+                        bool temProduto = false;
+                        String codigo = "";
+                        String uf = "";
+                        String prazo = "";
+                        
+                        if (grupoAtual == 0) {
+                          temProduto = [
+                            'g_comum', 'g_aditivada', 'd_s10', 'd_s500', 'etanol'
+                          ].any((k) => (double.tryParse(t[k]?.toString() ?? '0') ?? 0) > 0);
+                        } else {
+                          temProduto = [
+                            'b100', 'gasolina_a', 's500_a', 's10_a', 'anidro'
+                          ].any((k) => (double.tryParse(t[k]?.toString() ?? '0') ?? 0) > 0);
+                        }
+                        
+                        if (temProduto) {
+                          codigo = t["codigo"]?.toString() ?? "";
+                          uf = t["uf"]?.toString() ?? "";
+                          prazo = t["forma_pagamento"]?.toString() ?? "";
+                        }
+                        
+                        return Container(
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: index % 2 == 0 ? Colors.grey.shade50 : Colors.white,
+                            border: Border(
+                              bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
+                            ),
+                          ),
+                          child: Row(
+                            children: _obterCelulasLinha(t, statusTexto, corStatus, codigo, uf, prazo),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
   }
 
   Widget _buildEmptyState() {
@@ -349,128 +485,66 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     );
   }
 
-  Widget _buildTabelaConteudo() {
-    return Column(
-      children: [
-        // Cabeçalho da tabela com rolagem horizontal
-        _buildHeader(),
-        
-        // Conteúdo da tabela com rolagem horizontal
-        _buildBody(),
-      ],
-    );
-  }
-
   Widget _buildGrupoButton(String texto, int grupo) {
     final bool selecionado = grupoAtual == grupo;
+    bool isHovering = grupo == 0 ? _hoverGrupo1 : _hoverGrupo2;
     
-    return GestureDetector(
-      onTap: () {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) {
         setState(() {
-          grupoAtual = grupo;
+          if (grupo == 0) {
+            _hoverGrupo1 = true;
+          } else {
+            _hoverGrupo2 = true;
+          }
         });
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-        decoration: BoxDecoration(
-          color: selecionado ? Colors.blue.shade700 : Colors.white,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: selecionado ? Colors.blue.shade700 : Colors.grey.shade400,
-            width: 1,
-          ),
-        ),
-        child: Text(
-          texto,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: selecionado ? Colors.white : Colors.grey.shade700,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    final larguraTabela = _obterLarguraTabela();
-    
-    return Scrollbar(
-      controller: _horizontalHeaderController,
-      thumbVisibility: true,
-      child: SingleChildScrollView(
-        controller: _horizontalHeaderController,
-        scrollDirection: Axis.horizontal,
-        child: SizedBox(
-          width: larguraTabela,
-          child: Container(
-            height: 40,
-            color: const Color(0xFF0D47A1),
-            child: Row(
-              children: _obterColunasCabecalho(),
+      onExit: (_) {
+        setState(() {
+          if (grupo == 0) {
+            _hoverGrupo1 = false;
+          } else {
+            _hoverGrupo2 = false;
+          }
+        });
+      },
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            grupoAtual = grupo;
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          decoration: BoxDecoration(
+            color: selecionado 
+                ? Colors.blue.shade700 
+                : (isHovering ? Colors.blue.shade50 : Colors.white),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: selecionado 
+                  ? Colors.blue.shade700 
+                  : Colors.grey.shade400,
+              width: 1,
             ),
+            boxShadow: isHovering && !selecionado
+                ? [
+                    BoxShadow(
+                      color: Colors.grey.shade300,
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    )
+                  ]
+                : [],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBody() {
-    final larguraTabela = _obterLarguraTabela();
-
-    return Scrollbar(
-      controller: _horizontalBodyController,
-      thumbVisibility: true,
-      child: SingleChildScrollView(
-        controller: _horizontalBodyController,
-        scrollDirection: Axis.horizontal,
-        child: SizedBox(
-          width: larguraTabela,
-          child: ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _movimentacoesFiltradas.length,
-            itemBuilder: (context, index) {
-              final t = _movimentacoesFiltradas[index];
-              final statusCircuito = t['status_circuito'];
-              final statusTexto = _obterTextoStatus(statusCircuito);
-              final corStatus = _obterCorStatus(statusCircuito);
-              
-              // Verificar se há valores nos produtos do grupo atual
-              bool temProduto = false;
-              String codigo = "";
-              String uf = "";
-              String prazo = "";
-              
-              if (grupoAtual == 0) {
-                temProduto = [
-                  'g_comum', 'g_aditivada', 'd_s10', 'd_s500', 'etanol'
-                ].any((k) => (double.tryParse(t[k]?.toString() ?? '0') ?? 0) > 0);
-              } else {
-                temProduto = [
-                  'b100', 'gasolina_a', 's500_a', 's10_a', 'anidro'
-                ].any((k) => (double.tryParse(t[k]?.toString() ?? '0') ?? 0) > 0);
-              }
-              
-              if (temProduto) {
-                codigo = t["codigo"]?.toString() ?? "";
-                uf = t["uf"]?.toString() ?? "";
-                prazo = t["forma_pagamento"]?.toString() ?? "";
-              }
-              
-              return Container(
-                height: 50,
-                decoration: BoxDecoration(
-                  color: index % 2 == 0 ? Colors.grey.shade50 : Colors.white,
-                  border: Border(
-                    bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
-                  ),
-                ),
-                child: Row(
-                  children: _obterCelulasLinha(t, statusTexto, corStatus, codigo, uf, prazo),
-                ),
-              );
-            },
+          child: Text(
+            texto,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: selecionado ? Colors.white : Colors.grey.shade700,
+            ),
           ),
         ),
       ),
