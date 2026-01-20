@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../login_page.dart';
 
 class NovaVendaDialog extends StatefulWidget {
   final Function(bool sucesso)? onSalvar;
@@ -261,6 +262,28 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
         throw Exception('Produto selecionado não possui coluna correspondente');
       }
 
+      // PRIMEIRO: Buscar o empresa_id do usuário a partir do objeto global UsuarioAtual
+      String? empresaId;
+      
+      if (UsuarioAtual.instance != null) {
+        empresaId = UsuarioAtual.instance!.empresaId;
+      } else {
+        // Fallback: buscar da tabela usuarios se o objeto global não estiver disponível
+        if (usuario != null && usuario.id.isNotEmpty) {
+          try {
+            final perfilResponse = await supabase
+              .from('usuarios')
+              .select('empresa_id')
+              .eq('id', usuario.id)
+              .single();
+            
+            empresaId = perfilResponse['empresa_id']?.toString();
+          } catch (e) {
+            print('Erro ao buscar empresa_id do usuário: $e');
+          }
+        }
+      }
+
       // Prepara os dados para inserção
       final dadosVenda = {
         'placa': _placasControllers.where((c) => c.text.isNotEmpty).map((c) => c.text).toList(),
@@ -273,11 +296,13 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
         'quantidade': quantidade,
         'forma_pagamento': _formaPagamentoController.text,
         'usuario_id': usuario?.id,
+        'empresa_id': empresaId, // Usa o empresa_id do objeto global UsuarioAtual
+        'filial_origem_id': widget.filialId, // Adicionado filial_origem_id (passado como parâmetro)
         'uf': null,
         'codigo': null,
         'anp': false,
         colunaProduto: quantidade,
-        'filial_id': widget.filialId,
+        'filial_id': widget.filialId, // Mantém o filial_id também se necessário
       };
 
       // Define zero nas outras colunas
@@ -291,6 +316,11 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
           dadosVenda[coluna] = 0;
         }
       }
+
+      // DEBUG: Mostrar os dados que estão sendo salvos
+      print('Dados da venda a serem salvos:');
+      print('empresa_id: $empresaId');
+      print('filial_origem_id: ${widget.filialId}');
 
       await supabase.from('movimentacoes').insert(dadosVenda);
 
