@@ -682,20 +682,6 @@ class _CalcPageState extends State<CalcPage> {
       final supabase = Supabase.instance.client;
       final medicoes = widget.dadosFormulario['medicoes'] ?? {};
 
-      // ✅ DEBUG 1: Verificar dados do formulário antes de qualquer coisa
-      print('=== DEBUG 1: DADOS DO FORMULÁRIO CACL ===');
-      print('cacl_verificacao: ${widget.dadosFormulario['cacl_verificacao']}');
-      print('cacl_movimentacao: ${widget.dadosFormulario['cacl_movimentacao']}');
-      print('UsuarioAtual.instance: ${UsuarioAtual.instance != null ? "EXISTE" : "NULO"}');
-      if (UsuarioAtual.instance != null) {
-        print('empresaId: ${UsuarioAtual.instance!.empresaId}');
-        print('filialId do usuário: ${UsuarioAtual.instance!.filialId}');
-        print('nome usuário: ${UsuarioAtual.instance!.nome}');
-      } else {
-        print('⚠️ ATENÇÃO: UsuarioAtual.instance é NULL!');
-      }
-      print('========================================');
-
       final session = supabase.auth.currentSession;
       if (session == null) {
         if (context.mounted) {
@@ -710,23 +696,14 @@ class _CalcPageState extends State<CalcPage> {
       }
 
       String? tipoCACL;
-      final bool caclVerificacao =
-          widget.dadosFormulario['cacl_verificacao'] ?? false;
-      final bool caclMovimentacao =
-          widget.dadosFormulario['cacl_movimentacao'] ?? false;
+      final bool caclVerificacao = widget.dadosFormulario['cacl_verificacao'] ?? false;
+      final bool caclMovimentacao = widget.dadosFormulario['cacl_movimentacao'] ?? false;
 
       if (caclVerificacao) {
         tipoCACL = 'verificacao';
       } else if (caclMovimentacao) {
         tipoCACL = 'movimentacao';
       }
-
-      // ✅ DEBUG 2: Verificar tipo do CACL
-      print('=== DEBUG 2: TIPO DO CACL ===');
-      print('caclVerificacao (bool): $caclVerificacao');
-      print('caclMovimentacao (bool): $caclMovimentacao');
-      print('tipoCACL (string): $tipoCACL');
-      print('================================');
 
       String? dataFormatada;
       final dataOriginal = widget.dadosFormulario['data']?.toString() ?? '';
@@ -736,7 +713,6 @@ class _CalcPageState extends State<CalcPage> {
 
       final tanqueIdParaSalvar = _obterTanqueId();
 
-      // ✅ NÃO INCLUA 'numero_controle' - A TRIGGER VAI GERAR
       final dadosParaInserir = {
         'data': dataFormatada,
         'base': widget.dadosFormulario['base']?.toString(),
@@ -746,58 +722,38 @@ class _CalcPageState extends State<CalcPage> {
         'status': 'emitido',
         'tipo': tipoCACL,
 
-        'horario_inicial':
-            _formatarHorarioParaTime(medicoes['horarioInicial']?.toString()),
-        'altura_total_liquido_inicial':
-            medicoes['alturaTotalInicial']?.toString(),
+        'horario_inicial': _formatarHorarioParaTime(medicoes['horarioInicial']?.toString()),
+        'altura_total_liquido_inicial': medicoes['alturaTotalInicial']?.toString(),
         'altura_total_cm_inicial': medicoes['cmInicial']?.toString(),
         'altura_total_mm_inicial': medicoes['mmInicial']?.toString(),
         'volume_total_liquido_inicial': volumeTotalLiquidoInicial,
         'altura_agua_inicial': medicoes['alturaAguaInicial']?.toString(),
-        'volume_agua_inicial':
-            _extrairNumeroFormatado(medicoes['volumeAguaInicial']?.toString()),
-        'altura_produto_inicial':
-            medicoes['alturaProdutoInicial']?.toString(),
+        'volume_agua_inicial': _extrairNumeroFormatado(medicoes['volumeAguaInicial']?.toString()),
+        'altura_produto_inicial': medicoes['alturaProdutoInicial']?.toString(),
         'volume_produto_inicial': volumeInicial,
-        'temperatura_tanque_inicial':
-            medicoes['tempTanqueInicial']?.toString(),
-        'densidade_observada_inicial':
-            medicoes['densidadeInicial']?.toString(),
-        'temperatura_amostra_inicial':
-            medicoes['tempAmostraInicial']?.toString(),
-        'densidade_20_inicial':
-            medicoes['densidade20Inicial']?.toString(),
-        'fator_correcao_inicial':
-            medicoes['fatorCorrecaoInicial']?.toString(),
-        'volume_20_inicial':
-            _extrairNumeroFormatado(medicoes['volume20Inicial']?.toString()),
+        'temperatura_tanque_inicial': medicoes['tempTanqueInicial']?.toString(),
+        'densidade_observada_inicial': medicoes['densidadeInicial']?.toString(),
+        'temperatura_amostra_inicial': medicoes['tempAmostraInicial']?.toString(),
+        'densidade_20_inicial': medicoes['densidade20Inicial']?.toString(),
+        'fator_correcao_inicial': medicoes['fatorCorrecaoInicial']?.toString(),
+        'volume_20_inicial': _extrairNumeroFormatado(medicoes['volume20Inicial']?.toString()),
         'massa_inicial': medicoes['massaInicial']?.toString(),
 
-        'horario_final':
-            _formatarHorarioParaTime(medicoes['horarioFinal']?.toString()),
-        'altura_total_liquido_final':
-            medicoes['alturaTotalFinal']?.toString(),
+        'horario_final': _formatarHorarioParaTime(medicoes['horarioFinal']?.toString()),
+        'altura_total_liquido_final': medicoes['alturaTotalFinal']?.toString(),
         'altura_total_cm_final': medicoes['cmFinal']?.toString(),
         'altura_total_mm_final': medicoes['mmFinal']?.toString(),
         'volume_total_liquido_final': volumeTotalLiquidoFinal,
         'altura_agua_final': medicoes['alturaAguaFinal']?.toString(),
-        'volume_agua_final':
-            _extrairNumeroFormatado(medicoes['volumeAguaFinal']?.toString()),
-        'altura_produto_final':
-            medicoes['alturaProdutoFinal']?.toString(),
+        'volume_agua_final': _extrairNumeroFormatado(medicoes['volumeAguaFinal']?.toString()),
+        'altura_produto_final': medicoes['alturaProdutoFinal']?.toString(),
         'volume_produto_final': volumeFinal,
-        'temperatura_tanque_final':
-            medicoes['tempTanqueFinal']?.toString(),
-        'densidade_observada_final':
-            medicoes['densidadeFinal']?.toString(),
-        'temperatura_amostra_final':
-            medicoes['tempAmostraFinal']?.toString(),
-        'densidade_20_final':
-            medicoes['densidade20Final']?.toString(),
-        'fator_correcao_final':
-            medicoes['fatorCorrecaoFinal']?.toString(),
-        'volume_20_final':
-            _extrairNumeroFormatado(medicoes['volume20Final']?.toString()),
+        'temperatura_tanque_final': medicoes['tempTanqueFinal']?.toString(),
+        'densidade_observada_final': medicoes['densidadeFinal']?.toString(),
+        'temperatura_amostra_final': medicoes['tempAmostraFinal']?.toString(),
+        'densidade_20_final': medicoes['densidade20Final']?.toString(),
+        'fator_correcao_final': medicoes['fatorCorrecaoFinal']?.toString(),
+        'volume_20_final': _extrairNumeroFormatado(medicoes['volume20Final']?.toString()),
         'massa_final': medicoes['massaFinal']?.toString(),
 
         'volume_ambiente_inicial': volumeInicial,
@@ -806,50 +762,27 @@ class _CalcPageState extends State<CalcPage> {
         'entrada_saida_20': (_extrairNumero(medicoes['volume20Final']?.toString()) -
             _extrairNumero(medicoes['volume20Inicial']?.toString())),
 
-        'faturado_final':
-            _converterParaDouble(medicoes['faturadoFinal']?.toString()),
-        'diferenca_faturado':
-            (_extrairNumeroFormatado(medicoes['volume20Final']?.toString()) ?? 0) -
-                (_extrairNumeroFormatado(
-                        medicoes['volume20Inicial']?.toString()) ??
-                    0) -
-                (_converterParaDouble(
-                        medicoes['faturadoFinal']?.toString()) ??
-                    0),
+        'faturado_final': _converterParaDouble(medicoes['faturadoFinal']?.toString()),
+        'diferenca_faturado': (_extrairNumeroFormatado(medicoes['volume20Final']?.toString()) ?? 0) -
+            (_extrairNumeroFormatado(medicoes['volume20Inicial']?.toString()) ?? 0) -
+            (_converterParaDouble(medicoes['faturadoFinal']?.toString()) ?? 0),
 
         'updated_at': DateTime.now().toIso8601String(),
         'created_by': session.user.id,
-        'created_at': DateTime.now().toIso8601String(),
       };
 
-      final entradaSaida20 =
-          _extrairNumero(medicoes['volume20Final']?.toString()) -
-              _extrairNumero(medicoes['volume20Inicial']?.toString());
-      final diferenca =
-          entradaSaida20 -
-              (_converterParaDouble(
-                      medicoes['faturadoFinal']?.toString()) ??
-                  0);
+      final entradaSaida20 = _extrairNumero(medicoes['volume20Final']?.toString()) -
+          _extrairNumero(medicoes['volume20Inicial']?.toString());
+      final diferenca = entradaSaida20 - (_converterParaDouble(medicoes['faturadoFinal']?.toString()) ?? 0);
 
       if (entradaSaida20 != 0) {
         final porcentagem = (diferenca / entradaSaida20) * 100;
-        dadosParaInserir['porcentagem_diferenca'] =
-            '${porcentagem >= 0 ? '+' : ''}${porcentagem.toStringAsFixed(2)}%';
+        dadosParaInserir['porcentagem_diferenca'] = '${porcentagem >= 0 ? '+' : ''}${porcentagem.toStringAsFixed(2)}%';
       } else {
         dadosParaInserir['porcentagem_diferenca'] = '0.00%';
       }
 
-      // ✅ REMOVER QUALQUER 'numero_controle' QUE POSSA TER VINDO DE ALGUM LUGAR
       dadosParaInserir.remove('numero_controle');
-      
-      // ✅ DEBUG 3: Verificar dados antes de enviar
-      print('=== DEBUG 3: ANTES DE ENVIAR CACL ===');
-      print('Número controle nos dados? ${dadosParaInserir.containsKey('numero_controle')}');
-      print('Quantidade de campos: ${dadosParaInserir.length}');
-      print('Tipo CACL: $tipoCACL');
-      print('entrada_saida_ambiente: ${dadosParaInserir['entrada_saida_ambiente']}');
-      print('entrada_saida_20: ${dadosParaInserir['entrada_saida_20']}');
-      print('=====================================');
 
       String? idParaUpdate = widget.caclId;
       if ((idParaUpdate == null || idParaUpdate.isEmpty) &&
@@ -862,7 +795,6 @@ class _CalcPageState extends State<CalcPage> {
 
       if (idParaUpdate != null && idParaUpdate.isNotEmpty) {
         try {
-          // Verifica se o CACL já existe
           final verificaExistencia = await supabase
               .from('cacl')
               .select('id')
@@ -873,13 +805,11 @@ class _CalcPageState extends State<CalcPage> {
             throw Exception('CACL não encontrado para atualização');
           }
 
-          // Atualiza o CACL existente
           await supabase
               .from('cacl')
               .update(dadosParaInserir)
               .eq('id', idParaUpdate);
 
-          // ✅ BUSCA O NÚMERO DE CONTROLE APÓS ATUALIZAR (pode já existir)
           final resultadoAtualizado = await supabase
               .from('cacl')
               .select('numero_controle')
@@ -891,7 +821,6 @@ class _CalcPageState extends State<CalcPage> {
               numeroControleGerado = _tratarNumeroControle(resultadoAtualizado['numero_controle']);
               _numeroControle = numeroControleGerado;
             });
-            print('✅ Número controle após atualização: $numeroControleGerado');
           }
 
           caclIdSalvo = idParaUpdate;
@@ -906,26 +835,19 @@ class _CalcPageState extends State<CalcPage> {
             );
           }
         } catch (_) {
-          // Se não encontrou para atualizar, insere como novo
-          print('CACL não encontrado, criando novo...');
-          
-          // Garante que tem created_by e created_at
           dadosParaInserir['created_by'] = session.user.id;
-          dadosParaInserir['created_at'] = DateTime.now().toIso8601String();
           
           final resultadoInserir = await supabase
               .from('cacl')
               .insert(dadosParaInserir)
-              .select('id, numero_controle, created_at')
+              .select('id, numero_controle')
               .single();
 
-          // ✅ TRATA O NÚMERO DE CONTROLE GERADO PELA TRIGGER
           if (resultadoInserir['numero_controle'] != null) {
             setState(() {
               numeroControleGerado = _tratarNumeroControle(resultadoInserir['numero_controle']);
               _numeroControle = numeroControleGerado;
             });
-            print('✅ Novo CACL criado. Número controle: $numeroControleGerado');
           }
 
           caclIdSalvo = resultadoInserir['id'].toString();
@@ -941,20 +863,17 @@ class _CalcPageState extends State<CalcPage> {
           }
         }
       } else {
-        // ✅ INSERÇÃO DE NOVO CACL
         final resultadoInserir = await supabase
             .from('cacl')
             .insert(dadosParaInserir)
-            .select('id, numero_controle, created_at')
+            .select('id, numero_controle')
             .single();
 
-        // ✅ ATUALIZA COM O NÚMERO GERADO PELA TRIGGER
         if (resultadoInserir['numero_controle'] != null) {
           setState(() {
             numeroControleGerado = _tratarNumeroControle(resultadoInserir['numero_controle']);
             _numeroControle = numeroControleGerado;
           });
-          print('✅ CACL emitido. Número controle gerado: $numeroControleGerado');
         }
 
         caclIdSalvo = resultadoInserir['id'].toString();
@@ -970,35 +889,10 @@ class _CalcPageState extends State<CalcPage> {
         }
       }
 
-      // ✅ DEBUG 4: Verificar dados para movimentação
-      print('=== DEBUG 4: DADOS PARA MOVIMENTAÇÃO ===');
-      print('tipoCACL: $tipoCACL');
-      print('caclIdSalvo: $caclIdSalvo');
-      print('numeroControleGerado: $numeroControleGerado');
-      print('tipoCACL == "movimentacao"? ${tipoCACL == "movimentacao"}');
-      print('caclIdSalvo.isNotEmpty? ${caclIdSalvo.isNotEmpty}');
-      print('numeroControleGerado != null? ${numeroControleGerado != null}');
-      print('numeroControleGerado.isNotEmpty? ${numeroControleGerado != null ? numeroControleGerado!.isNotEmpty : "null"}');
-      print('UsuarioAtual.instance?.empresaId: ${UsuarioAtual.instance?.empresaId}');
-      print('========================================');
-
-      // ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅
-      // ✅ SALVAR MOVIMENTAÇÃO NA TABELA 'movimentacoes' (apenas para CACL de movimentação)
-      // ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅
       if (tipoCACL == 'movimentacao' && 
           caclIdSalvo.isNotEmpty && 
           numeroControleGerado != null &&
           numeroControleGerado!.isNotEmpty) {
-        
-        print('🔄 Criando movimentação para CACL de movimentação...');
-        print('📊 Dados para movimentação:');
-        print('   - CACL ID: $caclIdSalvo');
-        print('   - Número Controle: $numeroControleGerado');
-        print('   - Data CACL: ${dadosParaInserir['data']}');
-        print('   - Filial ID: ${dadosParaInserir['filial_id']}');
-        print('   - Tanque ID: ${dadosParaInserir['tanque_id']}');
-        print('   - Entrada/Saída Ambiente: ${dadosParaInserir['entrada_saida_ambiente']}');
-        print('   - Entrada/Saída 20°C: ${dadosParaInserir['entrada_saida_20']}');
         
         try {
           await _salvarMovimentacaoCACL(
@@ -1006,35 +900,16 @@ class _CalcPageState extends State<CalcPage> {
             numeroControle: numeroControleGerado!,
             dadosCacl: dadosParaInserir,
           );
-        } catch (e) {
-          print('⚠️ Aviso: Erro ao salvar movimentação (não crítico): $e');
-          print('Stack trace:');
-          print(e.toString());
-          // Não mostrar erro ao usuário, pois o CACL foi emitido com sucesso
-        }
-      } else {
-        if (tipoCACL != 'movimentacao') {
-          print('⏭️ CACL não é de movimentação (tipo: $tipoCACL) - Ignorando criação de movimentação');
-        } else if (caclIdSalvo.isEmpty) {
-          print('⏭️ caclIdSalvo está vazio - Ignorando criação de movimentação');
-        } else if (numeroControleGerado == null) {
-          print('⏭️ numeroControleGerado é null - Ignorando criação de movimentação');
-        } else if (numeroControleGerado!.isEmpty) {
-          print('⏭️ numeroControleGerado está vazio - Ignorando criação de movimentação');
-        }
+        } catch (e) {}
       }
-      // ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅
 
       if (mounted) {
         setState(() {
           _caclJaEmitido = _numeroControle != null && _numeroControle!.isNotEmpty;
         });
       }
+
     } catch (e) {
-      print('❌ ERRO ao emitir CACL: $e');
-      print('Stack trace completo:');
-      print(e.toString());
-      
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1053,227 +928,84 @@ class _CalcPageState extends State<CalcPage> {
     }
   }
 
-  // ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅
-  // ✅ FUNÇÃO PARA SALVAR MOVIMENTAÇÃO DO CACL (com prints detalhados)
-  // ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅ ✅
   Future<void> _salvarMovimentacaoCACL({
     required String caclId,
     required String? numeroControle,
     required Map<String, dynamic> dadosCacl,
   }) async {
-    print('=== INICIANDO _salvarMovimentacaoCACL ===');
-    print('📦 Parâmetros recebidos:');
-    print('   - caclId: $caclId');
-    print('   - numeroControle: $numeroControle');
-    print('   - dadosCacl tipo: ${dadosCacl['tipo']}');
-    print('   - dadosCacl filial_id: ${dadosCacl['filial_id']}');
-    print('   - dadosCacl tanque_id: ${dadosCacl['tanque_id']}');
-    print('   - dadosCacl data: ${dadosCacl['data']}');
-    
     try {
       final supabase = Supabase.instance.client;
+      final usuario = UsuarioAtual.instance;
       
-      // 🔒 VERIFICA 1: Apenas CACL de MOVIMENTAÇÃO cria movimentação
+      if (usuario == null) return;
+      
       final tipoCACL = dadosCacl['tipo']?.toString();
-      print('🔍 Verificação 1 - Tipo CACL: $tipoCACL');
-      if (tipoCACL != 'movimentacao') {
-        print('⏭️ VERIFICAÇÃO 1 FALHOU: CACL não é de movimentação (tipo: $tipoCACL)');
-        return;
-      }
-      print('✅ VERIFICAÇÃO 1 PASSOU: CACL é de movimentação');
-      
-      // 🔒 VERIFICA 2: Dados obrigatórios
-      print('🔍 Verificação 2 - Número de controle: $numeroControle');
-      if (numeroControle == null || numeroControle.isEmpty) {
-        print('⏭️ VERIFICAÇÃO 2 FALHOU: Número de controle não disponível');
-        return;
-      }
-      print('✅ VERIFICAÇÃO 2 PASSOU: Número de controle válido');
-      
-      // 🔒 VERIFICA 3: Usuário logado e empresa
-      print('🔍 Verificação 3 - UsuárioAtual.instance: ${UsuarioAtual.instance != null ? "EXISTE" : "NULO"}');
-      if (UsuarioAtual.instance == null || UsuarioAtual.instance!.empresaId == null) {
-        print('⏭️ VERIFICAÇÃO 3 FALHOU: Usuário ou empresa não disponíveis');
-        print('   UsuarioAtual.instance: ${UsuarioAtual.instance}');
-        print('   empresaId: ${UsuarioAtual.instance?.empresaId}');
-        return;
-      }
-      
-      final empresaId = UsuarioAtual.instance!.empresaId!;
       final filialId = dadosCacl['filial_id']?.toString();
-      
-      print('✅ VERIFICAÇÃO 3 PASSOU');
-      print('   - empresaId: $empresaId');
-      print('   - filialId: $filialId');
-      
-      if (filialId == null || filialId.isEmpty) {
-        print('⚠️ Filial ID não disponível nos dados CACL');
-        return;
-      }
-      
-      // 🔍 OBTER PRODUTO_ID do tanque
-      String? produtoId;
       final tanqueId = dadosCacl['tanque_id']?.toString();
       
-      print('🔍 Buscando produto_id do tanque...');
-      print('   - tanqueId: $tanqueId');
+      if (tipoCACL != 'movimentacao') return;
+      if (numeroControle == null || numeroControle.isEmpty) return;
+      if (filialId == null || filialId.isEmpty) return;
+      if (tanqueId == null || tanqueId.isEmpty) return;
       
-      if (tanqueId != null && tanqueId.isNotEmpty) {
-        try {
-          print('   🔍 Consultando tabela tanques...');
-          final tanqueData = await supabase
-              .from('tanques')
-              .select('id_produto')
-              .eq('id', tanqueId)
-              .maybeSingle();
-          
-          if (tanqueData != null && tanqueData['id_produto'] != null) {
-            produtoId = tanqueData['id_produto'].toString();
-            print('✅ Produto ID encontrado: $produtoId para tanque: $tanqueId');
-          } else {
-            print('⚠️ Produto ID não encontrado para tanque: $tanqueId');
-            print('   Resultado da consulta: $tanqueData');
-          }
-        } catch (e) {
-          print('❌ Erro ao buscar produto_id do tanque: $e');
-          print('Stack trace: $e');
+      String? produtoId;
+      String? referenciaTanque;
+      
+      try {
+        final tanqueData = await supabase
+            .from('tanques')
+            .select('id_produto, referencia')
+            .eq('id', tanqueId)
+            .maybeSingle();
+        
+        if (tanqueData != null) {
+          produtoId = tanqueData['id_produto']?.toString();
+          referenciaTanque = tanqueData['referencia']?.toString();
         }
-      } else {
-        print('⚠️ tanqueId é null ou vazio, não buscando produto_id');
+      } catch (e) {
+        return;
       }
       
-      // 🔍 FORMATAR DATA para dd/mm/aaaa
-      String dataFormatada = '';
-      final dataCacl = dadosCacl['data']?.toString();
-      print('🔍 Formatando data: $dataCacl');
+      String dataMov = dadosCacl['data']?.toString() ?? '';
       
-      if (dataCacl != null && dataCacl.isNotEmpty) {
-        try {
-          // Formato SQL: "2025-12-22" → "22/12/2025"
-          if (dataCacl.contains('-')) {
-            final partes = dataCacl.split('-');
-            if (partes.length == 3) {
-              dataFormatada = '${partes[2]}/${partes[1]}/${partes[0]}';
-              print('✅ Data formatada: $dataFormatada');
-            }
-          } else {
-            dataFormatada = dataCacl;
-            print('⚠️ Data não tem formato SQL, usando original: $dataFormatada');
-          }
-        } catch (e) {
-          dataFormatada = dataCacl;
-          print('⚠️ Erro ao formatar data, usando original: $dataFormatada');
-        }
-      } else {
-        print('⚠️ dataCacl é null ou vazio');
-      }
+      final descricao = 'CACL $numeroControle - Tanque ${referenciaTanque ?? ''} - $dataMov';
       
-      // 📝 CRIAR DESCRIÇÃO
-      final descricao = 'CACL $numeroControle de $dataFormatada';
-      print('📝 Descrição criada: $descricao');
-      
-      // 📊 OBTER VALORES NUMÉRICOS
       final entradaSaidaAmbiente = dadosCacl['entrada_saida_ambiente'] ?? 0;
       final entradaSaida20 = dadosCacl['entrada_saida_20'] ?? 0;
       
-      print('📊 Valores numéricos:');
-      print('   - entrada_saida_ambiente (original): $entradaSaidaAmbiente');
-      print('   - entrada_saida_20 (original): $entradaSaida20');
+      final entradaAmb = entradaSaidaAmbiente > 0 ? entradaSaidaAmbiente.round() : 0;
+      final saidaAmb = entradaSaidaAmbiente < 0 ? entradaSaidaAmbiente.abs().round() : 0;
       
-      // Converter para inteiro (arredondar)
-      final entradaAmb = entradaSaidaAmbiente is num ? entradaSaidaAmbiente.round() : 0;
-      final entradaVinte = entradaSaida20 is num ? entradaSaida20.round() : 0;
+      final entradaVinte = entradaSaida20 > 0 ? entradaSaida20.round() : 0;
+      final saidaVinte = entradaSaida20 < 0 ? entradaSaida20.abs().round() : 0;
       
-      print('   - entradaAmb (arredondado): $entradaAmb');
-      print('   - entradaVinte (arredondado): $entradaVinte');
-      
-      // ✅ VERIFICAR SE JÁ EXISTE MOVIMENTAÇÃO PARA ESTE CACL
-      // (Se a tabela tiver coluna cacl_id, podemos verificar)
-      // Por enquanto, vamos sempre criar
-      
-      // 📦 DADOS PARA INSERIR NA TABELA MOVIMENTACOES
-      final dadosMovimentacao = {
+      final dadosMovimentacao = <String, dynamic>{
         'filial_id': filialId,
-        'data_mov': dataCacl, // Data no formato SQL (YYYY-MM-DD)
+        'data_mov': dataMov,
         'descricao': descricao,
         'entrada_amb': entradaAmb,
         'entrada_vinte': entradaVinte,
-        'saida_amb': 0,  // Sempre 0 para CACL
-        'saida_vinte': 0, // Sempre 0 para CACL
-        'empresa_id': empresaId,
+        'saida_amb': saidaAmb,
+        'saida_vinte': saidaVinte,
+        'empresa_id': usuario.empresaId,
         'produto_id': produtoId,
-        'created_at': DateTime.now().toIso8601String(),
+        'cacl_id': caclId,
+        'usuario_id': usuario.id,
+        'tipo_mov': 'cacl_movimentacao',
+        'observacoes': 'Gerado automaticamente a partir do CACL $numeroControle',
         'updated_at': DateTime.now().toIso8601String(),
-        'cacl_id': caclId, // Adicionar referência ao CACL
       };
       
-      // Remover nulos para evitar erros
       dadosMovimentacao.removeWhere((key, value) => value == null);
       
-      print('📤 Dados para inserir na tabela movimentacoes:');
-      print('   - filial_id: ${dadosMovimentacao['filial_id']}');
-      print('   - data_mov: ${dadosMovimentacao['data_mov']}');
-      print('   - descricao: ${dadosMovimentacao['descricao']}');
-      print('   - entrada_amb: ${dadosMovimentacao['entrada_amb']}');
-      print('   - entrada_vinte: ${dadosMovimentacao['entrada_vinte']}');
-      print('   - empresa_id: ${dadosMovimentacao['empresa_id']}');
-      print('   - produto_id: ${dadosMovimentacao['produto_id']}');
-      print('   - cacl_id: ${dadosMovimentacao['cacl_id']}');
-      print('   - Total campos: ${dadosMovimentacao.length}');
-      
-      print('💾 Inserindo na tabela movimentacoes...');
-      
-      // 💾 INSERIR NA TABELA MOVIMENTACOES
-      try {
-        final resultado = await supabase
-            .from('movimentacoes')
-            .insert(dadosMovimentacao)
-            .select('id')
-            .single();
-        
-        print('✅ Movimentação criada com sucesso!');
-        print('   ID da movimentação: ${resultado['id']}');
-        print('   Descrição: $descricao');
-        print('   Entrada AMB: $entradaAmb L');
-        print('   Entrada 20°C: $entradaVinte L');
-        print('   Produto ID: $produtoId');
-        print('   Empresa ID: $empresaId');
-        print('   Filial ID: $filialId');
-        print('   CACL ID: $caclId');
-        
-      } catch (insertError) {
-        print('❌ ERRO ao inserir na tabela movimentacoes: $insertError');
-        print('Stack trace: $insertError');
-        print('Tentando verificar estrutura da tabela...');
-        
-        // Tenta verificar se a tabela existe e tem as colunas certas
-        try {
-          // Testa a conexão com uma consulta simples
-          final testResult = await supabase
-              .from('movimentacoes')
-              .select('count')
-              .limit(1)
-              .maybeSingle();
-          
-          print('Teste de conexão com tabela movimentacoes: ${testResult != null ? "OK" : "Tabela existe mas sem dados"}');
-        } catch (testError) {
-          print('❌ ERRO ao testar tabela movimentacoes: $testError');
-          print('Possíveis problemas:');
-          print('1. Tabela movimentacoes não existe');
-          print('2. Coluna cacl_id não existe na tabela');
-          print('3. Permissões de inserção');
-        }
-        
-        throw insertError; // Re-lançar para debug
-      }
+      await supabase
+          .from('movimentacoes')
+          .insert(dadosMovimentacao)
+          .select('id')
+          .single();
       
     } catch (e) {
-      print('❌ ERRO CRÍTICO em _salvarMovimentacaoCACL: $e');
-      print('Stack trace completo:');
-      print(e.toString());
-      // Não lançar exceção para não afetar o fluxo principal
-    } finally {
-      print('=== FINALIZANDO _salvarMovimentacaoCACL ===');
+      // Silencioso - não interrompe o fluxo principal
     }
   }
 
@@ -3086,16 +2818,17 @@ class _CalcPageState extends State<CalcPage> {
       
       final session = supabase.auth.currentSession;
       if (session == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Você precisa estar logado'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Você precisa estar logado'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
         return;
       }
       
-      // ✅ DETERMINAR O TIPO DO CACL BASEADO NAS CHECKBOXES
       String? tipoCACL;
       final bool caclVerificacao = widget.dadosFormulario['cacl_verificacao'] ?? false;
       final bool caclMovimentacao = widget.dadosFormulario['cacl_movimentacao'] ?? false;
@@ -3112,35 +2845,6 @@ class _CalcPageState extends State<CalcPage> {
         dataFormatada = _formatarDataParaSQL(dataOriginal);
       }
       
-      // ✅ FUNÇÕES AUXILIARES
-      String? formatarHorarioParaTime(String? horario) {
-        if (horario == null || horario.isEmpty || horario == '-') return null;
-        String limpo = horario.trim().replaceAll('h', '').replaceAll('H', '');
-        if (limpo.contains(':')) {
-          final partes = limpo.split(':');
-          if (partes.length == 2) {
-            final horas = int.tryParse(partes[0]) ?? 0;
-            final minutos = int.tryParse(partes[1]) ?? 0;
-            if (horas >= 0 && horas < 24 && minutos >= 0 && minutos < 60) {
-              return '${horas.toString().padLeft(2, '0')}:${minutos.toString().padLeft(2, '0')}:00';
-            }
-          }
-        }
-        return null;
-      }
-      
-      double? extrairNumeroFormatado(String? valor) {
-        if (valor == null || valor.isEmpty || valor == '-') return null;
-        try {
-          String somenteNumeros = valor.replaceAll(RegExp(r'[^0-9]'), '');
-          if (somenteNumeros.isEmpty) return null;
-          return double.tryParse(somenteNumeros);
-        } catch (e) {
-          return null;
-        }
-      }
-      
-      // ✅ DADOS PARA INSERIR - NÃO INCLUA 'numero_controle'
       final dadosParaInserir = {
         'data': dataFormatada,
         'base': widget.dadosFormulario['base']?.toString(),
@@ -3150,12 +2854,12 @@ class _CalcPageState extends State<CalcPage> {
         'status': 'pendente',      
         'tipo': tipoCACL,
         
-        'horario_inicial': formatarHorarioParaTime(medicoes['horarioInicial']?.toString()),
+        'horario_inicial': _formatarHorarioParaTime(medicoes['horarioInicial']?.toString()),
         'altura_total_cm_inicial': medicoes['cmInicial']?.toString(),
         'altura_total_mm_inicial': medicoes['mmInicial']?.toString(),
         'volume_total_liquido_inicial': volumeTotalLiquidoInicial,
         'altura_agua_inicial': medicoes['alturaAguaInicial']?.toString(),
-        'volume_agua_inicial': extrairNumeroFormatado(medicoes['volumeAguaInicial']?.toString()),
+        'volume_agua_inicial': _extrairNumeroFormatado(medicoes['volumeAguaInicial']?.toString()),
         'altura_produto_inicial': medicoes['alturaProdutoInicial']?.toString(),
         'volume_produto_inicial': volumeInicial,
         'temperatura_tanque_inicial': medicoes['tempTanqueInicial']?.toString(),
@@ -3163,7 +2867,7 @@ class _CalcPageState extends State<CalcPage> {
         'temperatura_amostra_inicial': medicoes['tempAmostraInicial']?.toString(),
         'densidade_20_inicial': medicoes['densidade20Inicial']?.toString(),
         'fator_correcao_inicial': medicoes['fatorCorrecaoInicial']?.toString(),
-        'volume_20_inicial': extrairNumeroFormatado(medicoes['volume20Inicial']?.toString()),
+        'volume_20_inicial': _extrairNumeroFormatado(medicoes['volume20Inicial']?.toString()),
         'massa_inicial': medicoes['massaInicial']?.toString(),
         
         'horario_final': null,
@@ -3191,34 +2895,38 @@ class _CalcPageState extends State<CalcPage> {
         'porcentagem_diferenca': null,
         
         'created_by': session.user.id,
-        'created_at': DateTime.now().toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
       };
       
-      // ✅ GARANTIR QUE NÃO TEM 'numero_controle' NOS DADOS
       dadosParaInserir.remove('numero_controle');
       
-      // ✅ DEBUG: Verificar dados antes de enviar
-      print('=== DEBUG SALVAR COMO PENDENTE ===');
-      print('Número controle nos dados? ${dadosParaInserir.containsKey('numero_controle')}');
-      print('Dados para inserir: ${dadosParaInserir.keys.length} campos');
-      print('==============================');
-      
-      dadosParaInserir.removeWhere((key, value) => value == null);
-      
-      // ✅ INSERIR E PEGAR O NÚMERO DE CONTROLE GERADO PELA TRIGGER
       final resultadoInserir = await supabase
           .from('cacl')
           .insert(dadosParaInserir)
-          .select('id, numero_controle, created_at')
+          .select('id, numero_controle')
           .single();
 
-      // ✅ ATUALIZA COM O NÚMERO GERADO PELA TRIGGER
       if (resultadoInserir['numero_controle'] != null) {
         setState(() {
           _numeroControle = _tratarNumeroControle(resultadoInserir['numero_controle']);
         });
-        print('✅ CACL pendente criado. Número controle: $_numeroControle');
+      }
+      
+      final caclIdSalvo = resultadoInserir['id'].toString();
+      final numeroControleGerado = _numeroControle;
+
+      if (tipoCACL == 'movimentacao' && 
+          caclIdSalvo.isNotEmpty && 
+          numeroControleGerado != null &&
+          numeroControleGerado.isNotEmpty) {
+        
+        try {
+          await _salvarMovimentacaoCACL(
+            caclId: caclIdSalvo,
+            numeroControle: numeroControleGerado,
+            dadosCacl: dadosParaInserir,
+          );
+        } catch (e) {}
       }
       
       if (context.mounted) {
@@ -3232,7 +2940,6 @@ class _CalcPageState extends State<CalcPage> {
         
         await Future.delayed(const Duration(milliseconds: 1500));
         
-        // Volta duas telas
         int contadorPop = 0;
         Navigator.of(context).popUntil((route) {
           if (contadorPop >= 2) {
@@ -3244,8 +2951,6 @@ class _CalcPageState extends State<CalcPage> {
       }
       
     } catch (e) {
-      print('❌ ERRO ao salvar como pendente: $e');
-      
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
