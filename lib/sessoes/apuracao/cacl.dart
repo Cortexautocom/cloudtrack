@@ -949,7 +949,6 @@ class _CalcPageState extends State<CalcPage> {
       if (tanqueId == null || tanqueId.isEmpty) return;
       
       String? produtoId;
-      String? referenciaTanque;
       
       try {
         final tanqueData = await supabase
@@ -960,15 +959,22 @@ class _CalcPageState extends State<CalcPage> {
         
         if (tanqueData != null) {
           produtoId = tanqueData['id_produto']?.toString();
-          referenciaTanque = tanqueData['referencia']?.toString();
         }
       } catch (e) {
         return;
       }
       
       String dataMov = dadosCacl['data']?.toString() ?? '';
+      String dataFormatada = '';
       
-      final descricao = 'CACL $numeroControle - Tanque ${referenciaTanque ?? ''} - $dataMov';
+      if (dataMov.isNotEmpty && dataMov.contains('-')) {
+        final partes = dataMov.split('-');
+        if (partes.length == 3) {
+          dataFormatada = '${partes[2]}/${partes[1]}/${partes[0]}';
+        }
+      }
+      
+      final descricao = 'CACL $numeroControle, $dataFormatada';
       
       final entradaSaidaAmbiente = dadosCacl['entrada_saida_ambiente'] ?? 0;
       final entradaSaida20 = dadosCacl['entrada_saida_20'] ?? 0;
@@ -991,11 +997,39 @@ class _CalcPageState extends State<CalcPage> {
         'produto_id': produtoId,
         'cacl_id': caclId,
         'usuario_id': usuario.id,
-        'tipo_mov': 'cacl_movimentacao',
-        'observacoes': 'Gerado automaticamente a partir do CACL $numeroControle',
+        'tipo_mov_orig': 'entrada',
+        'tipo_mov': null,
+        'filial_origem_id': filialId,
+        'observacoes': null,
         'updated_at': DateTime.now().toIso8601String(),
       };
       
+      String produtoNome = dadosCacl['produto']?.toString().toLowerCase() ?? '';
+      Map<String, dynamic> camposProduto = {};
+      
+      if (produtoNome.contains('gasolina') && produtoNome.contains('comum')) {
+        camposProduto['g_comum'] = entradaVinte;
+      } else if (produtoNome.contains('gasolina') && produtoNome.contains('aditivada')) {
+        camposProduto['g_aditivada'] = entradaVinte;
+      } else if (produtoNome.contains('diesel') && produtoNome.contains('s10')) {
+        camposProduto['d_s10'] = entradaVinte;
+      } else if (produtoNome.contains('diesel') && produtoNome.contains('s500')) {
+        camposProduto['d_s500'] = entradaVinte;
+      } else if (produtoNome.contains('etanol')) {
+        camposProduto['etanol'] = entradaVinte;
+      } else if (produtoNome.contains('anidro')) {
+        camposProduto['anidro'] = entradaVinte;
+      } else if (produtoNome.contains('b100')) {
+        camposProduto['b100'] = entradaVinte;
+      } else if (produtoNome.contains('gasolina') && produtoNome.contains('a')) {
+        camposProduto['gasolina_a'] = entradaVinte;
+      } else if (produtoNome.contains('s500') && produtoNome.contains('a')) {
+        camposProduto['s500_a'] = entradaVinte;
+      } else if (produtoNome.contains('s10') && produtoNome.contains('a')) {
+        camposProduto['s10_a'] = entradaVinte;
+      }
+      
+      dadosMovimentacao.addAll(camposProduto);
       dadosMovimentacao.removeWhere((key, value) => value == null);
       
       await supabase

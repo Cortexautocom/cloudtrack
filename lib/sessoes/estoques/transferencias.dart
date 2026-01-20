@@ -896,7 +896,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       '66ca957a-5698-4a02-8c9e-987770b6a151': 'etanol',
       '82c348c8-efa1-4d1a-953a-ee384d5780fc': 'g_comum',
       '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 'g_aditivada',
-      'c77a6e31-52f0-4fe1-bdc8-685df83f3a12': 'd_s500',
+      'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': 'd_s500',
       'cecab8eb-297a-4640-81ae-e88335b88d8b': 'anidro',
       'ecd91066-e763-42e3-8a0e-d982ea6da535': 'b100',
       'f8e95435-471a-424c-947f-def8809053a0': 'gasolina_a',
