@@ -888,20 +888,18 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     return apenasNumeros;
   }  
 
-  // PASSO 1 — MAPA FIXO UUID → COLUNA (conforme tabela fornecida)
   String _resolverColunaProduto(String produtoId) {
-    // MAPA: UUID do produto → Coluna na tabela movimentacoes
     const mapaProdutoColuna = {
-      '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 's10_a',     // Diesel A-S10
-      '4da89784-301f-4abe-b97e-c48729969e3d': 's500_a',    // Diesel A-S500
-      '58ce20cf-f252-4291-9ef6-f4821f22c29e': 'd_s10',     // Diesel S10-B
-      '66ca957a-5698-4a02-8c9e-987770b6a151': 'etanol',    // Hidratado
-      '82c348c8-efa1-4d1a-953a-ee384d5780fc': 'g_comum',   // Gasolina Comum
-      '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 'g_aditivada', // Gasolina Aditivada
-      'c77a6e31-52f0-4fe1-bdc8-685df83f3a1': 'd_s500',     // Diesel S500-B
-      'cecab8eb-297a-4640-81ae-e88335b88d8b': 'anidro',    // Anidro
-      'ecd91066-e763-42e3-8a0e-d982ea6da535': 'b100',      // B100
-      'f8e95435-471a-424c-947f-def8809053a0': 'gasolina_a', // Gasolina A
+      '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 's10_a',
+      '4da89784-301f-4abe-b97e-c48729969e3d': 's500_a',
+      '58ce20cf-f252-4291-9ef6-f4821f22c29e': 'd_s10',
+      '66ca957a-5698-4a02-8c9e-987770b6a151': 'etanol',
+      '82c348c8-efa1-4d1a-953a-ee384d5780fc': 'g_comum',
+      '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 'g_aditivada',
+      'c77a6e31-52f0-4fe1-bdc8-685df83f3a12': 'd_s500',
+      'cecab8eb-297a-4640-81ae-e88335b88d8b': 'anidro',
+      'ecd91066-e763-42e3-8a0e-d982ea6da535': 'b100',
+      'f8e95435-471a-424c-947f-def8809053a0': 'gasolina_a',
     };
 
     // Normalizar UUID (remover espaços, converter para minúsculas)
