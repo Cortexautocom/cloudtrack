@@ -1001,6 +1001,7 @@ class _CalcPageState extends State<CalcPage> {
         'tipo_mov': null,
         'filial_origem_id': filialId,
         'observacoes': null,
+        'tipo_op': 'cacl',
         'updated_at': DateTime.now().toIso8601String(),
       };
       
