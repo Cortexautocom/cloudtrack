@@ -365,7 +365,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
       90.0,   // Data
       90.0,   // Operação (antigo índice 2)
       130.0,  // Produto (antigo índice 3)
-      170.0,  // Descrição (antigo índice 4)
+      350.0,  // Descrição (antigo índice 4)
       90.0,   // Quantidade (antigo índice 5)
       130.0,  // Origem (antigo índice 6)
       130.0,  // Destino (antigo índice 7)
