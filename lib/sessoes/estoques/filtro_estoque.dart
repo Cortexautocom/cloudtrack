@@ -35,6 +35,7 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
   String? _produtoSelecionado;
   List<Map<String, String>> _produtosDisponiveis = [];
   bool _carregandoProdutos = false;
+  // ignore: prefer_final_fields
   bool _carregando = false;
 
   @override
@@ -50,65 +51,39 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
     setState(() => _carregandoProdutos = true);
     
     try {
-      // Consulta para buscar produtos disponíveis na filial selecionada
-      // CORREÇÃO: Usar o nome correto da chave estrangeira
+      // ALTERAÇÃO: Consultar diretamente a tabela de produtos
+      // para obter TODOS os produtos do sistema
       final dados = await _supabase
-          .from('movimentacoes')
-          .select('''
-            produto_id,
-            produtos!movimentacoes_produto_id_fkey1(
-              id,
-              nome
-            )
-          ''')
-          .eq('filial_id', widget.filialId)
-          .order('created_at', ascending: false);
-      
-      final produtosMap = <String, Map<String, String>>{};
-      
-      for (var movimentacao in dados) {
-        final produto = movimentacao['produtos'] as Map<String, dynamic>?;
-        if (produto != null && produto['id'] != null && produto['nome'] != null) {
-          final produtoId = produto['id'].toString();
-          final produtoNome = produto['nome'].toString();
-          
-          // Se o produto ainda não foi adicionado, adiciona
-          if (!produtosMap.containsKey(produtoId)) {
-            produtosMap[produtoId] = {
-              'id': produtoId,
-              'nome': produtoNome,
-            };
-          }
-        }
-      }
+          .from('produtos')  // ← Mudado de 'movimentacoes' para 'produtos'
+          .select('id, nome')  // ← Seleciona apenas id e nome
+          .order('nome');  // ← Ordena por nome
       
       setState(() {
-        // Adicionar opção "Todos os produtos" no início
+        // Adicionar opção "<selecione>" no início
         _produtosDisponiveis = [
-          {'id': 'todos', 'nome': 'Todos os produtos'}
+          {'id': '', 'nome': '<selecione>'}
         ];
         
-        // Adicionar produtos únicos em ordem alfabética
-        final produtosList = produtosMap.values.toList();
-        
-        // Ordenar por nome (exceto o primeiro item)
-        if (produtosList.isNotEmpty) {
-          produtosList.sort((a, b) => a['nome']!.compareTo(b['nome']!));
-          _produtosDisponiveis.addAll(produtosList);
+        // Adicionar TODOS os produtos da tabela
+        for (var produto in dados) {
+          if (produto['id'] != null && produto['nome'] != null) {
+            _produtosDisponiveis.add({
+              'id': produto['id'].toString(),
+              'nome': produto['nome'].toString(),
+            });
+          }
         }
         
-        // Se houver produtos, seleciona "Todos os produtos" por padrão
-        if (_produtosDisponiveis.isNotEmpty) {
-          _produtoSelecionado = 'todos';
-        }
+        // Por padrão, seleciona "<selecione>" (valor vazio)
+        _produtoSelecionado = '';
       });
     } catch (e) {
       debugPrint("❌ Erro ao carregar produtos: $e");
       setState(() {
         _produtosDisponiveis = [
-          {'id': 'todos', 'nome': 'Todos os produtos'}
+          {'id': '', 'nome': '<selecione>'}
         ];
-        _produtoSelecionado = 'todos';
+        _produtoSelecionado = '';
       });
     } finally {
       setState(() => _carregandoProdutos = false);
@@ -162,20 +137,31 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
       return;
     }
 
+    // Verificar se um produto foi selecionado
+    if (_produtoSelecionado == null || _produtoSelecionado!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Por favor, selecione um produto.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     // Chamar o callback passado pelo pai
     widget.onConsultarEstoque(
       filialId: widget.filialId,
       nomeFilial: widget.nomeFilial,
       empresaId: widget.empresaId,
       mesFiltro: _mesSelecionado,
-      produtoFiltro: _produtoSelecionado == 'todos' ? null : _produtoSelecionado,
+      produtoFiltro: _produtoSelecionado,
     );
   }
 
   void _resetarFiltros() {
     setState(() {
       _mesSelecionado = DateTime.now();
-      _produtoSelecionado = 'todos';
+      _produtoSelecionado = '';
     });
   }
 
@@ -319,7 +305,7 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Produto',
+                              'Produto *',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
@@ -374,7 +360,12 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
                                   items: _produtosDisponiveis.map<DropdownMenuItem<String>>((produto) {
                                     return DropdownMenuItem<String>(
                                       value: produto['id']!,
-                                      child: Text(produto['nome']!),
+                                      child: Text(
+                                        produto['nome']!,
+                                        style: TextStyle(
+                                          color: produto['id']!.isEmpty ? Colors.grey : Colors.black87,
+                                        ),
+                                      ),
                                     );
                                   }).toList(),
                                 ),
@@ -435,13 +426,13 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
                       ),
                       _buildItemResumoLinha(
                         'Produto:',
-                        _produtoSelecionado == 'todos' 
-                          ? 'Todos os produtos'
-                          : _produtosDisponiveis
+                        _produtoSelecionado != null && _produtoSelecionado!.isNotEmpty
+                          ? _produtosDisponiveis
                               .firstWhere(
                                 (prod) => prod['id'] == _produtoSelecionado,
                                 orElse: () => {'id': '', 'nome': 'Não selecionado'}
-                              )['nome']!,
+                              )['nome']!
+                          : 'Não selecionado',
                         Icons.inventory_2,
                       ),
                     ],
@@ -530,7 +521,7 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
                   style: TextStyle(fontSize: 12, color: Color.fromARGB(255, 19, 96, 184)),
                 ),
                 Text(
-                  '• Selecione "Todos os produtos" para ver o estoque completo.',
+                  '• A seleção de um produto é obrigatória para a consulta.',
                   style: TextStyle(fontSize: 12, color: Color.fromARGB(255, 19, 96, 184)),
                 ),
                 Text(
