@@ -244,20 +244,34 @@ class _VeiculosPageState extends State<VeiculosPage> {
   Widget _buildVeiculosList() {
     return Column(
       children: [
-        // Cabeçalho da tabela de veículos
+        // =========================
+        // CABEÇALHO DA TABELA
+        // =========================
         Container(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
           decoration: BoxDecoration(
             color: Colors.grey.shade50,
             border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
           ),
-          child: const Row(
+          child: Row(
             children: [
-              _CabecalhoTabela(texto: 'PLACA', largura: 120),
-              SizedBox(width: 8),
-              Expanded(
-                flex: 2,
-                child: Text(
+              Container(
+                width: 100,
+                alignment: Alignment.centerLeft,
+                child: const Text(
+                  'PLACA',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0D47A1),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Container(
+                width: 180,
+                alignment: Alignment.centerLeft,
+                child: const Text(
                   'TRANSPORTADORA',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
@@ -266,12 +280,38 @@ class _VeiculosPageState extends State<VeiculosPage> {
                   ),
                 ),
               ),
-              SizedBox(width: 8),
-              _CabecalhoTabela(texto: 'RENAVAM', largura: 120),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'COMPARTIMENTOS (m³)',
+              const SizedBox(width: 4),
+              Container(
+                width: 100,
+                alignment: Alignment.centerLeft,
+                child: const Text(
+                  'RENAVAM',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0D47A1),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Container(
+                width: 260, // COMPARTIMENTOS FIXO
+                alignment: Alignment.centerLeft,
+                child: const Text(
+                  'COMPARTIMENTOS',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0D47A1),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Container(
+                width: 90,
+                alignment: Alignment.centerLeft,
+                child: const Text(
+                  'CAPAC. TOTAL',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF0D47A1),
@@ -282,8 +322,10 @@ class _VeiculosPageState extends State<VeiculosPage> {
             ],
           ),
         ),
-        
-        // Lista de veículos
+
+        // =========================
+        // LISTA DE VEÍCULOS
+        // =========================
         Expanded(
           child: _carregando
               ? const Center(
@@ -313,137 +355,185 @@ class _VeiculosPageState extends State<VeiculosPage> {
                         final placa = veiculo['placa']?.toString() ?? '';
                         final transportadora = _getNomeTransportadora(veiculo);
                         final tanques = _parsetanques(veiculo['tanques']);
-                        final totaltanques = _calcularTotaltanques(tanques);
+                        final totalTanques = _calcularTotaltanques(tanques);
+
                         return Container(
                           height: 48,
                           decoration: BoxDecoration(
-                            color: index.isEven ? Colors.white : Colors.grey.shade50,
+                            color: index.isEven
+                                ? Colors.white
+                                : Colors.grey.shade50,
                             border: Border(
-                              bottom: BorderSide(color: Colors.grey.shade200),
+                              bottom:
+                                  BorderSide(color: Colors.grey.shade200),
                             ),
                           ),
-                          child: InkWell(
-                            onTap: () => widget.onSelecionarVeiculo({
-                              'id': veiculo['id'],
-                              'placa': placa,
-                              'transportadora': transportadora,
-                              'tanques': tanques,
-                            }),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: Row(
-                                children: [
-                                  SizedBox(
-                                    width: 120,
-                                    child: Text(
-                                      placa,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        color: Color(0xFF0D47A1),
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 16),
+                            child: Row(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.center,
+                              children: [
+                                // PLACA
+                                Container(
+                                  width: 100,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    placa,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: Color(0xFF0D47A1),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      transportadora,
-                                      style: const TextStyle(fontSize: 13),
-                                      overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(width: 4),
+
+                                // TRANSPORTADORA
+                                Container(
+                                  width: 180,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    transportadora,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+
+                                // RENAVAM
+                                Container(
+                                  width: 100,
+                                  alignment: Alignment.centerLeft,
+                                  child: const Text(
+                                    '--',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.grey,
+                                      fontStyle: FontStyle.italic,
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  SizedBox(
-                                    width: 120,
-                                    child: Text(
-                                      '--', // Placeholder para Renavam - você pode ajustar conforme sua estrutura de dados
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey,
-                                        fontStyle: FontStyle.italic,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: tanques.isEmpty
-                                        ? Row(
-                                            children: [
-                                              const Icon(Icons.directions_car,
-                                                  size: 16, color: Colors.grey),
-                                              const SizedBox(width: 6),
-                                              const Text(
-                                                'Cavalo',
-                                                style: TextStyle(
-                                                  color: Colors.grey,
-                                                  fontStyle: FontStyle.italic,
-                                                  fontSize: 12,
-                                                ),
+                                ),
+                                const SizedBox(width: 4),
+
+                                // COMPARTIMENTOS
+                                Container(
+                                  width: 260,
+                                  alignment: Alignment.centerLeft,
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 4),
+                                  child: tanques.isEmpty
+                                      ? Row(
+                                          children: const [
+                                            Icon(Icons.directions_car,
+                                                size: 16,
+                                                color: Colors.grey),
+                                            SizedBox(width: 6),
+                                            Text(
+                                              'Cavalo',
+                                              style: TextStyle(
+                                                color: Colors.grey,
+                                                fontStyle:
+                                                    FontStyle.italic,
+                                                fontSize: 12,
                                               ),
-                                            ],
-                                          )
-                                        : Wrap(
-                                            spacing: 6,
-                                            runSpacing: 4,
-                                            children: [
-                                              ...tanques
-                                                  .map((capacidade) => Container(
-                                                        padding: const EdgeInsets.symmetric(
-                                                            horizontal: 8, vertical: 3),
-                                                        decoration: BoxDecoration(
-                                                          color: _getCorBoca(capacidade)
-                                                              .withOpacity(0.1),
-                                                          border: Border.all(
-                                                            color: _getCorBoca(capacidade)
-                                                                .withOpacity(0.3),
-                                                            width: 1,
-                                                          ),
-                                                          borderRadius: BorderRadius.circular(12),
-                                                        ),
-                                                        child: Text(
-                                                          '$capacidade',
-                                                          style: TextStyle(
-                                                            color: _getCorBoca(capacidade),
-                                                            fontSize: 11,
-                                                            fontWeight: FontWeight.bold,
-                                                          ),
-                                                        ),
-                                                      ))
-                                                  .toList(),
-                                              const SizedBox(width: 6),
-                                              const Icon(Icons.arrow_forward,
-                                                  size: 14, color: Colors.grey),
-                                              const SizedBox(width: 6),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                    horizontal: 8, vertical: 3),
-                                                decoration: BoxDecoration(
-                                                  color:
-                                                      Colors.blueGrey.withOpacity(0.1),
-                                                  border: Border.all(
-                                                    color:
-                                                        Colors.blueGrey.withOpacity(0.3),
-                                                    width: 1,
+                                            ),
+                                          ],
+                                        )
+                                      : Wrap(
+                                          spacing: 4,
+                                          runSpacing: 4,
+                                          children: tanques
+                                              .map(
+                                                (capacidade) =>
+                                                    Container(
+                                                  padding:
+                                                      const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 6,
+                                                          vertical: 2),
+                                                  decoration:
+                                                      BoxDecoration(
+                                                    color: _getCorBoca(
+                                                            capacidade)
+                                                        .withOpacity(0.1),
+                                                    border: Border.all(
+                                                      color: _getCorBoca(
+                                                              capacidade)
+                                                          .withOpacity(
+                                                              0.3),
+                                                      width: 1,
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius
+                                                            .circular(10),
                                                   ),
-                                                  borderRadius: BorderRadius.circular(12),
+                                                  child: Text(
+                                                    '$capacidade',
+                                                    style: TextStyle(
+                                                      color: _getCorBoca(
+                                                          capacidade),
+                                                      fontSize: 10,
+                                                      fontWeight:
+                                                          FontWeight
+                                                              .bold,
+                                                    ),
+                                                  ),
                                                 ),
-                                                child: Text(
-                                                  '$totaltanques',
-                                                  style: const TextStyle(
-                                                    color: Colors.blueGrey,
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
+                                              )
+                                              .toList(),
+                                        ),
+                                ),
+                                const SizedBox(width: 4),
+
+                                // CAPAC. TOTAL
+                                Container(
+                                  width: 90,
+                                  alignment: Alignment.centerLeft,
+                                  child: tanques.isEmpty
+                                      ? const SizedBox()
+                                      : Container(
+                                          padding:
+                                              const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blueGrey
+                                                .withOpacity(0.1),
+                                            border: Border.all(
+                                              color: Colors.blueGrey
+                                                  .withOpacity(0.3),
+                                              width: 1,
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              const Icon(
+                                                  Icons.arrow_forward,
+                                                  size: 12,
+                                                  color:
+                                                      Colors.blueGrey),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                '$totalTanques',
+                                                style:
+                                                    const TextStyle(
+                                                  color:
+                                                      Colors.blueGrey,
+                                                  fontSize: 11,
+                                                  fontWeight:
+                                                      FontWeight.bold,
                                                 ),
                                               ),
                                             ],
                                           ),
-                                  ),
-                                ],
-                              ),
+                                        ),
+                                ),
+                              ],
                             ),
                           ),
                         );
@@ -453,6 +543,7 @@ class _VeiculosPageState extends State<VeiculosPage> {
       ],
     );
   }
+
 }
 
 // ==============================
@@ -992,28 +1083,6 @@ class _ConjuntosPageState extends State<ConjuntosPage> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _CabecalhoTabela extends StatelessWidget {
-  final String texto;
-  final double largura;
-
-  const _CabecalhoTabela({required this.texto, required this.largura});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: largura,
-      child: Text(
-        texto,
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          color: Color(0xFF0D47A1),
-          fontSize: 12,
-        ),
-      ),
     );
   }
 }
