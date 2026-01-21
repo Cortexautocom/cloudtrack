@@ -291,72 +291,52 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _carregarFilialParaProgramacao() async {
-    final supabase = Supabase.instance.client;
-    final usuario = UsuarioAtual.instance;
+    // CRIANDO CARDS FIXOS PARA VENDAS COM OS UUIDs DAS FILIAIS
+    final filiaisFixas = [
+      {
+        'id': '9d476aa0-11fe-4470-8881-2699cb528690',
+        'nome': 'Petroserra Jequié',
+        'nome_dois': 'Jequié',
+        'cidade': 'Jequié - BA'
+      },
+      {
+        'id': 'b4225bea-63f1-4e0f-b04f-ae936d8ccda8',
+        'nome': 'Petroserra Candeias',
+        'nome_dois': 'PHL',
+        'cidade': 'Candeias - BA'
+      },
+      {
+        'id': 'bcc92c8e-bd40-4d26-acb0-87acdd2ce2b7',
+        'nome': 'Janaúba',
+        'nome_dois': 'Janaúba',
+        'cidade': 'Janaúba - MG'
+      },
+      {
+        'id': 'ff09efd0-b71f-40ce-8bbb-0fa3b738e73e',
+        'nome': 'Petroserra Feira',
+        'nome_dois': 'Sidel Terminais',
+        'cidade': 'Feira de Santana - BA'
+      }
+    ];
+
+    setState(() {
+      _filiaisProgramacao = filiaisFixas.map((filial) {
+        final nomeFilial = filial['nome_dois'] ?? filial['nome'];
+        return {
+          'id': filial['id'],
+          'label': nomeFilial, // APENAS O NOME PRINCIPAL, SEM LEGENDA
+          'descricao': '', // REMOVIDA A LEGENDA CONFORME SOLICITADO
+          'tipo': 'programacao_filial',
+          'filial_id': filial['id'],
+          'filial_nome': filial['nome'],
+          'filial_nome_dois': nomeFilial,
+          'icon': Icons.local_gas_station,
+          'sessao_pai': 'Vendas',
+        };
+      }).toList();
+    });
     
-    try {
-      dynamic queryResult;
-      
-      if (usuario != null && usuario.nivel < 3) {
-        List<String> filiaisPermitidas = [];
-        
-        if (usuario.filialId != null) {
-          filiaisPermitidas.add(usuario.filialId!);
-        }
-        
-        if (filiaisPermitidas.isEmpty) {
-          queryResult = await supabase
-              .from('filiais')
-              .select('id, nome, nome_dois, cidade')
-              .eq('id', '00000000-0000-0000-0000-000000000000')
-              .order('nome');
-        } else {
-          queryResult = await supabase
-              .from('filiais')
-              .select('id, nome, nome_dois, cidade')
-              .inFilter('id', filiaisPermitidas)
-              .order('nome');
-        }
-      } else {
-        queryResult = await supabase
-            .from('filiais')
-            .select('id, nome, nome_dois, cidade')
-            .order('nome');
-      }
-      
-      List<Map<String, dynamic>> dados = [];
-      
-      if (queryResult is List) {
-        for (var item in queryResult) {
-          if (item is Map<String, dynamic>) {
-            dados.add(item);
-          } else {
-            final map = Map<String, dynamic>.from(item as Map);
-            dados.add(map);
-          }
-        }
-      }
-      
-      setState(() {
-        _filiaisProgramacao = dados.map((filial) {
-          final nomeFilial = filial['nome_dois'] ?? filial['nome'];
-          return {
-            'id': filial['id'],
-            'label': '$nomeFilial',
-            'descricao': filial['cidade'],
-            'tipo': 'programacao_filial',
-            'filial_id': filial['id'],
-            'filial_nome': filial['nome'],
-            'filial_nome_dois': nomeFilial,
-            'icon': Icons.local_gas_station,
-            'sessao_pai': 'Vendas',
-          };
-        }).toList();
-      });
-      
-    } catch (e) {
-      debugPrint("❌ Erro ao carregar filiais para programação: $e");
-    }
+    debugPrint("✅ Cards fixos de vendas carregados: ${_filiaisProgramacao.length} filiais");
   }
 
   Future<void> _carregarEmpresas() async {
@@ -536,7 +516,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   void _mostrarFilhosDaSessao(String nomeSessao) {
     if (nomeSessao == 'Vendas') {
-      // Verificar se há filiais para programação
+      // Usar as filiais fixas para programação
       if (_filiaisProgramacao.isEmpty) {
         _mostrarSemPermissao();
         return;
@@ -1338,15 +1318,82 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       return _buildSemPermissaoPage();
     }
 
+    // Filtrar apenas os cards que o usuário tem permissão
+    final usuario = UsuarioAtual.instance;
+    final cardsPermitidos = _filhosSessaoAtual.where((card) {
+      final cardId = card['id']?.toString();
+      if (usuario == null || cardId == null) return false;
+      return usuario.podeAcessarCard(cardId);
+    }).toList();
+
+    // Se não houver nenhum card permitido
+    if (cardsPermitidos.isEmpty) {
+      return _buildPaginaPadronizada(
+        titulo: _sessaoAtual ?? '',
+        conteudo: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.lock_outline,
+                size: 80,
+                color: Colors.grey[400],
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Não autorizado.',
+                style: TextStyle(
+                  fontSize: 24,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 40),
+                child: Text(
+                  'Você não tem permissão para acessar nenhum card nesta sessão.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.arrow_back),
+                label: const Text('Voltar para o menu'),
+                onPressed: _voltarParaCardsPai,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0D47A1),
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return _buildPaginaPadronizada(
       titulo: _sessaoAtual ?? '',
-      conteudo: GridView.count(
-        crossAxisCount: 7,
-        crossAxisSpacing: 15,
-        mainAxisSpacing: 15,
-        childAspectRatio: 1.1, // AUMENTADO para evitar overflow
-        padding: const EdgeInsets.only(bottom: 20),
-        children: _filhosSessaoAtual.map((card) => _buildCardFilho(card)).toList(),
+      conteudo: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Wrap(
+            spacing: 15,
+            runSpacing: 15,
+            alignment: WrapAlignment.start,
+            children: cardsPermitidos.map((card) {
+              return SizedBox(
+                width: 140,
+                height: 170,
+                child: _buildCardFilho(card),
+              );
+            }).toList(),
+          ),
+        ),
       ),
     );
   }
@@ -1458,24 +1505,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(height: 6),
-              if ((card['descricao'] ?? '').isNotEmpty)
-                ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxHeight: 30, // LIMITE RÍGIDO PARA DESCRIÇÃO
-                  ),
-                  child: Text(
-                    card['descricao'] ?? '',
-                    style: const TextStyle(
-                      fontSize: 9.5, // FONTE BEM PEQUENA
-                      color: Colors.grey,
-                      height: 1.2, // ESPAÇAMENTO ENTRE LINHAS
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2, // MÁXIMO DE 2 LINHAS
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
+              // REMOVIDA A LEGENDA ABAIXO DO NOME (campo descricao não é mais exibido)
             ],
           ),
         ),

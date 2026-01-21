@@ -23,12 +23,44 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
 
   List<Map<String, dynamic>> usuarios = [];
   List<Map<String, dynamic>> usuariosFiltrados = [];
-  List<Map<String, dynamic>> cards = []; // NOVO: Agora carrega cards, não sessoes
-  List<Map<String, dynamic>> cardsFiltrados = []; // NOVO: Cards filtrados
+  List<Map<String, dynamic>> cards = []; // Agora carrega cards, não sessoes
+  List<Map<String, dynamic>> cardsFiltrados = []; // Cards filtrados
   Map<String, bool> permissoes = {};
   String? usuarioSelecionadoId;
   String? usuarioSelecionadoNome;
-  String? sessaoSelecionada; // NOVO: Para agrupar cards por sessão
+  String? sessaoSelecionada; // Para agrupar cards por sessão
+
+  // NOVO: Cards fixos de vendas (os mesmos que estão no HomePage)
+  final List<Map<String, dynamic>> _cardsFixosVendas = [
+    {
+      'id': '9d476aa0-11fe-4470-8881-2699cb528690',
+      'nome': 'Jequié',
+      'tipo': 'programacao_filial',
+      'sessao_pai': 'Vendas',
+      'ordem': 1,
+    },
+    {
+      'id': 'b4225bea-63f1-4e0f-b04f-ae936d8ccda8',
+      'nome': 'PHL',
+      'tipo': 'programacao_filial',
+      'sessao_pai': 'Vendas',
+      'ordem': 2,
+    },
+    {
+      'id': 'bcc92c8e-bd40-4d26-acb0-87acdd2ce2b7',
+      'nome': 'Janaúba',
+      'tipo': 'programacao_filial',
+      'sessao_pai': 'Vendas',
+      'ordem': 3,
+    },
+    {
+      'id': 'ff09efd0-b71f-40ce-8bbb-0fa3b738e73e',
+      'nome': 'Sidel Terminais',
+      'tipo': 'programacao_filial',
+      'sessao_pai': 'Vendas',
+      'ordem': 4,
+    }
+  ];
 
   @override
   void initState() {
@@ -64,7 +96,7 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
     });
   }
 
-  // NOVO: Filtrar cards por nome
+  // Filtrar cards por nome
   void _filtrarCards(String query) {
     setState(() {
       if (query.isEmpty) {
@@ -130,7 +162,7 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
     }
   }
 
-  // NOVO: Carregar cards da tabela 'cards' ao invés de 'sessoes'
+  // Carregar cards da tabela 'cards' e substituir cards de Vendas pelos fixos
   Future<void> _carregarCards(String usuarioId, String usuarioNome) async {
     setState(() {
       exibindoCards = true;
@@ -148,7 +180,7 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
           .order('sessao_pai')
           .order('ordem');
 
-      debugPrint('✅ Cards encontrados: ${cardsData.length}');
+      debugPrint('✅ Cards encontrados no banco: ${cardsData.length}');
 
       // 2. Carregar permissões deste usuário
       final permissoesData = await supabase
@@ -158,6 +190,8 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
 
       // 3. Criar mapa de permissões (id_card → permitido)
       Map<String, bool> mapaPermissoes = {};
+      
+      // Primeiro carregar permissões dos cards do banco
       for (var card in cardsData) {
         final cardId = card['id'].toString();
         final permissaoEncontrada = permissoesData.firstWhere(
@@ -167,18 +201,57 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
         mapaPermissoes[cardId] = permissaoEncontrada['permitido'] ?? false;
       }
 
-      // 4. Preparar lista de cards com informações completas
+      // 4. Adicionar permissões para cards fixos de vendas (sobrescrevendo se existir)
+      for (var cardFixo in _cardsFixosVendas) {
+        final cardId = cardFixo['id'];
+        final permissaoEncontrada = permissoesData.firstWhere(
+          (p) => p['id_sessao'] == cardId,
+          orElse: () => {'permitido': false},
+        );
+        mapaPermissoes[cardId] = permissaoEncontrada['permitido'] ?? false;
+      }
+
+      // 5. Preparar lista de cards com informações completas
       List<Map<String, dynamic>> listaCards = [];
+      
+      // Adicionar cards do banco, EXCETO os da sessão "Vendas"
       for (var card in cardsData) {
+        final sessaoPai = card['sessao_pai']?.toString() ?? 'Geral';
+        
+        // Pular cards da sessão "Vendas" (serão substituídos pelos fixos)
+        if (sessaoPai == 'Vendas') {
+          debugPrint('⚠️ Ignorando card do banco da sessão Vendas: ${card['nome']}');
+          continue;
+        }
+        
         listaCards.add({
           'id': card['id'].toString(),
           'nome': card['nome'],
           'tipo': card['tipo'],
-          'sessao_pai': card['sessao_pai'],
+          'sessao_pai': sessaoPai,
           'ordem': card['ordem'] ?? 0,
           'permitido': mapaPermissoes[card['id'].toString()] ?? false,
         });
       }
+      
+      // 6. Adicionar APENAS os cards fixos de vendas
+      for (var cardFixo in _cardsFixosVendas) {
+        listaCards.add({
+          'id': cardFixo['id'],
+          'nome': cardFixo['nome'],
+          'tipo': cardFixo['tipo'],
+          'sessao_pai': cardFixo['sessao_pai'],
+          'ordem': cardFixo['ordem'],
+          'permitido': mapaPermissoes[cardFixo['id']] ?? false,
+        });
+      }
+
+      // 7. Ordenar por sessão e ordem
+      listaCards.sort((a, b) {
+        final sessaoCompare = (a['sessao_pai'] ?? '').compareTo(b['sessao_pai'] ?? '');
+        if (sessaoCompare != 0) return sessaoCompare;
+        return (a['ordem'] ?? 0).compareTo(b['ordem'] ?? 0);
+      });
 
       setState(() {
         cards = listaCards;
@@ -187,6 +260,8 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
         sessaoSelecionada = null; // Resetar sessão selecionada
       });
 
+      debugPrint('✅ Total de cards carregados: ${cards.length}');
+      debugPrint('✅ Cards da sessão Vendas: ${cards.where((c) => c['sessao_pai'] == 'Vendas').length}');
       debugPrint('✅ Permissões carregadas para $usuarioNome: ${permissoes.length} cards');
       
     } catch (e) {
@@ -202,7 +277,7 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
     }
   }
 
-  // NOVO: Atualizar permissão de um card específico
+  // Atualizar permissão de um card específico
   Future<void> _atualizarPermissaoCard(String cardId, bool permitido) async {
     if (usuarioSelecionadoId == null) return;
 
@@ -287,7 +362,7 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
     }
   }
 
-  // NOVO: Método para conceder/tirar permissão de TODOS os cards de uma sessão
+  // Método para conceder/tirar permissão de TODOS os cards de uma sessão
   Future<void> _alternarPermissaoSessao(String sessaoPai, bool conceder) async {
     if (usuarioSelecionadoId == null) return;
 
@@ -321,7 +396,7 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
     }
   }
 
-  // NOVO: Obter lista de sessões únicas dos cards
+  // Obter lista de sessões únicas dos cards
   List<String> _obterSessoesUnicas() {
     final sessoes = cards.map((c) => c['sessao_pai']?.toString() ?? 'Geral').toSet();
     return sessoes.toList()..sort();
@@ -450,7 +525,7 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
   }
 
   // ======================
-  // LISTA DE CARDS (substitui lista de sessões)
+  // LISTA DE CARDS
   // ======================
   Widget _buildListaCards() {
     if (carregandoCards) {
@@ -516,7 +591,7 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
           ),
           const Divider(),
           
-          // NOVO: Seção de ações em lote
+          // Seção de ações em lote
           if (cards.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 15),
@@ -583,7 +658,7 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
     );
   }
 
-  // NOVO: Conteúdo dos cards (agrupado por sessão ou lista simples)
+  // Conteúdo dos cards (agrupado por sessão ou lista simples)
   Widget _buildConteudoCards() {
     if (cardsFiltrados.isEmpty) {
       return const Center(
@@ -644,21 +719,21 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
               });
             },
             leading: CircleAvatar(
-              backgroundColor: Colors.blue.shade50,
+              backgroundColor: _getCorSessao(sessao).withOpacity(0.1),
               child: Text(
                 sessao.substring(0, 1).toUpperCase(),
-                style: const TextStyle(
-                  color: Color(0xFF0D47A1),
+                style: TextStyle(
+                  color: _getCorSessao(sessao),
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
             title: Text(
               sessao,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF0D47A1),
+                color: _getCorSessao(sessao),
               ),
             ),
             subtitle: Text(
@@ -697,30 +772,39 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
     );
   }
 
-  // NOVO: Widget para item individual do card
+  // Widget para item individual do card
   Widget _buildCardItem(Map<String, dynamic> card) {
     final permitido = card['permitido'] ?? false;
     final sessaoPai = card['sessao_pai'] ?? 'Geral';
     final tipo = card['tipo'] ?? '';
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       color: permitido ? Colors.green.shade50 : Colors.white,
       child: Row(
         children: [
           // Indicador visual
           Container(
             width: 4,
-            height: 40,
+            height: 48,
             color: permitido ? Colors.green : Colors.grey.shade300,
           ),
           const SizedBox(width: 12),
           
           // Ícone baseado no tipo
-          Icon(
-            _getIconePorTipo(tipo),
-            color: permitido ? Colors.green : Colors.grey,
-            size: 20,
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _getCorSessao(sessaoPai).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              _getIconePorTipo(tipo),
+              color: permitido 
+                ? _getCorSessao(sessaoPai) 
+                : Colors.grey.shade500,
+              size: 22,
+            ),
           ),
           const SizedBox(width: 12),
           
@@ -732,16 +816,18 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
                 Text(
                   card['nome'] ?? 'Sem nome',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 15,
                     fontWeight: FontWeight.w500,
-                    color: permitido ? Colors.green.shade800 : Colors.grey.shade800,
+                    color: permitido 
+                      ? _getCorSessao(sessaoPai).withOpacity(0.9)
+                      : Colors.grey.shade800,
                   ),
                 ),
                 if (sessaoPai.isNotEmpty && sessaoPai != 'Geral')
                   Text(
                     'Sessão: $sessaoPai',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       color: Colors.grey.shade600,
                     ),
                   ),
@@ -751,7 +837,7 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
           
           // Checkbox de permissão
           Transform.scale(
-            scale: 1.2,
+            scale: 1.3,
             child: Checkbox(
               value: permitido,
               activeColor: const Color(0xFF2E7D32),
@@ -769,7 +855,7 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
     );
   }
 
-  // NOVO: Mapeamento tipo → ícone (consistente com HomePage)
+  // Mapeamento tipo → ícone (consistente com HomePage)
   IconData _getIconePorTipo(String tipo) {
     const mapaIcones = {
       'cacl': Icons.analytics,
@@ -793,5 +879,21 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
       'programacao_filial': Icons.local_gas_station,
     };
     return mapaIcones[tipo] ?? Icons.apps;
+  }
+
+  // Método para obter cor da sessão (consistente com HomePage)
+  Color _getCorSessao(String sessao) {
+    final mapaCores = {
+      'Estoques': const Color(0xFFFF9800), // Laranja
+      'Apuração': const Color(0xFF2196F3), // Azul
+      'Circuito': const Color(0xFF9C27B0), // Roxo
+      'Vendas': const Color(0xFF4CAF50),   // Verde
+      'Gestão de Frota': const Color(0xFFF44336), // Vermelho
+      'Bombeios e Cotas': const Color(0xFF00BCD4), // Ciano
+      'Relatórios': const Color(0xFF795548), // Marrom
+      'Configurações': const Color(0xFF607D8B), // Azul cinza
+      'Ajuda': const Color(0xFF673AB7), // Roxo profundo
+    };
+    return mapaCores[sessao] ?? const Color(0xFF2E7D32);
   }
 }
