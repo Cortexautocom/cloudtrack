@@ -62,7 +62,9 @@ class _EscolherSenhaPageState extends State<EscolherSenhaPage> {
             nivel: UsuarioAtual.instance!.nivel,
             filialId: UsuarioAtual.instance!.filialId,
             sessoesPermitidas: UsuarioAtual.instance!.sessoesPermitidas,
-            senhaTemporaria: false, // ✅ AGORA É FALSE
+            senhaTemporaria: false,
+            // CORREÇÃO: Adicionado cardsPermitidosIds
+            cardsPermitidosIds: UsuarioAtual.instance!.cardsPermitidosIds,
           );
         }
 

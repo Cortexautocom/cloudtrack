@@ -1,3 +1,5 @@
+/*
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'sessoes/apuracao/tabelas_de_conversao/tabelasdeconversao.dart';
@@ -28,6 +30,7 @@ import 'home_cards.dart';
 import 'sessoes/ajuda/arquiteto.dart';
 import 'sessoes/estoques/filtro_moviment.dart';
 
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -41,12 +44,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   final List<String> menuItems = [
     'Início',
-    'Estoques',
-    'Apuração',
-    'Circuito',
-    'Vendas',
-    'Gestão de Frota',
-    'Bombeios e Cotas',
     'Relatórios',
     'Configurações',
     'Ajuda'
@@ -74,6 +71,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarIniciarCircuito = false;
   bool _mostrarFiltroMovimentacoes = false;
   bool _mostrarMenuAjuda = false;
+  // NOVA FLAG PARA TEMPERATURA E DENSIDADE
   bool _mostrarTempDensMedia = false;
   
   // NOVAS VARIÁVEIS PARA GESTÃO DE FROTA
@@ -105,7 +103,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   // FLAGS DE CARREGAMENTO
   bool carregandoEmpresas = false;
   bool carregandoFiliaisEmpresa = false;
-  bool _carregandoCards = false;
   String? _empresaSelecionadaNome;
   String? _empresaSelecionadaId;
 
@@ -115,181 +112,151 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   // NOVA LISTA PARA ARMAZENAR FILIAIS PARA PROGRAMACAO
   List<Map<String, dynamic>> _filiaisProgramacao = [];
 
-  // NOVO: Mapa de cores por sessão
-  final Map<String, Color> _coresSessoes = {
-    'Estoques': const Color(0xFFFF9800), // Laranja
-    'Apuração': const Color(0xFF2196F3), // Azul
-    'Circuito': const Color(0xFF9C27B0), // Roxo
-    'Vendas': const Color(0xFF4CAF50),   // Verde
-    'Gestão de Frota': const Color(0xFFF44336), // Vermelho
-    'Bombeios e Cotas': const Color(0xFF00BCD4), // Ciano
-    'Relatórios': const Color(0xFF795548), // Marrom
-    'Configurações': const Color(0xFF607D8B), // Azul cinza
-    'Ajuda': const Color(0xFF673AB7), // Roxo profundo
-  };
-
   @override
   void initState() {
     super.initState();
+    _inicializarFilhosPorSessao();
     selectedIndex = -1;
+    // Carregar filiais para programação
     _carregarFilialParaProgramacao();
-    _carregarCardsDoBanco();
   }
 
-  // NOVO: Método para obter cor da sessão atual
-  Color _getCorSessaoAtual() {
-    return _coresSessoes[_sessaoAtual ?? ''] ?? const Color(0xFF2E7D32);
-  }
-
-  // NOVO: Método para obter cor da sessão por nome
-  Color _getCorPorSessao(String sessao) {
-    return _coresSessoes[sessao] ?? const Color(0xFF2E7D32);
-  }
-
-  Future<void> _carregarCardsDoBanco() async {
-    final usuario = UsuarioAtual.instance;
-    if (usuario == null) return;
-
-    setState(() => _carregandoCards = true);
-
-    try {
-      final supabase = Supabase.instance.client;
-      
-      final cardsDb = await supabase
-          .from('cards')
-          .select('id, nome, tipo, sessao_pai, ordem')
-          .eq('ativo', true)
-          .order('sessao_pai')
-          .order('ordem');
-
-      debugPrint('✅ Cards encontrados no banco: ${cardsDb.length}');
-
-      final List<Map<String, dynamic>> todosCards = [];
-      
-      for (var card in cardsDb) {
-        final cardId = card['id'].toString();
-        final sessaoPai = card['sessao_pai']?.toString() ?? 'Geral';
-        
-        if (usuario.nivel >= 3 || usuario.podeAcessarCard(cardId)) {
-          todosCards.add({
-            'id': cardId,
-            'label': card['nome'],
-            'tipo': card['tipo'],
-            'sessao_pai': sessaoPai,
-            'icon': _definirIconePorTipo(card['tipo']),
-            'descricao': _definirDescricaoPorTipo(card['tipo']),
-          });
-        }
-      }
-
-      debugPrint('✅ Cards permitidos para ${usuario.nome}: ${todosCards.length}');
-
-      final Map<String, List<Map<String, dynamic>>> cardsOrganizados = {};
-      
-      for (var card in todosCards) {
-        final sessaoPai = card['sessao_pai'];
-        cardsOrganizados.putIfAbsent(sessaoPai, () => []);
-        cardsOrganizados[sessaoPai]!.add(card);
-      }
-
-      setState(() {
-        _filhosPorSessao.clear();
-        _filhosPorSessao.addAll(cardsOrganizados);
-        _carregandoCards = false;
-      });
-
-    } catch (e) {
-      debugPrint('❌ Erro ao carregar cards do banco: $e');
-      setState(() => _carregandoCards = false);
-      _inicializarFilhosPorSessaoFallback();
-    }
-  }
-
-  void _inicializarFilhosPorSessaoFallback() {
+  void _inicializarFilhosPorSessao() {
+    // Filhos para "Apuração" - ADICIONADO "Temperatura e Densidade média"
     _filhosPorSessao['Apuração'] = [
-      {'id': 'fallback-cacl', 'icon': Icons.analytics, 'label': 'CACL', 'descricao': 'Emitir CACL', 'tipo': 'cacl', 'sessao_pai': 'Apuração'},
-      {'id': 'fallback-ordens', 'icon': Icons.assignment, 'label': 'Ordens / Análises', 'descricao': 'Geração e gestão de ordens', 'tipo': 'ordens_analise', 'sessao_pai': 'Apuração'},
-      {'id': 'fallback-historico', 'icon': Icons.history, 'label': 'Histórico de CACLs', 'descricao': 'Consultar histórico de CACLs emitidos', 'tipo': 'historico_cacl', 'sessao_pai': 'Apuração'},
-      {'id': 'fallback-tabelas', 'icon': Icons.table_chart, 'label': 'Tabelas de Conversão', 'descricao': 'Tabelas de conversão de densidade e temperatura', 'tipo': 'tabelas_conversao', 'sessao_pai': 'Apuração'},
-      {'id': 'fallback-temp', 'icon': Icons.thermostat, 'label': 'Temperatura e Densidade média', 'descricao': 'Cálculo de temperatura e densidade média', 'tipo': 'temp_dens_media', 'sessao_pai': 'Apuração'},
+      {
+        'icon': Icons.analytics,
+        'label': 'CACL',
+        'descricao': 'Emitir CACL',
+        'tipo': 'cacl',
+      },      
+      {
+        'icon': Icons.assignment,
+        'label': 'Ordens / Análises',
+        'descricao': 'Geração e gestão de ordens',
+        'tipo': 'ordens_analise',
+      },
+      {
+        'icon': Icons.history,
+        'label': 'Histórico de CACLs',
+        'descricao': 'Consultar histórico de CACLs emitidos',
+        'tipo': 'historico_cacl',
+      },
+      {
+        'icon': Icons.table_chart,
+        'label': 'Tabelas de Conversão',
+        'descricao': 'Tabelas de conversão de densidade e temperatura',
+        'tipo': 'tabelas_conversao',
+      },
+      {
+        'icon': Icons.thermostat,
+        'label': 'Temperatura e Densidade média',
+        'descricao': 'Cálculo de temperatura e densidade média',
+        'tipo': 'temp_dens_media',
+      },
     ];
 
+    // Filhos para "Estoques"
     _filhosPorSessao['Estoques'] = [
-      {'id': 'fallback-tanques', 'icon': Icons.oil_barrel, 'label': 'Tanques', 'descricao': 'Gerenciamento de tanques', 'tipo': 'tanques', 'sessao_pai': 'Estoques'},
-      {'id': 'fallback-geral', 'icon': Icons.hub, 'label': 'Estoque Geral', 'descricao': 'Visão consolidada dos estoques da base', 'tipo': 'estoque_geral', 'sessao_pai': 'Estoques'},
-      {'id': 'fallback-empresa', 'icon': Icons.business, 'label': 'Estoque por empresa', 'descricao': 'Estoques separados por empresa', 'tipo': 'estoque_por_empresa', 'sessao_pai': 'Estoques'},
-      {'id': 'fallback-mov', 'icon': Icons.swap_horiz, 'label': 'Movimentações', 'descricao': 'Acompanhar entradas e saídas em geral', 'tipo': 'movimentacoes', 'sessao_pai': 'Estoques'},
-      {'id': 'fallback-transf', 'icon': Icons.compare_arrows, 'label': 'Transferências', 'descricao': 'Gerenciar transferências entre filiais', 'tipo': 'transferencias', 'sessao_pai': 'Estoques'},
+      {
+        'icon': Icons.oil_barrel,
+        'label': 'Tanques',
+        'descricao': 'Gerenciamento de tanques',
+        'tipo': 'tanques',
+      },
+      {
+        'icon': Icons.hub,
+        'label': 'Estoque Geral',
+        'descricao': 'Visão consolidada dos estoques da base',
+        'tipo': 'estoque_geral',
+      },
+      {
+        'icon': Icons.business,
+        'label': 'Estoque por empresa',
+        'descricao': 'Estoques separados por empresa',
+        'tipo': 'estoque_por_empresa',
+      },
+      {
+        'icon': Icons.swap_horiz,
+        'label': 'Movimentações',
+        'descricao': 'Acompanhar entradas e saídas em geral',
+        'tipo': 'movimentacoes',
+      },
+      {
+        'icon': Icons.compare_arrows,
+        'label': 'Transferências',
+        'descricao': 'Gerenciar transferências entre filiais',
+        'tipo': 'transferencias',
+      },
     ];
 
+    // Filhos para "Circuito"
     _filhosPorSessao['Circuito'] = [
-      {'id': 'fallback-iniciar', 'icon': Icons.play_arrow, 'label': 'Iniciar Circuito', 'descricao': 'Iniciar novo fluxo de carga/descarga', 'tipo': 'iniciar_circuito', 'sessao_pai': 'Circuito'},
-      {'id': 'fallback-acompanhar', 'icon': Icons.directions_car, 'label': 'Acompanhar ordem', 'descricao': 'Acompanhar situação da ordem', 'tipo': 'acompanhar_ordem', 'sessao_pai': 'Circuito'},
-      {'id': 'fallback-visao', 'icon': Icons.dashboard, 'label': 'Visão geral', 'descricao': 'Panorama completo dos circuitos', 'tipo': 'visao_geral_circuito', 'sessao_pai': 'Circuito'},
+      {
+        'icon': Icons.play_arrow,
+        'label': 'Iniciar Circuito',
+        'descricao': 'Iniciar novo fluxo de carga/descarga',
+        'tipo': 'iniciar_circuito',
+      },
+      {
+        'icon': Icons.directions_car,
+        'label': 'Acompanhar ordem',
+        'descricao': 'Acompanhar situação da ordem',
+        'tipo': 'acompanhar_ordem',
+      },
+      {
+        'icon': Icons.dashboard,
+        'label': 'Visão geral',
+        'descricao': 'Panorama completo dos circuitos',
+        'tipo': 'visao_geral_circuito',
+      },
     ];
 
+    // Filhos para "Gestão de Frota"
     _filhosPorSessao['Gestão de Frota'] = [
-      {'id': 'fallback-veiculos', 'icon': Icons.directions_car, 'label': 'Veículos Próprios', 'descricao': 'Gerenciar frota de veículos próprios', 'tipo': 'veiculos', 'sessao_pai': 'Gestão de Frota'},
-      {'id': 'fallback-terceiros', 'icon': Icons.local_shipping, 'label': 'Veículos de terceiros', 'descricao': 'Gerenciar veículos de transportadoras', 'tipo': 'veiculos_terceiros', 'sessao_pai': 'Gestão de Frota'},
-      {'id': 'fallback-motoristas', 'icon': Icons.people, 'label': 'Motoristas', 'descricao': 'Gerenciar cadastro de motoristas', 'tipo': 'motoristas', 'sessao_pai': 'Gestão de Frota'},
-      {'id': 'fallback-documentacao', 'icon': Icons.description, 'label': 'Documentação', 'descricao': 'Controle de documentos da frota', 'tipo': 'documentacao', 'sessao_pai': 'Gestão de Frota'},
+      {
+        'icon': Icons.directions_car,
+        'label': 'Veículos Próprios',
+        'descricao': 'Gerenciar frota de veículos próprios',
+        'tipo': 'veiculos',
+      },
+      {
+        'icon': Icons.local_shipping,
+        'label': 'Veículos de terceiros',
+        'descricao': 'Gerenciar veículos de transportadoras',
+        'tipo': 'veiculos_terceiros',
+      },
+      {
+        'icon': Icons.people,
+        'label': 'Motoristas',
+        'descricao': 'Gerenciar cadastro de motoristas',
+        'tipo': 'motoristas',
+      },
+      {
+        'icon': Icons.description,
+        'label': 'Documentação',
+        'descricao': 'Controle de documentos da frota',
+        'tipo': 'documentacao',
+      },
     ];
 
+    // Filhos para "Vendas" - REMOVIDO o card único "Programação"
+    _filhosPorSessao['Vendas'] = [
+      // Card único removido para ser substituído pelos cards dinâmicos por filial
+    ];
+
+    // Filhos para "Bombeios"
     _filhosPorSessao['Bombeios e Cotas'] = [
-      {'id': 'fallback-bombeios', 'icon': Icons.invert_colors, 'label': 'Bombeios e Cotas', 'descricao': 'Controle de bombeios', 'tipo': 'bombeios', 'sessao_pai': 'Bombeios e Cotas'},
+      {
+        'icon': Icons.invert_colors,
+        'label': 'Bombeios e Cotas',
+        'descricao': 'Controle de bombeios',
+        'tipo': 'bombeios',
+      },
     ];
   }
 
-  IconData _definirIconePorTipo(String tipo) {
-    const mapaIcones = {
-      'cacl': Icons.analytics,
-      'ordens_analise': Icons.assignment,
-      'historico_cacl': Icons.history,
-      'tabelas_conversao': Icons.table_chart,
-      'temp_dens_media': Icons.thermostat,
-      'tanques': Icons.oil_barrel,
-      'estoque_geral': Icons.hub,
-      'estoque_por_empresa': Icons.business,
-      'movimentacoes': Icons.swap_horiz,
-      'transferencias': Icons.compare_arrows,
-      'iniciar_circuito': Icons.play_arrow,
-      'acompanhar_ordem': Icons.directions_car,
-      'visao_geral_circuito': Icons.dashboard,
-      'veiculos': Icons.directions_car,
-      'veiculos_terceiros': Icons.local_shipping,
-      'motoristas': Icons.people,
-      'documentacao': Icons.description,
-      'bombeios': Icons.invert_colors,
-      'programacao_filial': Icons.local_gas_station,
-    };
-    return mapaIcones[tipo] ?? Icons.apps;
-  }
-
-  String _definirDescricaoPorTipo(String tipo) {
-    const mapaDescricoes = {
-      'cacl': 'Emitir CACL',
-      'ordens_analise': 'Geração e gestão de ordens',
-      'historico_cacl': 'Consultar histórico de CACLs emitidos',
-      'tabelas_conversao': 'Tabelas de conversão de densidade e temperatura',
-      'temp_dens_media': 'Cálculo de temperatura e densidade média',
-      'tanques': 'Gerenciamento de tanques',
-      'estoque_geral': 'Visão consolidada dos estoques da base',
-      'estoque_por_empresa': 'Estoques separados por empresa',
-      'movimentacoes': 'Acompanhar entradas e saídas em geral',
-      'transferencias': 'Gerenciar transferências entre filiais',
-      'iniciar_circuito': 'Iniciar novo fluxo de carga/descarga',
-      'acompanhar_ordem': 'Acompanhar situação da ordem',
-      'visao_geral_circuito': 'Panorama completo dos circuitos',
-      'veiculos': 'Gerenciar frota de veículos próprios',
-      'veiculos_terceiros': 'Gerenciar veículos de transportadoras',
-      'motoristas': 'Gerenciar cadastro de motoristas',
-      'documentacao': 'Controle de documentos da frota',
-      'bombeios': 'Controle de bombeios',
-      'programacao_filial': 'Programação de vendas por filial',
-    };
-    return mapaDescricoes[tipo] ?? '';
-  }
-
+  // NOVO MÉTODO PARA CARREGAR FILIAIS PARA PROGRAMACAO
   Future<void> _carregarFilialParaProgramacao() async {
     final supabase = Supabase.instance.client;
     final usuario = UsuarioAtual.instance;
@@ -349,7 +316,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             'filial_nome': filial['nome'],
             'filial_nome_dois': nomeFilial,
             'icon': Icons.local_gas_station,
-            'sessao_pai': 'Vendas',
           };
         }).toList();
       });
@@ -449,6 +415,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         }
       }
       
+      debugPrint('Usuário: ${usuario?.nome}, Nível: ${usuario?.nivel}');
+      debugPrint('Filial do usuário: ${usuario?.filialId}');
+      debugPrint('Filiais carregadas: ${dados.length}');
+      
       setState(() {
         filiaisDaEmpresa = dados.map((filial) {
           return {
@@ -463,6 +433,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       
     } catch (e) {
       debugPrint("Erro ao carregar filiais: $e");
+      debugPrint("Tipo do erro: ${e.runtimeType}");
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -473,6 +445,113 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       }
     } finally {
       setState(() => carregandoFiliaisEmpresa = false);
+    }
+  }
+
+  Future<void> _carregarSessoesDoBanco() async {
+    setState(() => carregandoSessoes = true);
+    final supabase = Supabase.instance.client;
+    final usuario = UsuarioAtual.instance;
+
+    try {
+      final dados = await supabase.from('sessoes').select('id, nome');
+
+      List<Map<String, dynamic>> filtradas = [];
+      for (var s in dados) {
+        final idSessao = s['id'].toString();
+        final nome = s['nome'] ?? 'Sem nome';
+        
+        if (nome == 'Tabelas de conversão') {
+          continue;
+        }
+        
+        if (usuario != null) {
+          if (usuario.temPermissao(idSessao)) {
+            filtradas.add({
+              'id': idSessao,
+              'label': nome,
+              'icon': _definirIcone(nome),
+            });
+          }
+        }
+      }
+
+      setState(() {
+        sessoes = filtradas;
+      });
+    } catch (e) {
+      debugPrint("Erro ao carregar sessões: $e");
+    } finally {
+      setState(() => carregandoSessoes = false);
+    }
+  }
+
+  Future<void> _verificarPermissoesUsuario() async {
+    final usuario = UsuarioAtual.instance;
+    if (usuario == null) return;
+
+    try {
+      final supabase = Supabase.instance.client;
+      
+      final todasSessoes = await supabase
+          .from('sessoes')
+          .select('id');
+      
+      final permissoes = await supabase
+          .from('permissoes')
+          .select('id_sessao, permitido')
+          .eq('id_usuario', usuario.id);
+      
+      List<String> sessoesPermitidas = [];
+      
+      if (usuario.nivel >= 3) {
+        sessoesPermitidas = todasSessoes
+            .map((s) => s['id'].toString())
+            .toList();
+      } else if (usuario.nivel == 2) {
+        final permissoesUsuario = permissoes
+            .where((p) => p['permitido'] == true)
+            .map((p) => p['id_sessao'].toString())
+            .toList();
+        
+        if (permissoesUsuario.isNotEmpty) {
+          sessoesPermitidas = permissoesUsuario;
+        } else {
+          sessoesPermitidas = todasSessoes
+              .map((s) => s['id'].toString())
+              .toList();
+        }
+      } else {
+        sessoesPermitidas = permissoes
+            .where((p) => p['permitido'] == true)
+            .map((p) => p['id_sessao'].toString())
+            .toList();
+      }
+      
+      debugPrint('✅ Sessões permitidas para ${usuario.nome} (nivel ${usuario.nivel}): ${sessoesPermitidas.length}');
+      
+      UsuarioAtual.instance = UsuarioAtual(
+        id: usuario.id,
+        nome: usuario.nome,
+        nivel: usuario.nivel,
+        filialId: usuario.filialId,
+        empresaId: usuario.empresaId,
+        sessoesPermitidas: sessoesPermitidas,
+        senhaTemporaria: usuario.senhaTemporaria,
+      );
+      
+      await _carregarSessoesDoBanco();
+      
+    } catch (e) {
+      debugPrint("❌ Erro ao carregar permissões: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Erro ao carregar permissões do usuário."),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -535,32 +614,20 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   void _mostrarFilhosDaSessao(String nomeSessao) {
-    if (nomeSessao == 'Vendas') {
-      // Verificar se há filiais para programação
-      if (_filiaisProgramacao.isEmpty) {
-        _mostrarSemPermissao();
-        return;
-      }
-      
-      setState(() {
-        _mostrarFilhosSessao = true;
-        _sessaoAtual = nomeSessao;
-        _filhosSessaoAtual = List.from(_filiaisProgramacao);
-      });
-      return;
-    }
-
-    final filhos = _filhosPorSessao[nomeSessao] ?? [];
+    List<Map<String, dynamic>> filhos = [];
     
-    if (filhos.isEmpty) {
-      _mostrarSemPermissao();
-      return;
+    if (nomeSessao == 'Vendas') {
+      // Para a sessão Vendas, usar os cards dinâmicos de programação por filial
+      filhos = List.from(_filiaisProgramacao);
+    } else {
+      // Para outras sessões, usar os filhos predefinidos
+      filhos = List.from(_filhosPorSessao[nomeSessao] ?? []);
     }
     
     setState(() {
       _mostrarFilhosSessao = true;
       _sessaoAtual = nomeSessao;
-      _filhosSessaoAtual = List.from(filhos);
+      _filhosSessaoAtual = filhos;
       
       showConversaoList = false;
       _mostrarDownloads = false;
@@ -581,15 +648,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarDetalhesVeiculo = false;
       _veiculoSelecionado = null;
       _mostrarMotoristas = false;
-    });
-  }
-
-  // NOVO: Método para mostrar mensagem de "Sem permissão"
-  void _mostrarSemPermissao() {
-    setState(() {
-      _mostrarFilhosSessao = true;
-      _sessaoAtual = null;
-      _filhosSessaoAtual = [];
     });
   }
 
@@ -734,18 +792,48 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           itemBuilder: (context, index) {
                             bool isSelected = selectedIndex == index;
                             return InkWell(
-                              onTap: () {
+                              onTap: () async {
+                                // Primeiro, reseta todas as flags
                                 _resetarTodasFlags();
-
+                                
+                                // Atualiza o índice selecionado
                                 setState(() {
                                   selectedIndex = index;
                                 });
 
                                 final itemSelecionado = menuItems[index];
-
-                                if (itemSelecionado == 'Vendas' || 
-                                    _filhosPorSessao.containsKey(itemSelecionado)) {
-                                  _mostrarFilhosDaSessao(itemSelecionado);
+                                
+                                switch (itemSelecionado) {
+                                  case 'Início':
+                                    await _verificarPermissoesUsuario();
+                                    // Flags já foram resetadas pelo _resetarTodasFlags
+                                    break;
+                                  
+                                  case 'Relatórios':
+                                    setState(() {
+                                      _mostrarDownloads = true;
+                                    });
+                                    break;
+                                  
+                                  case 'Configurações':
+                                    // Nada específico a fazer aqui, as flags já foram resetadas
+                                    // O método _buildConfiguracoesPage irá construir o conteúdo apropriado
+                                    break;
+                                  
+                                  case 'Ajuda':
+                                    setState(() {
+                                      _mostrarMenuAjuda = true;
+                                      // Garantir que nenhuma outra flag de conteúdo esteja ativa
+                                      _mostrarDownloads = false;
+                                      _mostrarFilhosSessao = false;
+                                      _sessaoAtual = null;
+                                      _filhosSessaoAtual = [];
+                                    });
+                                    break;
+                                  
+                                  default:
+                                    // Para qualquer outro item do menu, apenas resetar as flags
+                                    break;
                                 }
                               },
                               child: AnimatedContainer(
@@ -770,7 +858,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                     Icon(
                                       _getMenuIcon(menuItems[index]),
                                       color: isSelected
-                                          ? _getCorPorSessao(menuItems[index])
+                                          ? const Color(0xFF2E7D32)
                                           : Colors.grey[700],
                                       size: 20,
                                     ),
@@ -782,7 +870,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                             ? FontWeight.bold
                                             : FontWeight.w500,
                                         color: isSelected
-                                            ? _getCorPorSessao(menuItems[index])
+                                            ? const Color(0xFF2E7D32)
                                             : Colors.grey[800],
                                       ),
                                     ),
@@ -820,15 +908,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
     switch (menuItems[selectedIndex]) {
       case 'Início':
-        return _buildInicioPage(usuario);
-
+        return _buildSessoesPage(usuario);
       case 'Relatórios':
         return _buildRelatoriosPage();
-
       case 'Configurações':
         return _buildConfiguracoesPage(usuario);
-
       case 'Ajuda':
+        // Quando o menu Ajuda está selecionado, forçar mostrar a página de ajuda
         if (!_mostrarMenuAjuda) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             setState(() {
@@ -837,26 +923,28 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           });
         }
         return _buildAjudaPage();
-
-      case 'Estoques':
-      case 'Apuração':
-      case 'Circuito':
-      case 'Vendas':
-      case 'Gestão de Frota':
-      case 'Bombeios e Cotas':
-        return _buildConteudoSessoes();
-
       default:
-        return const SizedBox.shrink();
+        return Center(
+          child: Text(
+            '${menuItems[selectedIndex]} em construção...',
+            style: const TextStyle(
+              fontSize: 22,
+              color: Color(0xFF0D47A1),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        );
     }
   }
 
   Widget _buildAjudaPage() {
     return HomeCards(
       menuSelecionado: 'Ajuda',
+      // ALTERADO: Agora recebe (context, tipo)
       onCardSelecionado: (context, tipoCard) {
         switch (tipoCard) {
           case 'grande_arquiteto':
+            // Navegação para a página do Grande Arquiteto
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -865,7 +953,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             ).then((result) {
               if (result == 'voltar_ajuda') {
                 setState(() {
-                  selectedIndex = 3;
+                  selectedIndex = 3;      // Ajuda
                   _mostrarMenuAjuda = true;
                 });
               }
@@ -884,88 +972,120 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       onVoltar: () {
         setState(() {
           _mostrarMenuAjuda = false;
-          selectedIndex = -1;
+          selectedIndex = -1; // Volta para a página inicial
         });
       },
     );
   }
 
   Widget _buildRelatoriosPage() {
-    return _buildPaginaPadronizada(
-      titulo: "Relatórios",
-      conteudo: Column(
+    return Padding(
+      padding: const EdgeInsets.all(30),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text(
+            "Relatórios",
+            style: TextStyle(
+              fontSize: 24,
+              color: Color(0xFF0D47A1),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Divider(color: Colors.grey),
           const SizedBox(height: 20),
-          Wrap(
-            spacing: 15,
-            runSpacing: 15,
-            children: [
-              Material(
-                elevation: 2,
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                clipBehavior: Clip.hardEdge,
-                child: InkWell(
-                  onTap: () {
-                    setState(() {
-                      _mostrarDownloads = true;
-                    });
-                  },
-                  hoverColor: const Color(0xFFE8F5E9),
-                  child: Container(
-                    width: 150,
-                    height: 150,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(12),
+          
+          Material(
+            elevation: 2,
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            clipBehavior: Clip.hardEdge,
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  _mostrarDownloads = true;
+                });
+              },
+              hoverColor: const Color(0xFFE8F5E9),
+              child: Container(
+                width: 150,
+                height: 150,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.download,
+                      color: const Color.fromARGB(255, 48, 153, 35),
+                      size: 50,
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.download,
-                          color: _getCorPorSessao('Relatórios'),
-                          size: 50,
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Downloads',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF0D47A1),
-                            fontWeight: FontWeight.w600,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 4),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text(
-                            'Baixar relatórios e dados',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey,
-                            ),
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Downloads',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF0D47A1),
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                  ),
+                    const SizedBox(height: 4),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Text(
+                        'Baixar relatórios e dados',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ],
       ),
-      mostrarVoltar: false,
+    );
+  }
+
+  Widget _buildSessoesPage(UsuarioAtual? usuario) {
+    if (carregandoSessoes) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF0D47A1)),
+      );
+    }
+
+    if (sessoes.isEmpty) {
+      return const Center(
+        child: Text(
+          'Nenhuma sessão disponível.',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(30),
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 400),
+        transitionBuilder: (child, animation) =>
+            FadeTransition(opacity: animation, child: child),
+        child: _buildConteudoSessoes(),
+      ),
     );
   }
 
   Widget _buildConteudoSessoes() {
+
     if (_mostrarMenuAjuda) {
       return _buildAjudaPage();
     }
@@ -1180,6 +1300,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       );
     }
 
+    // ===== Gestão de Frota =====
     if (_mostrarVeiculos && !_mostrarDetalhesVeiculo) {
       return VeiculosPage(
         key: const ValueKey('veiculos-page'),
@@ -1226,199 +1347,164 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       );
     }
 
+    // Se estiver mostrando os cards filhos
     if (_mostrarFilhosSessao && _sessaoAtual != null) {
       return _buildFilhosSessaoPage();
     }
 
-    if (_mostrarFilhosSessao && _sessaoAtual == null) {
-      // Caso especial: quando não há permissão para nenhum card
-      return _buildSemPermissaoPage();
-    }
-
-    if (_carregandoCards) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF0D47A1)),
-      );
-    }
-
-    return const SizedBox.shrink();
-  }
-
-  // NOVO: Widget padronizado para todas as páginas de cards
-  Widget _buildPaginaPadronizada({
-    required String titulo,
-    required Widget conteudo,
-    bool mostrarVoltar = true,
-    VoidCallback? onVoltar,
-  }) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(30, 20, 30, 30), // PADDING PADRONIZADO
-      color: Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              if (mostrarVoltar)
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
-                  onPressed: onVoltar ?? _voltarParaCardsPai,
-                  tooltip: 'Voltar',
-                ),
-              if (mostrarVoltar) const SizedBox(width: 10),
-              Text(
-                titulo,
-                style: const TextStyle(
-                  fontSize: 24,
-                  color: Color(0xFF0D47A1),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          const Divider(color: Colors.grey), // BARRA SEPARADORA PADRONIZADA
-          const SizedBox(height: 20),
-          Expanded(child: conteudo),
-        ],
-      ),
-    );
-  }
-
-  // NOVO: Página de "Sem permissão" padronizada
-  Widget _buildSemPermissaoPage() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.lock_outline,
-            size: 80,
-            color: Colors.grey[400],
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Sem permissão',
-            style: TextStyle(
-              fontSize: 24,
-              color: Colors.grey,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 10),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 40),
-            child: Text(
-              'Você não tem permissão para acessar nenhum card nesta sessão.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.arrow_back),
-            label: const Text('Voltar para o menu'),
-            onPressed: _voltarParaCardsPai,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0D47A1),
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
+    // Página padrão
+    return _buildGridWithSearch(sessoes);
   }
 
   Widget _buildFilhosSessaoPage() {
-    // Se não houver cards para mostrar
-    if (_filhosSessaoAtual.isEmpty) {
-      return _buildSemPermissaoPage();
-    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
+              onPressed: _voltarParaCardsPai,
+              tooltip: 'Voltar para sessões',
+            ),
+            const SizedBox(width: 10),
+            Text(
+              _sessaoAtual ?? '',
+              style: const TextStyle(
+                fontSize: 24,
+                color: Color(0xFF0D47A1),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        const Divider(color: Colors.grey),
+        const SizedBox(height: 20),
 
-    return _buildPaginaPadronizada(
-      titulo: _sessaoAtual ?? '',
-      conteudo: GridView.count(
-        crossAxisCount: 7,
-        crossAxisSpacing: 15,
-        mainAxisSpacing: 15,
-        childAspectRatio: 1.1, // AUMENTADO para evitar overflow
-        padding: const EdgeInsets.only(bottom: 20),
-        children: _filhosSessaoAtual.map((card) => _buildCardFilho(card)).toList(),
-      ),
+        Expanded(
+          child: GridView.count(
+            crossAxisCount: 7,
+            crossAxisSpacing: 15,
+            mainAxisSpacing: 15,
+            childAspectRatio: 1,
+            children: _filhosSessaoAtual.map((card) => _buildCardFilho(card)).toList(),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildEstoquePorEmpresaPage() {
-    return _buildPaginaPadronizada(
-      titulo: 'Estoque por empresa',
-      conteudo: carregandoEmpresas
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF0D47A1)),
-            )
-          : empresas.isEmpty
-              ? const Center(
-                  child: Text(
-                    'Nenhuma empresa encontrada.',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                )
-              : GridView.count(
-                  crossAxisCount: 7,
-                  crossAxisSpacing: 15,
-                  mainAxisSpacing: 15,
-                  childAspectRatio: 1.1,
-                  padding: const EdgeInsets.only(bottom: 20),
-                  children: empresas.map((empresa) => _buildCardEmpresa(empresa)).toList(),
-                ),
-      onVoltar: () => _mostrarFilhosDaSessao('Estoques'),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
+              onPressed: () {
+                _mostrarFilhosDaSessao('Estoques');
+              },
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Estoque por empresa',
+              style: TextStyle(
+                fontSize: 24,
+                color: Color(0xFF0D47A1),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        const Divider(),
+        const SizedBox(height: 20),
+
+        if (carregandoEmpresas)
+          const Center(
+            child: CircularProgressIndicator(color: Color(0xFF0D47A1)),
+          )
+        else if (empresas.isEmpty)
+          const Center(
+            child: Text(
+              'Nenhuma empresa encontrada.',
+              style: TextStyle(color: Colors.grey),
+            ),
+          )
+        else
+          Expanded(
+            child: GridView.count(
+              crossAxisCount: 7,
+              crossAxisSpacing: 15,
+              mainAxisSpacing: 15,
+              childAspectRatio: 1,
+              children: empresas.map((empresa) => _buildCardEmpresa(empresa)).toList(),
+            ),
+          ),
+      ],
     );
   }
 
   Widget _buildFiliaisDaEmpresaPage() {
-    return _buildPaginaPadronizada(
-      titulo: 'Filiais - $_empresaSelecionadaNome',
-      conteudo: carregandoFiliaisEmpresa
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF0D47A1)),
-            )
-          : filiaisDaEmpresa.isEmpty
-              ? const Center(
-                  child: Text(
-                    'Nenhuma filial encontrada para esta empresa.',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                )
-              : GridView.count(
-                  crossAxisCount: 7,
-                  crossAxisSpacing: 15,
-                  mainAxisSpacing: 15,
-                  childAspectRatio: 1.1,
-                  padding: const EdgeInsets.only(bottom: 20),
-                  children: filiaisDaEmpresa.map((filial) => _buildCardFilial(filial)).toList(),
-                ),
-      onVoltar: () {
-        setState(() {
-          _mostrarFiliaisDaEmpresa = false;
-          _mostrarEstoquePorEmpresa = true;
-        });
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
+              onPressed: () {
+                setState(() {
+                  _mostrarFiliaisDaEmpresa = false;
+                  _mostrarEstoquePorEmpresa = true;
+                  _empresaSelecionadaId = null;
+                  _empresaSelecionadaNome = null;
+                });
+              },
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Filiais - $_empresaSelecionadaNome',
+              style: const TextStyle(
+                fontSize: 24,
+                color: Color(0xFF0D47A1),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        const Divider(),
+        const SizedBox(height: 20),
+
+        if (carregandoFiliaisEmpresa)
+          const Center(
+            child: CircularProgressIndicator(color: Color(0xFF0D47A1)),
+          )
+        else if (filiaisDaEmpresa.isEmpty)
+          const Center(
+            child: Text(
+              'Nenhuma filial encontrada para esta empresa.',
+              style: TextStyle(color: Colors.grey),
+            ),
+          )
+        else
+          Expanded(
+            child: GridView.count(
+              crossAxisCount: 7,
+              crossAxisSpacing: 15,
+              mainAxisSpacing: 15,
+              childAspectRatio: 1,
+              children: filiaisDaEmpresa.map((filial) => _buildCardFilial(filial)).toList(),
+            ),
+          ),
+      ],
     );
   }
 
-  // NOVO: Card padronizado com solução para overflow
   Widget _buildCardFilho(Map<String, dynamic> card) {
-    final usuario = UsuarioAtual.instance;
-    final cardId = card['id']?.toString();
-    
-    if (usuario != null && cardId != null && !usuario.podeAcessarCard(cardId)) {
-      return const SizedBox.shrink();
-    }
-
-    final corSessao = _getCorSessaoAtual();
-
     return Material(
       elevation: 2,
       color: Colors.white,
@@ -1426,56 +1512,44 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       clipBehavior: Clip.hardEdge,
       child: InkWell(
         onTap: () => _navegarParaCardFilho(card),
-        hoverColor: corSessao.withOpacity(0.1),
+        hoverColor: const Color(0xFFE8F5E9),
         child: Container(
           decoration: BoxDecoration(
             border: Border.all(color: Colors.grey.shade300),
             borderRadius: BorderRadius.circular(12),
           ),
-          padding: const EdgeInsets.all(15), // AUMENTADO para mais espaço
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 card['icon'],
-                color: corSessao, // COR DA SESSÃO APLICADA
-                size: 55, // AUMENTADO para melhor visualização
+                color: const Color.fromARGB(255, 48, 153, 35),
+                size: 50,
               ),
-              const SizedBox(height: 10), // MAIS ESPAÇO
-              ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxHeight: 40, // LIMITE PARA EVITAR OVERFLOW
+              const SizedBox(height: 8),
+              Text(
+                card['label'],
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF0D47A1),
+                  fontWeight: FontWeight.w600,
                 ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
-                  card['label'] ?? '',
-                  style: TextStyle(
-                    fontSize: 13, // FONTE UM POUCO MENOR
-                    color: const Color(0xFF0D47A1),
-                    fontWeight: FontWeight.w600,
+                  card['descricao'] ?? '',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey,
                   ),
                   textAlign: TextAlign.center,
-                  maxLines: 2, // MÁXIMO DE 2 LINHAS
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(height: 6),
-              if ((card['descricao'] ?? '').isNotEmpty)
-                ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxHeight: 30, // LIMITE RÍGIDO PARA DESCRIÇÃO
-                  ),
-                  child: Text(
-                    card['descricao'] ?? '',
-                    style: const TextStyle(
-                      fontSize: 9.5, // FONTE BEM PEQUENA
-                      color: Colors.grey,
-                      height: 1.2, // ESPAÇAMENTO ENTRE LINHAS
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2, // MÁXIMO DE 2 LINHAS
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
             ],
           ),
         ),
@@ -1504,9 +1578,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             _mostrarFiliaisDaEmpresa = true;
           });
         },
-        hoverColor: _getCorPorSessao('Estoques').withOpacity(0.1),
+        hoverColor: const Color(0xFFE8F5E9),
         child: Container(
-          padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
             border: Border.all(color: Colors.grey.shade300),
             borderRadius: BorderRadius.circular(12),
@@ -1516,38 +1589,31 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             children: [
               Icon(
                 empresa['icon'],
-                color: _getCorPorSessao('Estoques'),
-                size: 55,
+                color: const Color.fromARGB(255, 48, 153, 35),
+                size: 50,
               ),
-              const SizedBox(height: 10),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 40),
-                child: Text(
-                  empresa['label'],
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF0D47A1),
-                    fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+              const SizedBox(height: 8),
+              Text(
+                empresa['label'],
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF0D47A1),
+                  fontWeight: FontWeight.w600,
                 ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 6),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 30),
-                child: Text(
-                  empresa['descricao'] ?? '',
-                  style: const TextStyle(
-                    fontSize: 9.5,
-                    color: Colors.grey,
-                    height: 1.2,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+              const SizedBox(height: 4),
+              Text(
+                empresa['descricao'] ?? '',
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey,
                 ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -1573,9 +1639,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             _mostrarFiltrosEstoque = true;
           });
         },
-        hoverColor: _getCorPorSessao('Estoques').withOpacity(0.1),
+        hoverColor: const Color(0xFFE8F5E9),
         child: Container(
-          padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
             border: Border.all(color: Colors.grey.shade300),
             borderRadius: BorderRadius.circular(12),
@@ -1585,38 +1650,31 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             children: [
               Icon(
                 filial['icon'],
-                color: _getCorPorSessao('Estoques'),
-                size: 55,
+                color: const Color.fromARGB(255, 48, 153, 35),
+                size: 50,
               ),
-              const SizedBox(height: 10),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 40),
-                child: Text(
-                  filial['label'],
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF0D47A1),
-                    fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+              const SizedBox(height: 8),
+              Text(
+                filial['label'],
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF0D47A1),
+                  fontWeight: FontWeight.w600,
                 ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 6),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 30),
-                child: Text(
-                  filial['descricao'] ?? '',
-                  style: const TextStyle(
-                    fontSize: 9.5,
-                    color: Colors.grey,
-                    height: 1.2,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+              const SizedBox(height: 4),
+              Text(
+                filial['descricao'] ?? '',
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey,
                 ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -1627,20 +1685,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   void _navegarParaCardFilho(Map<String, dynamic> card) {
     final usuario = UsuarioAtual.instance;
-    final cardId = card['id']?.toString();
     final tipo = card['tipo'];
     final sessaoPai = _sessaoAtual;
-
-    if (usuario != null && cardId != null && !usuario.podeAcessarCard(cardId)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Você não tem permissão para acessar este recurso.'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
 
     switch (sessaoPai) {
       case 'Apuração':
@@ -1809,6 +1855,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
+  // MODIFICADO: Agora recebe o card completo para extrair dados da filial
   void _navegarParaCardVendas(String tipo, Map<String, dynamic> card) {
     switch (tipo) {
       case 'programacao_filial':
@@ -1871,81 +1918,202 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       ]);
     }
 
-    return _buildPaginaPadronizada(
-      titulo: "Configurações do sistema",
-      conteudo: GridView.count(
-        crossAxisCount: 7,
-        crossAxisSpacing: 15,
-        mainAxisSpacing: 15,
-        childAspectRatio: 1.1,
-        padding: const EdgeInsets.only(bottom: 20),
-        children: configCards.map((c) {
-          return Material(
-            color: Colors.white,
-            elevation: 1,
-            borderRadius: BorderRadius.circular(10),
-            clipBehavior: Clip.hardEdge,
-            child: InkWell(
-              onTap: () {
-                if (c['label'] == 'Controle de acesso') {
-                  setState(() => showControleAcesso = true);
-                } else if (c['label'] == 'Usuários') {
-                  setState(() => showUsuarios = true);
-                }
-              },
-              hoverColor: _getCorPorSessao('Configurações').withOpacity(0.1),
-              child: Container(
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      c['icon'],
-                      color: _getCorPorSessao('Configurações'),
-                      size: 55,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      c['label'],
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF0D47A1),
-                        fontWeight: FontWeight.w600,
+    return Padding(
+      padding: const EdgeInsets.all(30),
+      child: _buildGridConfiguracoes(configCards),
+    );
+  }
+
+  Widget _buildGridConfiguracoes(List<Map<String, dynamic>> configCards) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Configurações do sistema",
+          style: TextStyle(
+            fontSize: 18,
+            color: Color(0xFF0D47A1),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 20),
+        Expanded(
+          child: GridView.count(
+            crossAxisCount: 7,
+            crossAxisSpacing: 15,
+            mainAxisSpacing: 15,
+            childAspectRatio: 1,
+            children: configCards.map((c) {
+              return Material(
+                color: Colors.white,
+                elevation: 1,
+                borderRadius: BorderRadius.circular(10),
+                clipBehavior: Clip.hardEdge,
+                child: InkWell(
+                  onTap: () {
+                    if (c['label'] == 'Controle de acesso') {
+                      setState(() => showControleAcesso = true);
+                    } else if (c['label'] == 'Usuários') {
+                      setState(() => showUsuarios = true);
+                    }
+                  },
+                  hoverColor: const Color(0xFFE8F5E9),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(c['icon'],
+                          color: const Color.fromARGB(255, 48, 153, 35),
+                          size: 50),
+                      const SizedBox(height: 8),
+                      Text(
+                        c['label'],
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF0D47A1),
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGridWithSearch(List<Map<String, dynamic>> sessoes) {
+    final termoBusca = searchController.text.toLowerCase();
+
+    final sessoesFiltradas = sessoes.where((s) {
+      final label = (s['label'] ?? '').toString().toLowerCase();
+      return label.contains(termoBusca);
+    }).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 400,
+          height: 45,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: TextField(
+            controller: searchController,
+            decoration: const InputDecoration(
+              hintText: 'Pesquisar sessões...',
+              prefixIcon: Icon(Icons.search, color: Colors.grey),
+              border: InputBorder.none,
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+        ),
+        const SizedBox(height: 25),
+
+        if (sessoesFiltradas.isEmpty)
+          const Center(
+            child: Text(
+              'Nenhuma sessão encontrada.',
+              style: TextStyle(color: Colors.grey),
+            ),
+          )
+        else
+          Expanded(
+            child: GridView.count(
+              shrinkWrap: true,
+              crossAxisCount: 7,
+              crossAxisSpacing: 15,
+              mainAxisSpacing: 15,
+              childAspectRatio: 1,
+              children: sessoesFiltradas.map((s) => _buildSessaoCard(s)).toList(),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSessaoCard(Map<String, dynamic> sessaoData) {
+    return Material(
+      elevation: 1,
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(10),
+      clipBehavior: Clip.hardEdge,
+      child: InkWell(
+        onTap: () {
+          final nome = sessaoData['label'];
+
+          _resetarTodasFlags();
+          setState(() {
+            selectedIndex = 0;
+          });
+
+          if (_filhosPorSessao.containsKey(nome)) {
+            _mostrarFilhosDaSessao(nome);
+          } else {
+            _navegarParaSessaoSemFilhos(nome);
+          }
+        },
+        hoverColor: const Color(0xFFE8F5E9),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                sessaoData['icon'],
+                color: const Color.fromARGB(255, 48, 153, 35),
+                size: 50,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                sessaoData['label'],
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF0D47A1),
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
-          );
-        }).toList(),
+            ],
+          ),
+        ),
       ),
-      mostrarVoltar: false,
     );
+  }
+
+  void _navegarParaSessaoSemFilhos(String nomeSessao) {
+    debugPrint('Navegando para sessão sem filhos: $nomeSessao');
+  }
+
+  IconData _definirIcone(String nome) {
+    final lower = nome.toLowerCase();
+    if (lower.contains('estoques')) return Icons.leaderboard;
+    if (lower.contains('tabela')) return Icons.view_list;
+    if (lower.contains('motor')) return Icons.people;
+    if (lower.contains('abaste')) return Icons.local_gas_station;
+    if (lower.contains('document')) return Icons.description;
+    if (lower.contains('dep')) return Icons.warehouse;
+    if (lower.contains('cacl')) return Icons.receipt_long;
+    if (lower.contains('controle')) return Icons.car_repair;
+    if (lower.contains('apura')) return Icons.analytics;
+    if (lower.contains('cacl')) return Icons.analytics;
+    if (lower.contains('venda')) return Icons.local_gas_station;
+    if (lower.contains('tanque')) return Icons.storage;
+    if (lower.contains('circuito')) return Icons.route;
+    if (lower.contains('gestão') && lower.contains('frota')) return Icons.local_shipping;
+    if (lower.contains('bomb')) return Icons.invert_colors;
+    return Icons.apps;
   }
 
   IconData _getMenuIcon(String item) {
     switch (item) {
       case 'Início':
         return Icons.home;
-      case 'Estoques':
-        return Icons.leaderboard;
-      case 'Apuração':
-        return Icons.analytics;
-      case 'Circuito':
-        return Icons.route;
-      case 'Vendas':
-        return Icons.local_gas_station;
-      case 'Gestão de Frota':
-        return Icons.local_shipping;
-      case 'Bombeios e Cotas':
-        return Icons.invert_colors;
       case 'Relatórios':
         return Icons.bar_chart;
       case 'Configurações':
@@ -2033,3 +2201,5 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 }
+
+*/

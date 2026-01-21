@@ -17,8 +17,7 @@ class UsuarioAtual {
   final String? filialId;
   final String? empresaId;
 
-  final List<String> sessoesPermitidas; // Mantido para compatibilidade
-  final List<String> cardsPermitidosIds; // NOVO: IDs dos cards permitidos
+  final List<String> sessoesPermitidas;
   final bool senhaTemporaria;
 
   UsuarioAtual({
@@ -29,25 +28,11 @@ class UsuarioAtual {
     required this.empresaId,
     required this.sessoesPermitidas,
     required this.senhaTemporaria,
-    required this.cardsPermitidosIds, // NOVO PARÂMETRO
   });
 
-  // Método mantido para compatibilidade (usando a nova lógica)
   bool temPermissao(String idSessao) {
-    // Se é admin (nível >= 3) ou se o ID está na lista de cards permitidos
-    if (nivel >= 3) return true;
     
-    // Verifica se é um card permitido
-    return cardsPermitidosIds.contains(idSessao);
-  }
-
-  // NOVO: Método específico para verificar permissão de card
-  bool podeAcessarCard(String cardId) {
-    // Admins têm acesso total
-    if (nivel >= 3) return true;
-    
-    // Verifica se o card está na lista de permitidos
-    return cardsPermitidosIds.contains(cardId);
+    return sessoesPermitidas.contains(idSessao);
   }
 
   bool get precisaTrocarSenha => senhaTemporaria;
@@ -67,66 +52,7 @@ class _LoginPageState extends State<LoginPage> {
   bool _obscureText = true;
   bool _isLoading = false;
 
-  // ======= NOVO: Carregar permissões dos cards =======
-  Future<List<String>> _carregarPermissoesCards(String usuarioId) async {
-    try {
-      final supabase = Supabase.instance.client;
-      
-      // Consulta a tabela permissoes para obter os cards permitidos
-      final permissoes = await supabase
-          .from('permissoes')
-          .select('id_sessao, permitido')
-          .eq('id_usuario', usuarioId)
-          .eq('permitido', true);
-      
-      // Extrai os IDs dos cards permitidos
-      return permissoes
-          .map((p) => p['id_sessao']?.toString() ?? '')
-          .where((id) => id.isNotEmpty)
-          .toList();
-          
-    } catch (e) {
-      debugPrint('❌ Erro ao carregar permissões de cards: $e');
-      return [];
-    }
-  }
-
-  // ======= NOVO: Carregar sessões permitidas (mantido para compatibilidade) =======
-  Future<List<String>> _carregarSessoesPermitidas(String usuarioId, int nivel) async {
-    try {
-      final supabase = Supabase.instance.client;
-      
-      if (nivel >= 3) {
-        // Admin: todas as sessões
-        final todasSessoes = await supabase
-            .from('sessoes')
-            .select('id');
-        
-        return todasSessoes
-            .map((s) => s['id'].toString())
-            .toList();
-      }
-      
-      // Usuário normal: consulta permissões
-      final permissoes = await supabase
-          .from('permissoes')
-          .select('id_sessao, permitido')
-          .eq('id_usuario', usuarioId)
-          .eq('permitido', true);
-      
-      // Para compatibilidade, ainda usa a tabela sessoes se necessário
-      return permissoes
-          .where((p) => p['permitido'] == true)
-          .map((p) => p['id_sessao'].toString())
-          .toList();
-          
-    } catch (e) {
-      debugPrint('❌ Erro ao carregar sessões permitidas: $e');
-      return [];
-    }
-  }
-
-  // ======= Função de login ATUALIZADA =======
+  // ======= Função de login =======
   Future<void> loginUser() async {
     setState(() => _isLoading = true);
 
@@ -185,52 +111,19 @@ class _LoginPageState extends State<LoginPage> {
 
       final String? filialId = usuarioData['id_filial']?.toString();
       final String? empresaId = usuarioData['empresa_id']?.toString();
-      final int nivel = usuarioData['nivel'] as int;
 
-      // 🔹 4. Carrega permissões dos CARDS (NOVO)
-      final cardsPermitidosIds = await _carregarPermissoesCards(userId);
-      
-      // 🔹 5. Carrega sessões permitidas (mantido para compatibilidade)
-      final sessoesPermitidas = await _carregarSessoesPermitidas(userId, nivel);
-
-      debugPrint('✅ Usuário: ${usuarioData['nome']}');
-      debugPrint('✅ Nível: $nivel');
-      debugPrint('✅ Cards permitidos: ${cardsPermitidosIds.length}');
-      debugPrint('✅ Sessões permitidas: ${sessoesPermitidas.length}');
-
-      // 🔹 6. Cria objeto global do usuário ATUALIZADO
+      // 🔹 4. Cria objeto global do usuário
       UsuarioAtual.instance = UsuarioAtual(
         id: usuarioData['id'].toString(),
         nome: (usuarioData['Nome_apelido'] ?? usuarioData['nome']).toString(),
-        nivel: nivel,
+        nivel: usuarioData['nivel'] as int,
         filialId: filialId,
         empresaId: empresaId,
-        sessoesPermitidas: sessoesPermitidas, // Mantido para compatibilidade
+        sessoesPermitidas: <String>[],
         senhaTemporaria: usuarioData['senha_temporaria'] == true,
-        cardsPermitidosIds: cardsPermitidosIds, // NOVO
       );
 
-      // 🔹 7. Verifica se o usuário tem pelo menos UM card permitido (se não for admin)
-      if (nivel < 3 && cardsPermitidosIds.isEmpty) {
-        if (!mounted) return;
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Você não tem permissão para acessar nenhuma funcionalidade. Contate o administrador.'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 3),
-          ),
-        );
-        
-        // Desloga o usuário
-        await supabase.auth.signOut();
-        UsuarioAtual.instance = null;
-        
-        setState(() => _isLoading = false);
-        return;
-      }
-
-      // 🔹 8. Verifica troca de senha
+      // 🔹 5. Verifica troca de senha
       if (UsuarioAtual.instance!.precisaTrocarSenha) {
         if (!mounted) return;
 
@@ -273,8 +166,6 @@ class _LoginPageState extends State<LoginPage> {
           mensagemErro = 'E-mail não confirmado.';
         }
       }
-
-      debugPrint('❌ Erro de login: $error');
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
