@@ -26,6 +26,7 @@ class MovimentacoesPage extends StatefulWidget {
 class _MovimentacoesPageState extends State<MovimentacoesPage> {
   bool carregando = true;
   List<Map<String, dynamic>> movimentacoes = [];
+  String? _produtoFiltradoNome; // ✅ NOVO: Nome do produto filtrado
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _horizontalHeaderController = ScrollController();
   final ScrollController _horizontalBodyController = ScrollController();
@@ -68,6 +69,27 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
 
     try {
       final supabase = Supabase.instance.client;
+      
+      // ✅ NOVO: Buscar nome do produto se houver filtro
+      if (widget.produtoId != 'todos') {
+        try {
+          final produtoResult = await supabase
+              .from('produtos')
+              .select('nome')
+              .eq('id', widget.produtoId)
+              .maybeSingle();
+              
+          if (produtoResult != null && produtoResult['nome'] != null) {
+            _produtoFiltradoNome = produtoResult['nome']?.toString();
+          } else {
+            _produtoFiltradoNome = 'Produto não encontrado';
+          }
+        } catch (e) {
+          _produtoFiltradoNome = null;
+        }
+      } else {
+        _produtoFiltradoNome = null;
+      }
 
       // SOLUÇÃO SIMPLES: Usar 'dynamic' para evitar erros de tipo
       dynamic query = supabase
@@ -152,7 +174,16 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
 
   // Função para obter a quantidade específica do produto
   int _obterQuantidadeProduto(Map<String, dynamic> movimentacao) {
-    // Lista de colunas de produtos
+    final tipoOp = movimentacao['tipo_op']?.toString().toLowerCase() ?? '';
+    if (tipoOp == 'cacl') {
+      final entradaAmb = movimentacao['entrada_amb'];
+      if (entradaAmb != null) {
+        return (entradaAmb is int) 
+            ? entradaAmb 
+            : int.tryParse(entradaAmb.toString()) ?? 0;
+      }
+    }
+    
     final colunasProduto = [
       'g_comum',
       'g_aditivada',
@@ -190,6 +221,11 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
 
   // Função para determinar se é entrada ou saída para a filial específica
   String _obterTipoMovimentoParaFilial(Map<String, dynamic> movimentacao, String filialId) {
+    final tipoOp = movimentacao['tipo_op']?.toString().toLowerCase() ?? '';
+    if (tipoOp == 'cacl') {
+      return 'Entrada'; // CACL sempre é entrada para a filial
+    }
+    
     if (movimentacao['filial_origem_id'] == filialId) {
       return 'Saída';
     } else if (movimentacao['filial_destino_id'] == filialId) {
@@ -234,6 +270,131 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
     return destinoNome;
   }
 
+  // ✅ NOVA FUNÇÃO: Formatar tipo_op para exibição
+  String _formatarTipoOp(String tipoOp) {
+    final tipoLower = tipoOp.toLowerCase().trim();
+    
+    switch (tipoLower) {
+      case 'transf':
+        return 'Transf.';
+      case 'venda':
+        return 'Venda';
+      case 'cacl':
+        return 'CACL';
+      default:
+        // Se for algo não mapeado, capitaliza a primeira letra
+        if (tipoOp.isNotEmpty) {
+          return tipoOp[0].toUpperCase() + tipoOp.substring(1).toLowerCase();
+        }
+        return tipoOp;
+    }
+  }
+
+  // ✅ NOVA FUNÇÃO: Título da página com produto filtrado
+  String get _tituloPagina {
+    if (_produtoFiltradoNome != null) {
+      return 'Movimentações - $_produtoFiltradoNome';
+    }
+    return 'Movimentações';
+  }
+
+  // ✅ NOVA PROPRIEDADE: Larguras dinâmicas (oculta coluna Produto quando filtrado)
+  List<double> get _larguras {
+    if (widget.produtoId == 'todos') {
+      // MOSTRA coluna Produto (7 colunas)
+      return [
+        90.0,   // Data
+        90.0,   // Operação
+        130.0,  // Produto
+        350.0,  // Descrição
+        90.0,   // Quantidade
+        130.0,  // Origem
+        130.0,  // Destino
+      ];
+    } else {
+      // OCULTA coluna Produto (6 colunas)
+      return [
+        90.0,   // Data
+        90.0,   // Operação
+        // Produto REMOVIDO ← Índice 2 não existe
+        350.0,  // Descrição (antigo índice 3 vira 2)
+        90.0,   // Quantidade (antigo índice 4 vira 3)
+        130.0,  // Origem (antigo índice 5 vira 4)
+        130.0,  // Destino (antigo índice 6 vira 5)
+      ];
+    }
+  }
+
+  // ✅ NOVO MÉTODO: Calcular largura total dinamicamente
+  double get _larguraTotal {
+    return _larguras.reduce((a, b) => a + b);
+  }
+
+  // ✅ NOVO MÉTODO: Construir cabeçalho dinâmico
+  List<Widget> _construirCabecalho() {
+    final cabecalhos = <Widget>[
+      _th("Data", _larguras[0]),
+      _th("Operação", _larguras[1]),
+    ];
+    
+    // Condição: Só adiciona "Produto" se estiver mostrando todos
+    if (widget.produtoId == 'todos') {
+      cabecalhos.add(_th("Produto", _larguras[2]));
+    }
+    
+    // Ajustar índices: se ocultou Produto, as outras vêm uma posição antes
+    final indiceBase = widget.produtoId == 'todos' ? 3 : 2;
+    
+    cabecalhos.addAll([
+      _th("Descrição", _larguras[indiceBase]),
+      _th("Quantidade", _larguras[indiceBase + 1]),
+      _th("Origem", _larguras[indiceBase + 2]),
+      _th("Destino", _larguras[indiceBase + 3]),
+    ]);
+    
+    return cabecalhos;
+  }
+
+  // ✅ NOVO MÉTODO: Construir células dinamicamente
+  List<Widget> _construirCelulas(
+    Map<String, dynamic> m,
+    DateTime data,
+    String produtoNome,
+    String quantidadeFormatada,
+    String descricaoFormatada,
+    String origemNome,
+    String destinoFormatado,
+  ) {
+    final celulas = <Widget>[
+      _cell(
+        '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}',
+        _larguras[0],
+      ),
+      _cell(_formatarTipoOp(m['tipo_op']?.toString() ?? ''), _larguras[1]),
+    ];
+    
+    // Condição: Só adiciona célula "Produto" se estiver mostrando todos
+    if (widget.produtoId == 'todos') {
+      celulas.add(_cell(produtoNome, _larguras[2]));
+    }
+    
+    // Ajustar índices das colunas restantes
+    final indiceBase = widget.produtoId == 'todos' ? 3 : 2;
+    
+    celulas.addAll([
+      _cell(descricaoFormatada, _larguras[indiceBase]),
+      _cell(
+        quantidadeFormatada,
+        _larguras[indiceBase + 1],
+        isNumber: true,
+      ),
+      _cell(origemNome, _larguras[indiceBase + 2]),
+      _cell(destinoFormatado, _larguras[indiceBase + 3]),
+    ]);
+    
+    return celulas;
+  }
+
   List<Map<String, dynamic>> get _movimentacoesFiltradas {
     final query = _searchController.text.toLowerCase().trim();
     if (query.isEmpty) return movimentacoes;
@@ -259,7 +420,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Movimentações"),
+        title: Text(_tituloPagina), // ✅ ALTERADO: Título dinâmico
         actions: [
           Container(
             width: 300,
@@ -359,20 +520,6 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
   }
 
   Widget _buildTabelaConteudo() {
-    // Usar List<double> para evitar erro de tipo
-    // REMOVIDA a coluna 'Tipo' (índice 1)
-    final List<double> larguras = [
-      90.0,   // Data
-      90.0,   // Operação (antigo índice 2)
-      130.0,  // Produto (antigo índice 3)
-      350.0,  // Descrição (antigo índice 4)
-      90.0,   // Quantidade (antigo índice 5)
-      130.0,  // Origem (antigo índice 6)
-      130.0,  // Destino (antigo índice 7)
-    ];
-    
-    final larguraTotal = larguras.reduce((a, b) => a + b); // 830.0 pixels
-
     return Scrollbar(
       controller: _verticalScrollController,
       thumbVisibility: true,
@@ -388,20 +535,12 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                 controller: _horizontalHeaderController,
                 scrollDirection: Axis.horizontal,
                 child: SizedBox(
-                  width: larguraTotal,
+                  width: _larguraTotal,
                   child: Container(
                     height: 40,
                     color: const Color(0xFF0D47A1),
                     child: Row(
-                      children: [
-                        _th("Data", larguras[0]),
-                        _th("Operação", larguras[1]),
-                        _th("Produto", larguras[2]),
-                        _th("Descrição", larguras[3]),
-                        _th("Quantidade", larguras[4]),
-                        _th("Origem", larguras[5]),
-                        _th("Destino", larguras[6]),
-                      ],
+                      children: _construirCabecalho(), // ✅ ALTERADO: Cabeçalho dinâmico
                     ),
                   ),
                 ),
@@ -416,7 +555,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                 controller: _horizontalBodyController,
                 scrollDirection: Axis.horizontal,
                 child: SizedBox(
-                  width: larguraTotal,
+                  width: _larguraTotal,
                   child: ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -462,22 +601,15 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                           ),
                         ),
                         child: Row(
-                          children: [
-                            _cell(
-                              '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}',
-                              larguras[0],
-                            ),
-                            _cell(m['tipo_op']?.toString() ?? '', larguras[1]),
-                            _cell(produtoNome, larguras[2]),
-                            _cell(descricaoFormatada, larguras[3]),
-                            _cell(
-                              quantidadeFormatada,
-                              larguras[4],
-                              isNumber: true,
-                            ),
-                            _cell(origemNome, larguras[5]),
-                            _cell(destinoFormatado, larguras[6]),
-                          ],
+                          children: _construirCelulas( // ✅ ALTERADO: Células dinâmicas
+                            m,
+                            data,
+                            produtoNome,
+                            quantidadeFormatada,
+                            descricaoFormatada,
+                            origemNome,
+                            destinoFormatado,
+                          ),
                         ),
                       );
                     },
