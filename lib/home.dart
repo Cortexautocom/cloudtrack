@@ -788,6 +788,37 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               ],
             ),
           ),
+          
+          // RODAPÉ FIXO
+          if (_mostrarFilhosSessao || _sessaoAtual != null)
+            Container(
+              height: 50,
+              width: double.infinity,
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'NexHealth IA© - 550 California St, Suite 302, San Francisco, CA 94104',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey[600],
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'PowerTank Terminais 2026, All rights reserved.',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey[500],
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -1239,13 +1270,23 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         children: [
           Row(
             children: [
-              if (mostrarVoltar)
+              // APENAS MOSTRA A SETA DE VOLTAR SE NÃO FOR A PRIMEIRA PÁGINA DE CARDS
+              if (mostrarVoltar && (_mostrarDownloads || showConversaoList || _mostrarListarCacls || _mostrarOrdensAnalise || 
+                  _mostrarHistorico || _mostrarEscolherFilial || _mostrarMedicaoTanques || _mostrarTanques || 
+                  _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || _mostrarIniciarCircuito || 
+                  _mostrarFiltroMovimentacoes || _mostrarTempDensMedia || _mostrarCalcGerado || 
+                  _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarFiltrosEstoque))
                 IconButton(
                   icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
                   onPressed: onVoltar ?? _voltarParaCardsPai,
                   tooltip: 'Voltar',
                 ),
-              if (mostrarVoltar) const SizedBox(width: 10),
+              if (mostrarVoltar && (_mostrarDownloads || showConversaoList || _mostrarListarCacls || _mostrarOrdensAnalise || 
+                  _mostrarHistorico || _mostrarEscolherFilial || _mostrarMedicaoTanques || _mostrarTanques || 
+                  _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || _mostrarIniciarCircuito || 
+                  _mostrarFiltroMovimentacoes || _mostrarTempDensMedia || _mostrarCalcGerado || 
+                  _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarFiltrosEstoque))
+                const SizedBox(width: 10),
               Text(
                 titulo,
                 style: const TextStyle(
@@ -1373,6 +1414,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             ],
           ),
         ),
+        mostrarVoltar: false, // NÃO MOSTRA SETA NA PRIMEIRA PÁGINA
       );
     }
 
@@ -1395,6 +1437,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
         ),
       ),
+      mostrarVoltar: false, // NÃO MOSTRA SETA NA PRIMEIRA PÁGINA
     );
   }
 
