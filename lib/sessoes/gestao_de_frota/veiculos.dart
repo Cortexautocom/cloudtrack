@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dialog_cadastro_placas.dart';
 import 'editar_conjunto.dart';
+import 'veiculos_geral_page.dart';
 
 // ==============================
 // PÁGINA PRINCIPAL DE VEÍCULOS
@@ -148,21 +149,20 @@ class _VeiculosPageState extends State<VeiculosPage> {
             ),
             child: Row(
               children: [
-                // Botões de navegação alinhados à esquerda
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
                   children: [
                     _botaoAba("Veículos", 0),
                     const SizedBox(width: 16),
                     _botaoAba("Conjuntos", 1),
+                    const SizedBox(width: 16),
+                    _botaoAba("Terceiros", 2),
                   ],
                 ),
-                
-                // Espaço flexível para empurrar a busca para a direita
+
                 const Spacer(),
-                
-                // Caixa de busca alinhada à direita
-                Container(
+
+                // ✅ BUSCA SEMPRE VISÍVEL (MUDANDO APENAS O TEXTO)
+                SizedBox(
                   width: 300,
                   child: TextField(
                     controller: _buscaController,
@@ -172,9 +172,11 @@ class _VeiculosPageState extends State<VeiculosPage> {
                       });
                     },
                     decoration: InputDecoration(
-                      hintText: _abaAtual == 0 
+                      hintText: _abaAtual == 0
                           ? 'Buscar placa ou transportadora...'
-                          : 'Buscar por placa, motorista, capacidade...',
+                          : _abaAtual == 1
+                              ? 'Buscar por placa, motorista, capacidade...'
+                              : 'Buscar placa, renavam ou transportadora...',
                       filled: true,
                       fillColor: Colors.white,
                       prefixIcon: const Icon(Icons.search, size: 20),
@@ -182,7 +184,8 @@ class _VeiculosPageState extends State<VeiculosPage> {
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(color: Colors.grey.shade300),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       isDense: true,
                     ),
                   ),
@@ -193,9 +196,15 @@ class _VeiculosPageState extends State<VeiculosPage> {
 
           // Conteúdo da aba selecionada
           Expanded(
-            child: _abaAtual == 0 ? _buildVeiculosList() : ConjuntosPage(
-              buscaController: _buscaController,
-            ),
+            child: _abaAtual == 0
+                ? _buildVeiculosList()
+                : _abaAtual == 1
+                    ? ConjuntosPage(
+                        buscaController: _buscaController,
+                      )
+                    : VeiculosGeralPage(
+                        filtro: _filtroPlaca,
+                      ),
           ),
         ],
       ),
