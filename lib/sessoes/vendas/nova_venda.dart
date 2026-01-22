@@ -18,18 +18,10 @@ class NovaVendaDialog extends StatefulWidget {
 }
 
 class _NovaVendaDialogState extends State<NovaVendaDialog> {
-  final TextEditingController _placaController = TextEditingController();
-
-  bool _mostrarSugestoes = false;
-  bool _carregandoPlacas = false;
-  List<Map<String, dynamic>> _placasEncontradas = [];
-
-  int _qtdTanques = 0;
-  List<String> _capacidadesTanques = [];
-
-  final List<TextEditingController> _clientePorTanque = [];
-  final List<TextEditingController> _formaPagamentoPorTanque = [];
-  final List<String?> _produtoPorTanque = [];
+  // =======================
+  // MODELOS INTERNOS
+  // =======================
+  final List<_PlacaVenda> _placasVenda = [];
 
   List<Map<String, dynamic>> _produtos = [];
   bool _carregandoProdutos = false;
@@ -38,44 +30,46 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
   void initState() {
     super.initState();
     _carregarProdutos();
+    _adicionarPlaca(); // primeira placa já nasce aberta
   }
 
   Future<void> _carregarProdutos() async {
     setState(() => _carregandoProdutos = true);
     try {
       final supabase = Supabase.instance.client;
-      final response = await supabase
-          .from('produtos')
-          .select('id, nome')
-          .order('nome');
-
-      setState(() {
-        _produtos = List<Map<String, dynamic>>.from(response);
-      });
+      final response =
+          await supabase.from('produtos').select('id, nome').order('nome');
+      _produtos = List<Map<String, dynamic>>.from(response);
     } catch (_) {
-      setState(() => _produtos = []);
+      _produtos = [];
     } finally {
       setState(() => _carregandoProdutos = false);
     }
   }
 
-  Future<void> _buscarPlacas(String texto) async {
+  // =======================
+  // PLACAS
+  // =======================
+  void _adicionarPlaca() {
+    setState(() {
+      _placasVenda.add(_PlacaVenda());
+    });
+  }
+
+  Future<void> _buscarPlacas(_PlacaVenda placa, String texto) async {
     if (texto.length < 3) {
-      setState(() {
-        _placasEncontradas.clear();
-        _mostrarSugestoes = false;
-      });
+      placa.placasEncontradas.clear();
+      placa.mostrarSugestoes = false;
+      setState(() {});
       return;
     }
 
-    setState(() {
-      _carregandoPlacas = true;
-      _mostrarSugestoes = true;
-    });
+    placa.carregandoPlacas = true;
+    placa.mostrarSugestoes = true;
+    setState(() {});
 
     try {
       final supabase = Supabase.instance.client;
-
       final response = await supabase
           .from('view_placas_tanques')
           .select('placas, tanques')
@@ -83,112 +77,189 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
           .order('placas')
           .limit(10);
 
-      setState(() {
-        _placasEncontradas = List<Map<String, dynamic>>.from(response);
-      });
+      placa.placasEncontradas =
+          List<Map<String, dynamic>>.from(response);
     } catch (_) {
-      setState(() => _placasEncontradas.clear());
+      placa.placasEncontradas.clear();
     } finally {
-      setState(() => _carregandoPlacas = false);
+      placa.carregandoPlacas = false;
+      setState(() {});
     }
   }
 
-  void _selecionarPlaca(Map<String, dynamic> item) {
-    _placaController.text = item['placas'];
-    _mostrarSugestoes = false;
+  void _selecionarPlaca(_PlacaVenda placa, Map<String, dynamic> item) {
+    placa.controller.text = item['placas'];
+    placa.mostrarSugestoes = false;
 
     final List<dynamic> tanques = item['tanques'] ?? [];
 
-    setState(() {
-      _qtdTanques = tanques.length;
-      _capacidadesTanques = tanques.map((e) => e.toString()).toList();
+    placa.tanques.clear();
+    for (final t in tanques) {
+      placa.tanques.add(_TanqueVenda(capacidade: t.toString()));
+    }
 
-      _clientePorTanque.clear();
-      _formaPagamentoPorTanque.clear();
-      _produtoPorTanque.clear();
-
-      for (int i = 0; i < _qtdTanques; i++) {
-        _clientePorTanque.add(TextEditingController());
-        _formaPagamentoPorTanque.add(TextEditingController());
-        _produtoPorTanque.add(null);
-      }
-    });
+    setState(() {});
   }
 
-  Widget _buildTanque(int index) {
+  // =======================
+  // UI
+  // =======================
+  Widget _buildTanqueLinha(_TanqueVenda tanque) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey.shade300),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Tanque ${index + 1} • ${_capacidadesTanques[index]}.000 L',
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Tanque • ${tanque.capacidade}.000 L',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
-            const SizedBox(height: 16),
-
-            DropdownButtonFormField<String>(
-              value: _produtoPorTanque[index],
-              isExpanded: true,
-              items: _produtos.map((p) {
-                return DropdownMenuItem<String>(
-                  value: p['id'].toString(),
-                  child: Text(p['nome']),
-                );
-              }).toList(),
-              onChanged: (v) {
-                setState(() => _produtoPorTanque[index] = v);
-              },
-              decoration: InputDecoration(
-                labelText: 'Produto',
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              // PRODUTO
+              Expanded(
+                flex: 2,
+                child: DropdownButtonFormField<String>(
+                  value: tanque.produtoId,
+                  isExpanded: true,
+                  items: _produtos
+                      .map(
+                        (p) => DropdownMenuItem<String>(
+                          value: p['id'].toString(),
+                          child: Text(p['nome']),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (v) => tanque.produtoId = v,
+                  decoration: _inputDecoration('Produto'),
                 ),
               ),
-            ),
-
-            const SizedBox(height: 16),
-
-            TextFormField(
-              controller: _clientePorTanque[index],
-              decoration: InputDecoration(
-                labelText: 'Cliente',
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+              const SizedBox(width: 8),
+              // CLIENTE
+              Expanded(
+                flex: 3,
+                child: TextFormField(
+                  controller: tanque.clienteController,
+                  decoration: _inputDecoration('Cliente'),
                 ),
               ),
-            ),
-
-            const SizedBox(height: 16),
-
-            TextFormField(
-              controller: _formaPagamentoPorTanque[index],
-              decoration: InputDecoration(
-                labelText: 'Forma de pagamento',
-                filled: true,
-                fillColor: Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+              const SizedBox(width: 8),
+              // PAGAMENTO
+              Expanded(
+                flex: 3,
+                child: TextFormField(
+                  controller: tanque.pagamentoController,
+                  decoration: _inputDecoration('Forma de pagamento'),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildPlaca(_PlacaVenda placa, {bool primeira = false}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // LINHA DA PLACA + "+"
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: placa.controller,
+                  onChanged: (v) => _buscarPlacas(placa, v),
+                  decoration: InputDecoration(
+                    labelText: 'Placa do veículo',
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    suffixIcon: placa.carregandoPlacas
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : const Icon(Icons.search),
+                  ),
+                ),
+              ),
+              if (primeira) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Adicionar outra placa',
+                  icon: const Icon(Icons.add_circle,
+                      color: Color(0xFF0D47A1), size: 32),
+                  onPressed: _adicionarPlaca,
+                ),
+              ],
+            ],
+          ),
+
+          if (placa.mostrarSugestoes)
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: placa.placasEncontradas.map((item) {
+                  return ListTile(
+                    title: Text(item['placas']),
+                    onTap: () => _selecionarPlaca(placa, item),
+                  );
+                }).toList(),
+              ),
+            ),
+
+          if (placa.tanques.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            if (_carregandoProdutos)
+              const Center(child: CircularProgressIndicator()),
+            ...placa.tanques.map(_buildTanqueLinha),
+          ],
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+      isDense: true,
     );
   }
 
@@ -197,14 +268,17 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     Navigator.of(context).pop(true);
   }
 
+  // =======================
+  // BUILD
+  // =======================
   @override
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       insetPadding: const EdgeInsets.all(24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SizedBox(
-        width: 800,
+        width: 900,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -213,22 +287,24 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
               padding: const EdgeInsets.all(16),
               decoration: const BoxDecoration(
                 color: Color(0xFF0D47A1),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                borderRadius:
+                    BorderRadius.vertical(top: Radius.circular(12)),
               ),
               child: Row(
                 children: [
                   const Text(
                     'Nova Venda',
                     style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () => Navigator.of(context).pop(false),
+                    icon:
+                        const Icon(Icons.close, color: Colors.white),
+                    onPressed: () =>
+                        Navigator.of(context).pop(false),
                   ),
                 ],
               ),
@@ -239,81 +315,13 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Placa do veículo',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey,
-                      ),
+                  children: List.generate(
+                    _placasVenda.length,
+                    (i) => _buildPlaca(
+                      _placasVenda[i],
+                      primeira: i == 0,
                     ),
-                    const SizedBox(height: 8),
-
-                    TextField(
-                      controller: _placaController,
-                      onChanged: _buscarPlacas,
-                      decoration: InputDecoration(
-                        hintText: 'Digite a placa',
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        suffixIcon: _carregandoPlacas
-                            ? const Padding(
-                                padding: EdgeInsets.all(12),
-                                child: SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                ),
-                              )
-                            : const Icon(Icons.search),
-                      ),
-                    ),
-
-                    if (_mostrarSugestoes)
-                      Container(
-                        margin: const EdgeInsets.only(top: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
-                              blurRadius: 6,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: _placasEncontradas.map((item) {
-                            return ListTile(
-                              title: Text(item['placas']),
-                              onTap: () => _selecionarPlaca(item),
-                            );
-                          }).toList(),
-                        ),
-                      ),
-
-                    if (_qtdTanques > 0) ...[
-                      const SizedBox(height: 28),
-                      const Text(
-                        'Tanques',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      if (_carregandoProdutos)
-                        const Center(child: CircularProgressIndicator()),
-                      ...List.generate(_qtdTanques, _buildTanque),
-                    ],
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -324,24 +332,16 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
               decoration: BoxDecoration(
                 color: Colors.grey.shade50,
                 borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(12),
-                ),
-                border: Border(
-                  top: BorderSide(color: Colors.grey.shade300),
-                ),
+                    bottom: Radius.circular(12)),
+                border:
+                    Border(top: BorderSide(color: Colors.grey.shade300)),
               ),
               child: Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        side: BorderSide(color: Colors.grey.shade300),
-                      ),
+                      onPressed: () =>
+                          Navigator.of(context).pop(false),
                       child: const Text('Cancelar'),
                     ),
                   ),
@@ -350,16 +350,13 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                     child: ElevatedButton(
                       onPressed: _emitirOrdem,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0D47A1),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                        backgroundColor:
+                            const Color(0xFF0D47A1),
                       ),
                       child: const Text(
                         'Emitir ordem',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -374,13 +371,45 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
 
   @override
   void dispose() {
-    _placaController.dispose();
-    for (final c in _clientePorTanque) {
-      c.dispose();
-    }
-    for (final c in _formaPagamentoPorTanque) {
-      c.dispose();
+    for (final p in _placasVenda) {
+      p.dispose();
     }
     super.dispose();
+  }
+}
+
+// =======================
+// CLASSES AUXILIARES
+// =======================
+class _PlacaVenda {
+  final TextEditingController controller = TextEditingController();
+
+  bool mostrarSugestoes = false;
+  bool carregandoPlacas = false;
+  List<Map<String, dynamic>> placasEncontradas = [];
+
+  final List<_TanqueVenda> tanques = [];
+
+  void dispose() {
+    controller.dispose();
+    for (final t in tanques) {
+      t.dispose();
+    }
+  }
+}
+
+class _TanqueVenda {
+  final String capacidade;
+  String? produtoId;
+  final TextEditingController clienteController =
+      TextEditingController();
+  final TextEditingController pagamentoController =
+      TextEditingController();
+
+  _TanqueVenda({required this.capacidade});
+
+  void dispose() {
+    clienteController.dispose();
+    pagamentoController.dispose();
   }
 }
