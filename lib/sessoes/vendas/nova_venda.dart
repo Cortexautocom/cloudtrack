@@ -31,6 +31,34 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
   final List<TextEditingController> _formaPagamentoPorTanque = [];
   final List<String?> _produtoPorTanque = [];
 
+  List<Map<String, dynamic>> _produtos = [];
+  bool _carregandoProdutos = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarProdutos();
+  }
+
+  Future<void> _carregarProdutos() async {
+    setState(() => _carregandoProdutos = true);
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase
+          .from('produtos')
+          .select('id, nome')
+          .order('nome');
+
+      setState(() {
+        _produtos = List<Map<String, dynamic>>.from(response);
+      });
+    } catch (_) {
+      setState(() => _produtos = []);
+    } finally {
+      setState(() => _carregandoProdutos = false);
+    }
+  }
+
   Future<void> _buscarPlacas(String texto) async {
     if (texto.length < 3) {
       setState(() {
@@ -111,9 +139,13 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
 
             DropdownButtonFormField<String>(
               value: _produtoPorTanque[index],
-              items: const [
-                DropdownMenuItem(value: null, child: Text('Produto')),
-              ],
+              isExpanded: true,
+              items: _produtos.map((p) {
+                return DropdownMenuItem<String>(
+                  value: p['id'].toString(),
+                  child: Text(p['nome']),
+                );
+              }).toList(),
               onChanged: (v) {
                 setState(() => _produtoPorTanque[index] = v);
               },
@@ -277,6 +309,8 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                         ),
                       ),
                       const SizedBox(height: 16),
+                      if (_carregandoProdutos)
+                        const Center(child: CircularProgressIndicator()),
                       ...List.generate(_qtdTanques, _buildTanque),
                     ],
                   ],
