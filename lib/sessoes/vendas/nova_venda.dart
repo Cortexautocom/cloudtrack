@@ -259,7 +259,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             'tipo_mov': 'saida', // Campo adicional do esquema
             'quantidade': capacidadeLitros, // Agora em litros
             // Campos descritivos
-            'descricao': 'Venda programada',
+            'descricao': 'Venda Comum',
             'anp': false,
             'status_circuito': 1,
             // Campos com default do esquema

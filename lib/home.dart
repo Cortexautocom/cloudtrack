@@ -297,25 +297,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'id': '9d476aa0-11fe-4470-8881-2699cb528690',
         'nome': 'Petroserra Jequié',
         'nome_dois': 'Jequié',
-        'cidade': 'Jequié - BA'
       },
       {
         'id': 'b4225bea-63f1-4e0f-b04f-ae936d8ccda8',
         'nome': 'Petroserra Candeias',
         'nome_dois': 'PHL',
-        'cidade': 'Candeias - BA'
       },
       {
         'id': 'bcc92c8e-bd40-4d26-acb0-87acdd2ce2b7',
-        'nome': 'Janaúba',
+        'nome': 'PetroserraJanaúba',
         'nome_dois': 'Janaúba',
-        'cidade': 'Janaúba - MG'
       },
       {
         'id': 'ff09efd0-b71f-40ce-8bbb-0fa3b738e73e',
         'nome': 'Petroserra Feira',
         'nome_dois': 'Sidel Terminais',
-        'cidade': 'Feira de Santana - BA'
       }
     ];
 
@@ -800,7 +796,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'NexHealth IA© - 550 California St, Suite 302, San Francisco, CA 94104',
+                    '© Norton Tecnology - 550 California St, W-325, San Francisco, CA.',
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.grey[600],
@@ -1482,10 +1478,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   ),
                 )
               : GridView.count(
-                  crossAxisCount: 7,
-                  crossAxisSpacing: 15,
-                  mainAxisSpacing: 15,
-                  childAspectRatio: 1.1,
+                  crossAxisCount: 6, // REDUZIDO DE 7 PARA 6 PARA DAR MAIS ESPAÇO
+                  crossAxisSpacing: 18, // AUMENTADO DE 15 PARA 18
+                  mainAxisSpacing: 18, // AUMENTADO DE 15 PARA 18
+                  childAspectRatio: 1.0, // AUMENTADO DE 1.1 PARA 1.0 (MAIS QUADRADO)
                   padding: const EdgeInsets.only(bottom: 20),
                   children: filiaisDaEmpresa.map((filial) => _buildCardFilial(filial)).toList(),
                 ),
@@ -1522,33 +1518,33 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             border: Border.all(color: Colors.grey.shade300),
             borderRadius: BorderRadius.circular(12),
           ),
-          padding: const EdgeInsets.all(15), // AUMENTADO para mais espaço
+          padding: const EdgeInsets.all(15),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 card['icon'],
-                color: corSessao, // COR DA SESSÃO APLICADA
-                size: 55, // AUMENTADO para melhor visualização
+                color: corSessao,
+                size: 55,
               ),
-              const SizedBox(height: 10), // MAIS ESPAÇO
+              const SizedBox(height: 10),
               ConstrainedBox(
                 constraints: const BoxConstraints(
-                  maxHeight: 40, // LIMITE PARA EVITAR OVERFLOW
+                  maxHeight: 40,
                 ),
                 child: Text(
                   card['label'] ?? '',
                   style: TextStyle(
-                    fontSize: 13, // FONTE UM POUCO MENOR
+                    fontSize: 13,
                     color: const Color(0xFF0D47A1),
                     fontWeight: FontWeight.w600,
                   ),
                   textAlign: TextAlign.center,
-                  maxLines: 2, // MÁXIMO DE 2 LINHAS
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              // REMOVIDA A LEGENDA ABAIXO DO NOME (campo descricao não é mais exibido)
+              // A DESCRIÇÃO FOI REMOVIDA COMPLETAMENTE AQUI
             ],
           ),
         ),
@@ -1607,21 +1603,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(height: 6),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 30),
-                child: Text(
-                  empresa['descricao'] ?? '',
-                  style: const TextStyle(
-                    fontSize: 9.5,
-                    color: Colors.grey,
-                    height: 1.2,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
+              // REMOVER A DESCRIÇÃO (CNPJ) AQUI TAMBÉM
             ],
           ),
         ),
@@ -1631,7 +1613,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   Widget _buildCardFilial(Map<String, dynamic> filial) {
     return Material(
-      elevation: 2,
+      elevation: 3, // AUMENTADO DE 2 PARA 3
       color: Colors.white,
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.hardEdge,
@@ -1648,9 +1630,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         },
         hoverColor: _getCorPorSessao('Estoques').withOpacity(0.1),
         child: Container(
-          padding: const EdgeInsets.all(15),
+          padding: const EdgeInsets.all(18), // AUMENTADO DE 15 PARA 18
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
+            border: Border.all(color: Colors.grey.shade300, width: 1.5), // AUMENTADO DE 1 PARA 1.5
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
@@ -1659,32 +1641,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               Icon(
                 filial['icon'],
                 color: _getCorPorSessao('Estoques'),
-                size: 55,
+                size: 60, // AUMENTADO DE 55 PARA 60
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12), // AUMENTADO DE 10 PARA 12
               ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 40),
+                constraints: const BoxConstraints(maxHeight: 50), // AUMENTADO DE 40 PARA 50
                 child: Text(
                   filial['label'],
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 14.5, // AUMENTADO DE 13 PARA 14.5
                     color: Color(0xFF0D47A1),
                     fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(height: 6),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 30),
-                child: Text(
-                  filial['descricao'] ?? '',
-                  style: const TextStyle(
-                    fontSize: 9.5,
-                    color: Colors.grey,
-                    height: 1.2,
                   ),
                   textAlign: TextAlign.center,
                   maxLines: 2,

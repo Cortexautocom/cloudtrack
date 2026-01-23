@@ -142,7 +142,7 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Transferências Entre Filiais"),
+        title: const Text("Transferências entre filiais"),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: widget.onVoltar,
