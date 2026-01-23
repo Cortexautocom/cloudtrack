@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
+import 'detalhes_ordem.dart';
 
 class AcompanhamentoOrdensPage extends StatefulWidget {
   final VoidCallback onVoltar;
@@ -16,8 +17,8 @@ class AcompanhamentoOrdensPage extends StatefulWidget {
 
 class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   final SupabaseClient _supabase = Supabase.instance.client;
-  List<Map<String, dynamic>> _movimentacoes = [];
-  List<Map<String, dynamic>> _movimentacoesFiltradas = [];
+  List<Map<String, dynamic>> _ordens = [];
+  List<Map<String, dynamic>> _ordensFiltradas = [];
   List<Map<String, dynamic>> _filiais = [];
   bool _carregando = true;
   bool _erro = false;
@@ -27,6 +28,25 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   final TextEditingController _filtroGeralController = TextEditingController();
   final TextEditingController _dataFiltroController = TextEditingController();
   String? _filialFiltroId;
+
+  // ✅ 2️⃣ CRIE estado de controle de tela
+  bool _mostrarDetalhes = false;
+  Map<String, dynamic>? _ordemSelecionada;
+
+  // ✅ 3️⃣ CRIE métodos de controle de estado
+  void _abrirDetalhesOrdem(Map<String, dynamic> ordem) {
+    setState(() {
+      _ordemSelecionada = ordem;
+      _mostrarDetalhes = true;
+    });
+  }
+
+  void _voltarParaLista() {
+    setState(() {
+      _ordemSelecionada = null;
+      _mostrarDetalhes = false;
+    });
+  }
 
   @override
   void initState() {
@@ -113,7 +133,8 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             produtos!produto_id(nome),
             filiais!estoques_filial_id_fkey(id, nome),
             filial_origem:filiais!movimentacoes_filial_origem_id_fkey(id, nome),
-            filial_destino:filiais!movimentacoes_filial_destino_id_fkey(id, nome)
+            filial_destino:filiais!movimentacoes_filial_destino_id_fkey(id, nome),
+            ordem_id
           ''')
           .eq('empresa_id', _empresaId!)
           .order('data_mov', ascending: false);
@@ -142,7 +163,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       } else if (usuario.nivel == 3) {
         if (_filialFiltroId != null && _filialFiltroId!.isNotEmpty) {
           movimentacoesFiltradas = dados.where((item) {
-            final tipoOp = (item['tipo_op']?.toString() ?? 'venda').toLowerCase();
+            final tipoOp = (item['tipo_op']?.toString() ?? 'venda');
             final filialId = item['filial_id']?.toString();
             final filialOrigemId = item['filial_origem_id']?.toString();
             final filialDestinoId = item['filial_destino_id']?.toString();
@@ -161,10 +182,72 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         }
       }
 
+      // Agrupar movimentações por ordem_id
+      final Map<String, List<Map<String, dynamic>>> gruposOrdens = {};
+      
+      for (var movimentacao in movimentacoesFiltradas) {
+        final ordemId = movimentacao['ordem_id']?.toString();
+        if (ordemId != null && ordemId.isNotEmpty) {
+          if (!gruposOrdens.containsKey(ordemId)) {
+            gruposOrdens[ordemId] = [];
+          }
+          gruposOrdens[ordemId]!.add(movimentacao);
+        }
+      }
+
+      // Criar lista de ordens resumidas
+      final List<Map<String, dynamic>> ordensResumidas = [];
+
+      for (var entry in gruposOrdens.entries) {
+        final ordemId = entry.key;
+        final movimentacoesOrdem = entry.value;
+        
+        if (movimentacoesOrdem.isEmpty) continue;
+
+        // Obter primeira movimentação para campos básicos
+        final primeiraMov = movimentacoesOrdem.first;
+        
+        // Coletar todas as placas distintas
+        final Set<String> placasSet = {};
+        for (var mov in movimentacoesOrdem) {
+          final placasFormatadas = _formatarPlacas(mov['placa']);
+          if (placasFormatadas.isNotEmpty && placasFormatadas != 'N/I') {
+            final placasList = placasFormatadas.split(', ').map((p) => p.trim()).toList();
+            placasSet.addAll(placasList.where((p) => p.isNotEmpty));
+          }
+        }
+        
+        // Calcular quantidade total
+        int quantidadeTotal = 0;
+        for (var mov in movimentacoesOrdem) {
+          quantidadeTotal += _obterQuantidade(mov);
+        }
+
+        // Criar resumo da ordem
+        final ordemResumo = {
+          'ordem_id': ordemId,
+          'data_mov': primeiraMov['data_mov'],
+          'status_circuito': primeiraMov['status_circuito'],
+          'tipo_op': primeiraMov['tipo_op'],
+          'placas': placasSet.toList(),
+          'quantidade_total': quantidadeTotal,
+          'itens': movimentacoesOrdem,
+        };
+
+        ordensResumidas.add(ordemResumo);
+      }
+
+      // Ordenar ordens por data (mais recente primeiro)
+      ordensResumidas.sort((a, b) {
+        final dataA = a['data_mov']?.toString() ?? '';
+        final dataB = b['data_mov']?.toString() ?? '';
+        return dataB.compareTo(dataA);
+      });
+
       if (mounted) {
         setState(() {
-          _movimentacoes = movimentacoesFiltradas;
-          _movimentacoesFiltradas = List.from(movimentacoesFiltradas);
+          _ordens = ordensResumidas;
+          _ordensFiltradas = List.from(ordensResumidas);
           _carregando = false;
         });
       }
@@ -185,26 +268,29 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     final termoBusca = _filtroGeralController.text.toLowerCase().trim();
     final dataFiltro = _dataFiltroController.text.trim();
     
-    List<Map<String, dynamic>> resultado = List.from(_movimentacoes);
+    List<Map<String, dynamic>> resultado = List.from(_ordens);
 
     if (_filialFiltroId != null) {
-      resultado = resultado.where((item) {
-        final tipoOp = (item['tipo_op']?.toString() ?? 'venda').toLowerCase();
-        
-        if (tipoOp == 'usina') {
-          return item['filial_destino_id'] == _filialFiltroId;
-        } else if (tipoOp == 'transf') {
-          return item['filial_origem_id'] == _filialFiltroId || 
-                 item['filial_destino_id'] == _filialFiltroId;
-        } else {
-          return item['filial_id'] == _filialFiltroId;
-        }
+      resultado = resultado.where((ordem) {
+        // Verificar se algum item da ordem pertence à filial filtrada
+        return ordem['itens'].any((item) {
+          final tipoOp = (item['tipo_op']?.toString() ?? 'venda').toLowerCase();
+          
+          if (tipoOp == 'usina') {
+            return item['filial_destino_id'] == _filialFiltroId;
+          } else if (tipoOp == 'transf') {
+            return item['filial_origem_id'] == _filialFiltroId || 
+                   item['filial_destino_id'] == _filialFiltroId;
+          } else {
+            return item['filial_id'] == _filialFiltroId;
+          }
+        });
       }).toList();
     }
 
     if (dataFiltro.isNotEmpty) {
-      resultado = resultado.where((item) {
-        final dataMov = item['data_mov']?.toString() ?? '';
+      resultado = resultado.where((ordem) {
+        final dataMov = ordem['data_mov']?.toString() ?? '';
         if (dataMov.isEmpty) return false;
         
         try {
@@ -218,25 +304,38 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     }
 
     if (termoBusca.isNotEmpty) {
-      resultado = resultado.where((item) {
-        final placa = _formatarPlacaParaBusca(item['placa'] ?? '');
-        final cliente = (item['cliente'] ?? '').toString().toLowerCase();
-        final quantidade = _obterQuantidade(item).toString();
-        final filial = _obterNomeFilialParaBusca(item).toLowerCase();
-        final status = _obterStatusTexto(item['status_circuito']).toLowerCase();
-        final tipoOp = (item['tipo_op'] ?? '').toString().toLowerCase();
-
-        return placa.toLowerCase().contains(termoBusca) ||
-               cliente.contains(termoBusca) ||
-               quantidade.contains(termoBusca) ||
-               filial.contains(termoBusca) ||
-               status.contains(termoBusca) ||
-               tipoOp.contains(termoBusca);
+      resultado = resultado.where((ordem) {
+        // Buscar nas placas da ordem
+        final placasOrdem = (ordem['placas'] as List).map((p) => p.toString().toLowerCase()).join(' ');
+        if (placasOrdem.contains(termoBusca)) return true;
+        
+        // Buscar na quantidade total
+        final quantidadeTotal = ordem['quantidade_total'].toString();
+        if (quantidadeTotal.contains(termoBusca)) return true;
+        
+        // Buscar no status
+        final statusTexto = _obterStatusTexto(ordem['status_circuito']).toLowerCase();
+        if (statusTexto.contains(termoBusca)) return true;
+        
+        // Buscar no tipo de operação
+        final tipoOpTexto = _obterTipoOpTexto(ordem['tipo_op']?.toString() ?? '').toLowerCase();
+        if (tipoOpTexto.contains(termoBusca)) return true;
+        
+        // Buscar nos itens da ordem (cliente, placa específica, etc.)
+        return ordem['itens'].any((item) {
+          final cliente = (item['cliente'] ?? '').toString().toLowerCase();
+          final placaItem = _formatarPlacaParaBusca(item['placa']).toLowerCase();
+          final filial = _obterNomeFilialParaBusca(item).toLowerCase();
+          
+          return cliente.contains(termoBusca) ||
+                 placaItem.contains(termoBusca) ||
+                 filial.contains(termoBusca);
+        });
       }).toList();
     }
 
     setState(() {
-      _movimentacoesFiltradas = resultado;
+      _ordensFiltradas = resultado;
     });
   }
 
@@ -277,8 +376,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     return placaData.toString();
   }
 
-  String _obterQuantidadeFormatada(Map<String, dynamic> movimentacao) {
-    final quantidade = _obterQuantidade(movimentacao);
+  String _obterQuantidadeFormatada(int quantidade) {
     return _formatarNumero(quantidade);
   }
 
@@ -355,8 +453,9 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     }
   }
 
-  String _obterTipoOpTexto(String tipoOp) {
-    switch (tipoOp.toLowerCase()) {
+  String _obterTipoOpTexto(dynamic tipoOp) {
+    final tipoOpStr = tipoOp?.toString() ?? 'venda';
+    switch (tipoOpStr.toLowerCase()) {
       case 'transf':
         return 'Transferência';
       case 'venda':
@@ -366,12 +465,13 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       case 'outras_op':
         return 'Outras Op.';
       default:
-        return tipoOp;
+        return tipoOpStr;
     }
   }
 
-  Color _obterCorTipoOp(String tipoOp) {
-    switch (tipoOp.toLowerCase()) {
+  Color _obterCorTipoOp(dynamic tipoOp) {
+    final tipoOpStr = tipoOp?.toString() ?? 'venda';
+    switch (tipoOpStr.toLowerCase()) {
       case 'usina':
         return Colors.blue.shade700;
       case 'transf':
@@ -387,29 +487,29 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     }
   }
 
-  String _formatarPlacas(dynamic placaData) {
-    if (placaData == null) return 'N/I';
+  String _formatarPlacas(dynamic placasData) {
+    if (placasData == null) return 'N/I';
     
-    if (placaData is List) {
-      return placaData.where((p) => p != null && p.toString().isNotEmpty)
+    if (placasData is List) {
+      return placasData.where((p) => p != null && p.toString().isNotEmpty)
                       .map((p) => p.toString())
                       .join(', ');
-    } else if (placaData is String) {
+    } else if (placasData is String) {
       try {
-        if (placaData.startsWith('{') && placaData.endsWith('}')) {
-          final limpo = placaData.substring(1, placaData.length - 1);
+        if (placasData.startsWith('{') && placasData.endsWith('}')) {
+          final limpo = placasData.substring(1, placasData.length - 1);
           final placas = limpo.split(',')
                               .map((p) => p.trim())
                               .where((p) => p.isNotEmpty && p != 'null')
                               .toList();
           return placas.join(', ');
         }
-        return placaData;
+        return placasData;
       } catch (e) {
-        return placaData;
+        return placasData;
       }
     }
-    return placaData.toString();
+    return placasData.toString();
   }
 
   String _formatarData(String? dataString) {
@@ -423,21 +523,24 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     }
   }
 
-  String _obterDescricaoParaCard(Map<String, dynamic> movimentacao) {
-    final tipoOp = (movimentacao['tipo_op']?.toString() ?? 'venda').toLowerCase();
+  String _obterDescricaoParaCard(Map<String, dynamic> ordem) {
+    final itens = ordem['itens'] as List<Map<String, dynamic>>;
+    if (itens.isEmpty) return 'Sem descrição';
+    
+    final primeiroItem = itens.first;
+    final tipoOp = (primeiroItem['tipo_op']?.toString() ?? 'venda').toLowerCase();
     
     if (tipoOp == 'transf') {
-      final origem = movimentacao['filial_origem'] as Map<String, dynamic>?;
-      final destino = movimentacao['filial_destino'] as Map<String, dynamic>?;
+      final origem = primeiroItem['filial_origem'] as Map<String, dynamic>?;
+      final destino = primeiroItem['filial_destino'] as Map<String, dynamic>?;
       final origemNome = origem?['nome']?.toString() ?? 'Origem';
       final destinoNome = destino?['nome']?.toString() ?? 'Destino';
       return '$origemNome → $destinoNome';
     } else if (tipoOp == 'venda') {
-      final cliente = movimentacao['cliente']?.toString() ?? '';
+      final cliente = primeiroItem['cliente']?.toString() ?? '';
       return cliente.isNotEmpty ? cliente : 'Cliente não informado';
     } else {
-      // Para outros tipos, você pode adicionar lógica específica se necessário
-      final filial = movimentacao['filiais'] as Map<String, dynamic>?;
+      final filial = primeiroItem['filiais'] as Map<String, dynamic>?;
       return filial?['nome']?.toString() ?? 'Filial não informada';
     }
   }
@@ -616,7 +719,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
           ),
           const SizedBox(height: 10),
           const Text(
-            'Não há movimentações registradas no momento.',
+            'Não há ordens registradas no momento.',
             style: TextStyle(color: Colors.grey),
           ),
           const SizedBox(height: 20),
@@ -633,34 +736,42 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     );
   }
 
-  Color _obterCorFundoCard(Map<String, dynamic> movimentacao) {
-    final tipoMovimentacao = _obterTipoMovimentacao(movimentacao);
+  Color _obterCorFundoCard(Map<String, dynamic> ordem) {
+    final itens = ordem['itens'] as List<Map<String, dynamic>>;
+    if (itens.isEmpty) return Colors.white;
     
-    if (tipoMovimentacao == 'Entrada') {
-      return Colors.blue.shade50; // Azul claro para entrada
-    } else if (tipoMovimentacao == 'Saída') {
-      return Colors.red.shade50; // Vermelho claro para saída
+    // Verificar se há pelo menos uma entrada
+    final temEntrada = itens.any((item) => _obterTipoMovimentacao(item) == 'Entrada');
+    // Verificar se há pelo menos uma saída
+    final temSaida = itens.any((item) => _obterTipoMovimentacao(item) == 'Saída');
+    
+    if (temEntrada && temSaida) {
+      return Colors.purple.shade50; // Roxo claro para ordens mistas
+    } else if (temEntrada) {
+      return Colors.blue.shade50; // Azul claro para ordens de entrada
+    } else if (temSaida) {
+      return Colors.red.shade50; // Vermelho claro para ordens de saída
     }
     
     return Colors.white; // Branco para outros casos
   }
 
-  Widget _buildItemOrdem(Map<String, dynamic> movimentacao, int index) {
-    final tipoOp = movimentacao['tipo_op']?.toString() ?? 'venda';
+  Widget _buildItemOrdem(Map<String, dynamic> ordem, int index) {
+    final tipoOp = ordem['tipo_op']?.toString() ?? 'venda';
     final tipoOpTexto = _obterTipoOpTexto(tipoOp);
-    final descricao = _obterDescricaoParaCard(movimentacao);
-    final statusCodigo = movimentacao['status_circuito'];
+    final descricao = _obterDescricaoParaCard(ordem);
+    final statusCodigo = ordem['status_circuito'];
     final statusTexto = _obterStatusTexto(statusCodigo);
     final statusCor = _obterCorStatus(statusCodigo);
     final tipoOpCor = _obterCorTipoOp(tipoOp);
     
     // Dados da segunda linha
-    final placasFormatadas = _formatarPlacas(movimentacao['placa']);
-    final quantidadeFormatada = _obterQuantidadeFormatada(movimentacao);
-    final dataMov = _formatarData(movimentacao['data_mov']?.toString());
+    final placasFormatadas = _formatarPlacas(ordem['placas']);
+    final quantidadeFormatada = _obterQuantidadeFormatada(ordem['quantidade_total'] as int);
+    final dataMov = _formatarData(ordem['data_mov']?.toString());
     
     // Cor de fundo do card baseada no tipo de movimento
-    final corFundoCard = _obterCorFundoCard(movimentacao);
+    final corFundoCard = _obterCorFundoCard(ordem);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -680,8 +791,9 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
+            // ✅ 4️⃣ ALTERE o onTap do card da ordem
             onTap: () {
-              debugPrint('Clicou na ordem: ${movimentacao['id']} (tipo: $tipoOp)');
+              _abrirDetalhesOrdem(ordem);
             },
             borderRadius: BorderRadius.circular(8),
             child: Container(
@@ -878,34 +990,27 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
+      // ✅ 5️⃣ ALTERE o AppBar
       appBar: AppBar(
         elevation: 1,
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF0D47A1),
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Acompanhamento de Ordens',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Text(
-              'Circuito > Ordens',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-          ],
+        title: Text(
+          _mostrarDetalhes ? 'Detalhes da Ordem' : 'Acompanhamento de Ordens',
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: widget.onVoltar,
+          onPressed: () {
+            if (_mostrarDetalhes) {
+              _voltarParaLista();
+            } else {
+              widget.onVoltar();
+            }
+          },
         ),
         actions: [
-          if (!_carregando && !_erro)
+          if (!_carregando && !_erro && !_mostrarDetalhes)
             IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: _carregarDados,
@@ -913,72 +1018,36 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             ),
         ],
       ),
+      // ✅ 6️⃣ ALTERE o body da página
       body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildFiltros(),
-            
-            Expanded(
-              child: _carregando
-                  ? _buildCarregando()
-                  : _erro
-                      ? _buildErro()
-                      : _movimentacoesFiltradas.isEmpty
-                          ? _buildSemDados()
-                          : ListView.builder(
-                              itemCount: _movimentacoesFiltradas.length,
-                              itemBuilder: (context, index) {
-                                return _buildItemOrdem(
-                                  _movimentacoesFiltradas[index],
-                                  index,
-                                );
-                              },
-                            ),
-            ),
-          ],
-        ),
+        padding: const EdgeInsets.all(16),
+        child: _mostrarDetalhes
+            ? DetalhesOrdemView(
+                ordem: _ordemSelecionada!,
+              )
+            : Column(
+                children: [
+                  _buildFiltros(),
+                  Expanded(
+                    child: _carregando
+                        ? _buildCarregando()
+                        : _erro
+                            ? _buildErro()
+                            : _ordensFiltradas.isEmpty
+                                ? _buildSemDados()
+                                : ListView.builder(
+                                    itemCount: _ordensFiltradas.length,
+                                    itemBuilder: (context, index) {
+                                      return _buildItemOrdem(
+                                        _ordensFiltradas[index],
+                                        index,
+                                      );
+                                    },
+                                  ),
+                  ),
+                ],
+              ),
       ),
     );
-  }
-  
-  String _determinarEntradaSaida(Map<String, dynamic> movimentacao, {String? filialEspecifica}) {
-    final tipoOp = (movimentacao['tipo_op']?.toString() ?? 'venda').toLowerCase();
-    final filialOrigemId = movimentacao['filial_origem_id']?.toString();
-    final filialDestinoId = movimentacao['filial_destino_id']?.toString();
-    
-    final usuario = UsuarioAtual.instance;
-    final filialParaComparar = filialEspecifica ?? usuario?.filialId;
-    
-    if (tipoOp == 'usina') {
-      return 'Entrada';
-    } else if (tipoOp == 'transf') {
-      if (filialParaComparar != null) {
-        if (filialOrigemId == filialParaComparar) {
-          return 'Saída';
-        } else if (filialDestinoId == filialParaComparar) {
-          return 'Entrada';
-        }
-      }
-      return 'Transferência';
-    } else if (tipoOp == 'venda') {
-      return 'Saída';
-    }
-    
-    return 'Indefinido';
-  }
-
-  Color _obterCorEntradaSaida(String tipo) {
-    switch (tipo) {
-      case 'Entrada':
-        return Colors.green.shade700;
-      case 'Saída':
-        return Colors.red.shade700;
-      case 'Transferência':
-        return Colors.purple.shade700;
-      default:
-        return Colors.grey.shade700;
-    }
-  }
+  }    
 }

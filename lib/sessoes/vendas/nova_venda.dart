@@ -163,13 +163,11 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
   // SALVAR NO BANCO
   // =======================
   Future<void> _salvarVenda() async {
-    // Validações básicas
     if (widget.filialId == null || widget.filialId!.isEmpty) {
       _mostrarErro('Filial não informada');
       return;
     }
 
-    // Coletar todas as placas únicas
     final placasUnicas = <String>[];
     for (final placaVenda in _placasVenda) {
       final placa = placaVenda.controller.text.trim().toUpperCase();
@@ -183,7 +181,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       return;
     }
 
-    // Validar tanques
     int totalTanques = 0;
     for (final placaVenda in _placasVenda) {
       for (final tanque in placaVenda.tanques) {
@@ -204,7 +201,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     }
 
     if (totalTanques == 0) {
-      _mostrarErro('Nenhum tanque encontrado para as placas informadas');
+      _mostrarErro('Nenhum tanque encontrado');
       return;
     }
 
@@ -212,8 +209,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
 
     try {
       final supabase = Supabase.instance.client;
-      
-      // 1. Buscar empresa_id da filial
+
       final filialResponse = await supabase
           .from('filiais')
           .select('empresa_id')
@@ -222,52 +218,58 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
 
       final empresaId = filialResponse['empresa_id'];
 
-      // 2. Buscar dados do usuário logado
       final user = supabase.auth.currentUser;
       if (user == null) {
         throw Exception('Usuário não autenticado');
       }
 
-      // 3. Preparar data no formato correto (YYYY-MM-DD)
       final hoje = DateTime.now();
-      final dataMov = '${hoje.year}-${hoje.month.toString().padLeft(2, '0')}-${hoje.day.toString().padLeft(2, '0')}';
+      final dataMov =
+          '${hoje.year}-${hoje.month.toString().padLeft(2, '0')}-${hoje.day.toString().padLeft(2, '0')}';
 
-      // 4. Inserir cada tanque como uma movimentação
+      final ordemResponse = await supabase
+          .from('ordens')
+          .insert({
+            'empresa_id': empresaId,
+            'filial_id': widget.filialId!,
+            'usuario_id': user.id,
+            'tipo': 'venda',
+            'data_ordem': dataMov,
+          })
+          .select('id')
+          .single();
+
+      final ordemId = ordemResponse['id'];
+
       for (final placaVenda in _placasVenda) {
         for (final tanque in placaVenda.tanques) {
-          // Determinar qual campo de quantidade usar baseado no produto
           final colunaProduto = _resolverColunaProduto(tanque.produtoId!);
-          
-          // Converter capacidade de metros cúbicos para litros
-          // Capacidade em m³ (ex: 5) → Litros (5 * 1000 = 5000)
-          final capacidadeMCubicos = double.tryParse(tanque.capacidade) ?? 0.0;
+          final capacidadeMCubicos =
+              double.tryParse(tanque.capacidade) ?? 0.0;
           final capacidadeLitros = capacidadeMCubicos * 1000.0;
-          
-          // Criar objeto para inserção
+
           final Map<String, dynamic> movimentacao = {
+            'ordem_id': ordemId,
             'filial_id': widget.filialId!,
             'filial_origem_id': widget.filialId!,
-            'data_mov': dataMov, // Formato date YYYY-MM-DD
             'empresa_id': empresaId,
+            'usuario_id': user.id,
             'produto_id': tanque.produtoId,
-            'placa': [placaVenda.controller.text.trim().toUpperCase()], // Array de texto
+            'placa': [placaVenda.controller.text.trim().toUpperCase()],
             'cliente': tanque.clienteController.text.trim(),
             'forma_pagamento': tanque.pagamentoController.text.trim(),
-            'usuario_id': user.id,
             'tipo_op': 'venda',
+            'tipo_mov': 'saida',
             'tipo_mov_orig': 'saida',
-            'tipo_mov': 'saida', // Campo adicional do esquema
-            'quantidade': capacidadeLitros, // Agora em litros
-            // Campos descritivos
             'descricao': 'Venda Comum',
+            'data_mov': dataMov,
+            'quantidade': capacidadeLitros,
             'anp': false,
             'status_circuito': 1,
-            // Campos com default do esquema
             'entrada_amb': 0,
             'entrada_vinte': 0,
             'saida_amb': 0,
             'saida_vinte': 0,
-            // Inicializar todos os campos de quantidade como 0
             'g_comum': 0,
             'g_aditivada': 0,
             'd_s10': 0,
@@ -280,18 +282,14 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             's10_a': 0,
           };
 
-          // Atribuir quantidade (em litros) apenas na coluna correta do produto
           movimentacao[colunaProduto] = capacidadeLitros;
 
-          // Inserir no banco
           await supabase.from('movimentacoes').insert(movimentacao);
         }
       }
 
-      // 5. Sucesso
       widget.onSalvar?.call(true, 'Venda registrada com sucesso!');
       if (mounted) Navigator.of(context).pop(true);
-
     } catch (e) {
       _mostrarErro('Erro ao salvar venda: ${e.toString()}');
     } finally {
@@ -300,6 +298,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       }
     }
   }
+
 
   void _mostrarErro(String mensagem) {
     ScaffoldMessenger.of(context).showSnackBar(

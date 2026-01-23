@@ -58,6 +58,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool showConfigList = false;
   bool carregandoSessoes = false;
   bool showUsuarios = false;
+  bool _mostrarAcompanhamentoOrdens = false;
   
   // FLAGS PARA SESSÕES ESPECÍFICAS
   bool _mostrarCalcGerado = false;
@@ -469,6 +470,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   void _resetarTodasFlagsGestaoFrota() {
     _resetarFlagsVeiculos();
     _resetarFlagsMotoristas();
+    _mostrarAcompanhamentoOrdens = false;
   }
 
   void _resetarTodasFlags() {
@@ -1165,6 +1167,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       );
     }
 
+    if (_mostrarAcompanhamentoOrdens) {
+      return AcompanhamentoOrdensPage(
+        key: const ValueKey('acompanhamento-ordens'),
+        onVoltar: () {
+          setState(() {
+            _mostrarAcompanhamentoOrdens = false;
+          });
+        },
+      );
+    }
+
     if (_mostrarFiltroMovimentacoes) {
       return FiltroMovimentacoesPage(
         onVoltar: () {
@@ -1247,7 +1260,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         child: CircularProgressIndicator(color: Color(0xFF0D47A1)),
       );
     }
-
+    
     return const SizedBox.shrink();
   }
 
@@ -1797,19 +1810,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _mostrarIniciarCircuito = true;
         });
         break;
-      case 'acompanhar_ordem':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => AcompanhamentoOrdensPage(
-              onVoltar: () {
-                Navigator.pop(context);
-              },
-            ),
-          ),
-        );
+      case 'acompanhar_ordem':  // ✅ MODIFICADO: Agora usa estado, não Navigator
+        setState(() {
+          _mostrarAcompanhamentoOrdens = true;
+        });
         break;
       case 'visao_geral_circuito':
+        // Adicione aqui quando criar a tela
         break;
     }
   }
