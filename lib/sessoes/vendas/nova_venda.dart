@@ -22,6 +22,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
   // MODELOS INTERNOS
   // =======================
   final List<_PlacaVenda> _placasVenda = [];
+  final ScrollController _scrollController = ScrollController();
 
   List<Map<String, dynamic>> _produtos = [];
   bool _carregandoProdutos = false;
@@ -31,6 +32,15 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     super.initState();
     _carregarProdutos();
     _adicionarPlaca(); // primeira placa já nasce aberta
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    for (final p in _placasVenda) {
+      p.dispose();
+    }
+    super.dispose();
   }
 
   Future<void> _carregarProdutos() async {
@@ -54,6 +64,26 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     setState(() {
       _placasVenda.add(_PlacaVenda());
     });
+    
+    // Desliza para o final após a reconstrução do widget
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _removerPlaca(int index) {
+    if (index > 0 && index < _placasVenda.length) {
+      setState(() {
+        final placaRemovida = _placasVenda.removeAt(index);
+        placaRemovida.dispose();
+      });
+    }
   }
 
   Future<void> _buscarPlacas(_PlacaVenda placa, String texto) async {
@@ -184,15 +214,16 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
   }
 
   Widget _buildPlaca(_PlacaVenda placa, {bool primeira = false}) {
-    final isVermelho = primeira; // Primeira placa sempre vermelha
-    final index = _placasVenda.indexOf(placa) + 1;
+    final index = _placasVenda.indexOf(placa);
+    final mostrarRemover = !primeira; // Não mostrar no primeiro
     
     return Container(
+      key: ValueKey<int>(index), // Key para ajudar no scroll
       margin: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // LINHA DA PLACA + "+"
+          // LINHA DA PLACA + "+" + "X"
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -203,7 +234,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Placa $index',
+                      'Placa ${index + 1}',
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -224,23 +255,23 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                         fillColor: Colors.grey.shade50,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide(
-                            color: isVermelho ? Colors.red : Colors.grey.shade400,
-                            width: isVermelho ? 2.0 : 1.0,
+                          borderSide: const BorderSide(
+                            color: Colors.red,
+                            width: 2.0,
                           ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide(
-                            color: isVermelho ? Colors.red : Colors.grey.shade400,
-                            width: isVermelho ? 2.0 : 1.0,
+                          borderSide: const BorderSide(
+                            color: Colors.red,
+                            width: 2.0,
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide(
-                            color: isVermelho ? Colors.red : Colors.blue,
-                            width: isVermelho ? 2.5 : 1.5,
+                          borderSide: const BorderSide(
+                            color: Colors.red,
+                            width: 2.5,
                           ),
                         ),
                         suffixIcon: placa.carregandoPlacas
@@ -259,8 +290,10 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                 ),
               ),
               
-              if (primeira) ...[
-                const SizedBox(width: 12),
+              // BOTÕES: ADICIONAR (apenas primeira) ou REMOVER (apenas das demais)
+              const SizedBox(width: 8),
+              
+              if (primeira)
                 Padding(
                   padding: const EdgeInsets.only(top: 24),
                   child: IconButton(
@@ -279,8 +312,27 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                     ),
                     onPressed: _adicionarPlaca,
                   ),
+                )
+              else if (mostrarRemover)
+                Padding(
+                  padding: const EdgeInsets.only(top: 24),
+                  child: IconButton(
+                    tooltip: 'Remover esta placa',
+                    icon: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade500,
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      padding: const EdgeInsets.all(5),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                    onPressed: () => _removerPlaca(index),
+                  ),
                 ),
-              ],
             ],
           ),
 
@@ -397,6 +449,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             // CONTEÚDO
             Flexible(
               child: SingleChildScrollView(
+                controller: _scrollController, // Adicionado o controller aqui
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 child: Column(
                   children: List.generate(
@@ -468,14 +521,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    for (final p in _placasVenda) {
-      p.dispose();
-    }
-    super.dispose();
   }
 }
 
