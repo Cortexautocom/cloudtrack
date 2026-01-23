@@ -137,16 +137,13 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
         final status = cacl['status']?.toString().toLowerCase() ?? '';
         final data = cacl['data']?.toString() ?? '';
 
-        // Inclui CACLs cancelados
-        if (status.contains('cancelado')) {
+        // Regra 1: Qualquer CACL com data de hoje (independente do status)
+        if (data == dataFormatada) {
           return true;
         }
 
+        // Regra 2: Qualquer CACL com status pendente (independente da data)
         if (status.contains('pendente') || status.contains('aguardando')) {
-          return true;
-        }
-
-        if (status.contains('emitido') && data == dataFormatada) {
           return true;
         }
 
