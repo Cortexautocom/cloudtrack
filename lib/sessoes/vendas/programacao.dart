@@ -101,15 +101,39 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
   }
 
   void _mostrarDialogNovaVenda() async {
+    // Verificar se filialId está definido
+    if (widget.filialId == null || widget.filialId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Filial não definida. Não é possível criar nova venda.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => NovaVendaDialog(
-        onSalvar: (sucesso) {
-          if (sucesso) {
+        onSalvar: (sucesso, mensagem) {
+          if (sucesso && mensagem != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(mensagem),
+                backgroundColor: Colors.green,
+              ),
+            );
             carregar();
+          } else if (mensagem != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(mensagem),
+                backgroundColor: Colors.red,
+              ),
+            );
           }
         },
-        filialId: widget.filialId,
+        filialId: widget.filialId!,
         filialNome: widget.filialNome,
       ),
     );

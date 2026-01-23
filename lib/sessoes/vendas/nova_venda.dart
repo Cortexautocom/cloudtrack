@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NovaVendaDialog extends StatefulWidget {
-  final Function(bool sucesso)? onSalvar;
+  final Function(bool sucesso, String? mensagem)? onSalvar;
   final String? filialId;
   final String? filialNome;
 
@@ -26,6 +26,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
 
   List<Map<String, dynamic>> _produtos = [];
   bool _carregandoProdutos = false;
+  bool _salvando = false;
 
   @override
   void initState() {
@@ -128,6 +129,186 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     }
 
     setState(() {});
+  }
+
+  // =======================
+  // MAPEAMENTO DE PRODUTOS (MESMO DA TRANSFERÊNCIA)
+  // =======================
+  String _resolverColunaProduto(String produtoId) {
+    const mapaProdutoColuna = {
+      '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 's10_a',
+      '4da89784-301f-4abe-b97e-c48729969e3d': 's500_a',
+      '58ce20cf-f252-4291-9ef6-f4821f22c29e': 'd_s10',
+      '66ca957a-5698-4a02-8c9e-987770b6a151': 'etanol',
+      '82c348c8-efa1-4d1a-953a-ee384d5780fc': 'g_comum',
+      '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 'g_aditivada',
+      'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': 'd_s500',
+      'cecab8eb-297a-4640-81ae-e88335b88d8b': 'anidro',
+      'ecd91066-e763-42e3-8a0e-d982ea6da535': 'b100',
+      'f8e95435-471a-424c-947f-def8809053a0': 'gasolina_a',
+    };
+
+    // Normalizar UUID (remover espaços, converter para minúsculas)
+    final uuidNormalizado = produtoId.trim().toLowerCase();
+    
+    final coluna = mapaProdutoColuna[uuidNormalizado];
+
+    if (coluna == null) {
+      throw Exception('Produto (UUID: $produtoId) sem coluna de movimentação configurada');
+    }
+
+    return coluna;
+  }
+
+  // =======================
+  // SALVAR NO BANCO
+  // =======================
+  Future<void> _salvarVenda() async {
+    // Validações básicas
+    if (widget.filialId == null || widget.filialId!.isEmpty) {
+      _mostrarErro('Filial não informada');
+      return;
+    }
+
+    // Coletar todas as placas únicas
+    final placasUnicas = <String>[];
+    for (final placaVenda in _placasVenda) {
+      final placa = placaVenda.controller.text.trim().toUpperCase();
+      if (placa.isNotEmpty && !placasUnicas.contains(placa)) {
+        placasUnicas.add(placa);
+      }
+    }
+
+    if (placasUnicas.isEmpty) {
+      _mostrarErro('Informe pelo menos uma placa');
+      return;
+    }
+
+    // Validar tanques
+    int totalTanques = 0;
+    for (final placaVenda in _placasVenda) {
+      for (final tanque in placaVenda.tanques) {
+        if (tanque.produtoId == null || tanque.produtoId!.isEmpty) {
+          _mostrarErro('Selecione o produto para todos os tanques');
+          return;
+        }
+        if (tanque.clienteController.text.trim().isEmpty) {
+          _mostrarErro('Informe o cliente para todos os tanques');
+          return;
+        }
+        if (tanque.pagamentoController.text.trim().isEmpty) {
+          _mostrarErro('Informe a forma de pagamento para todos os tanques');
+          return;
+        }
+        totalTanques++;
+      }
+    }
+
+    if (totalTanques == 0) {
+      _mostrarErro('Nenhum tanque encontrado para as placas informadas');
+      return;
+    }
+
+    setState(() => _salvando = true);
+
+    try {
+      final supabase = Supabase.instance.client;
+      
+      // 1. Buscar empresa_id da filial
+      final filialResponse = await supabase
+          .from('filiais')
+          .select('empresa_id')
+          .eq('id', widget.filialId!)
+          .single();
+
+      final empresaId = filialResponse['empresa_id'];
+
+      // 2. Buscar dados do usuário logado
+      final user = supabase.auth.currentUser;
+      if (user == null) {
+        throw Exception('Usuário não autenticado');
+      }
+
+      // 3. Preparar data no formato correto (YYYY-MM-DD)
+      final hoje = DateTime.now();
+      final dataMov = '${hoje.year}-${hoje.month.toString().padLeft(2, '0')}-${hoje.day.toString().padLeft(2, '0')}';
+
+      // 4. Inserir cada tanque como uma movimentação
+      for (final placaVenda in _placasVenda) {
+        for (final tanque in placaVenda.tanques) {
+          // Determinar qual campo de quantidade usar baseado no produto
+          final colunaProduto = _resolverColunaProduto(tanque.produtoId!);
+          
+          // Converter capacidade para número
+          final capacidadeNum = double.tryParse(tanque.capacidade) ?? 0.0;
+          
+          // Criar objeto para inserção
+          final Map<String, dynamic> movimentacao = {
+            'filial_id': widget.filialId!,
+            'filial_origem_id': widget.filialId!,
+            'data_mov': dataMov, // Formato date YYYY-MM-DD
+            'empresa_id': empresaId,
+            'produto_id': tanque.produtoId,
+            'placa': [placaVenda.controller.text.trim().toUpperCase()], // Array de texto
+            'cliente': tanque.clienteController.text.trim(),
+            'forma_pagamento': tanque.pagamentoController.text.trim(),
+            'usuario_id': user.id,
+            'tipo_op': 'venda',
+            'tipo_mov_orig': 'saida',
+            'tipo_mov': 'saida', // Campo adicional do esquema
+            'quantidade': capacidadeNum,
+            // Campos descritivos
+            'descricao': 'Venda',
+            'anp': false,
+            'status_circuito': 1,
+            // Campos com default do esquema
+            'entrada_amb': 0,
+            'entrada_vinte': 0,
+            'saida_amb': 0,
+            'saida_vinte': 0,
+            // Inicializar todos os campos de quantidade como 0
+            'g_comum': 0,
+            'g_aditivada': 0,
+            'd_s10': 0,
+            'd_s500': 0,
+            'etanol': 0,
+            'anidro': 0,
+            'b100': 0,
+            'gasolina_a': 0,
+            's500_a': 0,
+            's10_a': 0,
+          };
+
+          // Atribuir quantidade apenas na coluna correta do produto
+          movimentacao[colunaProduto] = capacidadeNum;
+
+          // Inserir no banco
+          await supabase.from('movimentacoes').insert(movimentacao);
+        }
+      }
+
+      // 5. Sucesso
+      widget.onSalvar?.call(true, 'Venda registrada com sucesso!');
+      if (mounted) Navigator.of(context).pop(true);
+
+    } catch (e) {
+      _mostrarErro('Erro ao salvar venda: ${e.toString()}');
+    } finally {
+      if (mounted) {
+        setState(() => _salvando = false);
+      }
+    }
+  }
+
+  void _mostrarErro(String mensagem) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensagem),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+    setState(() => _salvando = false);
   }
 
   // =======================
@@ -401,11 +582,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     );
   }
 
-  void _emitirOrdem() {
-    widget.onSalvar?.call(true);
-    Navigator.of(context).pop(true);
-  }
-
   // =======================
   // BUILD
   // =======================
@@ -449,7 +625,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             // CONTEÚDO
             Flexible(
               child: SingleChildScrollView(
-                controller: _scrollController, // Adicionado o controller aqui
+                controller: _scrollController,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 child: Column(
                   children: List.generate(
@@ -478,7 +654,9 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                   SizedBox(
                     width: 150,
                     child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(false),
+                      onPressed: _salvando
+                          ? null
+                          : () => Navigator.of(context).pop(false),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         shape: RoundedRectangleBorder(
@@ -486,10 +664,16 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                         ),
                         side: BorderSide(color: Colors.grey.shade400, width: 1),
                       ),
-                      child: const Text(
-                        'Cancelar',
-                        style: TextStyle(fontSize: 13),
-                      ),
+                      child: _salvando
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text(
+                              'Cancelar',
+                              style: TextStyle(fontSize: 13),
+                            ),
                     ),
                   ),
                   
@@ -499,7 +683,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                   SizedBox(
                     width: 150,
                     child: ElevatedButton(
-                      onPressed: _emitirOrdem,
+                      onPressed: _salvando ? null : _salvarVenda,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0D47A1),
                         foregroundColor: Colors.white,
@@ -508,10 +692,19 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                           borderRadius: BorderRadius.circular(6),
                         ),
                       ),
-                      child: const Text(
-                        'Emitir ordem',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
+                      child: _salvando
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Emitir ordem',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
                     ),
                   ),
                 ],
