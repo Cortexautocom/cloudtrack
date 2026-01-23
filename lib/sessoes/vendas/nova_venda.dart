@@ -159,8 +159,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
 
     return coluna;
   }
-
-  // =======================
+  
   // SALVAR NO BANCO
   // =======================
   Future<void> _salvarVenda() async {
@@ -239,8 +238,10 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
           // Determinar qual campo de quantidade usar baseado no produto
           final colunaProduto = _resolverColunaProduto(tanque.produtoId!);
           
-          // Converter capacidade para número
-          final capacidadeNum = double.tryParse(tanque.capacidade) ?? 0.0;
+          // Converter capacidade de metros cúbicos para litros
+          // Capacidade em m³ (ex: 5) → Litros (5 * 1000 = 5000)
+          final capacidadeMCubicos = double.tryParse(tanque.capacidade) ?? 0.0;
+          final capacidadeLitros = capacidadeMCubicos * 1000.0;
           
           // Criar objeto para inserção
           final Map<String, dynamic> movimentacao = {
@@ -256,9 +257,9 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             'tipo_op': 'venda',
             'tipo_mov_orig': 'saida',
             'tipo_mov': 'saida', // Campo adicional do esquema
-            'quantidade': capacidadeNum,
+            'quantidade': capacidadeLitros, // Agora em litros
             // Campos descritivos
-            'descricao': 'Venda',
+            'descricao': 'Venda programada',
             'anp': false,
             'status_circuito': 1,
             // Campos com default do esquema
@@ -279,8 +280,8 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             's10_a': 0,
           };
 
-          // Atribuir quantidade apenas na coluna correta do produto
-          movimentacao[colunaProduto] = capacidadeNum;
+          // Atribuir quantidade (em litros) apenas na coluna correta do produto
+          movimentacao[colunaProduto] = capacidadeLitros;
 
           // Inserir no banco
           await supabase.from('movimentacoes').insert(movimentacao);
