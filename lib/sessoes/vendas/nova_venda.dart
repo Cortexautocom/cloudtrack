@@ -48,9 +48,12 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     setState(() => _carregandoProdutos = true);
     try {
       final supabase = Supabase.instance.client;
-      final response =
-          await supabase.from('produtos').select('id, nome').order('nome');
-      _produtos = List<Map<String, dynamic>>.from(response);
+      final response = await supabase
+          .from('produtos')
+          .select('id, nome_dois');
+      _produtos = ordenarProdutosPorClasse(
+        List<Map<String, dynamic>>.from(response),
+      );
     } catch (_) {
       _produtos = [];
     } finally {
@@ -129,6 +132,36 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     }
 
     setState(() {});
+  }
+
+  List<Map<String, dynamic>> ordenarProdutosPorClasse(
+    List<Map<String, dynamic>> produtos,
+  ) {
+    const ordemPersonalizada = [
+      '58ce20cf-f252-4291-9ef6-f4821f22c29e',
+      '82c348c8-efa1-4d1a-953a-ee384d5780fc',
+      '93686e9d-6ef5-4f7c-a97d-b058b3c2c693',
+      'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1',
+      '66ca957a-5698-4a02-8c9e-987770b6a151',
+      'f8e95435-471a-424c-947f-def8809053a0',
+      '4da89784-301f-4abe-b97e-d48729969e3d',
+      '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a',
+      'ecd91066-e763-42e3-8a0e-d982ea6da535',
+      'cecab8eb-297a-4640-81ae-e88335b88d8b',
+    ];
+
+    produtos.sort((a, b) {
+      final ia = ordemPersonalizada.indexOf(a['id']);
+      final ib = ordemPersonalizada.indexOf(b['id']);
+
+      if (ia == -1 && ib == -1) return 0;
+      if (ia == -1) return 1;
+      if (ib == -1) return -1;
+
+      return ia.compareTo(ib);
+    });
+
+    return produtos;
   }
 
   // =======================
@@ -487,7 +520,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                     (p) => DropdownMenuItem<String>(
                       value: p['id'].toString(),
                       child: Text(
-                        p['nome'],
+                        p['nome_dois'],
                         style: const TextStyle(fontSize: 13),
                       ),
                     ),
