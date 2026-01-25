@@ -17,7 +17,6 @@ import 'sessoes/apuracao/listar_cacls.dart';
 import 'sessoes/estoques/estoque_downloads.dart';
 import 'sessoes/estoques/filtro_estoque.dart';
 import 'sessoes/estoques/estoque_mes.dart';
-import 'sessoes/circuito/gerenciar_circuito.dart';
 import 'sessoes/gestao_de_frota/motoristas_page.dart';
 import 'sessoes/gestao_de_frota/veiculos.dart';
 import 'sessoes/circuito/acompanhamento_ordens.dart';
@@ -72,7 +71,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarEscolherFilial = false;
   bool _mostrarEstoquePorEmpresa = false;
   bool _mostrarFiliaisDaEmpresa = false;
-  bool _mostrarIniciarCircuito = false;
   bool _mostrarFiltroMovimentacoes = false;
   bool _mostrarMenuAjuda = false;
   bool _mostrarTempDensMedia = false;
@@ -223,8 +221,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       {'id': 'fallback-transf', 'icon': Icons.compare_arrows, 'label': 'Transferências', 'descricao': 'Gerenciar transferências entre filiais', 'tipo': 'transferencias', 'sessao_pai': 'Estoques'},
     ];
 
-    _filhosPorSessao['Circuito'] = [
-      {'id': 'fallback-iniciar', 'icon': Icons.play_arrow, 'label': 'Iniciar Circuito', 'descricao': 'Iniciar novo fluxo de carga/descarga', 'tipo': 'iniciar_circuito', 'sessao_pai': 'Circuito'},
+    _filhosPorSessao['Circuito'] = [      
       {'id': 'fallback-acompanhar', 'icon': Icons.directions_car, 'label': 'Acompanhar ordem', 'descricao': 'Acompanhar situação da ordem', 'tipo': 'acompanhar_ordem', 'sessao_pai': 'Circuito'},
       {'id': 'fallback-visao', 'icon': Icons.dashboard, 'label': 'Visão geral', 'descricao': 'Panorama completo dos circuitos', 'tipo': 'visao_geral_circuito', 'sessao_pai': 'Circuito'},
     ];
@@ -253,7 +250,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       'estoque_por_empresa': Icons.business,
       'movimentacoes': Icons.swap_horiz,
       'transferencias': Icons.compare_arrows,
-      'iniciar_circuito': Icons.play_arrow,
       'acompanhar_ordem': Icons.directions_car,
       'visao_geral_circuito': Icons.dashboard,
       'veiculos': Icons.directions_car,
@@ -278,7 +274,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       'estoque_por_empresa': 'Estoques separados por empresa',
       'movimentacoes': 'Acompanhar entradas e saídas em geral',
       'transferencias': 'Gerenciar transferências entre filiais',
-      'iniciar_circuito': 'Iniciar novo fluxo de carga/descarga',
       'acompanhar_ordem': 'Acompanhar situação da ordem',
       'visao_geral_circuito': 'Panorama completo dos circuitos',
       'veiculos': 'Gerenciar frota de veículos próprios',
@@ -491,7 +486,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarEscolherFilial = false;
       _mostrarEstoquePorEmpresa = false;
       _mostrarFiliaisDaEmpresa = false;
-      _mostrarIniciarCircuito = false;
       _mostrarFiltroMovimentacoes = false;
       _mostrarTempDensMedia = false;
       _mostrarMenuAjuda = false;
@@ -551,7 +545,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarFiliaisDaEmpresa = false;
       _mostrarEstoquePorEmpresa = false;
       _mostrarFiltrosEstoque = false;
-      _mostrarIniciarCircuito = false;
       _mostrarCalcGerado = false;
       _mostrarTempDensMedia = false;
       _mostrarMenuAjuda = false;
@@ -588,7 +581,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarFiliaisDaEmpresa = false;
       _mostrarEstoquePorEmpresa = false;
       _mostrarFiltrosEstoque = false;
-      _mostrarIniciarCircuito = false;
       _mostrarCalcGerado = false;
       _mostrarTempDensMedia = false;
       _mostrarMenuAjuda = false;
@@ -1158,14 +1150,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       return _buildEstoquePorEmpresaPage();
     }
 
-    if (_mostrarIniciarCircuito) {
-      return IniciarCircuitoPage(
-        key: const ValueKey('iniciar-circuito'),
-        onVoltar: () {
-          _mostrarFilhosDaSessao('Circuito');
-        },
-      );
-    }
+    
 
     if (_mostrarAcompanhamentoOrdens) {
       return AcompanhamentoOrdensPage(
@@ -1260,7 +1245,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         child: CircularProgressIndicator(color: Color(0xFF0D47A1)),
       );
     }
-    
+
     return const SizedBox.shrink();
   }
 
@@ -1279,10 +1264,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         children: [
           Row(
             children: [
-              // APENAS MOSTRA A SETA DE VOLTAR SE NÃO FOR A PRIMEIRA PÁGINA DE CARDS
               if (mostrarVoltar && (_mostrarDownloads || showConversaoList || _mostrarListarCacls || _mostrarOrdensAnalise || 
                   _mostrarHistorico || _mostrarEscolherFilial || _mostrarMedicaoTanques || _mostrarTanques || 
-                  _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || _mostrarIniciarCircuito || 
+                  _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || 
                   _mostrarFiltroMovimentacoes || _mostrarTempDensMedia || _mostrarCalcGerado || 
                   _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarFiltrosEstoque))
                 IconButton(
@@ -1292,7 +1276,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 ),
               if (mostrarVoltar && (_mostrarDownloads || showConversaoList || _mostrarListarCacls || _mostrarOrdensAnalise || 
                   _mostrarHistorico || _mostrarEscolherFilial || _mostrarMedicaoTanques || _mostrarTanques || 
-                  _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || _mostrarIniciarCircuito || 
+                  _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || 
                   _mostrarFiltroMovimentacoes || _mostrarTempDensMedia || _mostrarCalcGerado || 
                   _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarFiltrosEstoque))
                 const SizedBox(width: 10),
@@ -1804,12 +1788,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   void _navegarParaCardCircuito(String tipo) {
-    switch (tipo) {
-      case 'iniciar_circuito':
-        setState(() {
-          _mostrarIniciarCircuito = true;
-        });
-        break;
+    switch (tipo) {      
       case 'acompanhar_ordem':  // ✅ MODIFICADO: Agora usa estado, não Navigator
         setState(() {
           _mostrarAcompanhamentoOrdens = true;

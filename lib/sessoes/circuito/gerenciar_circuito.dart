@@ -1,3 +1,4 @@
+/*
 import 'package:flutter/material.dart';
 
 enum EtapaCircuito {
@@ -442,3 +443,4 @@ class EtapaInfo {
     required this.cor,
   });
 }
+*/

@@ -17,8 +17,8 @@ class UsuarioAtual {
   final String? filialId;
   final String? empresaId;
 
-  final List<String> sessoesPermitidas; // Mantido para compatibilidade
-  final List<String> cardsPermitidosIds; // NOVO: IDs dos cards permitidos
+  /// CONTROLE REAL DE ACESSO (CARD-CENTRIC)
+  final List<String> cardsPermitidosIds;
   final bool senhaTemporaria;
 
   UsuarioAtual({
@@ -27,26 +27,13 @@ class UsuarioAtual {
     required this.nivel,
     required this.filialId,
     required this.empresaId,
-    required this.sessoesPermitidas,
+    required this.cardsPermitidosIds,
     required this.senhaTemporaria,
-    required this.cardsPermitidosIds, // NOVO PARÂMETRO
   });
 
-  // Método mantido para compatibilidade (usando a nova lógica)
-  bool temPermissao(String idSessao) {
-    // Se é admin (nível >= 3) ou se o ID está na lista de cards permitidos
-    if (nivel >= 3) return true;
-    
-    // Verifica se é um card permitido
-    return cardsPermitidosIds.contains(idSessao);
-  }
-
-  // NOVO: Método específico para verificar permissão de card
+  /// Fonte única de permissão
   bool podeAcessarCard(String cardId) {
-    // Admins têm acesso total
     if (nivel >= 3) return true;
-    
-    // Verifica se o card está na lista de permitidos
     return cardsPermitidosIds.contains(cardId);
   }
 
@@ -67,66 +54,28 @@ class _LoginPageState extends State<LoginPage> {
   bool _obscureText = true;
   bool _isLoading = false;
 
-  // ======= NOVO: Carregar permissões dos cards =======
+  /// 🔐 Carrega permissões de CARDS
   Future<List<String>> _carregarPermissoesCards(String usuarioId) async {
     try {
       final supabase = Supabase.instance.client;
-      
-      // Consulta a tabela permissoes para obter os cards permitidos
+
       final permissoes = await supabase
           .from('permissoes')
-          .select('id_sessao, permitido')
+          .select('id_sessao')
           .eq('id_usuario', usuarioId)
           .eq('permitido', true);
-      
-      // Extrai os IDs dos cards permitidos
+
       return permissoes
           .map((p) => p['id_sessao']?.toString() ?? '')
           .where((id) => id.isNotEmpty)
           .toList();
-          
     } catch (e) {
       debugPrint('❌ Erro ao carregar permissões de cards: $e');
       return [];
     }
   }
 
-  // ======= NOVO: Carregar sessões permitidas (mantido para compatibilidade) =======
-  Future<List<String>> _carregarSessoesPermitidas(String usuarioId, int nivel) async {
-    try {
-      final supabase = Supabase.instance.client;
-      
-      if (nivel >= 3) {
-        // Admin: todas as sessões
-        final todasSessoes = await supabase
-            .from('sessoes')
-            .select('id');
-        
-        return todasSessoes
-            .map((s) => s['id'].toString())
-            .toList();
-      }
-      
-      // Usuário normal: consulta permissões
-      final permissoes = await supabase
-          .from('permissoes')
-          .select('id_sessao, permitido')
-          .eq('id_usuario', usuarioId)
-          .eq('permitido', true);
-      
-      // Para compatibilidade, ainda usa a tabela sessoes se necessário
-      return permissoes
-          .where((p) => p['permitido'] == true)
-          .map((p) => p['id_sessao'].toString())
-          .toList();
-          
-    } catch (e) {
-      debugPrint('❌ Erro ao carregar sessões permitidas: $e');
-      return [];
-    }
-  }
-
-  // ======= Função de login ATUALIZADA =======
+  /// 🔑 LOGIN
   Future<void> loginUser() async {
     setState(() => _isLoading = true);
 
@@ -135,32 +84,27 @@ class _LoginPageState extends State<LoginPage> {
     final password = passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Por favor, preencha e-mail e senha.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Por favor, preencha e-mail e senha.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
       setState(() => _isLoading = false);
       return;
     }
 
     try {
-      // 🔹 1. Autenticação
+      /// 1️⃣ Auth
       final response = await supabase.auth.signInWithPassword(
         email: email,
         password: password,
       );
 
-      if (response.user == null) {
-        throw Exception('Falha na autenticação.');
-      }
+      final user = response.user;
+      if (user == null) throw Exception('Falha na autenticação.');
 
-      final userId = response.user!.id;
-
-      // 🔹 2. Busca dados do usuário (empresa_id incluído)
+      /// 2️⃣ Dados do usuário
       final raw = await supabase
           .from('usuarios')
           .select('''
@@ -172,71 +116,56 @@ class _LoginPageState extends State<LoginPage> {
             empresa_id,
             senha_temporaria
           ''')
-          .eq('id', userId)
+          .eq('id', user.id)
           .maybeSingle();
 
       if (raw == null) {
-        throw Exception('Usuário não encontrado na tabela de usuários.');
+        throw Exception('Usuário não encontrado.');
       }
 
-      /// 🔹 3. Conversão EXPLÍCITA (obrigatória no Flutter Web)
-      final Map<String, dynamic> usuarioData =
-          Map<String, dynamic>.from(raw as Map);
+      final usuarioData = Map<String, dynamic>.from(raw as Map);
 
+      final int nivel = usuarioData['nivel'] as int;
       final String? filialId = usuarioData['id_filial']?.toString();
       final String? empresaId = usuarioData['empresa_id']?.toString();
-      final int nivel = usuarioData['nivel'] as int;
 
-      // 🔹 4. Carrega permissões dos CARDS (NOVO)
-      final cardsPermitidosIds = await _carregarPermissoesCards(userId);
-      
-      // 🔹 5. Carrega sessões permitidas (mantido para compatibilidade)
-      final sessoesPermitidas = await _carregarSessoesPermitidas(userId, nivel);
+      /// 3️⃣ Permissões reais (cards)
+      final cardsPermitidosIds = await _carregarPermissoesCards(user.id);
 
-      debugPrint('✅ Usuário: ${usuarioData['nome']}');
-      debugPrint('✅ Nível: $nivel');
-      debugPrint('✅ Cards permitidos: ${cardsPermitidosIds.length}');
-      debugPrint('✅ Sessões permitidas: ${sessoesPermitidas.length}');
+      /// 4️⃣ Validação: usuário sem nenhum card
+      if (nivel < 3 && cardsPermitidosIds.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Você não tem permissão para acessar nenhuma funcionalidade.',
+            ),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
 
-      // 🔹 6. Cria objeto global do usuário ATUALIZADO
+        await supabase.auth.signOut();
+        UsuarioAtual.instance = null;
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      /// 5️⃣ Instância global
       UsuarioAtual.instance = UsuarioAtual(
         id: usuarioData['id'].toString(),
         nome: (usuarioData['Nome_apelido'] ?? usuarioData['nome']).toString(),
         nivel: nivel,
         filialId: filialId,
         empresaId: empresaId,
-        sessoesPermitidas: sessoesPermitidas, // Mantido para compatibilidade
+        cardsPermitidosIds: cardsPermitidosIds,
         senhaTemporaria: usuarioData['senha_temporaria'] == true,
-        cardsPermitidosIds: cardsPermitidosIds, // NOVO
       );
 
-      // 🔹 7. Verifica se o usuário tem pelo menos UM card permitido (se não for admin)
-      if (nivel < 3 && cardsPermitidosIds.isEmpty) {
-        if (!mounted) return;
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Você não tem permissão para acessar nenhuma funcionalidade. Contate o administrador.'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 3),
-          ),
-        );
-        
-        // Desloga o usuário
-        await supabase.auth.signOut();
-        UsuarioAtual.instance = null;
-        
-        setState(() => _isLoading = false);
-        return;
-      }
-
-      // 🔹 8. Verifica troca de senha
+      /// 6️⃣ Troca de senha
       if (UsuarioAtual.instance!.precisaTrocarSenha) {
-        if (!mounted) return;
-
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Por favor, defina uma nova senha para sua conta.'),
+            content: Text('Defina uma nova senha para continuar.'),
             backgroundColor: Colors.orange,
           ),
         );
@@ -245,24 +174,22 @@ class _LoginPageState extends State<LoginPage> {
           context,
           MaterialPageRoute(builder: (_) => const EscolherSenhaPage()),
         );
-      } else {
-        if (!mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Login realizado com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomePage()),
-        );
+        return;
       }
-    } catch (error) {
-      if (!mounted) return;
 
+      /// 7️⃣ Sucesso
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Login realizado com sucesso!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HomePage()),
+      );
+    } catch (error) {
       String mensagemErro = 'Erro ao fazer login.';
 
       if (error is AuthException) {
@@ -287,13 +214,12 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // ======= Interface =======
+  /// 🖥️ UI
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          // ===== Fundo =====
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
@@ -302,15 +228,11 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
           ),
-
-          // ===== Logo =====
           Positioned(
             top: 80,
             left: 80,
             child: Image.asset('assets/logo_top_login.png'),
           ),
-
-          // ===== Caixa principal =====
           Center(
             child: Container(
               width: 380,
@@ -318,24 +240,22 @@ class _LoginPageState extends State<LoginPage> {
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.9),
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: [
+                boxShadow: const [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Colors.black26,
                     blurRadius: 10,
-                    offset: const Offset(0, 5),
+                    offset: Offset(0, 5),
                   ),
                 ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SizedBox(height: 10),
                   const Text(
                     "Entre com suas credenciais",
                     style: TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                   const SizedBox(height: 30),
-
                   TextField(
                     controller: emailController,
                     decoration: InputDecoration(
@@ -347,7 +267,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-
                   TextField(
                     controller: passwordController,
                     obscureText: _obscureText,
@@ -370,7 +289,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   const SizedBox(height: 25),
-
                   SizedBox(
                     width: double.infinity,
                     height: 48,
@@ -386,13 +304,12 @@ class _LoginPageState extends State<LoginPage> {
                           ? const CircularProgressIndicator(color: Colors.white)
                           : const Text(
                               'Entrar',
-                              style:
-                                  TextStyle(fontSize: 16, color: Colors.white),
+                              style: TextStyle(
+                                  fontSize: 16, color: Colors.white),
                             ),
                     ),
                   ),
                   const SizedBox(height: 20),
-
                   TextButton(
                     onPressed: () {
                       Navigator.push(
@@ -406,7 +323,6 @@ class _LoginPageState extends State<LoginPage> {
                       style: TextStyle(color: Color(0xFF0A4B78)),
                     ),
                   ),
-
                   TextButton(
                     onPressed: () {
                       Navigator.push(
@@ -423,33 +339,6 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ],
               ),
-            ),
-          ),
-
-          // ===== Rodapé =====
-          Positioned(
-            bottom: 30,
-            left: 0,
-            right: 0,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  "© 2025 VoxPower, LLC. All rights reserved.",
-                  style: TextStyle(
-                    color: Colors.grey.shade400,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "NexHealth IA - 550 California St, Suite 302, San Francisco, CA 94104.",
-                  style: TextStyle(
-                    color: Colors.grey.shade400,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
             ),
           ),
         ],
