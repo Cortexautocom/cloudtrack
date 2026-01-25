@@ -114,11 +114,11 @@ class _VeiculosGeralPageState extends State<VeiculosGeralPage> {
           ),
           child: const Row(
             children: [
-              SizedBox(width: 100, child: Text('PLACA', style: _h)),
-              SizedBox(width: 180, child: Text('TRANSPORTADORA', style: _h)),
-              SizedBox(width: 120, child: Text('RENAVAM', style: _h)),
-              SizedBox(width: 260, child: Text('COMPARTIMENTOS', style: _h)),
-              SizedBox(width: 90, child: Text('CAPAC. TOTAL', style: _h)),
+              SizedBox(width: 100, child: Text('Placa', style: _h)),
+              SizedBox(width: 180, child: Text('Transportadora', style: _h)),
+              SizedBox(width: 120, child: Text('Renavam', style: _h)),
+              SizedBox(width: 260, child: Text('Compartimentos', style: _h)),
+              SizedBox(width: 90, child: Text('Capacidade', style: _h)),
             ],
           ),
         ),

@@ -779,8 +779,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             ),
           ),
           
-          // RODAPÉ FIXO
-          if (_mostrarFilhosSessao || _sessaoAtual != null)
             Container(
               height: 50,
               width: double.infinity,

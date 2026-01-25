@@ -137,32 +137,30 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
   List<Map<String, dynamic>> ordenarProdutosPorClasse(
     List<Map<String, dynamic>> produtos,
   ) {
-    const ordemPersonalizada = [
-      '58ce20cf-f252-4291-9ef6-f4821f22c29e',
-      '82c348c8-efa1-4d1a-953a-ee384d5780fc',
-      '93686e9d-6ef5-4f7c-a97d-b058b3c2c693',
-      'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1',
-      '66ca957a-5698-4a02-8c9e-987770b6a151',
-      'f8e95435-471a-424c-947f-def8809053a0',
-      '4da89784-301f-4abe-b97e-d48729969e3d',
-      '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a',
-      'ecd91066-e763-42e3-8a0e-d982ea6da535',
-      'cecab8eb-297a-4640-81ae-e88335b88d8b',
-    ];
+    const ordemPorId = {
+      '82c348c8-efa1-4d1a-953a-ee384d5780fc': 1,
+      '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 2,
+      'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': 3,
+      '58ce20cf-f252-4291-9ef6-f4821f22c29e': 4,
+      '66ca957a-5698-4a02-8c9e-987770b6a151': 5,
+      'f8e95435-471a-424c-947f-def8809053a0': 6,
+      '4da89784-301f-4abe-b97e-c48729969e3d': 7,
+      '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 8,
+      'cecab8eb-297a-4640-81ae-e88335b88d8b': 9,
+      'ecd91066-e763-42e3-8a0e-d982ea6da535': 10,
+    };
 
     produtos.sort((a, b) {
-      final ia = ordemPersonalizada.indexOf(a['id']);
-      final ib = ordemPersonalizada.indexOf(b['id']);
+      final idA = a['id'].toString().toLowerCase();
+      final idB = b['id'].toString().toLowerCase();
 
-      if (ia == -1 && ib == -1) return 0;
-      if (ia == -1) return 1;
-      if (ib == -1) return -1;
-
-      return ia.compareTo(ib);
+      return (ordemPorId[idA] ?? 999)
+          .compareTo(ordemPorId[idB] ?? 999);
     });
 
     return produtos;
   }
+
 
   // =======================
   // MAPEAMENTO DE PRODUTOS (MESMO DA TRANSFERÊNCIA)
