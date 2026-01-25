@@ -19,7 +19,6 @@ class HomeCards extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cabeçalho com botão de voltar e título
           Row(
             children: [
               IconButton(
@@ -42,20 +41,18 @@ class HomeCards extends StatelessWidget {
           const Divider(color: Colors.grey),
           const SizedBox(height: 20),
 
-          // Conteúdo dos cards baseado no menu selecionado
           Expanded(
-            child: _buildCardsConteudo(context), // ALTERADO: Passa context
+            child: _buildCardsConteudo(context),
           ),
         ],
       ),
     );
   }
 
-  // ALTERADO: Recebe context como parâmetro
   Widget _buildCardsConteudo(BuildContext context) {
     switch (menuSelecionado) {
       case 'Ajuda':
-        return _buildCardsAjuda(context); // ALTERADO: Passa context
+        return _buildCardsAjuda(context);
       default:
         return const Center(
           child: Text(
@@ -66,7 +63,6 @@ class HomeCards extends StatelessWidget {
     }
   }
 
-  // ALTERADO: Recebe context como parâmetro
   Widget _buildCardsAjuda(BuildContext context) {
     final List<Map<String, dynamic>> cards = [
       {
@@ -75,8 +71,7 @@ class HomeCards extends StatelessWidget {
         'icone': Icons.architecture,
         'cor': const Color(0xFF0D47A1),
         'tipo': 'grande_arquiteto',
-      },
-      // Outros cards de ajuda podem ser adicionados aqui futuramente
+      },      
     ];
 
     return GridView.count(
@@ -84,12 +79,10 @@ class HomeCards extends StatelessWidget {
       crossAxisSpacing: 15,
       mainAxisSpacing: 15,
       childAspectRatio: 1,
-      // ALTERADO: Passa context para o map
       children: cards.map((card) => _buildCardItem(card, context)).toList(),
     );
   }
 
-  // ALTERADO: Recebe context como parâmetro
   Widget _buildCardItem(Map<String, dynamic> card, BuildContext context) {
     return Material(
       elevation: 2,
@@ -97,7 +90,6 @@ class HomeCards extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.hardEdge,
       child: InkWell(
-        // CORRIGIDO: Agora tem acesso ao context
         onTap: () => onCardSelecionado(context, card['tipo']),
         hoverColor: const Color(0xFFE8F5E9),
         child: Container(

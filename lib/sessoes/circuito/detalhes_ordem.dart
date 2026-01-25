@@ -103,6 +103,15 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     },
   ];
 
+  // Mapa de cores para produtos
+  final Map<String, Color> _coresProdutos = {
+    'gasolina': Color(0xFFFF6B35),
+    'hidratado': Color(0xFF00A8E8),
+    's10': Color(0xFF2E294E),
+    'etanol': Color(0xFF83B692),
+    'diesel': Color(0xFF8D6A9F),
+  };
+
   @override
   void initState() {
     super.initState();
@@ -161,16 +170,19 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     return 0;
   }
 
-  // Contar tanques que vão sair (com saída)
-  int _contarTanquesParaCarregar() {
-    int count = 0;
+  // Agrupar produtos por tipo (somente saídas)
+  Map<String, int> _agruparProdutosParaCarregar() {
+    final Map<String, int> produtos = {};
+    
     for (var mov in _movimentacoes) {
       final saida = mov['saida_amb'];
       if (saida != null && saida > 0) {
-        count++;
+        final produto = mov['produtos']?['nome']?.toString().toLowerCase() ?? 'desconhecido';
+        produtos[produto] = (produtos[produto] ?? 0) + (saida as int);
       }
     }
-    return count;
+    
+    return produtos;
   }
 
   String _formatarPlacas(dynamic placasData) {
@@ -184,122 +196,232 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     return placasData.toString();
   }
 
-  // 1️⃣ Card compacto com dados da ordem
+  // 1️⃣ Card remodelado com produtos organizados
   Widget _buildResumoCompacto() {
     final placasFormatadas = _formatarPlacas(widget.ordem['placas']);
-    final tanquesParaCarregar = _contarTanquesParaCarregar();
+    final produtosAgrupados = _agruparProdutosParaCarregar();
+    final totalProdutos = produtosAgrupados.values.fold(0, (sum, qtd) => sum + qtd);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Container(
         padding: const EdgeInsets.all(12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Coluna 1: Ordem
-            _buildInfoCompacta(
-              icon: Icons.confirmation_number,
-              label: 'Ordem nº',
-              value: '--',
+            // Linha 1: Ordem e Placa
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Ordem
+                _buildInfoItem(
+                  icon: Icons.confirmation_number,
+                  label: 'Ordem nº',
+                  value: '--',
+                  flex: 1,
+                ),
+                
+                // Separador
+                Container(
+                  width: 1,
+                  height: 40,
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  color: Colors.grey.shade300,
+                ),
+                
+                // Placa
+                Expanded(
+                  flex: 2,
+                  child: _buildInfoItem(
+                    icon: Icons.directions_car,
+                    label: 'Placas',
+                    value: placasFormatadas,
+                    flex: 2,
+                  ),
+                ),
+              ],
             ),
             
-            // Separador vertical
-            Container(
-              width: 1,
-              height: 40,
-              color: Colors.grey.shade300,
-            ),
+            const SizedBox(height: 12),
             
-            // Coluna 2: Tanques
-            _buildInfoCompacta(
-              icon: Icons.oil_barrel,
-              label: 'Tanques',
-              value: '$tanquesParaCarregar',
-            ),
-            
-            // Separador vertical
-            Container(
-              width: 1,
-              height: 40,
-              color: Colors.grey.shade300,
-            ),
-            
-            // Coluna 3: Placas (mais larga)
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.directions_car,
-                          size: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Placas',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      placasFormatadas,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF0D47A1),
+            // Linha 2: Produtos sendo carregados
+            if (produtosAgrupados.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.local_shipping,
+                        size: 16,
+                        color: Colors.grey.shade700,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      const SizedBox(width: 6),
+                      Text(
+                        'Carga',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '$totalProdutos amb.',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF0D47A1),
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  // Grid de produtos
+                  _buildGridProdutos(produtosAgrupados),
+                ],
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: Colors.grey.shade500,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Nenhum produto para carregar',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildInfoCompacta({
+  Widget _buildGridProdutos(Map<String, int> produtos) {
+    final entries = produtos.entries.toList();
+    
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: entries.map((entry) {
+        final produto = entry.key;
+        final quantidade = entry.value;
+        final nomeFormatado = _formatarNomeProduto(produto);
+        final cor = _obterCorProduto(produto);
+        
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: cor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: cor.withOpacity(0.3), width: 1),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Indicador de quantidade
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: cor,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  quantidade.toString(),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              
+              const SizedBox(width: 6),
+              
+              // Nome do produto
+              Text(
+                nomeFormatado,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: cor,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  String _formatarNomeProduto(String produto) {
+    final Map<String, String> mapeamento = {
+      'gasolina': 'Gasolina',
+      'hidratado': 'Hidratado',
+      's10': 'S10',
+      'etanol': 'Etanol',
+      'diesel': 'Diesel',
+    };
+    
+    return mapeamento[produto.toLowerCase()] ?? produto;
+  }
+
+  Color _obterCorProduto(String produto) {
+    final chave = produto.toLowerCase();
+    return _coresProdutos[chave] ?? Colors.grey.shade600;
+  }
+
+  Widget _buildInfoItem({
     required IconData icon,
     required String label,
     required String value,
+    required int flex,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+    return Expanded(
+      flex: flex,
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            size: 14,
-            color: Colors.grey.shade600,
+          Row(
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: Colors.grey.shade600,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey.shade600,
-            ),
-          ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             value,
             style: const TextStyle(
               fontSize: 14,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
               color: Color(0xFF0D47A1),
             ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -556,7 +678,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1️⃣ Card compacto com resumo
+          // 1️⃣ Card remodelado com produtos
           _buildResumoCompacto(),
           
           // 2️⃣ Timeline compacta

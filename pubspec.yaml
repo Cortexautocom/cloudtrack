@@ -18,6 +18,9 @@ dependencies:
   # Banco de dados e autenticação
   supabase_flutter: ^2.10.3
 
+  # Interop JavaScript (necessário para @JS e dart:js_interop)
+  js: ^0.7.1
+
   # Variáveis de ambiente
   flutter_dotenv: ^6.0.0
 

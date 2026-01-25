@@ -21,15 +21,39 @@
 
   <script src="flutter_bootstrap.js" async></script>
 
-  <!-- CONTROLE DE CACHE / ATUALIZAÇÃO -->
+  <!-- REGISTRO DO SERVICE WORKER -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register(
-          'flutter_service_worker.js?v=1'
-        );
+        navigator.serviceWorker.register('flutter_service_worker.js?v=1');
       });
     }
+  </script>
+
+  <!-- FUNÇÃO GLOBAL PARA FORÇAR ATUALIZAÇÃO DO APP (COMPATÍVEL COM dart:js_interop) -->
+  <script>
+    window.atualizarApp = async function () {
+      try {
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const reg of regs) {
+            await reg.unregister();
+          }
+        }
+
+        if (window.caches) {
+          const keys = await caches.keys();
+          for (const key of keys) {
+            await caches.delete(key);
+          }
+        }
+
+        window.location.reload(true);
+      } catch (e) {
+        console.error('Erro ao atualizar app:', e);
+        window.location.reload(true);
+      }
+    };
   </script>
 
 </body>

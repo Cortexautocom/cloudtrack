@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:js_interop';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'sessoes/apuracao/tabelas_de_conversao/tabelasdeconversao.dart';
 import 'configuracoes/controle_acesso_usuarios.dart';
@@ -33,6 +34,9 @@ class HomePage extends StatefulWidget {
   @override
   State<HomePage> createState() => _HomePageState();
 }
+
+@JS()
+external JSFunction? atualizarApp;
 
 class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   int selectedIndex = 0;
@@ -861,21 +865,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               MaterialPageRoute(
                 builder: (context) => const GrandeArquitetoPage(),
               ),
-            ).then((result) {
-              if (result == 'voltar_ajuda') {
-                setState(() {
-                  selectedIndex = 3;
-                  _mostrarMenuAjuda = true;
-                });
-              }
-            });
-
+            );
             break;
+
+          case 'atualizar_app':
+            if (atualizarApp != null) {
+              atualizarApp!.callAsFunction();
+            } else {
+              debugPrint('❌ atualizarApp não está disponível no JS');
+            }
+            break;
+
           default:
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Funcionalidade $tipoCard em desenvolvimento...'),
-                duration: const Duration(seconds: 1),
               ),
             );
         }
@@ -1872,7 +1876,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         onVoltar: () => setState(() => showUsuarios = false),
       );
     }    
-    
+      
     if (showControleAcesso) {
       return ControleAcessoUsuarios(
         key: const ValueKey('controle_acesso'),
@@ -1882,15 +1886,25 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
     final List<Map<String, dynamic>> configCards = [];
 
+    // Cartões disponíveis para todos os usuários
+    configCards.add({
+      'icon': Icons.refresh,
+      'label': 'Atualizar app',
+      'tipo': 'atualizar_app',
+    });
+
+    // Cartões apenas para administradores (nível >= 2)
     if (usuario != null && usuario.nivel >= 2) {
       configCards.addAll([
         {
           'icon': Icons.admin_panel_settings,
           'label': 'Controle de acesso',
+          'tipo': 'controle_acesso',
         },
         {
           'icon': Icons.people_alt,
           'label': 'Usuários',
+          'tipo': 'usuarios',
         },
       ]);
     }
@@ -1911,10 +1925,20 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             clipBehavior: Clip.hardEdge,
             child: InkWell(
               onTap: () {
-                if (c['label'] == 'Controle de acesso') {
-                  setState(() => showControleAcesso = true);
-                } else if (c['label'] == 'Usuários') {
-                  setState(() => showUsuarios = true);
+                switch (c['tipo']) {
+                  case 'atualizar_app':
+                    if (atualizarApp != null) {
+                      atualizarApp!.callAsFunction();
+                    } else {
+                      debugPrint('❌ atualizarApp não está disponível no JS');
+                    }
+                    break;
+                  case 'controle_acesso':
+                    setState(() => showControleAcesso = true);
+                    break;
+                  case 'usuarios':
+                    setState(() => showUsuarios = true);
+                    break;
                 }
               },
               hoverColor: _getCorPorSessao('Configurações').withOpacity(0.1),
