@@ -215,10 +215,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       {'id': 'fallback-historico', 'icon': Icons.history, 'label': 'Histórico de CACLs', 'descricao': 'Consultar histórico de CACLs emitidos', 'tipo': 'historico_cacl', 'sessao_pai': 'Apuração'},
       {'id': 'fallback-tabelas', 'icon': Icons.table_chart, 'label': 'Tabelas de Conversão', 'descricao': 'Tabelas de conversão de densidade e temperatura', 'tipo': 'tabelas_conversao', 'sessao_pai': 'Apuração'},
       {'id': 'fallback-temp', 'icon': Icons.thermostat, 'label': 'Temperatura e Densidade média', 'descricao': 'Cálculo de temperatura e densidade média', 'tipo': 'temp_dens_media', 'sessao_pai': 'Apuração'},
+      {'id': 'fallback-tanques', 'icon': Icons.oil_barrel, 'label': 'Tanques', 'descricao': 'Gerenciamento de tanques', 'tipo': 'tanques', 'sessao_pai': 'Apuração'}, // MOVIDO PARA APURAÇÃO
     ];
 
     _filhosPorSessao['Estoques'] = [
-      {'id': 'fallback-tanques', 'icon': Icons.oil_barrel, 'label': 'Tanques', 'descricao': 'Gerenciamento de tanques', 'tipo': 'tanques', 'sessao_pai': 'Estoques'},
       {'id': 'fallback-geral', 'icon': Icons.hub, 'label': 'Estoque Geral', 'descricao': 'Visão consolidada dos estoques da base', 'tipo': 'estoque_geral', 'sessao_pai': 'Estoques'},
       {'id': 'fallback-empresa', 'icon': Icons.business, 'label': 'Estoque por empresa', 'descricao': 'Estoques separados por empresa', 'tipo': 'estoque_por_empresa', 'sessao_pai': 'Estoques'},
       {'id': 'fallback-mov', 'icon': Icons.swap_horiz, 'label': 'Movimentações', 'descricao': 'Acompanhar entradas e saídas em geral', 'tipo': 'movimentacoes', 'sessao_pai': 'Estoques'},
@@ -1136,7 +1136,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               _mostrarEscolherFilial = true;
               _contextoEscolhaFilial = 'tanques';
             } else {
-              _mostrarFilhosDaSessao('Estoques');
+              _mostrarFilhosDaSessao('Apuração'); // ALTERADO: Agora volta para Apuração
             }
           });
         },
@@ -1739,12 +1739,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _mostrarTempDensMedia = true;
         });
         break;
-    }
-  }
-
-  void _navegarParaCardEstoques(String tipo) {
-    switch (tipo) {
-      case 'tanques':
+      case 'tanques': // ADICIONADO: Caso para tanques agora em Apuração
         final usuario = UsuarioAtual.instance;
         setState(() {
           if (usuario!.nivel == 3) {
@@ -1755,6 +1750,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           }
         });
         break;
+    }
+  }
+
+  void _navegarParaCardEstoques(String tipo) {
+    switch (tipo) {
       case 'estoque_geral':
         Navigator.push(
           context,
