@@ -2064,6 +2064,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         String? empresaId,
         DateTime? mesFiltro,
         String? produtoFiltro,
+        required String tipoRelatorio,
       }) {
         Navigator.push(
           context,
@@ -2074,6 +2075,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               empresaId: empresaId,
               mesFiltro: mesFiltro,
               produtoFiltro: produtoFiltro,
+              tipoRelatorio: tipoRelatorio,
             ),
           ),
         );

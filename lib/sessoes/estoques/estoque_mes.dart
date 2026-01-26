@@ -10,6 +10,7 @@ class EstoqueMesPage extends StatefulWidget {
   final String? empresaId;
   final DateTime? mesFiltro;
   final String? produtoFiltro;
+  final String tipoRelatorio;
 
   const EstoqueMesPage({
     super.key,
@@ -18,6 +19,7 @@ class EstoqueMesPage extends StatefulWidget {
     this.empresaId,
     this.mesFiltro,
     this.produtoFiltro,
+    required this.tipoRelatorio,
   });
 
   @override
