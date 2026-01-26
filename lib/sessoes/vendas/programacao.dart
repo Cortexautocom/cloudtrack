@@ -69,22 +69,25 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
 
     try {
       final supabase = Supabase.instance.client;
-      
+
       var query = supabase
           .from("movimentacoes")
           .select("*")
           .eq("tipo_op", "venda");
-      
+
       if (widget.filialId != null && widget.filialId!.isNotEmpty) {
-        query = query.eq('filial_id', widget.filialId!);
+        query = query.eq("filial_id", widget.filialId!);
       }
-      
-      final response = await query;
+
+      final response = await query.order('ts_mov', ascending: true);
 
       setState(() {
         movimentacoes = List<Map<String, dynamic>>.from(response);
       });
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('Erro ao carregar movimentações: $e');
+      debugPrint(stack.toString());
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -99,6 +102,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
       setState(() => carregando = false);
     }
   }
+
 
   void _mostrarDialogNovaVenda() async {
     // Verificar se filialId está definido

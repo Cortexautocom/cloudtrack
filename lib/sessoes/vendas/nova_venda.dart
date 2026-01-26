@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NovaVendaDialog extends StatefulWidget {
@@ -286,33 +287,190 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     await _processarSalvamentoVenda();
   }
 
-  Future<bool?> _mostrarDialogCarregamentoParcial(int preenchidos, int total) {
+  Future<bool?> _mostrarDialogCarregamentoParcial(
+    int preenchidos,
+    int total,
+  ) {
     return showDialog<bool>(
       context: context,
-      barrierDismissible: true,
-      builder: (context) => AlertDialog(
-        title: const Text('Carregamento parcial'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Tanques disponíveis: $total'),
-            Text('Tanques preenchidos: $preenchidos'),
-            const SizedBox(height: 12),
-            const Text('Seguir com carregamento parcial?'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Não, vou completar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0D47A1),
+      barrierDismissible: false,
+      builder: (context) {
+        return Shortcuts(
+          shortcuts: <LogicalKeySet, Intent>{
+            LogicalKeySet(LogicalKeyboardKey.escape): DismissIntent(),
+          },
+          child: Actions(
+            actions: <Type, Action<Intent>>{
+              DismissIntent: CallbackAction<DismissIntent>(
+                onInvoke: (intent) {
+                  Navigator.of(context).pop(false);
+                  return null;
+                },
+              ),
+            },
+            child: Focus(
+              autofocus: true,
+              child: Dialog(
+                backgroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: SizedBox(
+                  width: 420,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // HEADER
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF0D47A1),
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+                        ),
+                        child: Row(
+                          children: const [
+                            Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              'Carregamento parcial',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // CONTENT
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Nem todos os tanques foram preenchidos.',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade800,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            _infoLinha('Tanques disponíveis', total.toString()),
+                            const SizedBox(height: 6),
+                            _infoLinha(
+                              'Tanques preenchidos',
+                              preenchidos.toString(),
+                              destaque: true,
+                            ),
+
+                            const SizedBox(height: 14),
+                            Divider(color: Colors.grey.shade300, height: 1),
+                            const SizedBox(height: 14),
+
+                            Text(
+                              'Deseja continuar e registrar apenas os tanques preenchidos?',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // ACTIONS
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: const BorderRadius.vertical(
+                            bottom: Radius.circular(10),
+                          ),
+                          border: Border(
+                            top: BorderSide(color: Colors.grey.shade300, width: 1),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            SizedBox(
+                              width: 140,
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.of(context).pop(false),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  side: BorderSide(color: Colors.grey.shade400),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Voltar e completar',
+                                  style: TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(width: 12),
+
+                            SizedBox(
+                              width: 140,
+                              child: ElevatedButton(
+                                onPressed: () => Navigator.of(context).pop(true),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF0D47A1),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Seguir parcial',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-            child: const Text('Sim, parcial'),
+          ),
+        );
+      },
+    );
+  }
+
+
+  Widget _infoLinha(String label, String valor, {bool destaque = false}) {
+    return RichText(
+      text: TextSpan(
+        style: TextStyle(
+          fontSize: 13,
+          color: Colors.grey.shade700,
+        ),
+        children: [
+          TextSpan(
+            text: '$label: ',
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
+          TextSpan(
+            text: valor,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: destaque ? const Color.fromARGB(255, 255, 0, 0) : Colors.grey.shade800,
+            ),
           ),
         ],
       ),
