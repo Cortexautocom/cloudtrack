@@ -103,13 +103,49 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     },
   ];
 
-  // Mapa de cores para produtos
+  // Mapa de cores para produtos - EXPANDIDO PARA TODOS OS PRODUTOS
   final Map<String, Color> _coresProdutos = {
-    'gasolina': Color(0xFFFF6B35),
-    'hidratado': Color(0xFF00A8E8),
-    's10': Color(0xFF2E294E),
-    'etanol': Color(0xFF83B692),
-    'diesel': Color(0xFF8D6A9F),
+    // Gasolinas
+    'gasolina comum': Color(0xFFFF6B35), // Laranja vibrante
+    'g comum': Color(0xFFFF6B35),
+    'gasolina com': Color(0xFFFF6B35),
+    
+    'gasolina aditivada': Color(0xFF00A8E8), // Azul claro
+    'g aditivada': Color(0xFF00A8E8),
+    'gasolina ad': Color(0xFF00A8E8),
+    
+    'gasolina a': Color(0xFFE91E63), // Rosa
+    'gasolina aditivada a': Color(0xFFE91E63),
+    
+    // Diesels
+    'diesel s500': Color(0xFF8D6A9F), // Roxo claro
+    'd s500': Color(0xFF8D6A9F),
+    'diesel s-500': Color(0xFF8D6A9F),
+    
+    'diesel s10': Color(0xFF2E294E), // Azul escuro
+    'd s10': Color(0xFF2E294E),
+    'diesel s-10': Color(0xFF2E294E),
+    
+    's500 a': Color(0xFF9C27B0), // Roxo vibrante
+    'diesel s500 a': Color(0xFF9C27B0),
+    
+    's10 a': Color(0xFF673AB7), // Roxo azulado
+    'diesel s10 a': Color(0xFF673AB7),
+    
+    // Etanóis
+    'etanol': Color(0xFF83B692), // Verde claro
+    'etanol hidratado': Color(0xFF83B692),
+    'hidratado': Color(0xFF83B692),
+    
+    'anidro': Color(0xFF4CAF50), // Verde
+    'etanol anidro': Color(0xFF4CAF50),
+    
+    // Biodiesel
+    'b100': Color(0xFF8BC34A), // Verde limão
+    'biodiesel': Color(0xFF8BC34A),
+    
+    // Padrão para produtos não mapeados
+    'desconhecido': Color(0xFF607D8B), // Cinza azulado
   };
 
   @override
@@ -136,7 +172,18 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
             entrada_amb,
             saida_amb,
             data_mov,
-            produtos!produto_id(nome)
+            tipo_op,
+            g_comum,
+            g_aditivada,
+            d_s10,
+            d_s500,
+            etanol,
+            anidro,
+            b100,
+            gasolina_a,
+            s500_a,
+            s10_a,
+            produtos!produto_id(id, nome_dois)
           ''')
           .eq('ordem_id', widget.ordem['ordem_id'])
           .order('id');
@@ -161,28 +208,60 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
             orElse: () => _etapas.first)
         .etapa;
   }
-
-  int _obterQuantidade(Map<String, dynamic> mov) {
-    final entrada = mov['entrada_amb'];
-    final saida = mov['saida_amb'];
-    if (entrada != null && entrada > 0) return entrada as int;
-    if (saida != null && saida > 0) return saida as int;
-    return 0;
-  }
-
-  // Agrupar produtos por tipo (somente saídas)
-  Map<String, int> _agruparProdutosParaCarregar() {
-    final Map<String, int> produtos = {};
+    
+  // Agrupar produtos por tipo considerando tipo_op
+  Map<String, double> _agruparProdutosParaCarregar() {
+    final Map<String, double> produtos = {};
     
     for (var mov in _movimentacoes) {
-      final saida = mov['saida_amb'];
-      if (saida != null && saida > 0) {
-        final produto = mov['produtos']?['nome']?.toString().toLowerCase() ?? 'desconhecido';
-        produtos[produto] = (produtos[produto] ?? 0) + (saida as int);
+      final tipoOp = mov['tipo_op']?.toString().toLowerCase();
+      final produtoNome = mov['produtos']?['nome_dois']?.toString() ?? 'desconhecido';
+      
+      double quantidade = 0;
+      
+      if (tipoOp == 'venda' || tipoOp == 'transf') {
+        // Usar colunas específicas de produto
+        final produtoId = mov['produtos']?['id']?.toString();
+        if (produtoId != null) {
+          final colunaProduto = _resolverColunaProduto(produtoId);
+          if (colunaProduto != null) {
+            final qtd = mov[colunaProduto];
+            if (qtd != null && qtd > 0) {
+              quantidade = (qtd as num).toDouble();
+            }
+          }
+        }
+      } else if (tipoOp == 'cacl' || tipoOp == 'emprestimo' || tipoOp == null) {
+        // Usar saida_amb
+        final saida = mov['saida_amb'];
+        if (saida != null && saida > 0) {
+          quantidade = (saida as num).toDouble();
+        }
+      }
+      
+      if (quantidade > 0) {
+        produtos[produtoNome] = (produtos[produtoNome] ?? 0) + quantidade;
       }
     }
     
     return produtos;
+  }
+
+  String? _resolverColunaProduto(String produtoId) {
+    final Map<String, String> mapaProdutoColuna = {
+      '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 's10_a',
+      '4da89784-301f-4abe-b97e-c48729969e3d': 's500_a',
+      '58ce20cf-f252-4291-9ef6-f4821f22c29e': 'd_s10',
+      '66ca957a-5698-4a02-8c9e-987770b6a151': 'etanol',
+      '82c348c8-efa1-4d1a-953a-ee384d5780fc': 'g_comum',
+      '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 'g_aditivada',
+      'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': 'd_s500',
+      'cecab8eb-297a-4640-81ae-e88335b88d8b': 'anidro',
+      'ecd91066-e763-42e3-8a0e-d982ea6da535': 'b100',
+      'f8e95435-471a-424c-947f-def8809053a0': 'gasolina_a',
+    };
+    
+    return mapaProdutoColuna[produtoId.toLowerCase()];
   }
 
   String _formatarPlacas(dynamic placasData) {
@@ -196,11 +275,32 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     return placasData.toString();
   }
 
+  // Formatar número sem unidade
+  String _formatarNumero(double valor) {
+    if (valor % 1 == 0) {
+      // Valor inteiro
+      return valor.toInt().toString();
+    } else {
+      // Valor decimal - formata com separador de milhar
+      final partes = valor.toStringAsFixed(3).split('.');
+      final parteInteira = int.parse(partes[0]);
+      final parteDecimal = partes[1].replaceAll(RegExp(r'0*$'), '');
+      
+      if (parteDecimal.isEmpty) {
+        return parteInteira.toString();
+      } else {
+        // Corrigindo o erro - usando a função min do dart:math ou uma alternativa
+        final maxCasas = parteDecimal.length < 3 ? parteDecimal.length : 3;
+        return '$parteInteira.${parteDecimal.substring(0, maxCasas)}';
+      }
+    }
+  }
+
   // 1️⃣ Card remodelado com produtos organizados
   Widget _buildResumoCompacto() {
     final placasFormatadas = _formatarPlacas(widget.ordem['placas']);
     final produtosAgrupados = _agruparProdutosParaCarregar();
-    final totalProdutos = produtosAgrupados.values.fold(0, (sum, qtd) => sum + qtd);
+    final totalProdutos = produtosAgrupados.values.fold(0.0, (sum, qtd) => sum + qtd);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -267,7 +367,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '$totalProdutos amb.',
+                        _formatarNumero(totalProdutos),
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -310,17 +410,17 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     );
   }
 
-  Widget _buildGridProdutos(Map<String, int> produtos) {
+  Widget _buildGridProdutos(Map<String, double> produtos) {
     final entries = produtos.entries.toList();
     
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: entries.map((entry) {
-        final produto = entry.key;
+        final produtoNome = entry.key;
         final quantidade = entry.value;
-        final nomeFormatado = _formatarNomeProduto(produto);
-        final cor = _obterCorProduto(produto);
+        final nomeFormatado = _formatarNomeProduto(produtoNome);
+        final cor = _obterCorProduto(produtoNome);
         
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -340,7 +440,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  quantidade.toString(),
+                  _formatarNumero(quantidade),
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -367,21 +467,54 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     );
   }
 
-  String _formatarNomeProduto(String produto) {
-    final Map<String, String> mapeamento = {
-      'gasolina': 'Gasolina',
-      'hidratado': 'Hidratado',
-      's10': 'S10',
-      'etanol': 'Etanol',
-      'diesel': 'Diesel',
-    };
-    
-    return mapeamento[produto.toLowerCase()] ?? produto;
+  String _formatarNomeProduto(String produtoNome) {
+    // Usar o nome_dois diretamente, já formatado
+    return produtoNome;
   }
 
-  Color _obterCorProduto(String produto) {
-    final chave = produto.toLowerCase();
-    return _coresProdutos[chave] ?? Colors.grey.shade600;
+  Color _obterCorProduto(String produtoNome) {
+    // Mapeamento direto baseado nos nomes EXATOS que vêm do banco
+    final Map<String, Color> mapeamentoExato = {
+      // Gasolinas
+      'G. Comum': Color(0xFFFF6B35),
+      
+      'G. Aditivada': Color(0xFF00A8E8),
+      
+      'Gasolina A': Color(0xFFE91E63),
+      
+      // Diesels
+      'S500': Color(0xFF8D6A9F),
+      
+      'S10': Color(0xFF2E294E),
+      
+      'S500 A': Color(0xFF9C27B0),
+      
+      'S10 A': Color(0xFF673AB7),
+      
+      // Etanóis      
+      'Hidratado': Color(0xFF83B692),
+      
+      'Anidro': Color(0xFF4CAF50),
+      
+      // Biodiesel
+      'B100': Color(0xFF8BC34A),
+    };
+    
+    // Primeiro tenta match exato
+    if (mapeamentoExato.containsKey(produtoNome)) {
+      return mapeamentoExato[produtoNome]!;
+    }
+    
+    // Se não encontrar, tenta por case insensitive
+    final nomeLower = produtoNome.toLowerCase();
+    for (var entry in mapeamentoExato.entries) {
+      if (entry.key.toLowerCase() == nomeLower) {
+        return entry.value;
+      }
+    }
+    
+    // Fallback para lógica antiga (se necessário)
+    return _coresProdutos['desconhecido']!;
   }
 
   Widget _buildInfoItem({
@@ -605,72 +738,6 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     );
   }
 
-  Widget _buildItemTanqueCompacto(Map<String, dynamic> mov) {
-    final produto = mov['produtos']?['nome']?.toString() ?? 'Produto';
-    final cliente = mov['cliente']?.toString() ?? 'Cliente não informado';
-    final quantidade = _obterQuantidade(mov);
-    final tipo = mov['saida_amb'] != null && mov['saida_amb'] > 0 
-        ? 'Saída' 
-        : 'Entrada';
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 6),
-      elevation: 1,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: tipo == 'Saída' ? Colors.orange.shade50 : Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
-                  color: tipo == 'Saída' ? Colors.orange.shade200 : Colors.blue.shade200,
-                ),
-              ),
-              child: Text(
-                tipo,
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                  color: tipo == 'Saída' ? Colors.orange.shade800 : Colors.blue.shade800,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    produto,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$quantidade amb. • $cliente',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey.shade700,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -686,25 +753,6 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
           
           // 3️⃣ Histórico compacto
           _buildHistoricoFatos(),
-          
-          // 4️⃣ Lista de tanques
-          if (!_carregando && !_erro && _movimentacoes.isNotEmpty)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                const Text(
-                  'Tanques',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF0D47A1),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ..._movimentacoes.map((mov) => _buildItemTanqueCompacto(mov)).toList(),
-              ],
-            ),
           
           // Estados de carregamento/erro
           if (_carregando)
