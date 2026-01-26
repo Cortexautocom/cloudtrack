@@ -129,66 +129,13 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         _nomeProdutoSelecionado = produtoData?['nome']?.toString();
       }
 
-      var query = _supabase
-          .from('movimentacoes')
-          .select('''
-            id,
-            data_mov,
-            descricao,
-            entrada_amb,
-            entrada_vinte,
-            saida_amb,
-            saida_vinte,
-            produto_id,
-            produtos!movimentacoes_produto_id_fkey1(
-              id,
-              nome
-            )
-          ''')
-          .eq('filial_id', widget.filialId)
-          .eq('empresa_id', _empresaId!);
-
-      if (widget.mesFiltro != null) {
-        final primeiroDia = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month, 1);
-        final ultimoDia = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month + 1, 0);
-        
-        query = query
-            .gte('data_mov', primeiroDia.toIso8601String())
-            .lte('data_mov', ultimoDia.toIso8601String());
+      // Se for relatório sintético, carregar dados agrupados por data
+      if (widget.tipoRelatorio == 'sintetico') {
+        await _carregarDadosSintetico();
+      } else {
+        // Relatório analítico (mantém a lógica original)
+        await _carregarDadosAnalitico();
       }
-
-      if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
-        query = query.eq('produto_id', widget.produtoFiltro!);
-      }
-
-      final dados = await query.order('data_mov', ascending: true);
-
-      List<Map<String, dynamic>> movimentacoesComSaldo = [];
-      num saldoAmbAcumulado = 0;
-      num saldoVinteAcumulado = 0;
-
-      for (var item in dados) {
-        final entradaAmb = item['entrada_amb'] ?? 0;
-        final entradaVinte = item['entrada_vinte'] ?? 0;
-        final saidaAmb = item['saida_amb'] ?? 0;
-        final saidaVinte = item['saida_vinte'] ?? 0;
-        
-        final produto = item['produtos'] as Map<String, dynamic>?;
-        final produtoNome = produto?['nome']?.toString() ?? '';
-
-        saldoAmbAcumulado += entradaAmb - saidaAmb;
-        saldoVinteAcumulado += entradaVinte - saidaVinte;
-
-        movimentacoesComSaldo.add({
-          ...item,
-          'produto_nome': produtoNome,
-          'produto_id': item['produto_id'],
-          'saldo_amb': saldoAmbAcumulado,
-          'saldo_vinte': saldoVinteAcumulado,
-        });
-      }
-
-      _ordenarDados(movimentacoesComSaldo, 'data_mov', true);
       
       if (mounted) {
         setState(() {
@@ -206,6 +153,244 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         });
       }
     }
+  }
+
+  Future<void> _carregarDadosAnalitico() async {
+    var query = _supabase
+        .from('movimentacoes')
+        .select('''
+          id,
+          data_mov,
+          descricao,
+          entrada_amb,
+          entrada_vinte,
+          saida_amb,
+          saida_vinte,
+          produto_id,
+          produtos!movimentacoes_produto_id_fkey1(
+            id,
+            nome
+          )
+        ''')
+        .eq('filial_id', widget.filialId)
+        .eq('empresa_id', _empresaId!);
+
+    if (widget.mesFiltro != null) {
+      final primeiroDia = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month, 1);
+      final ultimoDia = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month + 1, 0);
+      
+      query = query
+          .gte('data_mov', primeiroDia.toIso8601String())
+          .lte('data_mov', ultimoDia.toIso8601String());
+    }
+
+    if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
+      query = query.eq('produto_id', widget.produtoFiltro!);
+    }
+
+    final dados = await query.order('data_mov', ascending: true);
+
+    List<Map<String, dynamic>> movimentacoesComSaldo = [];
+    num saldoAmbAcumulado = 0;
+    num saldoVinteAcumulado = 0;
+
+    for (var item in dados) {
+      final entradaAmb = item['entrada_amb'] ?? 0;
+      final entradaVinte = item['entrada_vinte'] ?? 0;
+      final saidaAmb = item['saida_amb'] ?? 0;
+      final saidaVinte = item['saida_vinte'] ?? 0;
+      
+      final produto = item['produtos'] as Map<String, dynamic>?;
+      final produtoNome = produto?['nome']?.toString() ?? '';
+
+      saldoAmbAcumulado += entradaAmb - saidaAmb;
+      saldoVinteAcumulado += entradaVinte - saidaVinte;
+
+      movimentacoesComSaldo.add({
+        ...item,
+        'produto_nome': produtoNome,
+        'produto_id': item['produto_id'],
+        'saldo_amb': saldoAmbAcumulado,
+        'saldo_vinte': saldoVinteAcumulado,
+      });
+    }
+
+    _ordenarDados(movimentacoesComSaldo, 'data_mov', true);
+  }
+
+  Future<void> _carregarDadosSintetico() async {
+    // Primeiro, obter todas as datas únicas com movimentações
+    var queryDatas = _supabase
+        .from('movimentacoes')
+        .select('data_mov')
+        .eq('filial_id', widget.filialId)
+        .eq('empresa_id', _empresaId!);
+
+    if (widget.mesFiltro != null) {
+      final primeiroDia = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month, 1);
+      final ultimoDia = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month + 1, 0);
+      
+      queryDatas = queryDatas
+          .gte('data_mov', primeiroDia.toIso8601String())
+          .lte('data_mov', ultimoDia.toIso8601String());
+    }
+
+    if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
+      queryDatas = queryDatas.eq('produto_id', widget.produtoFiltro!);
+    }
+
+    final dadosDatas = await queryDatas.order('data_mov', ascending: true);
+
+    // Extrair datas únicas
+    final datasUnicas = <String>[];
+    for (var item in dadosDatas) {
+      final dataStr = item['data_mov'] as String;
+      if (!datasUnicas.contains(dataStr)) {
+        datasUnicas.add(dataStr);
+      }
+    }
+
+    List<Map<String, dynamic>> movimentacoesSinteticas = [];
+
+    // Para cada data única, calcular totais
+    for (var dataStr in datasUnicas) {
+      // Buscar todas as movimentações do dia SEM o JOIN que causa erro
+      var queryDia = _supabase
+          .from('movimentacoes')
+          .select('''
+            id,
+            data_mov,
+            descricao,
+            entrada_amb,
+            entrada_vinte,
+            saida_amb,
+            saida_vinte,
+            produto_id,
+            tipo_op,
+            cacl_id,
+            produtos!movimentacoes_produto_id_fkey1(
+              id,
+              nome
+            )
+          ''')
+          .eq('filial_id', widget.filialId)
+          .eq('empresa_id', _empresaId!)
+          .eq('data_mov', dataStr);
+
+      if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
+        queryDia = queryDia.eq('produto_id', widget.produtoFiltro!);
+      }
+
+      final movimentacoesDia = await queryDia;
+
+      // Inicializar totais
+      num totalEntradaAmb = 0;
+      num totalEntradaVinte = 0;
+      num totalSaidaAmb = 0;
+      num totalSaidaVinte = 0;
+
+      // Para operações cacl, precisamos verificar o tipo no cacl
+      final idsCaclParaVerificar = <String>[];
+      final mapMovimentacoesCacl = <String, Map<String, dynamic>>{};
+      
+      for (var mov in movimentacoesDia) {
+        final tipoOp = mov['tipo_op']?.toString() ?? '';
+        final caclId = mov['cacl_id']?.toString();
+        
+        if (tipoOp == 'cacl' && caclId != null && caclId.isNotEmpty) {
+          idsCaclParaVerificar.add(caclId);
+          mapMovimentacoesCacl[caclId] = mov;
+        } else {
+          // Para outros tipos, somar normalmente
+          totalEntradaAmb += (mov['entrada_amb'] ?? 0) as num;
+          totalEntradaVinte += (mov['entrada_vinte'] ?? 0) as num;
+          totalSaidaAmb += (mov['saida_amb'] ?? 0) as num;
+          totalSaidaVinte += (mov['saida_vinte'] ?? 0) as num;
+        }
+      }
+
+      // Verificar tipos dos cacl se houver algum
+      if (idsCaclParaVerificar.isNotEmpty) {
+        // Método correto para filtrar com IN
+        final caclQuery = _supabase
+            .from('cacl')
+            .select('id, tipo')
+            .inFilter('id', idsCaclParaVerificar);
+        
+        final caclResults = await caclQuery;
+        
+        // Converter para mapa para fácil acesso
+        final mapTiposCacl = <String, String>{};
+        for (var cacl in caclResults) {
+          final id = cacl['id']?.toString();
+          final tipo = cacl['tipo']?.toString();
+          if (id != null && tipo != null) {
+            mapTiposCacl[id] = tipo;
+          }
+        }
+        
+        // Agora processar as movimentações cacl
+        for (var caclId in idsCaclParaVerificar) {
+          final mov = mapMovimentacoesCacl[caclId];
+          final tipoCacl = mapTiposCacl[caclId];
+          
+          if (mov != null) {
+            if (tipoCacl == 'movimentacao') {
+              // Só considerar se for do tipo 'movimentacao'
+              totalEntradaAmb += (mov['entrada_amb'] ?? 0) as num;
+              totalEntradaVinte += (mov['entrada_vinte'] ?? 0) as num;
+              totalSaidaAmb += (mov['saida_amb'] ?? 0) as num;
+              totalSaidaVinte += (mov['saida_vinte'] ?? 0) as num;
+            }
+            // Se não for 'movimentacao', não somar nada
+          }
+        }
+      }
+
+      // Obter nome do produto (ou "Todos" se for todos os produtos)
+      String produtoNome;
+      if (widget.produtoFiltro == null || widget.produtoFiltro == 'todos') {
+        produtoNome = 'Todos';
+      } else {
+        produtoNome = _nomeProdutoSelecionado ?? 'Produto Selecionado';
+      }
+
+      // Adicionar linha sintética para o dia
+      movimentacoesSinteticas.add({
+        'id': 'sintetico_$dataStr',
+        'data_mov': dataStr,
+        'descricao': 'Resumo do dia',
+        'entrada_amb': totalEntradaAmb,
+        'entrada_vinte': totalEntradaVinte,
+        'saida_amb': totalSaidaAmb,
+        'saida_vinte': totalSaidaVinte,
+        'produto_nome': produtoNome,
+        'produto_id': widget.produtoFiltro,
+      });
+    }
+
+    // Calcular saldos acumulados
+    List<Map<String, dynamic>> movimentacoesComSaldo = [];
+    num saldoAmbAcumulado = 0;
+    num saldoVinteAcumulado = 0;
+
+    for (var item in movimentacoesSinteticas) {
+      final entradaAmb = item['entrada_amb'] ?? 0;
+      final entradaVinte = item['entrada_vinte'] ?? 0;
+      final saidaAmb = item['saida_amb'] ?? 0;
+      final saidaVinte = item['saida_vinte'] ?? 0;
+
+      saldoAmbAcumulado += entradaAmb - saidaAmb;
+      saldoVinteAcumulado += entradaVinte - saidaVinte;
+
+      movimentacoesComSaldo.add({
+        ...item,
+        'saldo_amb': saldoAmbAcumulado,
+        'saldo_vinte': saldoVinteAcumulado,
+      });
+    }
+
+    _ordenarDados(movimentacoesComSaldo, 'data_mov', true);
   }
 
   Future<void> _baixarExcel() async {
@@ -249,6 +434,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         'empresaId': widget.empresaId,
         'mesFiltro': widget.mesFiltro!.toIso8601String(),
         'produtoFiltro': widget.produtoFiltro,
+        'tipoRelatorio': widget.tipoRelatorio, // Adicionado tipo de relatório
       };
 
       debugPrint('Enviando para Edge Function: $requestData');
@@ -449,6 +635,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     } else if (widget.produtoFiltro == 'todos') {
       filtros.add('Produto: Todos os produtos');
     }
+    
+    filtros.add('Relatório: ${widget.tipoRelatorio == 'sintetico' ? 'Sintético' : 'Analítico'}');
     
     return filtros.join(' | ');
   }
@@ -960,7 +1148,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       alignment: Alignment.centerLeft,
       child: Text(
-        '${_movimentacoesOrdenadas.length} movimentação(ões)',
+        '${_movimentacoesOrdenadas.length} ${widget.tipoRelatorio == 'sintetico' ? 'dias' : 'movimentação(ões)'}',
         style: TextStyle(
           fontSize: 12,
           color: Colors.grey.shade600,
