@@ -220,10 +220,11 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
 
   Future<void> _carregarDadosSintetico() async {
     // Primeiro, obter todas as datas únicas com movimentações
+    // AGORA: Buscar por filial_id OU filial_destino_id (para transferências)
     var queryDatas = _supabase
         .from('movimentacoes')
         .select('data_mov')
-        .eq('filial_id', widget.filialId)
+        .or('filial_id.eq.${widget.filialId},filial_destino_id.eq.${widget.filialId}')
         .eq('empresa_id', _empresaId!);
 
     if (widget.mesFiltro != null) {
@@ -254,7 +255,9 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
 
     // Para cada data única, calcular totais
     for (var dataStr in datasUnicas) {
-      // Buscar todas as movimentações do dia SEM o JOIN que causa erro
+      // Buscar movimentações onde:
+      // 1. filial_id = filial do parâmetro (movimentações normais)
+      // 2. OU filial_destino_id = filial do parâmetro E tipo_mov_dest = 'entrada' (transferências entrando)
       var queryDia = _supabase
           .from('movimentacoes')
           .select('''
@@ -268,20 +271,43 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             produto_id,
             tipo_op,
             cacl_id,
+            g_comum,
+            g_aditivada,
+            d_s10,
+            d_s500,
+            etanol,
+            anidro,
+            b100,
+            gasolina_a,
+            s500_a,
+            s10_a,
+            filial_id,
+            filial_destino_id,
+            tipo_mov_dest,
             produtos!movimentacoes_produto_id_fkey1(
               id,
               nome
             )
           ''')
-          .eq('filial_id', widget.filialId)
           .eq('empresa_id', _empresaId!)
-          .eq('data_mov', dataStr);
+          .eq('data_mov', dataStr)
+          .or('filial_id.eq.${widget.filialId},and(filial_destino_id.eq.${widget.filialId},tipo_mov_dest.eq.entrada)');
 
       if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
         queryDia = queryDia.eq('produto_id', widget.produtoFiltro!);
       }
 
       final movimentacoesDia = await queryDia;
+
+      // DEBUG: Verificar o que foi retornado
+      debugPrint('DEBUG Data $dataStr: ${movimentacoesDia.length} movimentações');
+      for (var i = 0; i < movimentacoesDia.length; i++) {
+        final mov = movimentacoesDia[i];
+        debugPrint('  Mov $i: id=${mov['id']}, tipo_op=${mov['tipo_op']}, '
+            'filial_id=${mov['filial_id']}, '
+            'filial_destino_id=${mov['filial_destino_id']}, '
+            'tipo_mov_dest=${mov['tipo_mov_dest']}');
+      }
 
       // Inicializar totais
       num totalEntradaAmb = 0;
@@ -296,21 +322,107 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       for (var mov in movimentacoesDia) {
         final tipoOp = mov['tipo_op']?.toString() ?? '';
         final caclId = mov['cacl_id']?.toString();
+        final filialId = mov['filial_id']?.toString();
+        final filialDestinoId = mov['filial_destino_id']?.toString();
+        final tipoMovDest = mov['tipo_mov_dest']?.toString();
+        
+        // DEBUG
+        debugPrint('Processando mov ${mov['id']}: tipo_op=$tipoOp, '
+            'filial_id=$filialId, filial_destino_id=$filialDestinoId, '
+            'tipo_mov_dest=$tipoMovDest');
         
         if (tipoOp == 'cacl' && caclId != null && caclId.isNotEmpty) {
           idsCaclParaVerificar.add(caclId);
           mapMovimentacoesCacl[caclId] = mov;
+        } else if (tipoOp == 'transf') {
+          // PARA TRANSFERÊNCIAS:
+          // Se filial_destino_id = filial do parâmetro E tipo_mov_dest = 'entrada'
+          // Então é uma ENTRADA nesta filial
+          if (filialDestinoId == widget.filialId && tipoMovDest == 'entrada') {
+            debugPrint('  -> Transferência ENTRADA detectada!');
+            
+            // Somar TODAS as colunas específicas para entrada_amb
+            num totalEntradaTransf = 0;
+            totalEntradaTransf += (mov['g_comum'] ?? 0) as num;
+            totalEntradaTransf += (mov['g_aditivada'] ?? 0) as num;
+            totalEntradaTransf += (mov['d_s10'] ?? 0) as num;
+            totalEntradaTransf += (mov['d_s500'] ?? 0) as num;
+            totalEntradaTransf += (mov['etanol'] ?? 0) as num;
+            totalEntradaTransf += (mov['anidro'] ?? 0) as num;
+            totalEntradaTransf += (mov['b100'] ?? 0) as num;
+            totalEntradaTransf += (mov['gasolina_a'] ?? 0) as num;
+            totalEntradaTransf += (mov['s500_a'] ?? 0) as num;
+            totalEntradaTransf += (mov['s10_a'] ?? 0) as num;
+            
+            debugPrint('  -> Total colunas específicas: $totalEntradaTransf');
+            
+            // Adicionar o total da transferência como ENTRADA
+            totalEntradaAmb += totalEntradaTransf;
+            
+            // Também somar a entrada_vinte da movimentação original, se houver
+            totalEntradaVinte += (mov['entrada_vinte'] ?? 0) as num;
+          } else {
+            // Para outras transferências (não entrada nesta filial), tratar como saída
+            // Isso inclui transferências saindo desta filial ou entrando em outra
+            debugPrint('  -> Transferência SAÍDA ou entrada em outra filial');
+            
+            // Somar TODAS as colunas específicas para saida_amb
+            num totalSaidaTransf = 0;
+            totalSaidaTransf += (mov['g_comum'] ?? 0) as num;
+            totalSaidaTransf += (mov['g_aditivada'] ?? 0) as num;
+            totalSaidaTransf += (mov['d_s10'] ?? 0) as num;
+            totalSaidaTransf += (mov['d_s500'] ?? 0) as num;
+            totalSaidaTransf += (mov['etanol'] ?? 0) as num;
+            totalSaidaTransf += (mov['anidro'] ?? 0) as num;
+            totalSaidaTransf += (mov['b100'] ?? 0) as num;
+            totalSaidaTransf += (mov['gasolina_a'] ?? 0) as num;
+            totalSaidaTransf += (mov['s500_a'] ?? 0) as num;
+            totalSaidaTransf += (mov['s10_a'] ?? 0) as num;
+            
+            debugPrint('  -> Total colunas específicas: $totalSaidaTransf');
+            
+            // Adicionar o total da transferência como SAÍDA
+            totalSaidaAmb += totalSaidaTransf;
+            
+            // Também somar a saida_vinte da movimentação original, se houver
+            totalSaidaVinte += (mov['saida_vinte'] ?? 0) as num;
+          }
+        } else if (tipoOp == 'venda') {
+          // Para vendas, somar TODAS as colunas específicas e colocar o total em saida_amb
+          num totalVenda = 0;
+          totalVenda += (mov['g_comum'] ?? 0) as num;
+          totalVenda += (mov['g_aditivada'] ?? 0) as num;
+          totalVenda += (mov['d_s10'] ?? 0) as num;
+          totalVenda += (mov['d_s500'] ?? 0) as num;
+          totalVenda += (mov['etanol'] ?? 0) as num;
+          totalVenda += (mov['anidro'] ?? 0) as num;
+          totalVenda += (mov['b100'] ?? 0) as num;
+          totalVenda += (mov['gasolina_a'] ?? 0) as num;
+          totalVenda += (mov['s500_a'] ?? 0) as num;
+          totalVenda += (mov['s10_a'] ?? 0) as num;
+          
+          debugPrint('  -> Venda detectada, total colunas: $totalVenda');
+          
+          // Adicionar o total da venda à saída ambiente
+          totalSaidaAmb += totalVenda;
+          
+          // Também somar a saida_vinte da movimentação original, se houver
+          totalSaidaVinte += (mov['saida_vinte'] ?? 0) as num;
         } else {
-          // Para outros tipos, somar normalmente
+          // Para outros tipos (não cacl, não venda, não transf), somar normalmente
           totalEntradaAmb += (mov['entrada_amb'] ?? 0) as num;
           totalEntradaVinte += (mov['entrada_vinte'] ?? 0) as num;
           totalSaidaAmb += (mov['saida_amb'] ?? 0) as num;
           totalSaidaVinte += (mov['saida_vinte'] ?? 0) as num;
+          
+          debugPrint('  -> Outro tipo: entrada_amb=${mov['entrada_amb']}, saida_amb=${mov['saida_amb']}');
         }
       }
 
       // Verificar tipos dos cacl se houver algum
       if (idsCaclParaVerificar.isNotEmpty) {
+        debugPrint('  Verificando ${idsCaclParaVerificar.length} registros cacl...');
+        
         // Método correto para filtrar com IN
         final caclQuery = _supabase
             .from('cacl')
@@ -336,13 +448,15 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           
           if (mov != null) {
             if (tipoCacl == 'movimentacao') {
+              debugPrint('  -> Cacl movimentacao detectado, somando normalmente');
               // Só considerar se for do tipo 'movimentacao'
               totalEntradaAmb += (mov['entrada_amb'] ?? 0) as num;
               totalEntradaVinte += (mov['entrada_vinte'] ?? 0) as num;
               totalSaidaAmb += (mov['saida_amb'] ?? 0) as num;
               totalSaidaVinte += (mov['saida_vinte'] ?? 0) as num;
+            } else {
+              debugPrint('  -> Cacl tipo $tipoCacl ignorado');
             }
-            // Se não for 'movimentacao', não somar nada
           }
         }
       }
@@ -367,6 +481,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         'produto_nome': produtoNome,
         'produto_id': widget.produtoFiltro,
       });
+      
+      debugPrint('  TOTAIS do dia $dataStr: entrada_amb=$totalEntradaAmb, saida_amb=$totalSaidaAmb');
     }
 
     // Calcular saldos acumulados
