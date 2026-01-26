@@ -191,9 +191,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     return coluna;
   }
 
-  // =======================
-  // VALIDAÇÃO E DIALOG DE CARREGAMENTO PARCIAL
-  // =======================
   Future<void> _salvarVenda() async {
     if (widget.filialId == null || widget.filialId!.isEmpty) {
       _mostrarErro('Filial não informada');
@@ -213,19 +210,24 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       return;
     }
 
-    // Verificar se há tanques com campos obrigatórios não preenchidos
     bool existemCamposObrigatoriosVazios = false;
+
     for (final placaVenda in _placasVenda) {
       for (final tanque in placaVenda.tanques) {
-        final produtoPreenchido = tanque.produtoId != null && tanque.produtoId!.isNotEmpty;
-        final clientePreenchido = tanque.clienteController.text.trim().isNotEmpty;
-        final pagamentoPreenchido = tanque.pagamentoController.text.trim().isNotEmpty;
-        
-        // Verificar se algum campo foi preenchido (para indicar que o usuário começou a preencher)
-        final algumCampoPreenchido = produtoPreenchido || clientePreenchido || pagamentoPreenchido;
-        
-        // Se algum campo foi preenchido mas não todos, temos campos obrigatórios vazios
-        if (algumCampoPreenchido && !(produtoPreenchido && clientePreenchido && pagamentoPreenchido)) {
+        final produtoPreenchido =
+            tanque.produtoId != null && tanque.produtoId!.isNotEmpty;
+        final clientePreenchido =
+            tanque.clienteController.text.trim().isNotEmpty;
+        final pagamentoPreenchido =
+            tanque.pagamentoController.text.trim().isNotEmpty;
+
+        final algumCampoPreenchido =
+            produtoPreenchido || clientePreenchido || pagamentoPreenchido;
+
+        if (algumCampoPreenchido &&
+            !(produtoPreenchido &&
+                clientePreenchido &&
+                pagamentoPreenchido)) {
           existemCamposObrigatoriosVazios = true;
           break;
         }
@@ -233,26 +235,30 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       if (existemCamposObrigatoriosVazios) break;
     }
 
-    // Bloquear se há campos obrigatórios não preenchidos em tanques que foram iniciados
     if (existemCamposObrigatoriosVazios) {
-      await _mostrarDialogCamposIncompletos();
+      // FORÇA rebuild para aplicar alertas em laranja
+      setState(() {});
       return;
     }
 
-    // Agora contar tanques completamente preenchidos vs tanques vazios
     int totalTanques = 0;
     int tanquesPreenchidos = 0;
     int tanquesVazios = 0;
 
     for (final placaVenda in _placasVenda) {
       totalTanques += placaVenda.tanques.length;
-      
+
       for (final tanque in placaVenda.tanques) {
-        final produtoPreenchido = tanque.produtoId != null && tanque.produtoId!.isNotEmpty;
-        final clientePreenchido = tanque.clienteController.text.trim().isNotEmpty;
-        final pagamentoPreenchido = tanque.pagamentoController.text.trim().isNotEmpty;
-        
-        if (produtoPreenchido && clientePreenchido && pagamentoPreenchido) {
+        final produtoPreenchido =
+            tanque.produtoId != null && tanque.produtoId!.isNotEmpty;
+        final clientePreenchido =
+            tanque.clienteController.text.trim().isNotEmpty;
+        final pagamentoPreenchido =
+            tanque.pagamentoController.text.trim().isNotEmpty;
+
+        if (produtoPreenchido &&
+            clientePreenchido &&
+            pagamentoPreenchido) {
           tanquesPreenchidos++;
         } else {
           tanquesVazios++;
@@ -260,53 +266,33 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       }
     }
 
-    // Verificar se há pelo menos um tanque preenchido
     if (tanquesPreenchidos == 0) {
       _mostrarErro('Preencha pelo menos um tanque completo');
       return;
     }
 
-    // Se houver tanques vazios (carregamento parcial), mostrar dialog de confirmação
     if (tanquesVazios > 0 && tanquesPreenchidos < totalTanques) {
-      final bool? resultado = await _mostrarDialogCarregamentoParcial(tanquesPreenchidos, totalTanques);
+      final bool? resultado =
+          await _mostrarDialogCarregamentoParcial(
+        tanquesPreenchidos,
+        totalTanques,
+      );
+
       if (resultado == null || !resultado) {
-        return; // Usuário escolheu "Não, vou completar" ou fechou o dialog
+        return;
       }
-      // Se resultado for true, prosseguir com carregamento parcial
     }
 
     await _processarSalvamentoVenda();
-  }
-
-  Future<void> _mostrarDialogCamposIncompletos() async {
-    await showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) => _DialogPersonalizado(
-        titulo: 'Campos obrigatórios',
-        conteudo: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Preencha todos os campos obrigatórios nos tanques que foram iniciados.'),
-            SizedBox(height: 8),
-            Text('Os tanques com campos incompletos estão destacados em laranja.'),
-          ],
-        ),
-        temBotoesAcao: false,
-        textoBotaoPositivo: 'OK',
-        onPressedPositivo: () => Navigator.of(context).pop(),
-      ),
-    );
   }
 
   Future<bool?> _mostrarDialogCarregamentoParcial(int preenchidos, int total) {
     return showDialog<bool>(
       context: context,
       barrierDismissible: true,
-      builder: (context) => _DialogPersonalizado(
-        titulo: 'Carregamento parcial',
-        conteudo: Column(
+      builder: (context) => AlertDialog(
+        title: const Text('Carregamento parcial'),
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -316,10 +302,19 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             const Text('Seguir com carregamento parcial?'),
           ],
         ),
-        textoBotaoNegativo: 'Não, vou completar',
-        textoBotaoPositivo: 'Sim, parcial',
-        onPressedNegativo: () => Navigator.of(context).pop(false),
-        onPressedPositivo: () => Navigator.of(context).pop(true),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Não, vou completar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D47A1),
+            ),
+            child: const Text('Sim, parcial'),
+          ),
+        ],
       ),
     );
   }
@@ -885,159 +880,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// =======================
-// DIALOG PERSONALIZADO
-// =======================
-class _DialogPersonalizado extends StatelessWidget {
-  final String titulo;
-  final Widget conteudo;
-  final String? textoBotaoNegativo;
-  final String? textoBotaoPositivo;
-  final VoidCallback? onPressedNegativo;
-  final VoidCallback? onPressedPositivo;
-  final bool temBotoesAcao;
-
-  const _DialogPersonalizado({
-    required this.titulo,
-    required this.conteudo,
-    this.textoBotaoNegativo,
-    this.textoBotaoPositivo,
-    this.onPressedNegativo,
-    this.onPressedPositivo,
-    this.temBotoesAcao = true,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 400),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // HEADER
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: Color(0xFF0D47A1),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(10),
-                  topRight: Radius.circular(10),
-                ),
-              ),
-              child: Text(
-                titulo,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-
-            // CONTEÚDO
-            Container(
-              padding: const EdgeInsets.all(20),
-              child: DefaultTextStyle(
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.black87,
-                  height: 1.4,
-                ),
-                child: conteudo,
-              ),
-            ),
-
-            // BOTÕES
-            if (temBotoesAcao)
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    if (textoBotaoNegativo != null)
-                      SizedBox(
-                        width: textoBotaoNegativo!.length * 8.0 + 32, // Ajusta largura pelo conteúdo
-                        child: OutlinedButton(
-                          onPressed: onPressedNegativo,
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            side: BorderSide(color: Colors.grey.shade400, width: 1),
-                          ),
-                          child: Text(
-                            textoBotaoNegativo!,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        ),
-                      ),
-                    
-                    if (textoBotaoNegativo != null && textoBotaoPositivo != null)
-                      const SizedBox(width: 12),
-                    
-                    if (textoBotaoPositivo != null)
-                      SizedBox(
-                        width: textoBotaoPositivo!.length * 8.0 + 32, // Ajusta largura pelo conteúdo
-                        child: ElevatedButton(
-                          onPressed: onPressedPositivo,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0D47A1),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                          ),
-                          child: Text(
-                            textoBotaoPositivo!,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              )
-            else
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    SizedBox(
-                      width: 80, // Largura fixa para o botão OK
-                      child: ElevatedButton(
-                        onPressed: onPressedPositivo,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0D47A1),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                        ),
-                        child: const Text(
-                          'OK',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
           ],
         ),
       ),
