@@ -125,15 +125,37 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
   Future<void> _carregarProdutos() async {
     final dados = await _supabase
         .from('produtos')
-        .select('id, nome')
-        .order('nome');
+        .select('id, nome');
+
+    final produtos = List<Map<String, dynamic>>.from(dados);
+
+    // MESMA ORDEM DEFINIDA NO NovaVendaDialog / NovaTransferenciaDialog
+    const ordemPorId = {
+      '82c348c8-efa1-4d1a-953a-ee384d5780fc': 1,  // Gasolina Comum
+      '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 2,  // Gasolina Aditivada
+      'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': 3,  // Diesel S500
+      '58ce20cf-f252-4291-9ef6-f4821f22c29e': 4,  // Diesel S10
+      '66ca957a-5698-4a02-8c9e-987770b6a151': 5,  // Etanol
+      'f8e95435-471a-424c-947f-def8809053a0': 6,  // Gasolina A
+      '4da89784-301f-4abe-b97e-c48729969e3d': 7,  // S500 A
+      '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 8,  // S10 A
+      'cecab8eb-297a-4640-81ae-e88335b88d8b': 9,  // Anidro
+      'ecd91066-e763-42e3-8a0e-d982ea6da535': 10, // B100
+    };
+
+    produtos.sort((a, b) {
+      final idA = a['id'].toString().toLowerCase();
+      final idB = b['id'].toString().toLowerCase();
+
+      return (ordemPorId[idA] ?? 999)
+          .compareTo(ordemPorId[idB] ?? 999);
+    });
 
     _produtos = [
       {'id': 'todos', 'nome': 'Todos os produtos'},
-      ...List<Map<String, dynamic>>.from(dados),
+      ...produtos,
     ];
   }
-
   // ===================== UI =====================
 
   @override

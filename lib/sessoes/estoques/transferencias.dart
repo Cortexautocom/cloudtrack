@@ -66,7 +66,7 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
             origem_filial:filiais!filial_origem_id(nome_dois),
             destino_filial:filiais!filial_destino_id(nome_dois)
           ''')
-          .eq("tipo_op", "Transf")  // REMOVIDO: .eq("tipo_mov", "saida")
+          .eq("tipo_op", "transf")
           .order("ts_mov", ascending: true);
 
       setState(() {
@@ -794,16 +794,43 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
   Future<void> _carregarProdutos() async {
     try {
       final supabase = Supabase.instance.client;
+
       final response = await supabase
           .from('produtos')
-          .select('id, nome')
-          .order('nome');
-      
+          .select('id, nome');
+
+      final produtos = List<Map<String, dynamic>>.from(response);
+
+      // MESMA ORDEM USADA NO NovaVendaDialog
+      const ordemPorId = {
+        '82c348c8-efa1-4d1a-953a-ee384d5780fc': 1,  // Gasolina Comum
+        '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 2,  // Gasolina Aditivada
+        'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': 3,  // Diesel S500
+        '58ce20cf-f252-4291-9ef6-f4821f22c29e': 4,  // Diesel S10
+        '66ca957a-5698-4a02-8c9e-987770b6a151': 5,  // Etanol
+        'f8e95435-471a-424c-947f-def8809053a0': 6,  // Gasolina A
+        '4da89784-301f-4abe-b97e-c48729969e3d': 7,  // S500 A
+        '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 8,  // S10 A
+        'cecab8eb-297a-4640-81ae-e88335b88d8b': 9,  // Anidro
+        'ecd91066-e763-42e3-8a0e-d982ea6da535': 10, // B100
+      };
+
+      produtos.sort((a, b) {
+        final idA = a['id'].toString().toLowerCase();
+        final idB = b['id']?.toString().toLowerCase() ?? '';
+
+        return (ordemPorId[idA] ?? 999)
+            .compareTo(ordemPorId[idB] ?? 999);
+      });
+
       setState(() {
-        _produtos = List<Map<String, dynamic>>.from(response);
+        _produtos = produtos;
       });
     } catch (e) {
       debugPrint('Erro ao carregar produtos: $e');
+      setState(() {
+        _produtos = [];
+      });
     }
   }
 
@@ -914,7 +941,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     return coluna;
   }
 
-  // PASSO 2 — FUNÇÃO _salvar() ATUALIZADA PARA 1 LINHA APENAS
   Future<void> _salvar() async {
     if (_produtoId == null ||
         _origemId == null ||
@@ -954,6 +980,33 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     try {
       final supabase = Supabase.instance.client;
 
+      // Buscar empresa_id da filial de origem para a ordem
+      final filialResponse = await supabase
+          .from('filiais')
+          .select('empresa_id')
+          .eq('id', _origemId!)
+          .single();
+
+      final empresaIdOrdem = filialResponse['empresa_id'];
+
+      // Criar ordem primeiro (mesmo padrão da NovaVendaDialog)
+      final hoje = DateTime.now();
+      final dataMov = '${hoje.year}-${hoje.month.toString().padLeft(2, '0')}-${hoje.day.toString().padLeft(2, '0')}';
+
+      final ordemResponse = await supabase
+          .from('ordens')
+          .insert({
+            'empresa_id': empresaIdOrdem,
+            'filial_id': _origemId,  // Filial de origem
+            'usuario_id': _usuarioId,
+            'tipo': 'transferencia',
+            'data_ordem': dataMov,
+          })
+          .select('id')
+          .single();
+
+      final ordemId = ordemResponse['id'];
+
       final quantidade =
           int.parse(_quantidadeController.text.replaceAll('.', ''));
       
@@ -974,7 +1027,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         ?.toString() ??
         '';
 
-      // PASSO 4 — COLUNA DO PRODUTO ESPECÍFICA (baseado no UUID)
+      // Coluna do produto específica (baseado no UUID)
       final colunaProduto = _resolverColunaProduto(_produtoId!);
 
       // placas
@@ -985,7 +1038,8 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
 
       // Criar UMA ÚNICA LINHA com todos os dados da transferência
       final transferencia = {
-        'tipo_op': 'Transf',
+        'ordem_id': ordemId,
+        'tipo_op': 'transf',
         'produto_id': _produtoId,
         'quantidade': quantidade,
         'descricao': '$origemNome → $destinoNome',  // Descrição formatada
