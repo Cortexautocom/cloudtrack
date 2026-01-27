@@ -443,11 +443,11 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
 }
 
 // ==============================================================
-//                COMPONENTE AUTOCOMPLETE MELHORADO
+//                COMPONENTE AUTOCOMPLETE MELHORADO (MODIFICADO)
 // ==============================================================
 class AutocompleteField<T> extends StatefulWidget {
   final TextEditingController controller;
-  final String label;
+  final String label; // Será usado como hintText
   final Future<List<T>> Function(String) buscarItens;
   final String Function(T) obterTextoExibicao;
   final String Function(T) obterId;
@@ -673,32 +673,41 @@ class _AutocompleteFieldState<T> extends State<AutocompleteField<T>> {
   Widget build(BuildContext context) {
     return CompositedTransformTarget(
       link: _layerLink,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextFormField(
-            controller: widget.controller,
-            focusNode: _internalFocusNode,
-            onChanged: _onTextChanged,
-            decoration: InputDecoration(
-              labelText: widget.label,
-              counterText: '',
-              hintText: '',
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
-              suffixIcon: _carregando
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : null,
-            ),
+      child: TextFormField(
+        controller: widget.controller,
+        focusNode: _internalFocusNode,
+        onChanged: _onTextChanged,
+        style: const TextStyle(fontSize: 13),
+        decoration: InputDecoration(
+          // REMOVIDO: labelText: widget.label,
+          hintText: 'Digite para buscar...',
+          counterText: '',
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(4), // Reduzido de 6 para 4
+            borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
           ),
-        ],
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(4),
+            borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(4),
+            borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.2),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 8, // Reduzido para ficar mais compacto
+          ),
+          suffixIcon: _carregando
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : null,
+        ),
       ),
     );
   }

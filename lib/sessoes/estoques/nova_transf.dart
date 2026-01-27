@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
-import 'transferencias.dart'; // Importando para usar o AutocompleteField
+import 'transferencias.dart';
 
 // ==============================================================
-//                DIALOG DE NOVA TRANSFERÊNCIA
+//                DIALOG DE NOVA TRANSFERÊNCIA MODERNIZADO
 // ==============================================================
 
 class NovaTransferenciaDialog extends StatefulWidget {
@@ -46,6 +46,24 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
   String? _origemSelecionada;
   String? _destinoSelecionado;
   
+  // Estados para autocomplete das placas
+  bool _mostrarSugestoesCavalo = false;
+  bool _carregandoPlacasCavalo = false;
+  List<Map<String, dynamic>> _placasCavaloEncontradas = [];
+  
+  bool _mostrarSugestoesReboque1 = false;
+  bool _carregandoPlacasReboque1 = false;
+  List<Map<String, dynamic>> _placasReboque1Encontradas = [];
+  
+  bool _mostrarSugestoesReboque2 = false;
+  bool _carregandoPlacasReboque2 = false;
+  List<Map<String, dynamic>> _placasReboque2Encontradas = [];
+  
+  // Focus nodes para controlar o fechamento das sugestões
+  final FocusNode _cavaloFocusNode = FocusNode();
+  final FocusNode _reboque1FocusNode = FocusNode();
+  final FocusNode _reboque2FocusNode = FocusNode();
+  
   @override
   void initState() {
     super.initState();
@@ -53,6 +71,51 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     _carregarProdutos();
     _carregarFiliais();
     _gerarDatasDisponiveis();
+    
+    // Configurar focus nodes para fechar sugestões
+    _cavaloFocusNode.addListener(() {
+      if (!_cavaloFocusNode.hasFocus) {
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (mounted) {
+            setState(() => _mostrarSugestoesCavalo = false);
+          }
+        });
+      }
+    });
+    
+    _reboque1FocusNode.addListener(() {
+      if (!_reboque1FocusNode.hasFocus) {
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (mounted) {
+            setState(() => _mostrarSugestoesReboque1 = false);
+          }
+        });
+      }
+    });
+    
+    _reboque2FocusNode.addListener(() {
+      if (!_reboque2FocusNode.hasFocus) {
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (mounted) {
+            setState(() => _mostrarSugestoesReboque2 = false);
+          }
+        });
+      }
+    });
+  }
+  
+  @override
+  void dispose() {
+    _cavaloFocusNode.dispose();
+    _reboque1FocusNode.dispose();
+    _reboque2FocusNode.dispose();
+    _motoristaController.dispose();
+    _quantidadeController.dispose();
+    _transportadoraController.dispose();
+    _cavaloController.dispose();
+    _reboque1Controller.dispose();
+    _reboque2Controller.dispose();
+    super.dispose();
   }
 
   void _gerarDatasDisponiveis() {
@@ -90,6 +153,46 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       debugPrint('Erro ao carregar dados do usuário: $e');
     }
   }
+  
+  Widget _buildCampoAutocomplete<T>({
+    required TextEditingController controller,
+    required String label,
+    required Future<List<T>> Function(String) buscarItens,
+    required String Function(T) obterTextoExibicao,
+    required String Function(T) obterId,
+    required void Function(T)? onSelecionado,
+    double? width,
+  }) {
+    return SizedBox(
+      width: width,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Label acima do campo (padronizado)
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF0D47A1),
+            ),
+          ),
+          const SizedBox(height: 4),
+          
+          // Campo de autocomplete
+          AutocompleteField<T>(
+            controller: controller,
+            label: label, // Mantém para acessibilidade
+            buscarItens: buscarItens,
+            obterTextoExibicao: obterTextoExibicao,
+            obterId: obterId,
+            validarParaBusca: (texto) => texto.length >= 3,
+            onSelecionado: onSelecionado,
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _carregarProdutos() async {
     try {
@@ -101,7 +204,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
 
       final produtos = List<Map<String, dynamic>>.from(response);
 
-      // MESMA ORDEM USADA NO NovaVendaDialog
       const ordemPorId = {
         '82c348c8-efa1-4d1a-953a-ee384d5780fc': 1,  // Gasolina Comum
         '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 2,  // Gasolina Aditivada
@@ -179,18 +281,134 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     return List<Map<String, dynamic>>.from(response);
   }
 
-  Future<List<String>> _buscarPlacas(String texto) async {
+  Future<List<Map<String, dynamic>>> _buscarPlacas(String texto) async {
     if (texto.length < 3) return [];
     
-    final supabase = Supabase.instance.client;
-    final response = await supabase
-        .from('vw_placas')
-        .select('placa')
-        .ilike('placa', '$texto%')
-        .order('placa')
-        .limit(10);
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase
+          .from('view_placas_tanques')
+          .select('placas, tanques')
+          .ilike('placas', '${texto.replaceAll('-', '').toUpperCase()}%')
+          .order('placas')
+          .limit(10);
 
-    return response.map<String>((p) => p['placa'].toString()).toList();
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('Erro ao buscar placas: $e');
+      return [];
+    }
+  }
+
+  Future<void> _buscarPlacasCavalo(String texto) async {
+    if (texto.length < 3) {
+      setState(() {
+        _placasCavaloEncontradas.clear();
+        _mostrarSugestoesCavalo = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _carregandoPlacasCavalo = true;
+    });
+
+    try {
+      final placas = await _buscarPlacas(texto);
+      setState(() {
+        _placasCavaloEncontradas = placas;
+        _carregandoPlacasCavalo = false;
+        _mostrarSugestoesCavalo = placas.isNotEmpty;
+      });
+    } catch (e) {
+      debugPrint('Erro ao buscar placas cavalo: $e');
+      setState(() {
+        _placasCavaloEncontradas.clear();
+        _carregandoPlacasCavalo = false;
+        _mostrarSugestoesCavalo = false;
+      });
+    }
+  }
+
+  Future<void> _buscarPlacasReboque1(String texto) async {
+    if (texto.length < 3) {
+      setState(() {
+        _placasReboque1Encontradas.clear();
+        _mostrarSugestoesReboque1 = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _carregandoPlacasReboque1 = true;
+    });
+
+    try {
+      final placas = await _buscarPlacas(texto);
+      setState(() {
+        _placasReboque1Encontradas = placas;
+        _carregandoPlacasReboque1 = false;
+        _mostrarSugestoesReboque1 = placas.isNotEmpty;
+      });
+    } catch (e) {
+      debugPrint('Erro ao buscar placas reboque1: $e');
+      setState(() {
+        _placasReboque1Encontradas.clear();
+        _carregandoPlacasReboque1 = false;
+        _mostrarSugestoesReboque1 = false;
+      });
+    }
+  }
+
+  Future<void> _buscarPlacasReboque2(String texto) async {
+    if (texto.length < 3) {
+      setState(() {
+        _placasReboque2Encontradas.clear();
+        _mostrarSugestoesReboque2 = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _carregandoPlacasReboque2 = true;
+    });
+
+    try {
+      final placas = await _buscarPlacas(texto);
+      setState(() {
+        _placasReboque2Encontradas = placas;
+        _carregandoPlacasReboque2 = false;
+        _mostrarSugestoesReboque2 = placas.isNotEmpty;
+      });
+    } catch (e) {
+      debugPrint('Erro ao buscar placas reboque2: $e');
+      setState(() {
+        _placasReboque2Encontradas.clear();
+        _carregandoPlacasReboque2 = false;
+        _mostrarSugestoesReboque2 = false;
+      });
+    }
+  }
+
+  void _selecionarPlacaCavalo(Map<String, dynamic> item) {
+    setState(() {
+      _cavaloController.text = item['placas'];
+      _mostrarSugestoesCavalo = false;
+    });
+  }
+
+  void _selecionarPlacaReboque1(Map<String, dynamic> item) {
+    setState(() {
+      _reboque1Controller.text = item['placas'];
+      _mostrarSugestoesReboque1 = false;
+    });
+  }
+
+  void _selecionarPlacaReboque2(Map<String, dynamic> item) {
+    setState(() {
+      _reboque2Controller.text = item['placas'];
+      _mostrarSugestoesReboque2 = false;
+    });
   }
 
   // Formatar quantidade no formato "999.999"
@@ -289,7 +507,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
 
       final empresaIdOrdem = filialResponse['empresa_id'];
 
-      // Criar ordem primeiro (mesmo padrão da NovaVendaDialog)
+      // Criar ordem primeiro
       final hoje = DateTime.now();
       final dataMov = '${hoje.year}-${hoje.month.toString().padLeft(2, '0')}-${hoje.day.toString().padLeft(2, '0')}';
 
@@ -342,7 +560,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         'tipo_op': 'transf',
         'produto_id': _produtoId,
         'quantidade': quantidade,
-        'descricao': '$origemNome → $destinoNome',  // Descrição formatada
+        'descricao': '$origemNome → $destinoNome',
         'placa': placas.isNotEmpty ? placas : null,
         'usuario_id': _usuarioId,
         'empresa_id': _empresaId,
@@ -354,10 +572,10 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         'updated_at': DateTime.now().toIso8601String(),
         
         // NOVOS CAMPOS - APENAS 1 LINHA
-        'filial_id': null,            // NULL pois não é específico de uma filial
-        'tipo_mov': null,             // NULL pois não usamos mais
-        'tipo_mov_orig': 'saida',     // Movimento na origem
-        'tipo_mov_dest': 'entrada',   // Movimento no destino
+        'filial_id': null,
+        'tipo_mov': null,
+        'tipo_mov_orig': 'saida',
+        'tipo_mov_dest': 'entrada',
         
         // COLUNAS DE PRODUTO INICIALIZADAS COM 0
         'g_comum': 0,
@@ -406,259 +624,560 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     return '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}';
   }
 
+  // Widget para campo de placa com autocomplete
+  Widget _buildCampoPlaca({
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    required String label,
+    required bool mostrarSugestoes,
+    required bool carregando,
+    required List<Map<String, dynamic>> placasEncontradas,
+    required Function(String) onChanged,
+    required Function(Map<String, dynamic>) onSelecionar,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF0D47A1),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Stack(
+          children: [
+            TextField(
+              controller: controller,
+              focusNode: focusNode,
+              onChanged: onChanged,
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.2),
+                ),
+                suffixIcon: carregando
+                    ? const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : const Icon(Icons.search, size: 16),
+              ),
+            ),
+            
+            if (mostrarSugestoes && placasEncontradas.isNotEmpty)
+              Positioned(
+                top: 42,
+                left: 0,
+                right: 0,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(4),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: placasEncontradas.map((item) {
+                      return Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => onSelecionar(item),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(
+                                  color: Colors.grey.shade200,
+                                  width: 0.5,
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.directions_car, 
+                                  size: 14, 
+                                  color: Colors.grey,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    item['placas'],
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 8,
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.all(20),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Container(
-        width: 800,
-        constraints: const BoxConstraints(maxHeight: 700),
-        padding: const EdgeInsets.all(24),
+        width: 900,
+        constraints: const BoxConstraints(maxHeight: 500),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
-            Row(
-              children: [
-                Icon(Icons.swap_horiz, color: Theme.of(context).primaryColor, size: 28),
-                const SizedBox(width: 12),
-                const Text(
-                  'Nova Transferência',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: const BoxDecoration(
+                color: Color(0xFF0D47A1),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.swap_horiz, color: Colors.white, size: 20),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Nova Transferência',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.of(context).pop(false),
-                  tooltip: 'Fechar',
-                ),
-              ],
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 18),
+                    onPressed: () => Navigator.of(context).pop(false),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 36),
+                  ),
+                ],
+              ),
             ),
             
-            const Divider(),
-            const SizedBox(height: 16),
-            
-            // Campos do formulário
+            // Conteúdo
             Expanded(
               child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    // Primeira linha: Data e Produto
+                    // Linha 1: Data, Produto, Quantidade
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Campo Data (dropdown simples)
-                        SizedBox(
-                          width: 150,
-                          child: DropdownButtonFormField<String>(
-                            initialValue: _formatarData(_dataSelecionada),
-                            decoration: const InputDecoration(
-                              labelText: 'Data',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                            ),
-                            items: _datasFormatadas.map((dataStr) {
-                              return DropdownMenuItem<String>(
-                                value: dataStr,
-                                child: Text(dataStr),
-                              );
-                            }).toList(),
-                            onChanged: (dataString) {
-                              if (dataString != null) {
-                                // Encontrar o DateTime correspondente à string selecionada
-                                final index = _datasFormatadas.indexOf(dataString);
-                                if (index >= 0) {
-                                  setState(() => _dataSelecionada = _datasDisponiveis[index]);
-                                }
-                              }
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        // Campo Produto (dropdown simples)
+                        // Campo Data
                         Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: _produtoSelecionado,
-                            decoration: const InputDecoration(
-                              labelText: 'Produto *',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                            ),
-                            items: _produtos.map((produto) {
-                              return DropdownMenuItem<String>(
-                                value: produto['id']?.toString(),
-                                child: Text(produto['nome']?.toString() ?? ''),
-                              );
-                            }).toList(),
-                            onChanged: (id) {
-                              setState(() {
-                                _produtoSelecionado = id;
-                                _produtoId = id;
-                              });
-                            },
+                          flex: 1,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Data',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF0D47A1),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  border: Border.all(color: Colors.grey.shade400, width: 1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: _formatarData(_dataSelecionada),
+                                    isExpanded: true,
+                                    icon: const Icon(Icons.arrow_drop_down, size: 20),
+                                    style: const TextStyle(fontSize: 13, color: Colors.black),
+                                    onChanged: (dataString) {
+                                      if (dataString != null) {
+                                        final index = _datasFormatadas.indexOf(dataString);
+                                        if (index >= 0) {
+                                          setState(() => _dataSelecionada = _datasDisponiveis[index]);
+                                        }
+                                      }
+                                    },
+                                    items: _datasFormatadas.map((dataStr) {
+                                      return DropdownMenuItem<String>(
+                                        value: dataStr,
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          child: Text(dataStr),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
+                        
                         const SizedBox(width: 16),
-                        // Campo Quantidade
-                        SizedBox(
-                          width: 150,
-                          child: TextFormField(
-                            controller: _quantidadeController,
-                            keyboardType: TextInputType.number,
-                            maxLength: 7,
-                            onChanged: (value) {
-                              final maskedValue = _aplicarMascaraQuantidade(value);
-                              
-                              if (maskedValue != value) {
-                                final cursorPosition = _quantidadeController.selection.baseOffset;
-                                _quantidadeController.value = TextEditingValue(
-                                  text: maskedValue,
-                                  selection: TextSelection.collapsed(
-                                    offset: cursorPosition + (maskedValue.length - value.length),
+                        
+                        // Campo Produto
+                        Expanded(
+                          flex: 2,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Produto *',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF0D47A1),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  border: Border.all(color: Colors.grey.shade400, width: 1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: _produtoSelecionado,
+                                    isExpanded: true,
+                                    icon: const Icon(Icons.arrow_drop_down, size: 20),
+                                    style: const TextStyle(fontSize: 13, color: Colors.black),
+                                    hint: const Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 12),
+                                      child: Text('Selecione um produto'),
+                                    ),
+                                    onChanged: (id) {
+                                      setState(() {
+                                        _produtoSelecionado = id;
+                                        _produtoId = id;
+                                      });
+                                    },
+                                    items: _produtos.map((produto) {
+                                      return DropdownMenuItem<String>(
+                                        value: produto['id']?.toString(),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          child: Text(produto['nome']?.toString() ?? ''),
+                                        ),
+                                      );
+                                    }).toList(),
                                   ),
-                                );
-                              }
-                            },
-                            decoration: const InputDecoration(
-                              labelText: 'Quantidade *',
-                              border: OutlineInputBorder(),
-                              counterText: '',
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                              suffixText: 'litros',
-                            ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(width: 16),
+                        
+                        // Campo Quantidade
+                        Expanded(
+                          flex: 1,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Quantidade *',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF0D47A1),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              TextFormField(
+                                controller: _quantidadeController,
+                                keyboardType: TextInputType.number,
+                                maxLength: 7,
+                                onChanged: (value) {
+                                  final maskedValue = _aplicarMascaraQuantidade(value);
+                                  
+                                  if (maskedValue != value) {
+                                    final cursorPosition = _quantidadeController.selection.baseOffset;
+                                    _quantidadeController.value = TextEditingValue(
+                                      text: maskedValue,
+                                      selection: TextSelection.collapsed(
+                                        offset: cursorPosition + (maskedValue.length - value.length),
+                                      ),
+                                    );
+                                  }
+                                },
+                                style: const TextStyle(fontSize: 13),
+                                decoration: InputDecoration(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 8,
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                    borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                    borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                    borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.2),
+                                  ),
+                                  counterText: '',
+                                  suffixText: 'litros',
+                                  suffixStyle: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
                     
-                    // Segunda linha: Motorista e Transportadora (autocomplete)
+                    const SizedBox(height: 20),
+                    
+                    // Linha 2: Motorista, Cavalo, Reboque 1, Reboque 2
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Campo Motorista (autocomplete) - CORRIGIDO
                         Expanded(
-                          child: AutocompleteField<Map<String, dynamic>>(
+                          flex: 2,
+                          child: _buildCampoAutocomplete<Map<String, dynamic>>(
                             controller: _motoristaController,
                             label: 'Motorista',
                             buscarItens: _buscarMotoristas,
                             obterTextoExibicao: (item) => item['nome']?.toString() ?? '',
                             obterId: (item) => item['id']?.toString() ?? '',
-                            validarParaBusca: (texto) => texto.length >= 3,
                             onSelecionado: (motorista) {
                               _motoristaId = motorista['id']?.toString();
                             },
                           ),
                         ),
+                        
                         const SizedBox(width: 16),
+                        
+                        // Campo Cavalo (autocomplete melhorado)
                         Expanded(
-                          child: AutocompleteField<Map<String, dynamic>>(
+                          flex: 1,
+                          child: _buildCampoPlaca(
+                            controller: _cavaloController,
+                            focusNode: _cavaloFocusNode,
+                            label: 'Cavalo',
+                            mostrarSugestoes: _mostrarSugestoesCavalo,
+                            carregando: _carregandoPlacasCavalo,
+                            placasEncontradas: _placasCavaloEncontradas,
+                            onChanged: (texto) => _buscarPlacasCavalo(texto),
+                            onSelecionar: _selecionarPlacaCavalo,
+                          ),
+                        ),
+                        
+                        const SizedBox(width: 16),
+                        
+                        // Campo Reboque 1
+                        Expanded(
+                          flex: 1,
+                          child: _buildCampoPlaca(
+                            controller: _reboque1Controller,
+                            focusNode: _reboque1FocusNode,
+                            label: 'Reboque 1',
+                            mostrarSugestoes: _mostrarSugestoesReboque1,
+                            carregando: _carregandoPlacasReboque1,
+                            placasEncontradas: _placasReboque1Encontradas,
+                            onChanged: (texto) => _buscarPlacasReboque1(texto),
+                            onSelecionar: _selecionarPlacaReboque1,
+                          ),
+                        ),
+                        
+                        const SizedBox(width: 16),
+                        
+                        // Campo Reboque 2
+                        Expanded(
+                          flex: 1,
+                          child: _buildCampoPlaca(
+                            controller: _reboque2Controller,
+                            focusNode: _reboque2FocusNode,
+                            label: 'Reboque 2',
+                            mostrarSugestoes: _mostrarSugestoesReboque2,
+                            carregando: _carregandoPlacasReboque2,
+                            placasEncontradas: _placasReboque2Encontradas,
+                            onChanged: (texto) => _buscarPlacasReboque2(texto),
+                            onSelecionar: _selecionarPlacaReboque2,
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Linha 3: Transportadora, Origem, Destino
+                    Row(
+                      children: [
+                        // Campo Transportadora (autocomplete) - CORRIGIDO
+                        Expanded(
+                          flex: 2,
+                          child: _buildCampoAutocomplete<Map<String, dynamic>>(
                             controller: _transportadoraController,
                             label: 'Transportadora',
                             buscarItens: _buscarTransportadoras,
                             obterTextoExibicao: (item) => item['nome_dois']?.toString() ?? '',
                             obterId: (item) => item['id']?.toString() ?? '',
-                            validarParaBusca: (texto) => texto.length >= 3,
                             onSelecionado: (transportadora) {
                               _transportadoraId = transportadora['id']?.toString();
                             },
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Terceira linha: Cavalo, Reboque 1, Reboque 2 (autocomplete)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: AutocompleteField<String>(
-                            controller: _cavaloController,
-                            label: 'Cavalo',
-                            buscarItens: _buscarPlacas,
-                            obterTextoExibicao: (item) => item,
-                            obterId: (item) => item,
-                            validarParaBusca: (texto) => texto.length >= 3,
-                          ),
-                        ),
+                        
                         const SizedBox(width: 16),
+                        
+                        // Campo Origem
                         Expanded(
-                          child: AutocompleteField<String>(
-                            controller: _reboque1Controller,
-                            label: 'Reboque 1',
-                            buscarItens: _buscarPlacas,
-                            obterTextoExibicao: (item) => item,
-                            obterId: (item) => item,
-                            validarParaBusca: (texto) => texto.length >= 3,
+                          flex: 1,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Origem *',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF0D47A1),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  border: Border.all(color: Colors.grey.shade400, width: 1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: _origemSelecionada,
+                                    isExpanded: true,
+                                    icon: const Icon(Icons.arrow_drop_down, size: 20),
+                                    style: const TextStyle(fontSize: 13, color: Colors.black),
+                                    hint: const Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 12),
+                                      child: Text('Selecione a origem'),
+                                    ),
+                                    onChanged: (id) {
+                                      setState(() {
+                                        _origemSelecionada = id;
+                                        _origemId = id;
+                                      });
+                                    },
+                                    items: _filiais.map((filial) {
+                                      return DropdownMenuItem<String>(
+                                        value: filial['id']?.toString(),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          child: Text(filial['nome_dois']?.toString() ?? ''),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
+                        
                         const SizedBox(width: 16),
+                        
+                        // Campo Destino
                         Expanded(
-                          child: AutocompleteField<String>(
-                            controller: _reboque2Controller,
-                            label: 'Reboque 2',
-                            buscarItens: _buscarPlacas,
-                            obterTextoExibicao: (item) => item,
-                            obterId: (item) => item,
-                            validarParaBusca: (texto) => texto.length >= 3,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Quarta linha: Origem e Destino (dropdown simples)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: _origemSelecionada,
-                            decoration: const InputDecoration(
-                              labelText: 'Origem *',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                            ),
-                            items: _filiais.map((filial) {
-                              return DropdownMenuItem<String>(
-                                value: filial['id']?.toString(),
-                                child: Text(filial['nome_dois']?.toString() ?? ''),
-                              );
-                            }).toList(),
-                            onChanged: (id) {
-                              setState(() {
-                                _origemSelecionada = id;
-                                _origemId = id;
-                              });
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: _destinoSelecionado,
-                            decoration: const InputDecoration(
-                              labelText: 'Destino *',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                            ),
-                            items: _filiais.map((filial) {
-                              return DropdownMenuItem<String>(
-                                value: filial['id']?.toString(),
-                                child: Text(filial['nome_dois']?.toString() ?? ''),
-                              );
-                            }).toList(),
-                            onChanged: (id) {
-                              setState(() {
-                                _destinoSelecionado = id;
-                                _destinoId = id;
-                              });
-                            },
+                          flex: 1,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Destino *',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF0D47A1),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  border: Border.all(color: Colors.grey.shade400, width: 1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: _destinoSelecionado,
+                                    isExpanded: true,
+                                    icon: const Icon(Icons.arrow_drop_down, size: 20),
+                                    style: const TextStyle(fontSize: 13, color: Colors.black),
+                                    hint: const Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 12),
+                                      child: Text('Selecione o destino'),
+                                    ),
+                                    onChanged: (id) {
+                                      setState(() {
+                                        _destinoSelecionado = id;
+                                        _destinoId = id;
+                                      });
+                                    },
+                                    items: _filiais.map((filial) {
+                                      return DropdownMenuItem<String>(
+                                        value: filial['id']?.toString(),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          child: Text(filial['nome_dois']?.toString() ?? ''),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -671,19 +1190,19 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.orange.shade200),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.orange.shade200, width: 1),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.info, color: Colors.orange.shade700, size: 20),
+                          Icon(Icons.info, color: Colors.orange.shade700, size: 16),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               '* Campos obrigatórios: Produto, Quantidade, Origem e Destino',
                               style: TextStyle(
+                                fontSize: 12,
                                 color: Colors.orange.shade800,
-                                fontSize: 13,
                               ),
                             ),
                           ),
@@ -695,46 +1214,84 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
               ),
             ),
             
-            const SizedBox(height: 24),
-            
-            // Botões de ação
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  icon: const Icon(Icons.cancel, size: 20),
-                  label: const Text('Cancelar'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    foregroundColor: Colors.grey.shade700,
-                    side: BorderSide(color: Colors.grey.shade400),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+            // Footer com botões
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                border: Border(
+                  top: BorderSide(color: Colors.grey.shade300, width: 1),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // Botão Cancelar
+                  SizedBox(
+                    width: 120,
+                    height: 36,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        side: BorderSide(color: Colors.grey.shade400, width: 1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancelar',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color.fromARGB(255, 95, 95, 95),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: _salvando ? null : _salvar,
-                  icon: _salvando
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.check, size: 20),
-                  label: Text(_salvando ? 'Salvando...' : 'Criar Ordem'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2E7D32),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                  
+                  const SizedBox(width: 12),
+                  
+                  // Botão Criar Ordem
+                  SizedBox(
+                    width: 140,
+                    height: 36,
+                    child: ElevatedButton(
+                      onPressed: _salvando ? null : _salvar,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2E7D32),
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      child: _salvando
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.check, size: 16),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Criar Ordem',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
