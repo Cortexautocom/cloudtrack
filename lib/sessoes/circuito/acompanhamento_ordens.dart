@@ -33,6 +33,137 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   bool _mostrarDetalhes = false;
   Map<String, dynamic>? _ordemSelecionada;
 
+  // ✅ 2.1 MAPAS FIXOS
+  static const Map<String, String> produtoColunaMap = {
+    '82c348c8-efa1-4d1a-953a-ee384d5780fc': 'g_comum',
+    '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 'g_aditivada',
+    'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': 'd_s500',
+    '58ce20cf-f252-4291-9ef6-f4821f22c29e': 'd_s10',
+    '66ca957a-5698-4a02-8c9e-987770b6a151': 'etanol',
+    'cecab8eb-297a-4640-81ae-e88335b88d8b': 'anidro',
+    'ecd91066-e763-42e3-8a0e-d982ea6da535': 'b100',
+    'f8e95435-471a-424c-947f-def8809053a0': 'gasolina_a',
+    '4da89784-301f-4abe-b97e-c48729969e3d': 's500_a',
+    '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 's10_a',
+  };
+
+  // ✅ 2.2 ORDEM FIXA DOS PRODUTOS
+  static const List<String> ordemProdutos = [
+    '82c348c8-efa1-4d1a-953a-ee384d5780fc',
+    '93686e9d-6ef5-4f7c-a97d-b058b3c2c693',
+    'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1',
+    '58ce20cf-f252-4291-9ef6-f4821f22c29e',
+    '66ca957a-5698-4a02-8c9e-987770b6a151',
+    'f8e95435-471a-424c-947f-def8809053a0',
+    '4da89784-301f-4abe-b97e-c48729969e3d',
+    '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a',
+    'cecab8eb-297a-4640-81ae-e88335b88d8b',
+    'ecd91066-e763-42e3-8a0e-d982ea6da535',
+  ];
+
+  // ✅ 2.3 MÉTODO PARA OBTER COR DO PRODUTO
+  Color _obterCorProduto(String nomeProduto) {
+    switch (nomeProduto) {
+      case 'GC':
+        return const Color(0xFF3498DB); // Azul
+      case 'GA':
+        return const Color(0xFF9B59B6); // Roxo
+      case 'DS500':
+        return const Color(0xFF1ABC9C); // Verde água
+      case 'DS10':
+        return const Color(0xFF2ECC71); // Verde
+      case 'ETH':
+        return const Color(0xFFE74C3C); // Vermelho
+      case 'ANID':
+        return const Color(0xFFE67E22); // Laranja
+      case 'B100':
+        return const Color(0xFF34495E); // Azul escuro
+      case 'GAS A':
+        return const Color(0xFFF1C40F); // Amarelo
+      case 'S500 A':
+        return const Color(0xFF16A085); // Verde marinho
+      case 'S10 A':
+        return const Color(0xFF8E44AD); // Violeta
+      default:
+        return Colors.grey.shade600;
+    }
+  }
+
+  // ✅ 3.1 FUNÇÃO PARA AGRUPAR PRODUTOS POR ORDEM
+  Map<String, double> agruparProdutosDaOrdem(List<Map<String, dynamic>> itens) {
+    final Map<String, double> resultado = {};
+
+    for (final mov in itens) {
+      final tipoOp = mov['tipo_op']?.toString().toLowerCase();
+      if (tipoOp != 'venda' && tipoOp != 'transf') continue;
+
+      final produto = mov['produtos'];
+      if (produto == null) continue;
+
+      final produtoId = produto['id']?.toString().toLowerCase();
+      final nome = produto['nome_dois']?.toString();
+      if (produtoId == null || nome == null) continue;
+
+      final coluna = produtoColunaMap[produtoId];
+      if (coluna == null) continue;
+
+      final valor = mov[coluna];
+      if (valor == null || valor <= 0) continue;
+
+      resultado[nome] = (resultado[nome] ?? 0) + (valor as num).toDouble();
+    }
+
+    return resultado;
+  }
+
+  // ✅ 5.1 WIDGET PARA CONSTRUIR CHIPS DE PRODUTOS
+  Widget buildChipsProdutos(Map<String, double> produtos) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      children: produtos.entries.map((e) {
+        final cor = _obterCorProduto(e.key);
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: cor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: cor.withOpacity(0.3)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: cor,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  _formatarNumeroDouble(e.value),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                e.key,
+                style: TextStyle(
+                  color: cor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   // ✅ 3️⃣ CRIE métodos de controle de estado
   void _abrirDetalhesOrdem(Map<String, dynamic> ordem) {
     setState(() {
@@ -115,6 +246,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
           ? _filialFiltroId
           : usuario.filialId;
 
+      // ✅ 1.1 ALTERAR A QUERY DE DADOS
       var query = _supabase
           .from('movimentacoes')
           .select('''
@@ -130,7 +262,17 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             tipo_op,
             filial_origem_id,
             filial_destino_id,
-            produtos!produto_id(nome),
+            g_comum,
+            g_aditivada,
+            d_s10,
+            d_s500,
+            etanol,
+            anidro,
+            b100,
+            gasolina_a,
+            s500_a,
+            s10_a,
+            produtos!produto_id(id, nome_dois),
             filiais!estoques_filial_id_fkey(id, nome),
             filial_origem:filiais!movimentacoes_filial_origem_id_fkey(id, nome),
             filial_destino:filiais!movimentacoes_filial_destino_id_fkey(id, nome),
@@ -217,11 +359,8 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
           }
         }
         
-        // Calcular quantidade total
-        int quantidadeTotal = 0;
-        for (var mov in movimentacoesOrdem) {
-          quantidadeTotal += _obterQuantidade(mov);
-        }
+        // ✅ 4.1 ADICIONAR PRODUTOS AGRUPADOS À ORDEM
+        final produtosAgrupados = agruparProdutosDaOrdem(movimentacoesOrdem);
 
         // Criar resumo da ordem
         final ordemResumo = {
@@ -230,7 +369,8 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
           'status_circuito': primeiraMov['status_circuito'],
           'tipo_op': primeiraMov['tipo_op'],
           'placas': placasSet.toList(),
-          'quantidade_total': quantidadeTotal,
+          'quantidade_total': produtosAgrupados.values.fold<double>(0, (sum, value) => sum + value),
+          'produtos_agrupados': produtosAgrupados, // ✅ ADICIONADO
           'itens': movimentacoesOrdem,
         };
 
@@ -321,6 +461,12 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         final tipoOpTexto = _obterTipoOpTexto(ordem['tipo_op']?.toString() ?? '').toLowerCase();
         if (tipoOpTexto.contains(termoBusca)) return true;
         
+        // Buscar nos produtos agrupados
+        final produtos = ordem['produtos_agrupados'] as Map<String, double>;
+        if (produtos.keys.any((nome) => nome.toLowerCase().contains(termoBusca))) {
+          return true;
+        }
+        
         // Buscar nos itens da ordem (cliente, placa específica, etc.)
         return ordem['itens'].any((item) {
           final cliente = (item['cliente'] ?? '').toString().toLowerCase();
@@ -397,6 +543,11 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     }
     
     return resultado;
+  }
+
+  String _formatarNumeroDouble(double valor) {
+    final valorInt = valor.toInt();
+    return _formatarNumero(valorInt);
   }
 
   int _obterQuantidade(Map<String, dynamic> movimentacao) {
@@ -767,9 +918,11 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     
     // Dados da segunda linha
     final placasFormatadas = _formatarPlacas(ordem['placas']);
-    final quantidadeFormatada = _obterQuantidadeFormatada(ordem['quantidade_total'] as int);
     final dataMov = _formatarData(ordem['data_mov']?.toString());
     
+    // ✅ 6️⃣ INJETAR CHIPS DE PRODUTOS NO CARD
+    final produtosAgrupados = ordem['produtos_agrupados'] as Map<String, double>;
+
     // Cor de fundo do card baseada no tipo de movimento
     final corFundoCard = _obterCorFundoCard(ordem);
 
@@ -933,29 +1086,14 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                             
                             const SizedBox(width: 16),
                             
-                            // Quantidade (alinhada à esquerda)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(
-                                  color: Colors.grey.shade300,
-                                  width: 1,
-                                ),
-                              ),
-                              child: Text(
-                                '$quantidadeFormatada Amb.',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ),
+                            // ✅ 4.2 SUBSTITUIR QUANTIDADE TOTAL POR CHIPS
+                            // ✅ 6️⃣ USAR WIDGET DE CHIPS
+                            produtosAgrupados.isNotEmpty
+                                ? Expanded(
+                                    flex: 2,
+                                    child: buildChipsProdutos(produtosAgrupados),
+                                  )
+                                : const SizedBox(),
                             
                             const SizedBox(width: 12),
                             
