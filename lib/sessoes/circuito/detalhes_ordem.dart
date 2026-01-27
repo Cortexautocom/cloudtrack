@@ -31,6 +31,9 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
   List<Map<String, dynamic>> _movimentacoes = [];
   late EtapaCircuito _etapaAtual;
 
+  // Adicionado: Variável para armazenar o número de controle da ordem
+  String? _numeroControleOrdem;
+
   final List<_EtapaInfo> _etapas = const [
     _EtapaInfo(
       etapa: EtapaCircuito.programado,
@@ -152,7 +155,32 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
   void initState() {
     super.initState();
     _etapaAtual = _resolverEtapaPorStatus(widget.ordem['status_circuito']);
+    
+    // Busca o número de controle da ordem
+    _carregarNumeroControleOrdem();
     _carregarMovimentacoes();
+  }
+
+  // NOVO MÉTODO: Carrega o número de controle da ordem da tabela 'ordens'
+  Future<void> _carregarNumeroControleOrdem() async {
+    try {
+      final ordemId = widget.ordem['ordem_id']?.toString();
+      if (ordemId == null || ordemId.isEmpty) return;
+      
+      final resultado = await _supabase
+          .from('ordens')
+          .select('n_controle')
+          .eq('id', ordemId)
+          .maybeSingle();
+          
+      if (resultado != null && resultado['n_controle'] != null) {
+        setState(() {
+          _numeroControleOrdem = resultado['n_controle']?.toString();
+        });
+      }
+    } catch (e) {
+      print('Erro ao carregar número de controle da ordem: $e');
+    }
   }
 
   Future<void> _carregarMovimentacoes() async {
@@ -275,28 +303,41 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     return placasData.toString();
   }
 
-  // Formatar número sem unidade
+  // NOVO: Formatar número no padrão '999.999'
   String _formatarNumero(double valor) {
-    if (valor % 1 == 0) {
-      // Valor inteiro
-      return valor.toInt().toString();
-    } else {
-      // Valor decimal - formata com separador de milhar
-      final partes = valor.toStringAsFixed(3).split('.');
-      final parteInteira = int.parse(partes[0]);
-      final parteDecimal = partes[1].replaceAll(RegExp(r'0*$'), '');
+    if (valor.isNaN || valor.isInfinite) return '0';
+    
+    // Arredonda para zero casas decimais
+    final valorArredondado = valor.round();
+    
+    // Converte para string
+    String valorStr = valorArredondado.abs().toString();
+    
+    // Adiciona ponto como separador de milhar
+    String resultado = '';
+    int contador = 0;
+    
+    // Percorre de trás para frente
+    for (int i = valorStr.length - 1; i >= 0; i--) {
+      resultado = valorStr[i] + resultado;
+      contador++;
       
-      if (parteDecimal.isEmpty) {
-        return parteInteira.toString();
-      } else {
-        // Corrigindo o erro - usando a função min do dart:math ou uma alternativa
-        final maxCasas = parteDecimal.length < 3 ? parteDecimal.length : 3;
-        return '$parteInteira.${parteDecimal.substring(0, maxCasas)}';
+      // Adiciona ponto a cada 3 dígitos (exceto no início)
+      if (contador == 3 && i > 0) {
+        resultado = '.$resultado';
+        contador = 0;
       }
     }
+    
+    // Adiciona sinal negativo se necessário
+    if (valorArredondado < 0) {
+      resultado = '-$resultado';
+    }
+    
+    return resultado;
   }
 
-  // 1️⃣ Card remodelado com produtos organizados
+  // 1️⃣ Card remodelado com produtos organizados - ATUALIZADO COM NÚMERO DE CONTROLE
   Widget _buildResumoCompacto() {
     final placasFormatadas = _formatarPlacas(widget.ordem['placas']);
     final produtosAgrupados = _agruparProdutosParaCarregar();
@@ -336,7 +377,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '--',
+                        _numeroControleOrdem ?? '--', // ALTERADO: Usa _numeroControleOrdem
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -420,7 +461,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        _formatarNumero(totalProdutos),
+                        _formatarNumero(totalProdutos), // FORMATADO: 999.999
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -493,7 +534,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  _formatarNumero(quantidade),
+                  _formatarNumero(quantidade), // FORMATADO: 999.999
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
