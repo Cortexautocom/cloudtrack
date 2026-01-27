@@ -45,48 +45,73 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     'f8e95435-471a-424c-947f-def8809053a0': 'gasolina_a',
     '4da89784-301f-4abe-b97e-c48729969e3d': 's500_a',
     '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 's10_a',
-  };
+  };  
 
-  // ✅ 2.2 ORDEM FIXA DOS PRODUTOS
-  static const List<String> ordemProdutos = [
-    '82c348c8-efa1-4d1a-953a-ee384d5780fc',
-    '93686e9d-6ef5-4f7c-a97d-b058b3c2c693',
-    'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1',
-    '58ce20cf-f252-4291-9ef6-f4821f22c29e',
-    '66ca957a-5698-4a02-8c9e-987770b6a151',
-    'f8e95435-471a-424c-947f-def8809053a0',
-    '4da89784-301f-4abe-b97e-c48729969e3d',
-    '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a',
-    'cecab8eb-297a-4640-81ae-e88335b88d8b',
-    'ecd91066-e763-42e3-8a0e-d982ea6da535',
-  ];
-
-  // ✅ 2.3 MÉTODO PARA OBTER COR DO PRODUTO
+  // ✅ CORREÇÃO: MÉTODO PARA OBTER COR DO PRODUTO BASEADO NO DetalhesOrdemView
   Color _obterCorProduto(String nomeProduto) {
-    switch (nomeProduto) {
-      case 'GC':
-        return const Color(0xFF3498DB); // Azul
-      case 'GA':
-        return const Color(0xFF9B59B6); // Roxo
-      case 'DS500':
-        return const Color(0xFF1ABC9C); // Verde água
-      case 'DS10':
-        return const Color(0xFF2ECC71); // Verde
-      case 'ETH':
-        return const Color(0xFFE74C3C); // Vermelho
-      case 'ANID':
-        return const Color(0xFFE67E22); // Laranja
-      case 'B100':
-        return const Color(0xFF34495E); // Azul escuro
-      case 'GAS A':
-        return const Color(0xFFF1C40F); // Amarelo
-      case 'S500 A':
-        return const Color(0xFF16A085); // Verde marinho
-      case 'S10 A':
-        return const Color(0xFF8E44AD); // Violeta
-      default:
-        return Colors.grey.shade600;
+    // Mapeamento direto baseado nos nomes EXATOS que vêm do banco
+    final Map<String, Color> mapeamentoExato = {
+      // Gasolinas
+      'G. Comum': const Color(0xFFFF6B35),
+      'G. Aditivada': const Color(0xFF00A8E8),
+      'Gasolina A': const Color(0xFFE91E63),
+      
+      // Diesels
+      'S500': const Color(0xFF8D6A9F),
+      'S10': const Color(0xFF2E294E),
+      'S500 A': const Color(0xFF9C27B0),
+      'S10 A': const Color(0xFF673AB7),
+      
+      // Etanóis      
+      'Hidratado': const Color(0xFF83B692),
+      'Anidro': const Color(0xFF4CAF50),
+      
+      // Biodiesel
+      'B100': const Color(0xFF8BC34A),
+    };
+    
+    // Primeiro tenta match exato
+    if (mapeamentoExato.containsKey(nomeProduto)) {
+      return mapeamentoExato[nomeProduto]!;
     }
+    
+    // Se não encontrar, tenta por case insensitive
+    final nomeLower = nomeProduto.toLowerCase();
+    for (var entry in mapeamentoExato.entries) {
+      if (entry.key.toLowerCase() == nomeLower) {
+        return entry.value;
+      }
+    }
+    
+    // Fallback para cores baseadas no conteúdo do nome
+    if (nomeProduto.toLowerCase().contains('comum')) {
+      return const Color(0xFFFF6B35); // Laranja
+    } else if (nomeProduto.toLowerCase().contains('aditivada')) {
+      return const Color(0xFF00A8E8); // Azul claro
+    } else if (nomeProduto.toLowerCase().contains('s500')) {
+      if (nomeProduto.toLowerCase().contains(' a')) {
+        return const Color(0xFF9C27B0); // Roxo vibrante
+      }
+      return const Color(0xFF8D6A9F); // Roxo claro
+    } else if (nomeProduto.toLowerCase().contains('s10')) {
+      if (nomeProduto.toLowerCase().contains(' a')) {
+        return const Color(0xFF673AB7); // Roxo azulado
+      }
+      return const Color(0xFF2E294E); // Azul escuro
+    } else if (nomeProduto.toLowerCase().contains('hidratado')) {
+      return const Color(0xFF83B692); // Verde claro
+    } else if (nomeProduto.toLowerCase().contains('anidro')) {
+      return const Color(0xFF4CAF50); // Verde
+    } else if (nomeProduto.toLowerCase().contains('b100')) {
+      return const Color(0xFF8BC34A); // Verde limão
+    } else if (nomeProduto.toLowerCase().contains('gasolina a')) {
+      return const Color(0xFFE91E63); // Rosa
+    } else if (nomeProduto.toLowerCase().contains('etanol')) {
+      return const Color(0xFF83B692); // Verde claro
+    }
+    
+    // Fallback padrão
+    return Colors.grey.shade600;
   }
 
   // ✅ 3.1 FUNÇÃO PARA AGRUPAR PRODUTOS POR ORDEM
@@ -521,11 +546,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     }
     return placaData.toString();
   }
-
-  String _obterQuantidadeFormatada(int quantidade) {
-    return _formatarNumero(quantidade);
-  }
-
+  
   String _formatarNumero(int valor) {
     if (valor == 0) return '0';
     
@@ -549,19 +570,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     final valorInt = valor.toInt();
     return _formatarNumero(valorInt);
   }
-
-  int _obterQuantidade(Map<String, dynamic> movimentacao) {
-    final entradaAmb = movimentacao['entrada_amb'];
-    final saidaAmb = movimentacao['saida_amb'];
-    
-    if (entradaAmb != null && entradaAmb > 0) {
-      return entradaAmb as int;
-    } else if (saidaAmb != null && saidaAmb > 0) {
-      return saidaAmb as int;
-    }
-    return 0;
-  }
-
+  
   String _obterTipoMovimentacao(Map<String, dynamic> movimentacao) {
     final entradaAmb = movimentacao['entrada_amb'];
     final saidaAmb = movimentacao['saida_amb'];
@@ -1090,10 +1099,28 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                             // ✅ 6️⃣ USAR WIDGET DE CHIPS
                             produtosAgrupados.isNotEmpty
                                 ? Expanded(
-                                    flex: 2,
+                                    flex: 3,
                                     child: buildChipsProdutos(produtosAgrupados),
                                   )
-                                : const SizedBox(),
+                                : Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: Colors.grey.shade300,
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Sem produtos',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ),
                             
                             const SizedBox(width: 12),
                             
