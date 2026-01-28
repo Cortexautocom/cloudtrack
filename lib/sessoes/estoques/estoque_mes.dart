@@ -219,12 +219,10 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   }
 
   Future<void> _carregarDadosSintetico() async {
-    // Primeiro, obter todas as datas únicas com movimentações
-    // Buscar por filial_id OU filial_destino_id (para transferências)
     var queryDatas = _supabase
         .from('movimentacoes')
         .select('data_mov')
-        .or('filial_id.eq.${widget.filialId},filial_destino_id.eq.${widget.filialId}')
+        .or('filial_id.eq.${widget.filialId},filial_destino_id.eq.${widget.filialId},filial_origem_id.eq.${widget.filialId}')
         .eq('empresa_id', _empresaId!);
 
     if (widget.mesFiltro != null) {
@@ -258,6 +256,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       // Buscar movimentações onde:
       // 1. filial_id = filial do parâmetro (movimentações normais)
       // 2. OU filial_destino_id = filial do parâmetro E tipo_mov_dest = 'entrada' (transferências entrando)
+      // 3. OU filial_origem_id = filial do parâmetro E tipo_mov_orig = 'saida' (transferências saindo)
       var queryDia = _supabase
           .from('movimentacoes')
           .select('''
@@ -294,6 +293,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             s10_a_vinte,
             filial_id,
             filial_destino_id,
+            filial_origem_id,
             tipo_mov_dest,
             produtos!movimentacoes_produto_id_fkey1(
               id,
@@ -302,7 +302,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           ''')
           .eq('empresa_id', _empresaId!)
           .eq('data_mov', dataStr)
-          .or('filial_id.eq.${widget.filialId},and(filial_destino_id.eq.${widget.filialId},tipo_mov_dest.eq.entrada)');
+          .or('filial_id.eq.${widget.filialId},and(filial_destino_id.eq.${widget.filialId},tipo_mov_dest.eq.entrada),and(filial_origem_id.eq.${widget.filialId},tipo_mov_orig.eq.saida)');
 
       if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
         queryDia = queryDia.eq('produto_id', widget.produtoFiltro!);
@@ -317,7 +317,9 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         debugPrint('  Mov $i: id=${mov['id']}, tipo_op=${mov['tipo_op']}, '
             'filial_id=${mov['filial_id']}, '
             'filial_destino_id=${mov['filial_destino_id']}, '
-            'tipo_mov_dest=${mov['tipo_mov_dest']}');
+            'filial_origem_id=${mov['filial_origem_id']}, '
+            'tipo_mov_dest=${mov['tipo_mov_dest']}, '
+            'tipo_mov_orig=${mov['tipo_mov_orig']}');
       }
 
       // Inicializar totais
@@ -335,12 +337,15 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         final caclId = mov['cacl_id']?.toString();
         final filialId = mov['filial_id']?.toString();
         final filialDestinoId = mov['filial_destino_id']?.toString();
+        final filialOrigemId = mov['filial_origem_id']?.toString();
         final tipoMovDest = mov['tipo_mov_dest']?.toString();
+        final tipoMovOrig = mov['tipo_mov_orig']?.toString();
         
         // DEBUG
         debugPrint('Processando mov ${mov['id']}: tipo_op=$tipoOp, '
             'filial_id=$filialId, filial_destino_id=$filialDestinoId, '
-            'tipo_mov_dest=$tipoMovDest');
+            'filial_origem_id=$filialOrigemId, '
+            'tipo_mov_dest=$tipoMovDest, tipo_mov_orig=$tipoMovOrig');
         
         if (tipoOp == 'cacl' && caclId != null && caclId.isNotEmpty) {
           idsCaclParaVerificar.add(caclId);
@@ -386,10 +391,11 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             // Adicionar os totais
             totalEntradaAmb += totalEntradaAmbTransf;
             totalEntradaVinte += totalEntradaVinteTransf;
-          } else {
-            // Para outras transferências (não entrada nesta filial), tratar como saída
-            // Isso inclui transferências saindo desta filial ou entrando em outra
-            debugPrint('  -> Transferência SAÍDA ou entrada em outra filial');
+          } 
+          // Se filial_origem_id = filial do parâmetro E tipo_mov_orig = 'saida'
+          // Então é uma SAÍDA desta filial
+          else if (filialOrigemId == widget.filialId && tipoMovOrig == 'saida') {
+            debugPrint('  -> Transferência SAÍDA detectada!');
             
             // Somar TODAS as colunas específicas para saida_amb
             num totalSaidaAmbTransf = 0;
@@ -425,6 +431,9 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             // Adicionar os totais
             totalSaidaAmb += totalSaidaAmbTransf;
             totalSaidaVinte += totalSaidaVinteTransf;
+          } else {
+            // Para transferências que não são nem entrada nem saída nesta filial, ignorar
+            debugPrint('  -> Transferência ignorada (não é entrada nem saída nesta filial)');
           }
         } else if (tipoOp == 'venda') {
           // Para vendas, somar TODAS as colunas específicas e colocar o total em saida_amb
