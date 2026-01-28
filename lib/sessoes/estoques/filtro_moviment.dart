@@ -106,15 +106,15 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
 
     final dados = await _supabase
         .from('filiais')
-        .select('id, nome')
+        .select('id, nome_dois, nome')
         .eq('empresa_id', usuario.empresaId!)
-        .order('nome');
+        .order('nome_dois');
 
     final lista = List<Map<String, dynamic>>.from(dados);
 
     if (usuario.nivel == 3) {
       _filiais = [
-        {'id': 'todas', 'nome': 'Todas'},
+        {'id': 'todas', 'nome_dois': 'Todas', 'nome': 'Todas'},
         ...lista,
       ];
     } else {
@@ -195,8 +195,6 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
         children: [
           _buildCardFiltros(),
           const SizedBox(height: 20),
-          _buildResumo(),
-          const SizedBox(height: 30),
           _buildBotoes(),
         ],
       ),
@@ -206,247 +204,509 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
   // ===================== COMPONENTES =====================
 
   Widget _buildCardFiltros() {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Filtros de Consulta',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF0D47A1),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            Row(
-              children: [
-                Expanded(
-                  child: _buildDropdown(
-                    label: 'Filial',
-                    value: _filialSelecionada,
-                    items: _filiais
-                        .map((f) => DropdownMenuItem(
-                              value: f['id'],
-                              child: Text(f['nome']),
-                            ))
-                        .toList(),
-                    onChanged: usuario.nivel == 3
-                        ? (v) => setState(() => _filialSelecionada = v)
-                        : null,
-                  ),
-                ),
-                const SizedBox(width: 12),
-
-                Expanded(
-                  child: _buildDropdown(
-                    label: 'Produto',
-                    value: _produtoSelecionado,
-                    items: _produtos
-                        .map((p) => DropdownMenuItem(
-                              value: p['id'],
-                              child: Text(p['nome']),
-                            ))
-                        .toList(),
-                    onChanged: (v) => setState(() => _produtoSelecionado = v),
-                  ),
-                ),
-                const SizedBox(width: 12),
-
-                Expanded(
-                  child: _buildDropdown(
-                    label: 'Tipo movimentação',
-                    value: _tipoMov,
-                    items: const [
-                      DropdownMenuItem(value: 'todos', child: Text('Todos')),
-                      DropdownMenuItem(value: 'entrada', child: Text('Entrada')),
-                      DropdownMenuItem(value: 'saida', child: Text('Saída')),
-                    ],
-                    onChanged: (v) => setState(() => _tipoMov = v!),
-                  ),
-                ),
-                const SizedBox(width: 12),
-
-                Expanded(
-                  child: _buildDropdown(
-                    label: 'Tipo operação',
-                    value: _tipoOp,
-                    items: const [
-                      DropdownMenuItem(value: 'todos', child: Text('Todos')),
-                      DropdownMenuItem(value: 'venda', child: Text('Venda')),
-                      DropdownMenuItem(
-                          value: 'transf', child: Text('Transferência')),
-                    ],
-                    onChanged: (v) => setState(() => _tipoOp = v!),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            Row(
-              children: [
-                Expanded(
-                    child: _buildCampoData(
-                        label: 'Data início',
-                        controller: _dataInicioController)),
-                const SizedBox(width: 12),
-                Expanded(
-                    child: _buildCampoData(
-                        label: 'Data fim',
-                        controller: _dataFimController)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildDropdown(
-                    label: 'Relatório',
-                    value: _modoRelatorio,
-                    items: const [
-                      DropdownMenuItem(
-                          value: 'sintetico', child: Text('Sintético')),
-                      DropdownMenuItem(
-                          value: 'analitico', child: Text('Analítico')),
-                    ],
-                    onChanged: (v) =>
-                        setState(() => _modoRelatorio = v!),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300, width: 1),
       ),
-    );
-  }
-
-  Widget _buildCampoData({
-    required String label,
-    required TextEditingController controller,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 13)),
-        const SizedBox(height: 6),
-        TextFormField(
-          controller: controller,
-          keyboardType: TextInputType.datetime,
-          decoration: const InputDecoration(
-            isDense: true,
-            border: OutlineInputBorder(),
-            hintText: 'dd/mm/aaaa',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header do card
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+            child: Row(
+              children: [
+                Icon(Icons.filter_alt, color: const Color(0xFF0D47A1), size: 20),
+                const SizedBox(width: 10),
+                const Text(
+                  'Filtros de Consulta',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0D47A1),
+                  ),
+                ),
+              ],
+            ),
           ),
-          onChanged: (novoValor) {
-            _aplicarMascaraData(controller, controller.text, novoValor);
-          },
-        ),
-      ],
-    );
-  }
+          const SizedBox(height: 20),
 
-  Widget _buildResumo() {
-    return Card(
-      elevation: 1,
-      color: Colors.grey[50],
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(
-          'Resumo pronto. Nenhuma ação ainda.',
-          style: TextStyle(color: Colors.grey[700]),
-        ),
+          // Linha 1: Filial, Produto, Tipo Movimentação, Tipo Operação
+          Row(
+            children: [
+              // Campo Filial
+              Expanded(
+                flex: 1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Filial',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0D47A1),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: Colors.grey.shade400, width: 1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _filialSelecionada,
+                          isExpanded: true,
+                          icon: const Icon(Icons.arrow_drop_down, size: 20),
+                          style: const TextStyle(fontSize: 13, color: Colors.black),
+                          onChanged: usuario.nivel == 3
+                              ? (v) => setState(() => _filialSelecionada = v)
+                              : null,
+                          items: _filiais.map((filial) {
+                            return DropdownMenuItem<String>(
+                              value: filial['id']?.toString(),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                child: Text(filial['nome_dois']?.toString() ?? ''),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(width: 16),
+              
+              // Campo Produto
+              Expanded(
+                flex: 1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Produto',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0D47A1),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: Colors.grey.shade400, width: 1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _produtoSelecionado,
+                          isExpanded: true,
+                          icon: const Icon(Icons.arrow_drop_down, size: 20),
+                          style: const TextStyle(fontSize: 13, color: Colors.black),
+                          onChanged: (v) => setState(() => _produtoSelecionado = v),
+                          items: _produtos.map((produto) {
+                            return DropdownMenuItem<String>(
+                              value: produto['id']?.toString(),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                child: Text(produto['nome']?.toString() ?? ''),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(width: 16),
+              
+              // Campo Tipo Movimentação
+              Expanded(
+                flex: 1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Tipo movimentação',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0D47A1),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: Colors.grey.shade400, width: 1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _tipoMov,
+                          isExpanded: true,
+                          icon: const Icon(Icons.arrow_drop_down, size: 20),
+                          style: const TextStyle(fontSize: 13, color: Colors.black),
+                          onChanged: (v) => setState(() => _tipoMov = v!),
+                          items: const [
+                            DropdownMenuItem(value: 'todos', child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('Todos'),
+                            )),
+                            DropdownMenuItem(value: 'entrada', child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('Entrada'),
+                            )),
+                            DropdownMenuItem(value: 'saida', child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('Saída'),
+                            )),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(width: 16),
+              
+              // Campo Tipo Operação
+              Expanded(
+                flex: 1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Tipo operação',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0D47A1),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: Colors.grey.shade400, width: 1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _tipoOp,
+                          isExpanded: true,
+                          icon: const Icon(Icons.arrow_drop_down, size: 20),
+                          style: const TextStyle(fontSize: 13, color: Colors.black),
+                          onChanged: (v) => setState(() => _tipoOp = v!),
+                          items: const [
+                            DropdownMenuItem(value: 'todos', child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('Todos'),
+                            )),
+                            DropdownMenuItem(value: 'venda', child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('Venda'),
+                            )),
+                            DropdownMenuItem(value: 'transf', child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('Transferência'),
+                            )),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Linha 2: Data Início, Data Fim, Relatório
+          Row(
+            children: [
+              // Campo Data Início
+              Expanded(
+                flex: 1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Data início',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0D47A1),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    TextFormField(
+                      controller: _dataInicioController,
+                      keyboardType: TextInputType.datetime,
+                      style: const TextStyle(fontSize: 13),
+                      onChanged: (novoValor) {
+                        _aplicarMascaraData(_dataInicioController, _dataInicioController.text, novoValor);
+                      },
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        hintText: 'dd/mm/aaaa',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.2),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(width: 16),
+              
+              // Campo Data Fim
+              Expanded(
+                flex: 1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Data fim',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0D47A1),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    TextFormField(
+                      controller: _dataFimController,
+                      keyboardType: TextInputType.datetime,
+                      style: const TextStyle(fontSize: 13),
+                      onChanged: (novoValor) {
+                        _aplicarMascaraData(_dataFimController, _dataFimController.text, novoValor);
+                      },
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        hintText: 'dd/mm/aaaa',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.2),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(width: 16),
+              
+              // Campo Relatório
+              Expanded(
+                flex: 1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Relatório',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0D47A1),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: Colors.grey.shade400, width: 1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _modoRelatorio,
+                          isExpanded: true,
+                          icon: const Icon(Icons.arrow_drop_down, size: 20),
+                          style: const TextStyle(fontSize: 13, color: Colors.black),
+                          onChanged: (v) => setState(() => _modoRelatorio = v!),
+                          items: const [
+                            DropdownMenuItem(value: 'sintetico', child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('Sintético'),
+                            )),
+                            DropdownMenuItem(value: 'analitico', child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('Analítico'),
+                            )),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildBotoes() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: 200,
-          child: OutlinedButton(
-            onPressed: () {},
-            child: const Text('Redefinir'),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Botão Redefinir
+          SizedBox(
+            width: 140,
+            height: 36,
+            child: OutlinedButton(
+              onPressed: () {
+                setState(() {
+                  if (usuario.nivel < 3) {
+                    _filialSelecionada = usuario.filialId;
+                  } else {
+                    _filialSelecionada = 'todas';
+                  }
+                  _produtoSelecionado = 'todos';
+                  _tipoMov = 'todos';
+                  _tipoOp = 'todos';
+                  _modoRelatorio = 'sintetico';
+                  
+                  final now = DateTime.now();
+                  final hojeFormatado = _formatarData(now);
+                  _dataInicioController.text = hojeFormatado;
+                  _dataFimController.text = hojeFormatado;
+                });
+              },
+              style: OutlinedButton.styleFrom(
+                padding: EdgeInsets.zero,
+                side: BorderSide(color: Colors.grey.shade400, width: 1),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              child: const Text(
+                'Redefinir',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Color.fromARGB(255, 95, 95, 95),
+                ),
+              ),
+            ),
           ),
-        ),
-        const SizedBox(width: 16),
-        SizedBox(
-          width: 200,
-          child: ElevatedButton(
-            onPressed: () {
-              try {
-                final partesInicio =
-                    _dataInicioController.text.split('/');
-                final partesFim =
-                    _dataFimController.text.split('/');
+          
+          const SizedBox(width: 16),
+          
+          // Botão Consultar
+          SizedBox(
+            width: 140,
+            height: 36,
+            child: ElevatedButton(
+              onPressed: () {
+                try {
+                  final partesInicio = _dataInicioController.text.split('/');
+                  final partesFim = _dataFimController.text.split('/');
 
-                final dataInicio = DateTime(
-                  int.parse(partesInicio[2]),
-                  int.parse(partesInicio[1]),
-                  int.parse(partesInicio[0]),
-                );
+                  final dataInicio = DateTime(
+                    int.parse(partesInicio[2]),
+                    int.parse(partesInicio[1]),
+                    int.parse(partesInicio[0]),
+                  );
 
-                final dataFim = DateTime(
-                  int.parse(partesFim[2]),
-                  int.parse(partesFim[1]),
-                  int.parse(partesFim[0]),
-                );
+                  final dataFim = DateTime(
+                    int.parse(partesFim[2]),
+                    int.parse(partesFim[1]),
+                    int.parse(partesFim[0]),
+                  );
 
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MovimentacoesPage(
-                      filialId: _filialSelecionada ?? 'todas',
-                      dataInicio: dataInicio,
-                      dataFim: dataFim,
-                      produtoId: _produtoSelecionado ?? 'todos',
-                      tipoMov: _tipoMov,
-                      tipoOp: _tipoOp,
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MovimentacoesPage(
+                        filialId: _filialSelecionada ?? 'todas',
+                        dataInicio: dataInicio,
+                        dataFim: dataFim,
+                        produtoId: _produtoSelecionado ?? 'todos',
+                        tipoMov: _tipoMov,
+                        tipoOp: _tipoOp,
+                      ),
+                    ),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Data inválida. Use o formato dd/mm/aaaa'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0D47A1),
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.search, size: 16),
+                  SizedBox(width: 6),
+                  Text(
+                    'Consultar',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content:
-                        Text('Data inválida. Use o formato dd/mm/aaaa'),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
-              }
-            },
-            child: const Text('Consultar'),
+                ],
+              ),
+            ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDropdown({
-    required String label,
-    required dynamic value,
-    required List<DropdownMenuItem> items,
-    required ValueChanged? onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 13)),
-        const SizedBox(height: 6),
-        DropdownButtonFormField(
-          value: value,
-          items: items,
-          onChanged: onChanged,
-          decoration: const InputDecoration(
-            isDense: true,
-            border: OutlineInputBorder(),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
