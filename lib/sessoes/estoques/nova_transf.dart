@@ -286,6 +286,9 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
   DateTime _dataSelecionada = DateTime.now();
   bool _salvando = false;
   
+  // NOVO FLAG DE CONTROLE (PASSO 1)
+  bool _preenchimentoAutomaticoAtivo = false;
+  
   // Controllers para os campos
   final TextEditingController _motoristaController = TextEditingController();
   final TextEditingController _quantidadeController = TextEditingController();
@@ -396,6 +399,107 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       hoje.add(const Duration(days: 4)),
     ];
     _datasFormatadas = _datasDisponiveis.map(_formatarData).toList();
+  }
+
+  // PASSO 7: FUNÇÃO PARA APLICAR MÁSCARA DE PLACA ABC-1234
+  String _aplicarMascaraPlaca(String texto) {
+    final limpo = texto
+        .toUpperCase()
+        .replaceAll(RegExp(r'[^A-Z0-9]'), '');
+
+    if (limpo.length <= 3) return limpo;
+
+    final letras = limpo.substring(0, 3);
+    final numeros = limpo.substring(3, limpo.length.clamp(3, 7));
+
+    return '$letras-$numeros';
+  }
+
+  // PASSO 8: FUNÇÃO DE INVALIDAÇÃO AO EDITAR PLACA MANUALMENTE
+  void _onEdicaoManualPlaca(String texto, TextEditingController controller) {
+    if (_preenchimentoAutomaticoAtivo) {
+      _preenchimentoAutomaticoAtivo = false;
+      _limparMotoristaEPlacas();
+    }
+
+    controller.value = TextEditingValue(
+      text: _aplicarMascaraPlaca(texto),
+      selection: TextSelection.collapsed(
+        offset: _aplicarMascaraPlaca(texto).length,
+      ),
+    );
+  }
+
+  // PASSO 3: FUNÇÃO PARA LIMPAR MOTORISTA E PLACAS
+  void _limparMotoristaEPlacas() {
+    setState(() {
+      _motoristaController.clear();
+      _motoristaId = null;
+
+      _cavaloController.clear();
+      _reboque1Controller.clear();
+      _reboque2Controller.clear();
+      
+      // NOVO: Também limpar a transportadora
+      _transportadoraController.clear();
+      _transportadoraId = null;
+    });
+  }
+
+  // PASSO 4: FUNÇÃO PARA APLICAR O CONJUNTO NOS CAMPOS
+  // PASSO 4: FUNÇÃO PARA APLICAR O CONJUNTO NOS CAMPOS
+  void _aplicarConjuntoNosCampos(Map<String, dynamic> conjunto) {
+    setState(() {
+      _preenchimentoAutomaticoAtivo = true;
+
+      _cavaloController.text = _aplicarMascaraPlaca(conjunto['cavalo'] ?? '');
+      _reboque1Controller.text = _aplicarMascaraPlaca(conjunto['reboque_um'] ?? '');
+      _reboque2Controller.text = _aplicarMascaraPlaca(conjunto['reboque_dois'] ?? '');
+      
+      // NOVO: Definir transportadora como "Petroserra" automaticamente
+      _transportadoraController.text = 'Petroserra';
+      
+      // Vamos também buscar o ID da transportadora Petroserra
+      _buscarIdTransportadoraPetroserra();
+    });
+  }
+
+  Future<void> _buscarIdTransportadoraPetroserra() async {
+    try {
+      final supabase = Supabase.instance.client;
+      
+      final response = await supabase
+          .from('transportadoras')
+          .select('id')
+          .eq('nome_dois', 'Petroserra')
+          .limit(1)
+          .maybeSingle();
+      
+      if (response != null) {
+        _transportadoraId = response['id']?.toString();
+      }
+    } catch (e) {
+      debugPrint('Erro ao buscar ID da Petroserra: $e');
+    }
+  }
+
+  // PASSO 2: FUNÇÃO PARA BUSCAR UM CONJUNTO PELO MOTORISTA
+  Future<Map<String, dynamic>?> _buscarConjuntoPorMotorista(String motoristaId) async {
+    try {
+      final supabase = Supabase.instance.client;
+
+      final response = await supabase
+          .from('conjuntos')
+          .select('cavalo, reboque_um, reboque_dois')
+          .eq('motorista_id', motoristaId)
+          .limit(1)
+          .maybeSingle();
+
+      return response;
+    } catch (e) {
+      debugPrint('Erro ao buscar conjunto por motorista: $e');
+      return null;
+    }
   }
 
   Future<void> _carregarDadosUsuario() async {
@@ -660,21 +764,21 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
 
   void _selecionarPlacaCavalo(Map<String, dynamic> item) {
     setState(() {
-      _cavaloController.text = item['placas'];
+      _cavaloController.text = _aplicarMascaraPlaca(item['placas']);
       _mostrarSugestoesCavalo = false;
     });
   }
 
   void _selecionarPlacaReboque1(Map<String, dynamic> item) {
     setState(() {
-      _reboque1Controller.text = item['placas'];
+      _reboque1Controller.text = _aplicarMascaraPlaca(item['placas']);
       _mostrarSugestoesReboque1 = false;
     });
   }
 
   void _selecionarPlacaReboque2(Map<String, dynamic> item) {
     setState(() {
-      _reboque2Controller.text = item['placas'];
+      _reboque2Controller.text = _aplicarMascaraPlaca(item['placas']);
       _mostrarSugestoesReboque2 = false;
     });
   }
@@ -1000,7 +1104,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    item['placas'],
+                                    _aplicarMascaraPlaca(item['placas']),
                                     style: const TextStyle(fontSize: 13),
                                   ),
                                 ),
@@ -1251,7 +1355,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                     // Linha 2: Motorista, Cavalo, Reboque 1, Reboque 2
                     Row(
                       children: [
-                        // Campo Motorista (autocomplete)
+                        // Campo Motorista (autocomplete) - PASSO 5: MODIFICADO
                         Expanded(
                           flex: 2,
                           child: _buildCampoAutocomplete<Map<String, dynamic>>(
@@ -1260,15 +1364,24 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                             buscarItens: _buscarMotoristas,
                             obterTextoExibicao: (item) => item['nome']?.toString() ?? '',
                             obterId: (item) => item['id']?.toString() ?? '',
-                            onSelecionado: (motorista) {
+                            onSelecionado: (motorista) async {
                               _motoristaId = motorista['id']?.toString();
+
+                              final conjunto = await _buscarConjuntoPorMotorista(_motoristaId!);
+
+                              if (conjunto == null) {
+                                _limparMotoristaEPlacas();
+                                return;
+                              }
+
+                              _aplicarConjuntoNosCampos(conjunto);
                             },
                           ),
                         ),
                         
                         const SizedBox(width: 16),
                         
-                        // Campo Cavalo (autocomplete melhorado)
+                        // Campo Cavalo (autocomplete melhorado) - PASSO 9: MODIFICADO
                         Expanded(
                           flex: 1,
                           child: _buildCampoPlaca(
@@ -1278,14 +1391,17 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                             mostrarSugestoes: _mostrarSugestoesCavalo,
                             carregando: _carregandoPlacasCavalo,
                             placasEncontradas: _placasCavaloEncontradas,
-                            onChanged: (texto) => _buscarPlacasCavalo(texto),
+                            onChanged: (texto) {
+                              _onEdicaoManualPlaca(texto, _cavaloController);
+                              _buscarPlacasCavalo(texto);
+                            },
                             onSelecionar: _selecionarPlacaCavalo,
                           ),
                         ),
                         
                         const SizedBox(width: 16),
                         
-                        // Campo Reboque 1
+                        // Campo Reboque 1 - PASSO 9: MODIFICADO
                         Expanded(
                           flex: 1,
                           child: _buildCampoPlaca(
@@ -1295,14 +1411,17 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                             mostrarSugestoes: _mostrarSugestoesReboque1,
                             carregando: _carregandoPlacasReboque1,
                             placasEncontradas: _placasReboque1Encontradas,
-                            onChanged: (texto) => _buscarPlacasReboque1(texto),
+                            onChanged: (texto) {
+                              _onEdicaoManualPlaca(texto, _reboque1Controller);
+                              _buscarPlacasReboque1(texto);
+                            },
                             onSelecionar: _selecionarPlacaReboque1,
                           ),
                         ),
                         
                         const SizedBox(width: 16),
                         
-                        // Campo Reboque 2
+                        // Campo Reboque 2 - PASSO 9: MODIFICADO
                         Expanded(
                           flex: 1,
                           child: _buildCampoPlaca(
@@ -1312,7 +1431,10 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                             mostrarSugestoes: _mostrarSugestoesReboque2,
                             carregando: _carregandoPlacasReboque2,
                             placasEncontradas: _placasReboque2Encontradas,
-                            onChanged: (texto) => _buscarPlacasReboque2(texto),
+                            onChanged: (texto) {
+                              _onEdicaoManualPlaca(texto, _reboque2Controller);
+                              _buscarPlacasReboque2(texto);
+                            },
                             onSelecionar: _selecionarPlacaReboque2,
                           ),
                         ),
