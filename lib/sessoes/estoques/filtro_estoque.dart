@@ -12,7 +12,7 @@ class FiltroEstoquePage extends StatefulWidget {
     String? empresaId,
     DateTime? mesFiltro,
     String? produtoFiltro,
-    required String tipoRelatorio, // Adicionado novo parâmetro
+    required String tipoRelatorio,
   }) onConsultarEstoque;
   final VoidCallback onVoltar;
 
@@ -34,18 +34,15 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
   final SupabaseClient _supabase = Supabase.instance.client;
   DateTime? _mesSelecionado;
   String? _produtoSelecionado;
-  String _tipoRelatorio = 'sintetico'; // Valor padrão: Sintético
-  List<Map<String, String>> _produtosDisponiveis = [];
+  String _tipoRelatorio = 'sintetico';
+  List<Map<String, dynamic>> _produtosDisponiveis = [];
   bool _carregandoProdutos = false;
-  // ignore: prefer_final_fields
   bool _carregando = false;
 
   @override
   void initState() {
     super.initState();
-    // Inicializar mês atual como padrão
     _mesSelecionado = DateTime.now();
-    // Carregar produtos disponíveis
     _carregarProdutosDisponiveis();
   }
 
@@ -53,30 +50,26 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
     setState(() => _carregandoProdutos = true);
     
     try {
-      // ALTERAÇÃO: Consultar diretamente a tabela de produtos
-      // para obter TODOS os produtos do sistema
       final dados = await _supabase
-          .from('produtos')  // ← Mudado de 'movimentacoes' para 'produtos'
-          .select('id, nome')  // ← Seleciona apenas id e nome
-          .order('nome');  // ← Ordena por nome
+          .from('produtos')
+          .select('id, nome')
+          .order('nome');
+      
+      final List<Map<String, dynamic>> produtos = [];
+      for (var produto in dados) {
+        produtos.add({
+          'id': produto['id'].toString(),
+          'nome': produto['nome'].toString(),
+        });
+      }
+      
+      final produtosOrdenados = _ordenarProdutosPorClasse(produtos);
       
       setState(() {
-        // Adicionar opção "<selecione>" no início
         _produtosDisponiveis = [
           {'id': '', 'nome': '<selecione>'}
         ];
-        
-        // Adicionar TODOS os produtos da tabela
-        for (var produto in dados) {
-          if (produto['id'] != null && produto['nome'] != null) {
-            _produtosDisponiveis.add({
-              'id': produto['id'].toString(),
-              'nome': produto['nome'].toString(),
-            });
-          }
-        }
-        
-        // Por padrão, seleciona "<selecione>" (valor vazio)
+        _produtosDisponiveis.addAll(produtosOrdenados);
         _produtoSelecionado = '';
       });
     } catch (e) {
@@ -90,6 +83,33 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
     } finally {
       setState(() => _carregandoProdutos = false);
     }
+  }
+
+  List<Map<String, dynamic>> _ordenarProdutosPorClasse(
+    List<Map<String, dynamic>> produtos,
+  ) {
+    const ordemPorId = {
+      '82c348c8-efa1-4d1a-953a-ee384d5780fc': 1,
+      '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 2,
+      'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': 3,
+      '58ce20cf-f252-4291-9ef6-f4821f22c29e': 4,
+      '66ca957a-5698-4a02-8c9e-987770b6a151': 5,
+      'f8e95435-471a-424c-947f-def8809053a0': 6,
+      '4da89784-301f-4abe-b97e-c48729969e3d': 7,
+      '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 8,
+      'cecab8eb-297a-4640-81ae-e88335b88d8b': 9,
+      'ecd91066-e763-42e3-8a0e-d982ea6da535': 10,
+    };
+
+    produtos.sort((a, b) {
+      final idA = a['id'].toString().toLowerCase();
+      final idB = b['id'].toString().toLowerCase();
+
+      return (ordemPorId[idA] ?? 999)
+          .compareTo(ordemPorId[idB] ?? 999);
+    });
+
+    return produtos;
   }
 
   Future<void> _selecionarMes(BuildContext context) async {
@@ -133,31 +153,29 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Por favor, selecione um mês.'),
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.orange,
         ),
       );
       return;
     }
 
-    // Verificar se um produto foi selecionado
     if (_produtoSelecionado == null || _produtoSelecionado!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Por favor, selecione um produto.'),
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.orange,
         ),
       );
       return;
     }
 
-    // Chamar o callback passado pelo pai
     widget.onConsultarEstoque(
       filialId: widget.filialId,
       nomeFilial: widget.nomeFilial,
       empresaId: widget.empresaId,
       mesFiltro: _mesSelecionado,
       produtoFiltro: _produtoSelecionado,
-      tipoRelatorio: _tipoRelatorio, // Passando o tipo de relatório
+      tipoRelatorio: _tipoRelatorio,
     );
   }
 
@@ -165,7 +183,7 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
     setState(() {
       _mesSelecionado = DateTime.now();
       _produtoSelecionado = '';
-      _tipoRelatorio = 'sintetico'; // Resetar para valor padrão
+      _tipoRelatorio = 'sintetico';
     });
   }
 
@@ -180,9 +198,9 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Filtros de Estoque',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -230,369 +248,350 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // FILTROS EM LINHA
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Filtros de Consulta',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0D47A1),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Linha com os três filtros
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Filtro de Mês
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Mês de referência *',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            InkWell(
-                              onTap: () => _selecionarMes(context),
-                              borderRadius: BorderRadius.circular(8),
-                              child: Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 14,
-                                ),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey.shade300),
-                                  borderRadius: BorderRadius.circular(8),
-                                  color: Colors.white,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      _mesSelecionado != null
-                                        ? '${_mesSelecionado!.month.toString().padLeft(2, '0')}/${_mesSelecionado!.year}'
-                                        : 'Selecione o mês',
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                    const Icon(Icons.calendar_today, color: Colors.grey, size: 20),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      
-                      const SizedBox(width: 16),
-                      
-                      // Filtro de Produto
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Produto *',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            if (_carregandoProdutos)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 14,
-                                ),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey.shade300),
-                                  borderRadius: BorderRadius.circular(8),
-                                  color: Colors.white,
-                                ),
-                                child: const Center(
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Color(0xFF0D47A1),
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                ),
-                              )
-                            else
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey.shade300),
-                                  borderRadius: BorderRadius.circular(8),
-                                  color: Colors.white,
-                                ),
-                                child: DropdownButton<String>(
-                                  value: _produtoSelecionado,
-                                  isExpanded: true,
-                                  underline: const SizedBox(),
-                                  icon: const Icon(Icons.arrow_drop_down, color: Colors.grey),
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.black87,
-                                  ),
-                                  onChanged: (String? novoValor) {
-                                    setState(() {
-                                      _produtoSelecionado = novoValor;
-                                    });
-                                  },
-                                  items: _produtosDisponiveis.map<DropdownMenuItem<String>>((produto) {
-                                    return DropdownMenuItem<String>(
-                                      value: produto['id']!,
-                                      child: Text(
-                                        produto['nome']!,
-                                        style: TextStyle(
-                                          color: produto['id']!.isEmpty ? Colors.grey : Colors.black87,
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      
-                      const SizedBox(width: 16),
-                      
-                      // NOVO FILTRO: Tipo de relatório
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Tipo de relatório',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(8),
-                                color: Colors.white,
-                              ),
-                              child: DropdownButton<String>(
-                                value: _tipoRelatorio,
-                                isExpanded: true,
-                                underline: const SizedBox(),
-                                icon: const Icon(Icons.arrow_drop_down, color: Colors.grey),
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.black87,
-                                ),
-                                onChanged: (String? novoValor) {
-                                  setState(() {
-                                    _tipoRelatorio = novoValor!;
-                                  });
-                                },
-                                items: const [
-                                  DropdownMenuItem<String>(
-                                    value: 'sintetico',
-                                    child: Text('Sintético'),
-                                  ),
-                                  DropdownMenuItem<String>(
-                                    value: 'analitico',
-                                    child: Text('Analítico'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
+          _buildCardFiltros(),
           const SizedBox(height: 20),
-          
-          // RESUMO DOS FILTROS EM LINHA
-          Card(
-            elevation: 1,
-            color: Colors.grey[50],
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Resumo dos filtros:',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  
-                  // Itens do resumo em linha
-                  Wrap(
-                    spacing: 24,
-                    runSpacing: 12,
-                    children: [
-                      _buildItemResumoLinha(
-                        'Filial:',
-                        widget.nomeFilial,
-                        Icons.store,
-                      ),
-                      if (widget.empresaNome != null)
-                        _buildItemResumoLinha(
-                          'Empresa:',
-                          widget.empresaNome!,
-                          Icons.business,
-                        ),
-                      _buildItemResumoLinha(
-                        'Mês:',
-                        _mesSelecionado != null
-                          ? '${_mesSelecionado!.month.toString().padLeft(2, '0')}/${_mesSelecionado!.year}'
-                          : 'Não selecionado',
-                        Icons.calendar_today,
-                      ),
-                      _buildItemResumoLinha(
-                        'Produto:',
-                        _produtoSelecionado != null && _produtoSelecionado!.isNotEmpty
-                          ? _produtosDisponiveis
-                              .firstWhere(
-                                (prod) => prod['id'] == _produtoSelecionado,
-                                orElse: () => {'id': '', 'nome': 'Não selecionado'}
-                              )['nome']!
-                          : 'Não selecionado',
-                        Icons.inventory_2,
-                      ),
-                      _buildItemResumoLinha(
-                        'Tipo de relatório:',
-                        _tipoRelatorio == 'sintetico' ? 'Sintético' : 'Analítico',
-                        Icons.assessment,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: 30),
-          
-          // BOTÕES DE AÇÃO
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 200, // Largura máxima definida
-                child: OutlinedButton(
-                  onPressed: _resetarFiltros,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: BorderSide(color: Colors.grey.shade400),
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.refresh, size: 18),
-                      SizedBox(width: 8),
-                      Text('Redefinir'),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              SizedBox(
-                width: 200, // Largura máxima definida
-                child: ElevatedButton(
-                  onPressed: _irParaEstoqueMes,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0D47A1),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('Consultar Estoque'),
-                      SizedBox(width: 8),
-                      Icon(Icons.arrow_forward, size: 18),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          
+          _buildCardResumo(),
           const SizedBox(height: 20),
-          
-          // NOTAS
+          _buildBotoes(),
+          const SizedBox(height: 20),
+          _buildNotas(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardFiltros() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header do card
           Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.blue.shade100),
-            ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+            child: Row(
               children: [
-                Row(
+                Icon(Icons.filter_alt, color: const Color(0xFF0D47A1), size: 20),
+                const SizedBox(width: 10),
+                const Text(
+                  'Filtros de Consulta',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0D47A1),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Linha com os três filtros
+          Row(
+            children: [
+              // Campo Mês de Referência
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.info, color: Colors.blue, size: 18),
-                    SizedBox(width: 8),
-                    Text(
-                      'Observações:',
+                    const Text(
+                      'Mês de referência *',
                       style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0D47A1),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    InkWell(
+                      onTap: () => _selecionarMes(context),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: Colors.grey.shade400, width: 1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _mesSelecionado != null
+                                ? '${_mesSelecionado!.month.toString().padLeft(2, '0')}/${_mesSelecionado!.year}'
+                                : 'Selecione o mês',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                            Icon(
+                              Icons.calendar_today,
+                              color: Colors.grey.shade600,
+                              size: 16,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: 8),
-                Text(
-                  '• O mês de referência é obrigatório para a consulta.',
-                  style: TextStyle(fontSize: 12, color: Color.fromARGB(255, 19, 96, 184)),
+              ),
+              
+              const SizedBox(width: 16),
+              
+              // Campo Produto
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Produto *',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0D47A1),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    if (_carregandoProdutos)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: Colors.grey.shade400, width: 1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Center(
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              color: const Color(0xFF0D47A1),
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: Colors.grey.shade400, width: 1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _produtoSelecionado,
+                            isExpanded: true,
+                            icon: const Icon(Icons.arrow_drop_down, size: 20),
+                            style: const TextStyle(fontSize: 13, color: Colors.black),
+                            onChanged: (String? novoValor) {
+                              setState(() {
+                                _produtoSelecionado = novoValor;
+                              });
+                            },
+                            items: _produtosDisponiveis.map<DropdownMenuItem<String>>((produto) {
+                              return DropdownMenuItem<String>(
+                                value: produto['id']!,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  child: Text(
+                                    produto['nome']!,
+                                    style: TextStyle(
+                                      color: produto['id']!.isEmpty 
+                                          ? Colors.grey.shade600 
+                                          : Colors.black,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-                Text(
-                  '• A seleção de um produto é obrigatória para a consulta.',
-                  style: TextStyle(fontSize: 12, color: Color.fromARGB(255, 19, 96, 184)),
+              ),
+              
+              const SizedBox(width: 16),
+              
+              // Campo Tipo de Relatório
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Tipo de relatório',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0D47A1),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: Colors.grey.shade400, width: 1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _tipoRelatorio,
+                          isExpanded: true,
+                          icon: const Icon(Icons.arrow_drop_down, size: 20),
+                          style: const TextStyle(fontSize: 13, color: Colors.black),
+                          onChanged: (String? novoValor) {
+                            setState(() {
+                              _tipoRelatorio = novoValor!;
+                            });
+                          },
+                          items: const [
+                            DropdownMenuItem<String>(
+                              value: 'sintetico',
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 12),
+                                child: Text('Sintético'),
+                              ),
+                            ),
+                            DropdownMenuItem<String>(
+                              value: 'analitico',
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 12),
+                                child: Text('Analítico'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  '• O tipo de relatório determina o nível de detalhamento da consulta.',
-                  style: TextStyle(fontSize: 12, color: Color.fromARGB(255, 19, 96, 184)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardResumo() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.summarize, color: const Color(0xFF0D47A1), size: 18),
+              const SizedBox(width: 8),
+              const Text(
+                'Resumo dos Filtros',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF0D47A1),
                 ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          // Grid de itens do resumo
+          Wrap(
+            spacing: 24,
+            runSpacing: 16,
+            children: [
+              _buildItemResumo(
+                icon: Icons.store,
+                label: 'Filial',
+                value: widget.nomeFilial,
+              ),
+              if (widget.empresaNome != null)
+                _buildItemResumo(
+                  icon: Icons.business,
+                  label: 'Empresa',
+                  value: widget.empresaNome!,
+                ),
+              _buildItemResumo(
+                icon: Icons.calendar_today,
+                label: 'Mês',
+                value: _mesSelecionado != null
+                  ? '${_mesSelecionado!.month.toString().padLeft(2, '0')}/${_mesSelecionado!.year}'
+                  : 'Não selecionado',
+              ),
+              _buildItemResumo(
+                icon: Icons.inventory_2,
+                label: 'Produto',
+                value: _produtoSelecionado != null && _produtoSelecionado!.isNotEmpty
+                  ? _produtosDisponiveis
+                      .firstWhere(
+                        (prod) => prod['id'] == _produtoSelecionado,
+                        orElse: () => {'id': '', 'nome': 'Não selecionado'}
+                      )['nome']!
+                  : 'Não selecionado',
+              ),
+              _buildItemResumo(
+                icon: Icons.assessment,
+                label: 'Tipo de relatório',
+                value: _tipoRelatorio == 'sintetico' ? 'Sintético' : 'Analítico',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildItemResumo({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return SizedBox(
+      width: 200,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: Colors.grey.shade600,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  '• Os dados são atualizados automaticamente.',
-                  style: TextStyle(fontSize: 12, color: Color.fromARGB(255, 19, 96, 184)),
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -602,37 +601,113 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
     );
   }
 
-  Widget _buildItemResumoLinha(String titulo, String valor, IconData icone) {
+  Widget _buildBotoes() {
     return Container(
-      constraints: const BoxConstraints(minWidth: 200),
+      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icone, size: 16, color: Colors.grey),
+          // Botão Redefinir
+          SizedBox(
+            width: 140,
+            height: 36,
+            child: OutlinedButton(
+              onPressed: _resetarFiltros,
+              style: OutlinedButton.styleFrom(
+                padding: EdgeInsets.zero,
+                side: BorderSide(color: Colors.grey.shade400, width: 1),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.refresh, size: 16),
+                  SizedBox(width: 6),
+                  Text(
+                    'Redefinir',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Color.fromARGB(255, 95, 95, 95),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(width: 16),
+          
+          // Botão Consultar Estoque
+          SizedBox(
+            width: 140,
+            height: 36,
+            child: ElevatedButton(
+              onPressed: _irParaEstoqueMes,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0D47A1),
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.search, size: 16),
+                  SizedBox(width: 6),
+                  Text(
+                    'Consultar',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotas() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.orange.shade200, width: 1),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info, color: Colors.orange.shade700, size: 16),
           const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                titulo,
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Campos obrigatórios: Mês de referência e Produto',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.orange.shade800,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                valor,
-                style: const TextStyle(
-                  color: Colors.black87,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                const SizedBox(height: 4),
+                Text(
+                  'O tipo de relatório determina o nível de detalhamento da consulta.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.orange.shade700,
+                  ),
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

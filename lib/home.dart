@@ -792,7 +792,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    '© Norton Tecnology - 550 California St, W-325, San Francisco, CA.',
+                    '© Norton Tecnology - 550 California St, W-325, San Francisco, CA - EUA.',
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.grey[600],
