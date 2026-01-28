@@ -34,6 +34,13 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
   // Adicionado: Variável para armazenar o número de controle da ordem
   String? _numeroControleOrdem;
 
+  // Variáveis para o diálogo do Check-list
+  bool _civSelecionado = false;
+  bool _cippSelecionado = false;
+  bool _mopSelecionado = false;
+  bool _nr26Selecionado = false;
+  bool _atualizandoChecklist = false;
+
   final List<_EtapaInfo> _etapas = const [
     _EtapaInfo(
       etapa: EtapaCircuito.programado,
@@ -109,46 +116,46 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
   // Mapa de cores para produtos - EXPANDIDO PARA TODOS OS PRODUTOS
   final Map<String, Color> _coresProdutos = {
     // Gasolinas
-    'gasolina comum': Color(0xFFFF6B35), // Laranja vibrante
+    'gasolina comum': Color(0xFFFF6B35),
     'g comum': Color(0xFFFF6B35),
     'gasolina com': Color(0xFFFF6B35),
     
-    'gasolina aditivada': Color(0xFF00A8E8), // Azul claro
+    'gasolina aditivada': Color(0xFF00A8E8),
     'g aditivada': Color(0xFF00A8E8),
     'gasolina ad': Color(0xFF00A8E8),
     
-    'gasolina a': Color(0xFFE91E63), // Rosa
+    'gasolina a': Color(0xFFE91E63),
     'gasolina aditivada a': Color(0xFFE91E63),
     
     // Diesels
-    'diesel s500': Color(0xFF8D6A9F), // Roxo claro
+    'diesel s500': Color(0xFF8D6A9F),
     'd s500': Color(0xFF8D6A9F),
     'diesel s-500': Color(0xFF8D6A9F),
     
-    'diesel s10': Color(0xFF2E294E), // Azul escuro
+    'diesel s10': Color(0xFF2E294E),
     'd s10': Color(0xFF2E294E),
     'diesel s-10': Color(0xFF2E294E),
     
-    's500 a': Color(0xFF9C27B0), // Roxo vibrante
+    's500 a': Color(0xFF9C27B0),
     'diesel s500 a': Color(0xFF9C27B0),
     
-    's10 a': Color(0xFF673AB7), // Roxo azulado
+    's10 a': Color(0xFF673AB7),
     'diesel s10 a': Color(0xFF673AB7),
     
     // Etanóis
-    'etanol': Color(0xFF83B692), // Verde claro
+    'etanol': Color(0xFF83B692),
     'etanol hidratado': Color(0xFF83B692),
     'hidratado': Color(0xFF83B692),
     
-    'anidro': Color(0xFF4CAF50), // Verde
+    'anidro': Color(0xFF4CAF50),
     'etanol anidro': Color(0xFF4CAF50),
     
     // Biodiesel
-    'b100': Color(0xFF8BC34A), // Verde limão
+    'b100': Color(0xFF8BC34A),
     'biodiesel': Color(0xFF8BC34A),
     
     // Padrão para produtos não mapeados
-    'desconhecido': Color(0xFF607D8B), // Cinza azulado
+    'desconhecido': Color(0xFF607D8B),
   };
 
   @override
@@ -235,6 +242,294 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
         .firstWhere((e) => e.statusCodigo == codigo,
             orElse: () => _etapas.first)
         .etapa;
+  }
+  
+  // NOVO MÉTODO: Abrir diálogo do Check-list
+  Future<void> _abrirDialogoChecklist() async {
+    // Resetar seleções
+    setState(() {
+      _civSelecionado = false;
+      _cippSelecionado = false;
+      _mopSelecionado = false;
+      _nr26Selecionado = false;
+    });
+
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Icon(
+                    Icons.checklist_outlined,
+                    color: Color(0xFFF57C00),
+                    size: 24,
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    'Check-list de Segurança',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF0D47A1),
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Marque os itens verificados:',
+                    style: TextStyle(
+                      color: Colors.grey.shade700,
+                      fontSize: 14,
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  
+                  // Item 1: CIV
+                  _buildChecklistItem(
+                    titulo: 'CIV - Certificado de Inspeção Veicular',
+                    subtitulo: 'Verificar validade do CIV do veículo',
+                    valor: _civSelecionado,
+                    onChanged: (value) {
+                      setState(() {
+                        _civSelecionado = value ?? false;
+                      });
+                    },
+                  ),
+                  SizedBox(height: 12),
+                  
+                  // Item 2: CIPP
+                  _buildChecklistItem(
+                    titulo: 'CIPP - Certificado de Inspeção para Produtos Perigosos',
+                    subtitulo: 'Verificar conformidade para transporte de produtos perigosos',
+                    valor: _cippSelecionado,
+                    onChanged: (value) {
+                      setState(() {
+                        _cippSelecionado = value ?? false;
+                      });
+                    },
+                  ),
+                  SizedBox(height: 12),
+                  
+                  // Item 3: MOP
+                  _buildChecklistItem(
+                    titulo: 'MOP - Manual de Operações',
+                    subtitulo: 'Verificar disponibilidade e conformidade',
+                    valor: _mopSelecionado,
+                    onChanged: (value) {
+                      setState(() {
+                        _mopSelecionado = value ?? false;
+                      });
+                    },
+                  ),
+                  SizedBox(height: 12),
+                  
+                  // Item 4: NR26
+                  _buildChecklistItem(
+                    titulo: 'NR26 - Sinalização de Segurança',
+                    subtitulo: 'Verificar sinalização do veículo conforme NR26',
+                    valor: _nr26Selecionado,
+                    onChanged: (value) {
+                      setState(() {
+                        _nr26Selecionado = value ?? false;
+                      });
+                    },
+                  ),
+                  SizedBox(height: 20),
+                  
+                  // Mensagem de validação
+                  if (_atualizandoChecklist)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFFF57C00),
+                            ),
+                          ),
+                          SizedBox(width: 10),
+                          Text(
+                            'Atualizando status...',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: Text(
+                    'Voltar',
+                    style: TextStyle(
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: _atualizandoChecklist
+                      ? null
+                      : () async {
+                          // Verificar se todos os itens foram selecionados
+                          final todosSelecionados = _civSelecionado &&
+                              _cippSelecionado &&
+                              _mopSelecionado &&
+                              _nr26Selecionado;
+                          
+                          if (!todosSelecionados) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Todos os itens devem ser verificados!'),
+                                backgroundColor: Colors.orange.shade700,
+                              ),
+                            );
+                            return;
+                          }
+                          
+                          // Atualizar status no banco de dados
+                          await _concluirChecklist();
+                          
+                          // Fechar diálogo
+                          if (mounted) {
+                            Navigator.of(context).pop();
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFFF57C00),
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey.shade400,
+                  ),
+                  child: _atualizandoChecklist
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text('Concluir Check-list'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // NOVO MÉTODO: Widget para item do checklist
+  Widget _buildChecklistItem({
+    required String titulo,
+    required String subtitulo,
+    required bool valor,
+    required ValueChanged<bool?> onChanged,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: valor ? Color(0xFFF57C00) : Colors.grey.shade300,
+          width: valor ? 2 : 1,
+        ),
+        color: valor ? Color(0xFFF57C00).withOpacity(0.05) : Colors.white,
+      ),
+      child: CheckboxListTile(
+        title: Text(
+          titulo,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: valor ? Color(0xFFF57C00) : Colors.grey.shade800,
+          ),
+        ),
+        subtitle: Text(
+          subtitulo,
+          style: TextStyle(
+            fontSize: 12,
+            color: valor ? Color(0xFFF57C00).withOpacity(0.8) : Colors.grey.shade600,
+          ),
+        ),
+        value: valor,
+        onChanged: onChanged,
+        controlAffinity: ListTileControlAffinity.leading,
+        activeColor: Color(0xFFF57C00),
+        checkColor: Colors.white,
+        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      ),
+    );
+  }
+
+  // NOVO MÉTODO: Concluir checklist e atualizar banco de dados
+  Future<void> _concluirChecklist() async {
+    setState(() {
+      _atualizandoChecklist = true;
+    });
+
+    try {
+      // Atualizar todas as movimentações relacionadas a esta ordem
+      final ordemId = widget.ordem['ordem_id'];
+      if (ordemId != null) {
+        await _supabase
+            .from('movimentacoes')
+            .update({'status_circuito': 3})
+            .eq('ordem_id', ordemId);
+
+        // Atualizar estado local
+        setState(() {
+          _etapaAtual = EtapaCircuito.operacao;
+          _atualizandoChecklist = false;
+        });
+
+        // Adicionar ao histórico local
+        final agora = DateTime.now();
+        _historicoFatos.insert(2, {
+          'data': '${agora.day.toString().padLeft(2, '0')}/${agora.month.toString().padLeft(2, '0')}/${agora.year}',
+          'hora': '${agora.hour.toString().padLeft(2, '0')}:${agora.minute.toString().padLeft(2, '0')}',
+          'descricao': 'Check-list concluído por operador'
+        });
+
+        // Mostrar mensagem de sucesso
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Check-list concluído! Status atualizado para "Em operação".'),
+              backgroundColor: Colors.green.shade600,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Erro ao atualizar checklist: $e');
+      setState(() {
+        _atualizandoChecklist = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao atualizar status: $e'),
+            backgroundColor: Colors.red.shade600,
+          ),
+        );
+      }
+    }
   }
     
   // Agrupar produtos por tipo considerando tipo_op
@@ -377,7 +672,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _numeroControleOrdem ?? '--', // ALTERADO: Usa _numeroControleOrdem
+                        _numeroControleOrdem ?? '--',
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -461,7 +756,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        _formatarNumero(totalProdutos), // FORMATADO: 999.999
+                        _formatarNumero(totalProdutos),
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -534,7 +829,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  _formatarNumero(quantidade), // FORMATADO: 999.999
+                  _formatarNumero(quantidade),
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -562,44 +857,27 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
   }
 
   String _formatarNomeProduto(String produtoNome) {
-    // Usar o nome_dois diretamente, já formatado
     return produtoNome;
   }
 
   Color _obterCorProduto(String produtoNome) {
-    // Mapeamento direto baseado nos nomes EXATOS que vêm do banco
     final Map<String, Color> mapeamentoExato = {
-      // Gasolinas
       'G. Comum': Color(0xFFFF6B35),
-      
       'G. Aditivada': Color(0xFF00A8E8),
-      
       'Gasolina A': Color(0xFFE91E63),
-      
-      // Diesels
       'S500': Color(0xFF8D6A9F),
-      
       'S10': Color(0xFF2E294E),
-      
       'S500 A': Color(0xFF9C27B0),
-      
       'S10 A': Color(0xFF673AB7),
-      
-      // Etanóis      
       'Hidratado': Color(0xFF83B692),
-      
       'Anidro': Color(0xFF4CAF50),
-      
-      // Biodiesel
       'B100': Color(0xFF8BC34A),
     };
     
-    // Primeiro tenta match exato
     if (mapeamentoExato.containsKey(produtoNome)) {
       return mapeamentoExato[produtoNome]!;
     }
     
-    // Se não encontrar, tenta por case insensitive
     final nomeLower = produtoNome.toLowerCase();
     for (var entry in mapeamentoExato.entries) {
       if (entry.key.toLowerCase() == nomeLower) {
@@ -607,18 +885,19 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
       }
     }
     
-    // Fallback para lógica antiga (se necessário)
     return _coresProdutos['desconhecido']!;
   }
 
+  // NOVA TIMELINE - Redesenhada completamente
   Widget _buildTimeline() {
     final etapaIndex = _etapas.indexWhere((e) => e.etapa == _etapaAtual);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 12), // Aumentado de 20 para 24
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
               'Status da Ordem',
@@ -628,88 +907,144 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                 color: Color(0xFF0D47A1),
               ),
             ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 100,
-              child: Stack(
+            const SizedBox(height: 32), // Aumentado de 28 para 32
+            
+            // Container principal para timeline - CENTRALIZADO
+            Center(
+              child: Column(
                 children: [
-                  Positioned(
-                    left: 30,
-                    right: 30,
-                    top: 15,
-                    child: Container(
-                      height: 2,
-                      color: Colors.grey.shade300,
-                    ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: List.generate(_etapas.length, (index) {
-                      final etapa = _etapas[index];
-                      final isCompleta = index < etapaIndex;
-                      final isAtual = index == etapaIndex;
-
-                      return Expanded(
-                        child: Column(
-                          children: [
-                            Stack(
+                  // Container para linha e ícones
+                  SizedBox(
+                    height: 60, // Aumentado de 54 para 60
+                    child: Stack(
+                      children: [
+                        // LINHA DE CONEXÃO CONTÍNUA - CENTRALIZADA
+                        Positioned(
+                          left: 30,
+                          right: 30,
+                          top: 19, // Mantido mesmo posicionamento
+                          child: Container(
+                            height: 2,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade300,
+                              borderRadius: BorderRadius.circular(1),
+                            ),
+                          ),
+                        ),
+                        
+                        // ÍCONES E LABELS JUNTOS - ALINHADOS VERTICALMENTE
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: List.generate(_etapas.length, (index) {
+                            final etapa = _etapas[index];
+                            final isCompleta = index <= etapaIndex;
+                            final isAtual = index == etapaIndex;
+                            final isChecklist = etapa.etapa == EtapaCircuito.checkList;
+                            
+                            return Column(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                if (isCompleta || isAtual)
-                                  Positioned(
-                                    left: index == 0 ? 15 : 0,
-                                    top: 15,
-                                    width:
-                                        index == _etapas.length - 1 ? 30 : 70,
-                                    child: Container(
-                                      height: 2,
-                                      color: etapa.cor,
+                                // ÍCONE
+                                _buildEtapaIconComLinha(
+                                  etapa: etapa,
+                                  index: index,
+                                  isCompleta: isCompleta,
+                                  isAtual: isAtual,
+                                  isChecklist: isChecklist,
+                                  etapaIndex: etapaIndex,
+                                ),
+                                
+                                const SizedBox(height: 8), // Mantido 8
+                                
+                                // LABEL - AGORA VINCULADO AO ÍCONE
+                                SizedBox(
+                                  width: 80,
+                                  child: Text(
+                                    etapa.label,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: isAtual ? FontWeight.bold : FontWeight.w500,
+                                      color: isCompleta || isAtual ? etapa.cor : Colors.grey.shade600,
                                     ),
-                                  ),
-                                Container(
-                                  width: 30,
-                                  height: 30,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: isCompleta || isAtual
-                                        ? etapa.cor
-                                        : Colors.grey.shade300,
-                                  ),
-                                  child: Icon(
-                                    etapa.icon,
-                                    color: Colors.white,
-                                    size: 16,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              etapa.label,
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: isAtual
-                                    ? FontWeight.bold
-                                    : FontWeight.w500,
-                                color: isCompleta || isAtual
-                                    ? etapa.cor
-                                    : Colors.grey.shade600,
-                              ),
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                            ),
-                          ],
+                            );
+                          }),
                         ),
-                      );
-                    }),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
+            
+            // ESPAÇO EXTRA ABAIXO DA TIMELINE
+            const SizedBox(height: 8), // Adicionado espaço extra abaixo
           ],
         ),
       ),
     );
   }
+  
+  Widget _buildEtapaIconComLinha({
+    required _EtapaInfo etapa,
+    required int index,
+    required bool isCompleta,
+    required bool isAtual,
+    required bool isChecklist,
+    required int etapaIndex,
+  }) {
+    final podeClicar = isChecklist && etapaIndex >= index;
+    
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: Center(
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isCompleta ? etapa.cor : Colors.grey.shade300,
+            border: Border.all(
+              color: podeClicar ? etapa.cor.withOpacity(0.3) : Colors.transparent,
+              width: podeClicar ? 2 : 0,
+            ),
+            boxShadow: podeClicar
+                ? [
+                    BoxShadow(
+                      color: etapa.cor.withOpacity(0.3),
+                      blurRadius: 6,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            shape: const CircleBorder(),
+            child: InkWell(
+              onTap: podeClicar ? _abrirDialogoChecklist : null,
+              customBorder: const CircleBorder(),
+              splashColor: etapa.cor.withOpacity(0.3),
+              highlightColor: etapa.cor.withOpacity(0.1),
+              child: Center(
+                child: Icon(
+                  etapa.icon,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }  
 
   // 2️⃣ Lista compacta de fatos ocorridos
   Widget _buildHistoricoFatos() {
