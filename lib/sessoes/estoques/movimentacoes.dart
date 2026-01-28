@@ -6,8 +6,8 @@ class MovimentacoesPage extends StatefulWidget {
   final DateTime dataInicio;
   final DateTime dataFim;
   final String produtoId; // 'todos' ou uuid
-  final String tipoMov;   // 'todos' | 'entrada' | 'saida'
-  final String tipoOp;    // 'todos' | 'venda' | 'transf'
+  final String tipoMov; // 'todos' | 'entrada' | 'saida'
+  final String tipoOp; // 'todos' | 'venda' | 'transf'
 
   const MovimentacoesPage({
     super.key,
@@ -26,11 +26,31 @@ class MovimentacoesPage extends StatefulWidget {
 class _MovimentacoesPageState extends State<MovimentacoesPage> {
   bool carregando = true;
   List<Map<String, dynamic>> movimentacoes = [];
-  String? _produtoFiltradoNome; // ✅ NOVO: Nome do produto filtrado
+  String? _produtoFiltradoNome;
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _horizontalHeaderController = ScrollController();
   final ScrollController _horizontalBodyController = ScrollController();
   final ScrollController _verticalScrollController = ScrollController();
+  
+  static const Map<String, String> _produtoParaColuna = {
+    // Gasolinas
+    '82c348c8-efa1-4d1a-953a-ee384d5780fc': 'g_comum',       // Gasolina Comum
+    '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 'g_aditivada',   // Gasolina Aditivada
+    'f8e95435-471a-424c-947f-def8809053a0': 'gasolina_a',    // Gasolina A (Álcool)
+    
+    // Diesel
+    '58ce20cf-f252-4291-9ef6-f4821f22c29e': 'd_s10',         // Diesel S10
+    'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': 'd_s500',        // Diesel S500
+    '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 's10_a',         // S10 A
+    '4da89784-301f-4abe-b97e-c48729969e3d': 's500_a',        // S500 A
+    
+    // Etanol
+    '66ca957a-5698-4a02-8c9e-987770b6a151': 'etanol',        // Etanol
+    'cecab8eb-297a-4640-81ae-e88335b88d8b': 'anidro',        // Etanol Anidro
+    
+    // Biodiesel
+    'ecd91066-e763-42e3-8a0e-d982ea6da535': 'b100',          // Biodiesel B100
+  };
 
   @override
   void initState() {
@@ -91,7 +111,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
         _produtoFiltradoNome = null;
       }
 
-      // SOLUÇÃO SIMPLES: Usar 'dynamic' para evitar erros de tipo
+      // ✅ ATUALIZADO: Incluir todos os campos específicos de produto
       dynamic query = supabase
           .from("movimentacoes")
           .select('''
@@ -107,7 +127,6 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
 
       // Aplicar filtro por filial se necessário
       if (widget.filialId != 'todas') {
-        // CORREÇÃO: Remover 'referencedTable' ou usar null
         query = query.or('filial_origem_id.eq.${widget.filialId},filial_destino_id.eq.${widget.filialId}');
       }
 
@@ -172,18 +191,35 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
     }
   }
 
-  // Função para obter a quantidade específica do produto
+  // ✅ MODIFICADO: Função para obter a quantidade específica do produto
   int _obterQuantidadeProduto(Map<String, dynamic> movimentacao) {
     final tipoOp = movimentacao['tipo_op']?.toString().toLowerCase() ?? '';
+    
+    // ✅ ALTERAÇÃO PRINCIPAL: Lógica para CACL
     if (tipoOp == 'cacl') {
-      final entradaAmb = movimentacao['entrada_amb'];
-      if (entradaAmb != null) {
-        return (entradaAmb is int) 
-            ? entradaAmb 
-            : int.tryParse(entradaAmb.toString()) ?? 0;
+      // 1. Obter o produto_id da movimentação
+      final produtoId = movimentacao['produto_id']?.toString() ?? '';
+      
+      // 2. Buscar a coluna correspondente no mapeamento
+      final colunaEspecifica = _produtoParaColuna[produtoId];
+      
+      if (colunaEspecifica != null) {
+        // 3. Ler o valor da coluna específica
+        final valor = movimentacao[colunaEspecifica];
+        
+        // 4. Converter para int de forma segura
+        if (valor != null) {
+          return (valor is int) 
+              ? valor 
+              : int.tryParse(valor.toString()) ?? 0;
+        }
       }
+      
+      // 5. Fallback controlado: retornar 0 se não encontrado
+      return 0;
     }
     
+    // ✅ MANTER LÓGICA EXISTENTE para outros tipos (venda, transf)
     final colunasProduto = [
       'g_comum',
       'g_aditivada',
