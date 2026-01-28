@@ -1,12 +1,280 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
-import 'transferencias.dart';
+
+// ==============================================================
+//                COMPONENTE AUTOCOMPLETE REUTILIZÁVEL
+// ==============================================================
+class AutocompleteField<T> extends StatefulWidget {
+  final TextEditingController controller;
+  final String label;
+  final Future<List<T>> Function(String) buscarItens;
+  final String Function(T) obterTextoExibicao;
+  final String Function(T) obterId;
+  final FocusNode? focusNode;
+  final void Function(T)? onSelecionado;
+  final bool Function(String)? validarParaBusca;
+
+  const AutocompleteField({
+    super.key,
+    required this.controller,
+    required this.label,
+    required this.buscarItens,
+    required this.obterTextoExibicao,
+    required this.obterId,
+    this.focusNode,
+    this.onSelecionado,
+    this.validarParaBusca,
+  });
+
+  @override
+  State<AutocompleteField<T>> createState() => _AutocompleteFieldState<T>();
+}
+
+class _AutocompleteFieldState<T> extends State<AutocompleteField<T>> {
+  final List<T> _sugestoes = [];
+  bool _carregando = false;
+  Timer? _debounceTimer;
+  OverlayEntry? _overlayEntry;
+  final LayerLink _layerLink = LayerLink();
+  final FocusNode _internalFocusNode = FocusNode();
+  bool _mostrarLista = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _internalFocusNode.addListener(_onFocusChanged);
+    
+    if (widget.focusNode != null) {
+      widget.focusNode!.addListener(_onExternalFocusChanged);
+    }
+  }
+
+  void _onExternalFocusChanged() {
+    if (widget.focusNode!.hasFocus && !_internalFocusNode.hasFocus) {
+      _internalFocusNode.requestFocus();
+    } else if (!widget.focusNode!.hasFocus && _internalFocusNode.hasFocus) {
+      _internalFocusNode.unfocus();
+    }
+  }
+
+  void _onFocusChanged() {
+    if (_internalFocusNode.hasFocus) {
+      _mostrarLista = true;
+      if (_sugestoes.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _mostrarOverlay();
+        });
+      }
+    } else {
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (!_internalFocusNode.hasFocus) {
+          _fecharOverlay();
+          _mostrarLista = false;
+        }
+      });
+    }
+  }
+
+  Future<void> _buscarItens(String texto) async {
+    if (widget.validarParaBusca != null && !widget.validarParaBusca!(texto)) {
+      setState(() {
+        _sugestoes.clear();
+      });
+      _fecharOverlay();
+      return;
+    }
+
+    setState(() {
+      _carregando = true;
+    });
+
+    try {
+      final itens = await widget.buscarItens(texto);
+
+      setState(() {
+        _sugestoes.clear();
+        _sugestoes.addAll(itens);
+        _carregando = false;
+      });
+
+      if (_sugestoes.isNotEmpty && _mostrarLista) {
+        _mostrarOverlay();
+      } else {
+        _fecharOverlay();
+      }
+    } catch (e) {
+      debugPrint('Erro ao buscar itens: $e');
+      setState(() {
+        _sugestoes.clear();
+        _carregando = false;
+      });
+      _fecharOverlay();
+    }
+  }
+
+  void _onTextChanged(String texto) {
+    _debounceTimer?.cancel();
+    
+    if (widget.validarParaBusca != null && !widget.validarParaBusca!(texto)) {
+      setState(() {
+        _sugestoes.clear();
+      });
+      _fecharOverlay();
+      return;
+    }
+
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        _buscarItens(texto);
+      }
+    });
+  }
+
+  void _onItemSelecionado(T item) {
+    widget.controller.text = widget.obterTextoExibicao(item);
+    setState(() {
+      _sugestoes.clear();
+    });
+    _fecharOverlay();
+    _internalFocusNode.unfocus();
+    _mostrarLista = false;
+    
+    widget.controller.selection = TextSelection.fromPosition(
+      TextPosition(offset: widget.controller.text.length),
+    );
+    
+    if (widget.onSelecionado != null) {
+      widget.onSelecionado!(item);
+    }
+  }
+
+  void _mostrarOverlay() {
+    if (_sugestoes.isEmpty || _overlayEntry != null) return;
+
+    final renderBox = context.findRenderObject() as RenderBox;
+    final size = renderBox.size;
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        width: size.width,
+        child: CompositedTransformFollower(
+          link: _layerLink,
+          showWhenUnlinked: false,
+          offset: Offset(0, size.height + 4),
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(4),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.3,
+              ),
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: _sugestoes.length,
+                itemBuilder: (context, index) {
+                  final item = _sugestoes[index];
+                  return Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => _onItemSelecionado(item),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        child: Text(
+                          widget.obterTextoExibicao(item),
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _fecharOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    _fecharOverlay();
+    _internalFocusNode.removeListener(_onFocusChanged);
+    _internalFocusNode.dispose();
+    
+    if (widget.focusNode != null) {
+      widget.focusNode!.removeListener(_onExternalFocusChanged);
+    }
+    
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: TextFormField(
+        controller: widget.controller,
+        focusNode: _internalFocusNode,
+        onChanged: _onTextChanged,
+        style: const TextStyle(fontSize: 13),
+        decoration: InputDecoration(
+          hintText: 'Digite para buscar...',
+          counterText: '',
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(4),
+            borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(4),
+            borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(4),
+            borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.2),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 8,
+          ),
+          suffixIcon: _carregando
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : null,
+        ),
+      ),
+    );
+  }
+}
 
 // ==============================================================
 //                DIALOG DE NOVA TRANSFERÊNCIA MODERNIZADO
 // ==============================================================
-
 class NovaTransferenciaDialog extends StatefulWidget {
   const NovaTransferenciaDialog({super.key});
 
@@ -182,7 +450,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
           // Campo de autocomplete
           AutocompleteField<T>(
             controller: controller,
-            label: label, // Mantém para acessibilidade
+            label: label,
             buscarItens: buscarItens,
             obterTextoExibicao: obterTextoExibicao,
             obterId: obterId,
@@ -983,7 +1251,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                     // Linha 2: Motorista, Cavalo, Reboque 1, Reboque 2
                     Row(
                       children: [
-                        // Campo Motorista (autocomplete) - CORRIGIDO
+                        // Campo Motorista (autocomplete)
                         Expanded(
                           flex: 2,
                           child: _buildCampoAutocomplete<Map<String, dynamic>>(
@@ -1056,7 +1324,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                     // Linha 3: Transportadora, Origem, Destino
                     Row(
                       children: [
-                        // Campo Transportadora (autocomplete) - CORRIGIDO
+                        // Campo Transportadora (autocomplete)
                         Expanded(
                           flex: 2,
                           child: _buildCampoAutocomplete<Map<String, dynamic>>(
