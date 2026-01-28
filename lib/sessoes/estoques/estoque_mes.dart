@@ -220,7 +220,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
 
   Future<void> _carregarDadosSintetico() async {
     // Primeiro, obter todas as datas únicas com movimentações
-    // AGORA: Buscar por filial_id OU filial_destino_id (para transferências)
+    // Buscar por filial_id OU filial_destino_id (para transferências)
     var queryDatas = _supabase
         .from('movimentacoes')
         .select('data_mov')
@@ -271,6 +271,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             produto_id,
             tipo_op,
             cacl_id,
+            tipo_mov_orig,
             g_comum,
             g_aditivada,
             d_s10,
@@ -281,6 +282,16 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             gasolina_a,
             s500_a,
             s10_a,
+            g_comum_vinte,
+            g_aditivada_vinte,
+            d_s10_vinte,
+            d_s500_vinte,
+            etanol_vinte,
+            anidro_vinte,
+            b100_vinte,
+            gasolina_a_vinte,
+            s500_a_vinte,
+            s10_a_vinte,
             filial_id,
             filial_destino_id,
             tipo_mov_dest,
@@ -342,73 +353,115 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             debugPrint('  -> Transferência ENTRADA detectada!');
             
             // Somar TODAS as colunas específicas para entrada_amb
-            num totalEntradaTransf = 0;
-            totalEntradaTransf += (mov['g_comum'] ?? 0) as num;
-            totalEntradaTransf += (mov['g_aditivada'] ?? 0) as num;
-            totalEntradaTransf += (mov['d_s10'] ?? 0) as num;
-            totalEntradaTransf += (mov['d_s500'] ?? 0) as num;
-            totalEntradaTransf += (mov['etanol'] ?? 0) as num;
-            totalEntradaTransf += (mov['anidro'] ?? 0) as num;
-            totalEntradaTransf += (mov['b100'] ?? 0) as num;
-            totalEntradaTransf += (mov['gasolina_a'] ?? 0) as num;
-            totalEntradaTransf += (mov['s500_a'] ?? 0) as num;
-            totalEntradaTransf += (mov['s10_a'] ?? 0) as num;
+            num totalEntradaAmbTransf = 0;
+            num totalEntradaVinteTransf = 0;
             
-            debugPrint('  -> Total colunas específicas: $totalEntradaTransf');
+            // Campos ambiente
+            totalEntradaAmbTransf += (mov['g_comum'] ?? 0) as num;
+            totalEntradaAmbTransf += (mov['g_aditivada'] ?? 0) as num;
+            totalEntradaAmbTransf += (mov['d_s10'] ?? 0) as num;
+            totalEntradaAmbTransf += (mov['d_s500'] ?? 0) as num;
+            totalEntradaAmbTransf += (mov['etanol'] ?? 0) as num;
+            totalEntradaAmbTransf += (mov['anidro'] ?? 0) as num;
+            totalEntradaAmbTransf += (mov['b100'] ?? 0) as num;
+            totalEntradaAmbTransf += (mov['gasolina_a'] ?? 0) as num;
+            totalEntradaAmbTransf += (mov['s500_a'] ?? 0) as num;
+            totalEntradaAmbTransf += (mov['s10_a'] ?? 0) as num;
             
-            // Adicionar o total da transferência como ENTRADA
-            totalEntradaAmb += totalEntradaTransf;
+            // Campos 20ºC
+            totalEntradaVinteTransf += (mov['g_comum_vinte'] ?? 0) as num;
+            totalEntradaVinteTransf += (mov['g_aditivada_vinte'] ?? 0) as num;
+            totalEntradaVinteTransf += (mov['d_s10_vinte'] ?? 0) as num;
+            totalEntradaVinteTransf += (mov['d_s500_vinte'] ?? 0) as num;
+            totalEntradaVinteTransf += (mov['etanol_vinte'] ?? 0) as num;
+            totalEntradaVinteTransf += (mov['anidro_vinte'] ?? 0) as num;
+            totalEntradaVinteTransf += (mov['b100_vinte'] ?? 0) as num;
+            totalEntradaVinteTransf += (mov['gasolina_a_vinte'] ?? 0) as num;
+            totalEntradaVinteTransf += (mov['s500_a_vinte'] ?? 0) as num;
+            totalEntradaVinteTransf += (mov['s10_a_vinte'] ?? 0) as num;
             
-            // Também somar a entrada_vinte da movimentação original, se houver
-            totalEntradaVinte += (mov['entrada_vinte'] ?? 0) as num;
+            debugPrint('  -> Total entrada ambiente: $totalEntradaAmbTransf');
+            debugPrint('  -> Total entrada 20ºC: $totalEntradaVinteTransf');
+            
+            // Adicionar os totais
+            totalEntradaAmb += totalEntradaAmbTransf;
+            totalEntradaVinte += totalEntradaVinteTransf;
           } else {
             // Para outras transferências (não entrada nesta filial), tratar como saída
             // Isso inclui transferências saindo desta filial ou entrando em outra
             debugPrint('  -> Transferência SAÍDA ou entrada em outra filial');
             
             // Somar TODAS as colunas específicas para saida_amb
-            num totalSaidaTransf = 0;
-            totalSaidaTransf += (mov['g_comum'] ?? 0) as num;
-            totalSaidaTransf += (mov['g_aditivada'] ?? 0) as num;
-            totalSaidaTransf += (mov['d_s10'] ?? 0) as num;
-            totalSaidaTransf += (mov['d_s500'] ?? 0) as num;
-            totalSaidaTransf += (mov['etanol'] ?? 0) as num;
-            totalSaidaTransf += (mov['anidro'] ?? 0) as num;
-            totalSaidaTransf += (mov['b100'] ?? 0) as num;
-            totalSaidaTransf += (mov['gasolina_a'] ?? 0) as num;
-            totalSaidaTransf += (mov['s500_a'] ?? 0) as num;
-            totalSaidaTransf += (mov['s10_a'] ?? 0) as num;
+            num totalSaidaAmbTransf = 0;
+            num totalSaidaVinteTransf = 0;
             
-            debugPrint('  -> Total colunas específicas: $totalSaidaTransf');
+            // Campos ambiente
+            totalSaidaAmbTransf += (mov['g_comum'] ?? 0) as num;
+            totalSaidaAmbTransf += (mov['g_aditivada'] ?? 0) as num;
+            totalSaidaAmbTransf += (mov['d_s10'] ?? 0) as num;
+            totalSaidaAmbTransf += (mov['d_s500'] ?? 0) as num;
+            totalSaidaAmbTransf += (mov['etanol'] ?? 0) as num;
+            totalSaidaAmbTransf += (mov['anidro'] ?? 0) as num;
+            totalSaidaAmbTransf += (mov['b100'] ?? 0) as num;
+            totalSaidaAmbTransf += (mov['gasolina_a'] ?? 0) as num;
+            totalSaidaAmbTransf += (mov['s500_a'] ?? 0) as num;
+            totalSaidaAmbTransf += (mov['s10_a'] ?? 0) as num;
             
-            // Adicionar o total da transferência como SAÍDA
-            totalSaidaAmb += totalSaidaTransf;
+            // Campos 20ºC
+            totalSaidaVinteTransf += (mov['g_comum_vinte'] ?? 0) as num;
+            totalSaidaVinteTransf += (mov['g_aditivada_vinte'] ?? 0) as num;
+            totalSaidaVinteTransf += (mov['d_s10_vinte'] ?? 0) as num;
+            totalSaidaVinteTransf += (mov['d_s500_vinte'] ?? 0) as num;
+            totalSaidaVinteTransf += (mov['etanol_vinte'] ?? 0) as num;
+            totalSaidaVinteTransf += (mov['anidro_vinte'] ?? 0) as num;
+            totalSaidaVinteTransf += (mov['b100_vinte'] ?? 0) as num;
+            totalSaidaVinteTransf += (mov['gasolina_a_vinte'] ?? 0) as num;
+            totalSaidaVinteTransf += (mov['s500_a_vinte'] ?? 0) as num;
+            totalSaidaVinteTransf += (mov['s10_a_vinte'] ?? 0) as num;
             
-            // Também somar a saida_vinte da movimentação original, se houver
-            totalSaidaVinte += (mov['saida_vinte'] ?? 0) as num;
+            debugPrint('  -> Total saída ambiente: $totalSaidaAmbTransf');
+            debugPrint('  -> Total saída 20ºC: $totalSaidaVinteTransf');
+            
+            // Adicionar os totais
+            totalSaidaAmb += totalSaidaAmbTransf;
+            totalSaidaVinte += totalSaidaVinteTransf;
           }
         } else if (tipoOp == 'venda') {
           // Para vendas, somar TODAS as colunas específicas e colocar o total em saida_amb
-          num totalVenda = 0;
-          totalVenda += (mov['g_comum'] ?? 0) as num;
-          totalVenda += (mov['g_aditivada'] ?? 0) as num;
-          totalVenda += (mov['d_s10'] ?? 0) as num;
-          totalVenda += (mov['d_s500'] ?? 0) as num;
-          totalVenda += (mov['etanol'] ?? 0) as num;
-          totalVenda += (mov['anidro'] ?? 0) as num;
-          totalVenda += (mov['b100'] ?? 0) as num;
-          totalVenda += (mov['gasolina_a'] ?? 0) as num;
-          totalVenda += (mov['s500_a'] ?? 0) as num;
-          totalVenda += (mov['s10_a'] ?? 0) as num;
+          num totalVendaAmb = 0;
+          num totalVendaVinte = 0;
           
-          debugPrint('  -> Venda detectada, total colunas: $totalVenda');
+          // Campos ambiente
+          totalVendaAmb += (mov['g_comum'] ?? 0) as num;
+          totalVendaAmb += (mov['g_aditivada'] ?? 0) as num;
+          totalVendaAmb += (mov['d_s10'] ?? 0) as num;
+          totalVendaAmb += (mov['d_s500'] ?? 0) as num;
+          totalVendaAmb += (mov['etanol'] ?? 0) as num;
+          totalVendaAmb += (mov['anidro'] ?? 0) as num;
+          totalVendaAmb += (mov['b100'] ?? 0) as num;
+          totalVendaAmb += (mov['gasolina_a'] ?? 0) as num;
+          totalVendaAmb += (mov['s500_a'] ?? 0) as num;
+          totalVendaAmb += (mov['s10_a'] ?? 0) as num;
           
-          // Adicionar o total da venda à saída ambiente
-          totalSaidaAmb += totalVenda;
+          // Campos 20ºC
+          totalVendaVinte += (mov['g_comum_vinte'] ?? 0) as num;
+          totalVendaVinte += (mov['g_aditivada_vinte'] ?? 0) as num;
+          totalVendaVinte += (mov['d_s10_vinte'] ?? 0) as num;
+          totalVendaVinte += (mov['d_s500_vinte'] ?? 0) as num;
+          totalVendaVinte += (mov['etanol_vinte'] ?? 0) as num;
+          totalVendaVinte += (mov['anidro_vinte'] ?? 0) as num;
+          totalVendaVinte += (mov['b100_vinte'] ?? 0) as num;
+          totalVendaVinte += (mov['gasolina_a_vinte'] ?? 0) as num;
+          totalVendaVinte += (mov['s500_a_vinte'] ?? 0) as num;
+          totalVendaVinte += (mov['s10_a_vinte'] ?? 0) as num;
           
-          // Também somar a saida_vinte da movimentação original, se houver
-          totalSaidaVinte += (mov['saida_vinte'] ?? 0) as num;
-        } else {
+          debugPrint('  -> Venda detectada, total ambiente: $totalVendaAmb');
+          debugPrint('  -> Venda detectada, total 20ºC: $totalVendaVinte');
+          
+          // Adicionar os totais
+          totalSaidaAmb += totalVendaAmb;
+          totalSaidaVinte += totalVendaVinte;
+        } else if (tipoOp == 'outro') {
           // Para outros tipos (não cacl, não venda, não transf), somar normalmente
           totalEntradaAmb += (mov['entrada_amb'] ?? 0) as num;
           totalEntradaVinte += (mov['entrada_vinte'] ?? 0) as num;
@@ -446,17 +499,48 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           final mov = mapMovimentacoesCacl[caclId];
           final tipoCacl = mapTiposCacl[caclId];
           
-          if (mov != null) {
-            if (tipoCacl == 'movimentacao') {
-              debugPrint('  -> Cacl movimentacao detectado, somando normalmente');
-              // Só considerar se for do tipo 'movimentacao'
-              totalEntradaAmb += (mov['entrada_amb'] ?? 0) as num;
-              totalEntradaVinte += (mov['entrada_vinte'] ?? 0) as num;
-              totalSaidaAmb += (mov['saida_amb'] ?? 0) as num;
-              totalSaidaVinte += (mov['saida_vinte'] ?? 0) as num;
-            } else {
-              debugPrint('  -> Cacl tipo $tipoCacl ignorado');
-            }
+          if (mov != null && tipoCacl == 'movimentacao') {
+            debugPrint('  -> Cacl movimentacao detectado (id: $caclId)');
+            
+            // Para CACL "movimentacao", sempre é ENTRADA (conforme informado)
+            // Somar todos os campos específicos para entrada
+            
+            num totalCaclAmb = 0;
+            num totalCaclVinte = 0;
+            
+            // Campos ambiente para entrada
+            totalCaclAmb += (mov['g_comum'] ?? 0) as num;
+            totalCaclAmb += (mov['g_aditivada'] ?? 0) as num;
+            totalCaclAmb += (mov['d_s10'] ?? 0) as num;
+            totalCaclAmb += (mov['d_s500'] ?? 0) as num;
+            totalCaclAmb += (mov['etanol'] ?? 0) as num;
+            totalCaclAmb += (mov['anidro'] ?? 0) as num;
+            totalCaclAmb += (mov['b100'] ?? 0) as num;
+            totalCaclAmb += (mov['gasolina_a'] ?? 0) as num;
+            totalCaclAmb += (mov['s500_a'] ?? 0) as num;
+            totalCaclAmb += (mov['s10_a'] ?? 0) as num;
+            
+            // Campos 20ºC para entrada
+            totalCaclVinte += (mov['g_comum_vinte'] ?? 0) as num;
+            totalCaclVinte += (mov['g_aditivada_vinte'] ?? 0) as num;
+            totalCaclVinte += (mov['d_s10_vinte'] ?? 0) as num;
+            totalCaclVinte += (mov['d_s500_vinte'] ?? 0) as num;
+            totalCaclVinte += (mov['etanol_vinte'] ?? 0) as num;
+            totalCaclVinte += (mov['anidro_vinte'] ?? 0) as num;
+            totalCaclVinte += (mov['b100_vinte'] ?? 0) as num;
+            totalCaclVinte += (mov['gasolina_a_vinte'] ?? 0) as num;
+            totalCaclVinte += (mov['s500_a_vinte'] ?? 0) as num;
+            totalCaclVinte += (mov['s10_a_vinte'] ?? 0) as num;
+            
+            debugPrint('    Total CACL ambiente: $totalCaclAmb');
+            debugPrint('    Total CACL 20ºC: $totalCaclVinte');
+            
+            // Adicionar como ENTRADA (sempre para CACL "movimentacao")
+            totalEntradaAmb += totalCaclAmb;
+            totalEntradaVinte += totalCaclVinte;
+            
+          } else if (mov != null) {
+            debugPrint('  -> Cacl tipo $tipoCacl ignorado (não é "movimentacao")');
           }
         }
       }
@@ -482,7 +566,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         'produto_id': widget.produtoFiltro,
       });
       
-      debugPrint('  TOTAIS do dia $dataStr: entrada_amb=$totalEntradaAmb, saida_amb=$totalSaidaAmb');
+      debugPrint('  TOTAIS do dia $dataStr: entrada_amb=$totalEntradaAmb, entrada_vinte=$totalEntradaVinte, saida_amb=$totalSaidaAmb, saida_vinte=$totalSaidaVinte');
     }
 
     // Calcular saldos acumulados
