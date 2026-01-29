@@ -720,6 +720,290 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
       }
     }
   }
+
+  // MÉTODO MELHORADO: Dialog para avançar de "Programado" para "Aguardando"
+  Future<void> _mostrarDialogProgramadoParaAguardando() async {
+    final resultado = await showDialog<bool>(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Container(
+          constraints: BoxConstraints(maxWidth: 450),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Ícone e título
+                Icon(
+                  Icons.directions_car,
+                  color: Color.fromARGB(255, 61, 160, 206),
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                
+                Text(
+                  'Veículo Presente?',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0D47A1),
+                  ),
+                ),
+                
+                const SizedBox(height: 12),
+                
+                // Mensagem
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    'O veículo está presente no local e pronto para check-list?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Botões
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.grey.shade700,
+                          side: BorderSide(color: Colors.grey.shade300),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text('Cancelar'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Color.fromARGB(255, 61, 160, 206),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text('Sim, aguardar check-list'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (resultado == true) {
+      await _avancarParaAguardando();
+    }
+  }
+
+  // NOVO MÉTODO: Dialog para avançar de "Aguardando" para "Check-list"
+  Future<void> _mostrarDialogAguardandoParaChecklist() async {
+    final resultado = await showDialog<bool>(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Container(
+          constraints: BoxConstraints(maxWidth: 450),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Ícone e título
+                Icon(
+                  Icons.checklist_outlined,
+                  color: Color(0xFFF57C00),
+                  size: 48,
+                ),
+                const SizedBox(height: 16),
+                
+                Text(
+                  'Avançar para Check-list?',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0D47A1),
+                  ),
+                ),
+                
+                const SizedBox(height: 12),
+                
+                // Mensagem
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    'O veículo está pronto para iniciar o check-list de segurança?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Botões
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.grey.shade700,
+                          side: BorderSide(color: Colors.grey.shade300),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text('Cancelar'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Color(0xFFF57C00),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text('Sim, avançar'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (resultado == true) {
+      await _avancarParaChecklist();
+    }
+  }
+
+  // NOVO MÉTODO: Atualizar status para 2 (check-list)
+  Future<void> _avancarParaChecklist() async {
+    try {
+      // Atualizar status_circuito para 2 (check-list)
+      final ordemId = widget.ordem['ordem_id'];
+      if (ordemId != null) {
+        await _supabase
+            .from('movimentacoes')
+            .update({'status_circuito': 2})
+            .eq('ordem_id', ordemId);
+
+        // Atualizar estado local
+        setState(() {
+          _etapaAtual = EtapaCircuito.checkList;
+        });
+
+        // Adicionar ao histórico local
+        final agora = DateTime.now();
+        _historicoFatos.insert(2, {
+          'data': '${agora.day.toString().padLeft(2, '0')}/${agora.month.toString().padLeft(2, '0')}/${agora.year}',
+          'hora': '${agora.hour.toString().padLeft(2, '0')}:${agora.minute.toString().padLeft(2, '0')}',
+          'descricao': 'Veículo pronto para check-list de segurança'
+        });
+
+        // Mostrar mensagem de sucesso
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Status atualizado para "Check-list" (2)'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Erro ao atualizar status para check-list: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao atualizar status: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // NOVO MÉTODO: Atualizar status para 15 (aguardando)
+  Future<void> _avancarParaAguardando() async {
+    try {
+      // Atualizar status_circuito para 15 (aguardando check-list)
+      final ordemId = widget.ordem['ordem_id'];
+      if (ordemId != null) {
+        await _supabase
+            .from('movimentacoes')
+            .update({'status_circuito': 15})
+            .eq('ordem_id', ordemId);
+
+        // Atualizar estado local
+        setState(() {
+          _etapaAtual = EtapaCircuito.aguardando;
+        });
+
+        // Adicionar ao histórico local
+        final agora = DateTime.now();
+        _historicoFatos.insert(1, {
+          'data': '${agora.day.toString().padLeft(2, '0')}/${agora.month.toString().padLeft(2, '0')}/${agora.year}',
+          'hora': '${agora.hour.toString().padLeft(2, '0')}:${agora.minute.toString().padLeft(2, '0')}',
+          'descricao': 'Veículo presente confirmado. Aguardando check-list.'
+        });
+
+        // Mostrar mensagem de sucesso
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Status atualizado para "Aguardando check-list" (15)'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Erro ao atualizar status para aguardando: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao atualizar status: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
     
   // Agrupar produtos por tipo considerando tipo_op
   Map<String, double> _agruparProdutosParaCarregar() {
@@ -1148,60 +1432,16 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Título com indicador do tipo de operação
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Status da Ordem',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF0D47A1),
-                  ),
+            // Título centralizado
+            Center(
+              child: Text(
+                'Status da Ordem',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF0D47A1),
                 ),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: _tipoMovimentacao == TipoMovimentacao.carregamento
-                        ? Colors.orange.shade50
-                        : Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _tipoMovimentacao == TipoMovimentacao.carregamento
-                          ? Colors.orange.shade200
-                          : Colors.green.shade200,
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        _tipoMovimentacao == TipoMovimentacao.carregamento
-                            ? Icons.upload
-                            : Icons.download,
-                        size: 12,
-                        color: _tipoMovimentacao == TipoMovimentacao.carregamento
-                            ? Colors.orange.shade700
-                            : Colors.green.shade700,
-                      ),
-                      SizedBox(width: 4),
-                      Text(
-                        _tipoMovimentacao == TipoMovimentacao.carregamento
-                            ? 'Saída'
-                            : 'Chegada',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: _tipoMovimentacao == TipoMovimentacao.carregamento
-                              ? Colors.orange.shade700
-                              : Colors.green.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
             const SizedBox(height: 20),
             
@@ -1211,14 +1451,14 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                 children: [
                   // Container para linha e ícones
                   SizedBox(
-                    height: 60,
+                    height: 80, // Aumentado de 60 para 80
                     child: Stack(
                       children: [
                         // LINHA DE CONEXÃO CONTÍNUA - CENTRALIZADA
                         Positioned(
                           left: 15,
                           right: 15,
-                          top: 19,
+                          top: 29, // Ajustado de 19 para 29
                           child: Container(
                             height: 2,
                             decoration: BoxDecoration(
@@ -1235,26 +1475,32 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                             final etapa = etapasAtivas[index];
                             final isCompleta = index <= etapaIndex;
                             final isAtual = index == etapaIndex;
+                            final isProgramado = etapa.etapa == EtapaCircuito.programado;
+                            final isAguardando = etapa.etapa == EtapaCircuito.aguardando;
                             final isChecklist = etapa.etapa == EtapaCircuito.checkList;
                             
                             return Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 // ÍCONE
-                                _buildEtapaIconComLinha(
-                                  etapa: etapa,
-                                  index: index,
-                                  isCompleta: isCompleta,
-                                  isAtual: isAtual,
-                                  isChecklist: isChecklist,
-                                  etapaIndex: etapaIndex,
+                                Container(
+                                  height: 40, // Container fixo para o ícone
+                                  child: _buildEtapaIconComHover(
+                                    etapa: etapa,
+                                    index: index,
+                                    isCompleta: isCompleta,
+                                    isAtual: isAtual,
+                                    isProgramado: isProgramado,
+                                    isAguardando: isAguardando,
+                                    isChecklist: isChecklist,
+                                  ),
                                 ),
                                 
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 4), // Reduzido de 8 para 4
                                 
                                 // LABEL - AGORA VINCULADO AO ÍCONE
-                                SizedBox(
-                                  width: 65, // Ajustado para 6 etapas
+                                Container(
+                                  width: 70, // Aumentado de 65 para 70
                                   child: Text(
                                     etapa.label,
                                     style: TextStyle(
@@ -1286,53 +1532,84 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     );
   }
   
-  Widget _buildEtapaIconComLinha({
+  // MÉTODO MELHORADO: Widget para etapa com hover e click
+  Widget _buildEtapaIconComHover({
     required _EtapaInfo etapa,
     required int index,
     required bool isCompleta,
     required bool isAtual,
+    required bool isProgramado,
+    required bool isAguardando,
     required bool isChecklist,
-    required int etapaIndex,
   }) {
-    final podeClicar = isChecklist && etapaIndex >= index;
+    // Determinar se pode clicar - SÓ SE FOR A ETAPA ATUAL
+    bool podeClicar = false;
+    String tooltip = '';
+    
+    if (isProgramado && isAtual) {
+      podeClicar = true;
+      tooltip = 'Clique para confirmar veículo presente e avançar para aguardando';
+    } else if (isAguardando && isAtual) {
+      podeClicar = true;
+      tooltip = 'Clique para avançar para check-list';
+    } else if (isChecklist && isAtual) {
+      podeClicar = true;
+      tooltip = 'Clique para iniciar check-list de segurança';
+    }
     
     return SizedBox(
-      width: 36,
-      height: 36,
+      width: 50,
+      height: 50,
       child: Center(
         child: Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isCompleta ? etapa.cor : Colors.grey.shade300,
-            border: Border.all(
-              color: podeClicar ? etapa.cor.withOpacity(0.3) : Colors.transparent,
-              width: podeClicar ? 2 : 0,
-            ),
-            boxShadow: podeClicar
-                ? [
-                    BoxShadow(
-                      color: etapa.cor.withOpacity(0.3),
-                      blurRadius: 6,
-                      spreadRadius: 1,
-                    ),
-                  ]
-                : null,
-          ),
+          width: 36,
+          height: 36,
           child: Material(
             color: Colors.transparent,
             shape: const CircleBorder(),
             child: InkWell(
-              onTap: podeClicar ? _abrirDialogoChecklist : null,
+              onTap: podeClicar ? () {
+                if (isProgramado) {
+                  _mostrarDialogProgramadoParaAguardando();
+                } else if (isAguardando) {
+                  _mostrarDialogAguardandoParaChecklist();
+                } else if (isChecklist) {
+                  _abrirDialogoChecklist();
+                }
+              } : null,
               customBorder: const CircleBorder(),
-              splashColor: etapa.cor.withOpacity(0.3),
-              highlightColor: etapa.cor.withOpacity(0.1),
-              child: Center(
-                child: Icon(
-                  etapa.icon,
-                  color: Colors.white,
-                  size: 16,
+              splashColor: podeClicar ? etapa.cor.withOpacity(0.3) : null,
+              highlightColor: podeClicar ? etapa.cor.withOpacity(0.1) : null,
+              hoverColor: podeClicar ? etapa.cor.withOpacity(0.05) : null,
+              child: Tooltip(
+                message: tooltip,
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isCompleta ? etapa.cor : Colors.grey.shade300,
+                    border: Border.all(
+                      color: podeClicar ? etapa.cor.withOpacity(0.3) : Colors.transparent,
+                      width: podeClicar ? 2 : 0,
+                    ),
+                    boxShadow: podeClicar
+                        ? [
+                            BoxShadow(
+                              color: etapa.cor.withOpacity(0.2),
+                              blurRadius: 4,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      etapa.icon,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -1496,7 +1773,6 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     );
   }  
 }
-
 
 class _EtapaInfo {
   final EtapaCircuito etapa;
