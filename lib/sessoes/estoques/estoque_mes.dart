@@ -168,7 +168,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
 
     final tipoOp = mov['tipo_op']?.toString() ?? '';
     final caclId = mov['cacl_id']?.toString();
-    final filialIdMov = mov['filial_id']?.toString();
     final filialDestinoId = mov['filial_destino_id']?.toString();
     final filialOrigemId = mov['filial_origem_id']?.toString();
     final tipoMovDest = mov['tipo_mov_dest']?.toString();
