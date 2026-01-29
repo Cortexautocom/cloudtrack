@@ -35,24 +35,40 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   bool _erro = false;
   String _mensagemErro = '';
   String? _nomeProdutoSelecionado;
-  
+
   // ScrollControllers
   final ScrollController _verticalScrollController = ScrollController();
   final ScrollController _horizontalHeaderController = ScrollController();
   final ScrollController _horizontalBodyController = ScrollController();
-  
-  // Constantes de layout
-  static const double _larguraTabela = 1260; // Largura total da tabela
+
+  // Constantes de layout - REMOVIDA A LINHA _larguraTabela fixa
   static const double _alturaCabecalho = 40;
   static const double _alturaLinha = 40;
   static const double _alturaRodape = 32;
-  
+
   // Larguras das colunas
   static const double _larguraData = 120;
   static const double _larguraProduto = 180;
   static const double _larguraDescricao = 240;
   static const double _larguraNumerica = 120;
-  
+
+  // GETTER para calcular largura total DINAMICAMENTE
+  double get _larguraTabela {
+    bool mostrarColunaProduto = widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
+    
+    // Soma das larguras fixas (6 colunas numéricas)
+    double soma = _larguraData + 
+                  _larguraDescricao + 
+                  (_larguraNumerica * 6); // 6 colunas numéricas
+    
+    // Adiciona coluna de produto se necessário
+    if (mostrarColunaProduto) {
+      soma += _larguraProduto;
+    }
+    
+    return soma; // Retorna a largura exata sem espaço extra
+  }
+
   Color _getCorFundoEntrada() {
     return Colors.green.shade50.withOpacity(0.3);
   }

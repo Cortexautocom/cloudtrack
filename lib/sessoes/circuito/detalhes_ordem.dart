@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum EtapaCircuito {
   programado,
+  aguardando,  // NOVA ETAPA
   checkList,
   operacao,
   emissaoNF,
@@ -51,6 +52,14 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
       statusCodigo: 1,
     ),
     _EtapaInfo(
+      etapa: EtapaCircuito.aguardando,  // NOVA ETAPA
+      label: 'Aguardando',
+      subtitle: 'Aguardando disponibilidade',
+      icon: Icons.hourglass_empty,
+      cor: Color(0xFF9E9E9E),  // Cinza para estado de espera
+      statusCodigo: 15,  // Novo código para etapa de aguardando
+    ),
+    _EtapaInfo(
       etapa: EtapaCircuito.checkList,
       label: 'Check-list',
       subtitle: 'Verificação de segurança',
@@ -94,11 +103,16 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     {
       'data': '15/01/2024',
       'hora': '10:15',
-      'descricao': 'Veículo deu entrada na base, em fase de check-list.'
+      'descricao': 'Ordem colocada em espera - Aguardando disponibilidade'
     },
     {
       'data': '15/01/2024',
       'hora': '10:45',
+      'descricao': 'Veículo deu entrada na base, em fase de check-list.'
+    },
+    {
+      'data': '15/01/2024',
+      'hora': '11:00',
       'descricao': 'Check-list finalizado, entrou em operação.'
     },
     {
@@ -238,6 +252,12 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
 
   EtapaCircuito _resolverEtapaPorStatus(dynamic status) {
     final codigo = status is int ? status : int.tryParse(status.toString()) ?? 1;
+    
+    // Verifica se o status é 15 para a nova etapa "Aguardando"
+    if (codigo == 15) {
+      return EtapaCircuito.aguardando;
+    }
+    
     return _etapas
         .firstWhere((e) => e.statusCodigo == codigo,
             orElse: () => _etapas.first)
@@ -498,7 +518,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
 
         // Adicionar ao histórico local
         final agora = DateTime.now();
-        _historicoFatos.insert(2, {
+        _historicoFatos.insert(3, {  // Ajustado o índice devido à nova etapa
           'data': '${agora.day.toString().padLeft(2, '0')}/${agora.month.toString().padLeft(2, '0')}/${agora.year}',
           'hora': '${agora.hour.toString().padLeft(2, '0')}:${agora.minute.toString().padLeft(2, '0')}',
           'descricao': 'Check-list concluído por operador'
@@ -834,7 +854,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
-                  ),
+                ),
                 ),
               ),
               
@@ -920,8 +940,8 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                       children: [
                         // LINHA DE CONEXÃO CONTÍNUA - CENTRALIZADA
                         Positioned(
-                          left: 30,
-                          right: 30,
+                          left: 20,
+                          right: 20,
                           top: 19, // Mantido mesmo posicionamento
                           child: Container(
                             height: 2,
@@ -958,7 +978,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                                 
                                 // LABEL - AGORA VINCULADO AO ÍCONE
                                 SizedBox(
-                                  width: 80,
+                                  width: 70, // Reduzido para acomodar mais etapas
                                   child: Text(
                                     etapa.label,
                                     style: TextStyle(

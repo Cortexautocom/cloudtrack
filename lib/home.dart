@@ -792,7 +792,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    '© Norton Tecnology - 550 California St, W-325, San Francisco, CA - EUA.',
+                    'PowerTank Terminais 2026, All rights reserved.',
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.grey[600],
@@ -800,8 +800,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    'PowerTank Terminais 2026, All rights reserved.',
+                  Text(                    
+                    '© Norton Tecnology - 550 California St, W-325, San Francisco, CA - EUA.',
                     style: TextStyle(
                       fontSize: 10,
                       color: Colors.grey[500],
