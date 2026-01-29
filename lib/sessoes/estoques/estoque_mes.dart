@@ -105,7 +105,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     try {
       if (widget.empresaId == null) {
         final filialData = await _supabase
-            .from('filiais')
+            .from('filiales')
             .select('empresa_id')
             .eq('id', widget.filialId)
             .single();
@@ -129,12 +129,11 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         _nomeProdutoSelecionado = produtoData?['nome']?.toString();
       }
 
-      // Se for relatório sintético, carregar dados agrupados por data
-      if (widget.tipoRelatorio == 'sintetico') {
-        await _carregarDadosSintetico();
-      } else {
-        // Relatório analítico (mantém a lógica original)
+      // Alteração: Usar dispatcher conforme definição
+      if (widget.tipoRelatorio == 'analitico') {
         await _carregarDadosAnalitico();
+      } else {
+        await _carregarDadosSintetico();
       }
       
       if (mounted) {
@@ -155,109 +154,109 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     }
   }
 
-  Future<void> _carregarDadosAnalitico() async {
-    var query = _supabase
-        .from('movimentacoes')
-        .select('''
-          id,
-          data_mov,
-          descricao,
-          entrada_amb,
-          entrada_vinte,
-          saida_amb,
-          saida_vinte,
-          produto_id,
-          produtos!movimentacoes_produto_id_fkey1(
-            id,
-            nome
-          )
-        ''')
-        .eq('filial_id', widget.filialId)
-        .eq('empresa_id', _empresaId!);
+  // NOVA FUNÇÃO: Normalização de movimentação
+  Map<String, dynamic> _normalizarMovimentacao(
+    Map<String, dynamic> mov,
+    String filialId,
+    Map<String, String> mapTiposCacl,
+  ) {
+    // Inicializar acumuladores
+    num entradaAmb = 0;
+    num entradaVinte = 0;
+    num saidaAmb = 0;
+    num saidaVinte = 0;
 
-    if (widget.mesFiltro != null) {
-      final primeiroDia = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month, 1);
-      final ultimoDia = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month + 1, 0);
+    final tipoOp = mov['tipo_op']?.toString() ?? '';
+    final caclId = mov['cacl_id']?.toString();
+    final filialIdMov = mov['filial_id']?.toString();
+    final filialDestinoId = mov['filial_destino_id']?.toString();
+    final filialOrigemId = mov['filial_origem_id']?.toString();
+    final tipoMovDest = mov['tipo_mov_dest']?.toString();
+    final tipoMovOrig = mov['tipo_mov_orig']?.toString();
+
+    // Função auxiliar para somar volumes
+    void _somarVolumes(Map<String, dynamic> data, bool isEntrada) {
+      // Campos ambiente
+      final volumesAmb = [
+        'g_comum', 'g_aditivada', 'd_s10', 'd_s500', 'etanol',
+        'anidro', 'b100', 'gasolina_a', 's500_a', 's10_a'
+      ];
       
-      query = query
-          .gte('data_mov', primeiroDia.toIso8601String())
-          .lte('data_mov', ultimoDia.toIso8601String());
-    }
+      // Campos 20ºC
+      final volumesVinte = [
+        'g_comum_vinte', 'g_aditivada_vinte', 'd_s10_vinte', 'd_s500_vinte',
+        'etanol_vinte', 'anidro_vinte', 'b100_vinte', 'gasolina_a_vinte',
+        's500_a_vinte', 's10_a_vinte'
+      ];
 
-    if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
-      query = query.eq('produto_id', widget.produtoFiltro!);
-    }
+      num totalAmb = 0;
+      num totalVinte = 0;
 
-    final dados = await query.order('data_mov', ascending: true);
+      for (var campo in volumesAmb) {
+        totalAmb += (data[campo] ?? 0) as num;
+      }
 
-    List<Map<String, dynamic>> movimentacoesComSaldo = [];
-    num saldoAmbAcumulado = 0;
-    num saldoVinteAcumulado = 0;
+      for (var campo in volumesVinte) {
+        totalVinte += (data[campo] ?? 0) as num;
+      }
 
-    for (var item in dados) {
-      final entradaAmb = item['entrada_amb'] ?? 0;
-      final entradaVinte = item['entrada_vinte'] ?? 0;
-      final saidaAmb = item['saida_amb'] ?? 0;
-      final saidaVinte = item['saida_vinte'] ?? 0;
-      
-      final produto = item['produtos'] as Map<String, dynamic>?;
-      final produtoNome = produto?['nome']?.toString() ?? '';
-
-      saldoAmbAcumulado += entradaAmb - saidaAmb;
-      saldoVinteAcumulado += entradaVinte - saidaVinte;
-
-      movimentacoesComSaldo.add({
-        ...item,
-        'produto_nome': produtoNome,
-        'produto_id': item['produto_id'],
-        'saldo_amb': saldoAmbAcumulado,
-        'saldo_vinte': saldoVinteAcumulado,
-      });
-    }
-
-    _ordenarDados(movimentacoesComSaldo, 'data_mov', true);
-  }
-
-  Future<void> _carregarDadosSintetico() async {
-    var queryDatas = _supabase
-        .from('movimentacoes')
-        .select('data_mov')
-        .or('filial_id.eq.${widget.filialId},filial_destino_id.eq.${widget.filialId},filial_origem_id.eq.${widget.filialId}')
-        .eq('empresa_id', _empresaId!);
-
-    if (widget.mesFiltro != null) {
-      final primeiroDia = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month, 1);
-      final ultimoDia = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month + 1, 0);
-      
-      queryDatas = queryDatas
-          .gte('data_mov', primeiroDia.toIso8601String())
-          .lte('data_mov', ultimoDia.toIso8601String());
-    }
-
-    if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
-      queryDatas = queryDatas.eq('produto_id', widget.produtoFiltro!);
-    }
-
-    final dadosDatas = await queryDatas.order('data_mov', ascending: true);
-
-    // Extrair datas únicas
-    final datasUnicas = <String>[];
-    for (var item in dadosDatas) {
-      final dataStr = item['data_mov'] as String;
-      if (!datasUnicas.contains(dataStr)) {
-        datasUnicas.add(dataStr);
+      if (isEntrada) {
+        entradaAmb += totalAmb;
+        entradaVinte += totalVinte;
+      } else {
+        saidaAmb += totalAmb;
+        saidaVinte += totalVinte;
       }
     }
 
-    List<Map<String, dynamic>> movimentacoesSinteticas = [];
+    // Regras por tipo de operação
+    switch (tipoOp) {
+      case 'transf':
+        if (filialDestinoId == filialId && tipoMovDest == 'entrada') {
+          // ENTRADA por transferência
+          _somarVolumes(mov, true);
+        } else if (filialOrigemId == filialId && tipoMovOrig == 'saida') {
+          // SAÍDA por transferência
+          _somarVolumes(mov, false);
+        }
+        break;
 
-    // Para cada data única, calcular totais
-    for (var dataStr in datasUnicas) {
-      // Buscar movimentações onde:
-      // 1. filial_id = filial do parâmetro (movimentações normais)
-      // 2. OU filial_destino_id = filial do parâmetro E tipo_mov_dest = 'entrada' (transferências entrando)
-      // 3. OU filial_origem_id = filial do parâmetro E tipo_mov_orig = 'saida' (transferências saindo)
-      var queryDia = _supabase
+      case 'venda':
+        // Sempre SAÍDA para vendas
+        _somarVolumes(mov, false);
+        break;
+
+      case 'cacl':
+        if (caclId != null) {
+          final tipoCacl = mapTiposCacl[caclId];
+          if (tipoCacl == 'movimentacao') {
+            // ENTRADA para CACL de tipo movimentacao
+            _somarVolumes(mov, true);
+          }
+        }
+        break;
+
+      default:
+        // Outros tipos: usar campos diretos
+        entradaAmb += (mov['entrada_amb'] ?? 0) as num;
+        entradaVinte += (mov['entrada_vinte'] ?? 0) as num;
+        saidaAmb += (mov['saida_amb'] ?? 0) as num;
+        saidaVinte += (mov['saida_vinte'] ?? 0) as num;
+        break;
+    }
+
+    return {
+      'entrada_amb': entradaAmb,
+      'entrada_vinte': entradaVinte,
+      'saida_amb': saidaAmb,
+      'saida_vinte': saidaVinte,
+    };
+  }
+
+  Future<void> _carregarDadosAnalitico() async {
+    try {
+      // Query única para buscar todas as movimentações relevantes
+      var query = _supabase
           .from('movimentacoes')
           .select('''
             id,
@@ -271,6 +270,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             tipo_op,
             cacl_id,
             tipo_mov_orig,
+            tipo_mov_dest,
             g_comum,
             g_aditivada,
             d_s10,
@@ -294,207 +294,49 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             filial_id,
             filial_destino_id,
             filial_origem_id,
-            tipo_mov_dest,
             produtos!movimentacoes_produto_id_fkey1(
               id,
               nome
             )
           ''')
-          .eq('empresa_id', _empresaId!)
-          .eq('data_mov', dataStr)
-          .or('filial_id.eq.${widget.filialId},and(filial_destino_id.eq.${widget.filialId},tipo_mov_dest.eq.entrada),and(filial_origem_id.eq.${widget.filialId},tipo_mov_orig.eq.saida)');
+          .or('filial_id.eq.${widget.filialId},filial_destino_id.eq.${widget.filialId},filial_origem_id.eq.${widget.filialId}')
+          .eq('empresa_id', _empresaId!);
+
+      if (widget.mesFiltro != null) {
+        final primeiroDia = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month, 1);
+        final ultimoDia = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month + 1, 0);
+        
+        query = query
+            .gte('data_mov', primeiroDia.toIso8601String())
+            .lte('data_mov', ultimoDia.toIso8601String());
+      }
 
       if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
-        queryDia = queryDia.eq('produto_id', widget.produtoFiltro!);
+        query = query.eq('produto_id', widget.produtoFiltro!);
       }
 
-      final movimentacoesDia = await queryDia;
+      final dados = await query.order('data_mov', ascending: true);
 
-      // DEBUG: Verificar o que foi retornado
-      debugPrint('DEBUG Data $dataStr: ${movimentacoesDia.length} movimentações');
-      for (var i = 0; i < movimentacoesDia.length; i++) {
-        final mov = movimentacoesDia[i];
-        debugPrint('  Mov $i: id=${mov['id']}, tipo_op=${mov['tipo_op']}, '
-            'filial_id=${mov['filial_id']}, '
-            'filial_destino_id=${mov['filial_destino_id']}, '
-            'filial_origem_id=${mov['filial_origem_id']}, '
-            'tipo_mov_dest=${mov['tipo_mov_dest']}, '
-            'tipo_mov_orig=${mov['tipo_mov_orig']}');
-      }
-
-      // Inicializar totais
-      num totalEntradaAmb = 0;
-      num totalEntradaVinte = 0;
-      num totalSaidaAmb = 0;
-      num totalSaidaVinte = 0;
-
-      // Para operações cacl, precisamos verificar o tipo no cacl
-      final idsCaclParaVerificar = <String>[];
-      final mapMovimentacoesCacl = <String, Map<String, dynamic>>{};
-      
-      for (var mov in movimentacoesDia) {
+      // Pré-carregar tipos de CACL
+      final caclIds = <String>[];
+      for (var mov in dados) {
         final tipoOp = mov['tipo_op']?.toString() ?? '';
         final caclId = mov['cacl_id']?.toString();
-        final filialId = mov['filial_id']?.toString();
-        final filialDestinoId = mov['filial_destino_id']?.toString();
-        final filialOrigemId = mov['filial_origem_id']?.toString();
-        final tipoMovDest = mov['tipo_mov_dest']?.toString();
-        final tipoMovOrig = mov['tipo_mov_orig']?.toString();
-        
-        // DEBUG
-        debugPrint('Processando mov ${mov['id']}: tipo_op=$tipoOp, '
-            'filial_id=$filialId, filial_destino_id=$filialDestinoId, '
-            'filial_origem_id=$filialOrigemId, '
-            'tipo_mov_dest=$tipoMovDest, tipo_mov_orig=$tipoMovOrig');
-        
         if (tipoOp == 'cacl' && caclId != null && caclId.isNotEmpty) {
-          idsCaclParaVerificar.add(caclId);
-          mapMovimentacoesCacl[caclId] = mov;
-        } else if (tipoOp == 'transf') {
-          // PARA TRANSFERÊNCIAS:
-          // Se filial_destino_id = filial do parâmetro E tipo_mov_dest = 'entrada'
-          // Então é uma ENTRADA nesta filial
-          if (filialDestinoId == widget.filialId && tipoMovDest == 'entrada') {
-            debugPrint('  -> Transferência ENTRADA detectada!');
-            
-            // Somar TODAS as colunas específicas para entrada_amb
-            num totalEntradaAmbTransf = 0;
-            num totalEntradaVinteTransf = 0;
-            
-            // Campos ambiente
-            totalEntradaAmbTransf += (mov['g_comum'] ?? 0) as num;
-            totalEntradaAmbTransf += (mov['g_aditivada'] ?? 0) as num;
-            totalEntradaAmbTransf += (mov['d_s10'] ?? 0) as num;
-            totalEntradaAmbTransf += (mov['d_s500'] ?? 0) as num;
-            totalEntradaAmbTransf += (mov['etanol'] ?? 0) as num;
-            totalEntradaAmbTransf += (mov['anidro'] ?? 0) as num;
-            totalEntradaAmbTransf += (mov['b100'] ?? 0) as num;
-            totalEntradaAmbTransf += (mov['gasolina_a'] ?? 0) as num;
-            totalEntradaAmbTransf += (mov['s500_a'] ?? 0) as num;
-            totalEntradaAmbTransf += (mov['s10_a'] ?? 0) as num;
-            
-            // Campos 20ºC
-            totalEntradaVinteTransf += (mov['g_comum_vinte'] ?? 0) as num;
-            totalEntradaVinteTransf += (mov['g_aditivada_vinte'] ?? 0) as num;
-            totalEntradaVinteTransf += (mov['d_s10_vinte'] ?? 0) as num;
-            totalEntradaVinteTransf += (mov['d_s500_vinte'] ?? 0) as num;
-            totalEntradaVinteTransf += (mov['etanol_vinte'] ?? 0) as num;
-            totalEntradaVinteTransf += (mov['anidro_vinte'] ?? 0) as num;
-            totalEntradaVinteTransf += (mov['b100_vinte'] ?? 0) as num;
-            totalEntradaVinteTransf += (mov['gasolina_a_vinte'] ?? 0) as num;
-            totalEntradaVinteTransf += (mov['s500_a_vinte'] ?? 0) as num;
-            totalEntradaVinteTransf += (mov['s10_a_vinte'] ?? 0) as num;
-            
-            debugPrint('  -> Total entrada ambiente: $totalEntradaAmbTransf');
-            debugPrint('  -> Total entrada 20ºC: $totalEntradaVinteTransf');
-            
-            // Adicionar os totais
-            totalEntradaAmb += totalEntradaAmbTransf;
-            totalEntradaVinte += totalEntradaVinteTransf;
-          } 
-          // Se filial_origem_id = filial do parâmetro E tipo_mov_orig = 'saida'
-          // Então é uma SAÍDA desta filial
-          else if (filialOrigemId == widget.filialId && tipoMovOrig == 'saida') {
-            debugPrint('  -> Transferência SAÍDA detectada!');
-            
-            // Somar TODAS as colunas específicas para saida_amb
-            num totalSaidaAmbTransf = 0;
-            num totalSaidaVinteTransf = 0;
-            
-            // Campos ambiente
-            totalSaidaAmbTransf += (mov['g_comum'] ?? 0) as num;
-            totalSaidaAmbTransf += (mov['g_aditivada'] ?? 0) as num;
-            totalSaidaAmbTransf += (mov['d_s10'] ?? 0) as num;
-            totalSaidaAmbTransf += (mov['d_s500'] ?? 0) as num;
-            totalSaidaAmbTransf += (mov['etanol'] ?? 0) as num;
-            totalSaidaAmbTransf += (mov['anidro'] ?? 0) as num;
-            totalSaidaAmbTransf += (mov['b100'] ?? 0) as num;
-            totalSaidaAmbTransf += (mov['gasolina_a'] ?? 0) as num;
-            totalSaidaAmbTransf += (mov['s500_a'] ?? 0) as num;
-            totalSaidaAmbTransf += (mov['s10_a'] ?? 0) as num;
-            
-            // Campos 20ºC
-            totalSaidaVinteTransf += (mov['g_comum_vinte'] ?? 0) as num;
-            totalSaidaVinteTransf += (mov['g_aditivada_vinte'] ?? 0) as num;
-            totalSaidaVinteTransf += (mov['d_s10_vinte'] ?? 0) as num;
-            totalSaidaVinteTransf += (mov['d_s500_vinte'] ?? 0) as num;
-            totalSaidaVinteTransf += (mov['etanol_vinte'] ?? 0) as num;
-            totalSaidaVinteTransf += (mov['anidro_vinte'] ?? 0) as num;
-            totalSaidaVinteTransf += (mov['b100_vinte'] ?? 0) as num;
-            totalSaidaVinteTransf += (mov['gasolina_a_vinte'] ?? 0) as num;
-            totalSaidaVinteTransf += (mov['s500_a_vinte'] ?? 0) as num;
-            totalSaidaVinteTransf += (mov['s10_a_vinte'] ?? 0) as num;
-            
-            debugPrint('  -> Total saída ambiente: $totalSaidaAmbTransf');
-            debugPrint('  -> Total saída 20ºC: $totalSaidaVinteTransf');
-            
-            // Adicionar os totais
-            totalSaidaAmb += totalSaidaAmbTransf;
-            totalSaidaVinte += totalSaidaVinteTransf;
-          } else {
-            // Para transferências que não são nem entrada nem saída nesta filial, ignorar
-            debugPrint('  -> Transferência ignorada (não é entrada nem saída nesta filial)');
+          if (!caclIds.contains(caclId)) {
+            caclIds.add(caclId);
           }
-        } else if (tipoOp == 'venda') {
-          // Para vendas, somar TODAS as colunas específicas e colocar o total em saida_amb
-          num totalVendaAmb = 0;
-          num totalVendaVinte = 0;
-          
-          // Campos ambiente
-          totalVendaAmb += (mov['g_comum'] ?? 0) as num;
-          totalVendaAmb += (mov['g_aditivada'] ?? 0) as num;
-          totalVendaAmb += (mov['d_s10'] ?? 0) as num;
-          totalVendaAmb += (mov['d_s500'] ?? 0) as num;
-          totalVendaAmb += (mov['etanol'] ?? 0) as num;
-          totalVendaAmb += (mov['anidro'] ?? 0) as num;
-          totalVendaAmb += (mov['b100'] ?? 0) as num;
-          totalVendaAmb += (mov['gasolina_a'] ?? 0) as num;
-          totalVendaAmb += (mov['s500_a'] ?? 0) as num;
-          totalVendaAmb += (mov['s10_a'] ?? 0) as num;
-          
-          // Campos 20ºC
-          totalVendaVinte += (mov['g_comum_vinte'] ?? 0) as num;
-          totalVendaVinte += (mov['g_aditivada_vinte'] ?? 0) as num;
-          totalVendaVinte += (mov['d_s10_vinte'] ?? 0) as num;
-          totalVendaVinte += (mov['d_s500_vinte'] ?? 0) as num;
-          totalVendaVinte += (mov['etanol_vinte'] ?? 0) as num;
-          totalVendaVinte += (mov['anidro_vinte'] ?? 0) as num;
-          totalVendaVinte += (mov['b100_vinte'] ?? 0) as num;
-          totalVendaVinte += (mov['gasolina_a_vinte'] ?? 0) as num;
-          totalVendaVinte += (mov['s500_a_vinte'] ?? 0) as num;
-          totalVendaVinte += (mov['s10_a_vinte'] ?? 0) as num;
-          
-          debugPrint('  -> Venda detectada, total ambiente: $totalVendaAmb');
-          debugPrint('  -> Venda detectada, total 20ºC: $totalVendaVinte');
-          
-          // Adicionar os totais
-          totalSaidaAmb += totalVendaAmb;
-          totalSaidaVinte += totalVendaVinte;
-        } else if (tipoOp == 'outro') {
-          // Para outros tipos (não cacl, não venda, não transf), somar normalmente
-          totalEntradaAmb += (mov['entrada_amb'] ?? 0) as num;
-          totalEntradaVinte += (mov['entrada_vinte'] ?? 0) as num;
-          totalSaidaAmb += (mov['saida_amb'] ?? 0) as num;
-          totalSaidaVinte += (mov['saida_vinte'] ?? 0) as num;
-          
-          debugPrint('  -> Outro tipo: entrada_amb=${mov['entrada_amb']}, saida_amb=${mov['saida_amb']}');
         }
       }
 
-      // Verificar tipos dos cacl se houver algum
-      if (idsCaclParaVerificar.isNotEmpty) {
-        debugPrint('  Verificando ${idsCaclParaVerificar.length} registros cacl...');
-        
-        // Método correto para filtrar com IN
+      final Map<String, String> mapTiposCacl = {};
+      if (caclIds.isNotEmpty) {
         final caclQuery = _supabase
             .from('cacl')
             .select('id, tipo')
-            .inFilter('id', idsCaclParaVerificar);
+            .inFilter('id', caclIds);
         
         final caclResults = await caclQuery;
-        
-        // Converter para mapa para fácil acesso
-        final mapTiposCacl = <String, String>{};
         for (var cacl in caclResults) {
           final id = cacl['id']?.toString();
           final tipo = cacl['tipo']?.toString();
@@ -502,104 +344,143 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             mapTiposCacl[id] = tipo;
           }
         }
-        
-        // Agora processar as movimentações cacl
-        for (var caclId in idsCaclParaVerificar) {
-          final mov = mapMovimentacoesCacl[caclId];
-          final tipoCacl = mapTiposCacl[caclId];
-          
-          if (mov != null && tipoCacl == 'movimentacao') {
-            debugPrint('  -> Cacl movimentacao detectado (id: $caclId)');
-            
-            // Para CACL "movimentacao", sempre é ENTRADA (conforme informado)
-            // Somar todos os campos específicos para entrada
-            
-            num totalCaclAmb = 0;
-            num totalCaclVinte = 0;
-            
-            // Campos ambiente para entrada
-            totalCaclAmb += (mov['g_comum'] ?? 0) as num;
-            totalCaclAmb += (mov['g_aditivada'] ?? 0) as num;
-            totalCaclAmb += (mov['d_s10'] ?? 0) as num;
-            totalCaclAmb += (mov['d_s500'] ?? 0) as num;
-            totalCaclAmb += (mov['etanol'] ?? 0) as num;
-            totalCaclAmb += (mov['anidro'] ?? 0) as num;
-            totalCaclAmb += (mov['b100'] ?? 0) as num;
-            totalCaclAmb += (mov['gasolina_a'] ?? 0) as num;
-            totalCaclAmb += (mov['s500_a'] ?? 0) as num;
-            totalCaclAmb += (mov['s10_a'] ?? 0) as num;
-            
-            // Campos 20ºC para entrada
-            totalCaclVinte += (mov['g_comum_vinte'] ?? 0) as num;
-            totalCaclVinte += (mov['g_aditivada_vinte'] ?? 0) as num;
-            totalCaclVinte += (mov['d_s10_vinte'] ?? 0) as num;
-            totalCaclVinte += (mov['d_s500_vinte'] ?? 0) as num;
-            totalCaclVinte += (mov['etanol_vinte'] ?? 0) as num;
-            totalCaclVinte += (mov['anidro_vinte'] ?? 0) as num;
-            totalCaclVinte += (mov['b100_vinte'] ?? 0) as num;
-            totalCaclVinte += (mov['gasolina_a_vinte'] ?? 0) as num;
-            totalCaclVinte += (mov['s500_a_vinte'] ?? 0) as num;
-            totalCaclVinte += (mov['s10_a_vinte'] ?? 0) as num;
-            
-            debugPrint('    Total CACL ambiente: $totalCaclAmb');
-            debugPrint('    Total CACL 20ºC: $totalCaclVinte');
-            
-            // Adicionar como ENTRADA (sempre para CACL "movimentacao")
-            totalEntradaAmb += totalCaclAmb;
-            totalEntradaVinte += totalCaclVinte;
-            
-          } else if (mov != null) {
-            debugPrint('  -> Cacl tipo $tipoCacl ignorado (não é "movimentacao")');
-          }
-        }
       }
 
-      // Obter nome do produto (ou "Todos" se for todos os produtos)
-      String produtoNome;
-      if (widget.produtoFiltro == null || widget.produtoFiltro == 'todos') {
-        produtoNome = 'Todos';
-      } else {
-        produtoNome = _nomeProdutoSelecionado ?? 'Produto Selecionado';
+      // Gerar lista analítica normalizada
+      final List<Map<String, dynamic>> analitico = [];
+
+      for (var mov in dados) {
+        final normalizado = _normalizarMovimentacao(
+          mov,
+          widget.filialId,
+          mapTiposCacl,
+        );
+
+        final produto = mov['produtos'] as Map<String, dynamic>?;
+        final produtoNome = produto?['nome']?.toString() ?? '';
+
+        analitico.add({
+          ...normalizado,
+          'id': mov['id'],
+          'data_mov': mov['data_mov'],
+          'descricao': mov['descricao'] ?? '',
+          'produto_nome': produtoNome,
+          'produto_id': mov['produto_id'],
+        });
       }
 
-      // Adicionar linha sintética para o dia
-      movimentacoesSinteticas.add({
-        'id': 'sintetico_$dataStr',
-        'data_mov': dataStr,
-        'descricao': 'Resumo do dia',
-        'entrada_amb': totalEntradaAmb,
-        'entrada_vinte': totalEntradaVinte,
-        'saida_amb': totalSaidaAmb,
-        'saida_vinte': totalSaidaVinte,
-        'produto_nome': produtoNome,
-        'produto_id': widget.produtoFiltro,
-      });
+      // Calcular saldo acumulado
+      num saldoAmb = 0;
+      num saldoVinte = 0;
+
+      for (var item in analitico) {
+        saldoAmb += (item['entrada_amb'] as num) - (item['saida_amb'] as num);
+        saldoVinte += (item['entrada_vinte'] as num) - (item['saida_vinte'] as num);
+
+        item['saldo_amb'] = saldoAmb;
+        item['saldo_vinte'] = saldoVinte;
+      }
+
+      // Ordenar e atualizar estado
+      _ordenarDados(analitico, 'data_mov', true);
+
+    } catch (e) {
+      debugPrint('Erro ao carregar dados analíticos: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _carregarDadosSintetico() async {
+    try {
+      // Primeiro carregar os dados analíticos
+      await _carregarDadosAnalitico();
       
-      debugPrint('  TOTAIS do dia $dataStr: entrada_amb=$totalEntradaAmb, entrada_vinte=$totalEntradaVinte, saida_amb=$totalSaidaAmb, saida_vinte=$totalSaidaVinte');
-    }
+      // Agrupar por data
+      final Map<String, List<Map<String, dynamic>>> porDia = {};
+      
+      for (var mov in _movimentacoes) {
+        final dataStr = mov['data_mov'] as String;
+        if (!porDia.containsKey(dataStr)) {
+          porDia[dataStr] = [];
+        }
+        porDia[dataStr]!.add(mov);
+      }
 
-    // Calcular saldos acumulados
-    List<Map<String, dynamic>> movimentacoesComSaldo = [];
-    num saldoAmbAcumulado = 0;
-    num saldoVinteAcumulado = 0;
+      // Gerar lista sintética agrupada por dia
+      final List<Map<String, dynamic>> sintetico = [];
+      
+      // Ordenar datas
+      final datasOrdenadas = porDia.keys.toList()..sort();
 
-    for (var item in movimentacoesSinteticas) {
-      final entradaAmb = item['entrada_amb'] ?? 0;
-      final entradaVinte = item['entrada_vinte'] ?? 0;
-      final saidaAmb = item['saida_amb'] ?? 0;
-      final saidaVinte = item['saida_vinte'] ?? 0;
+      for (var dataStr in datasOrdenadas) {
+        final movsDoDia = porDia[dataStr]!;
+        
+        // Calcular totais do dia
+        num totalEntradaAmb = 0;
+        num totalEntradaVinte = 0;
+        num totalSaidaAmb = 0;
+        num totalSaidaVinte = 0;
 
-      saldoAmbAcumulado += entradaAmb - saidaAmb;
-      saldoVinteAcumulado += entradaVinte - saidaVinte;
+        for (var mov in movsDoDia) {
+          totalEntradaAmb += (mov['entrada_amb'] ?? 0) as num;
+          totalEntradaVinte += (mov['entrada_vinte'] ?? 0) as num;
+          totalSaidaAmb += (mov['saida_amb'] ?? 0) as num;
+          totalSaidaVinte += (mov['saida_vinte'] ?? 0) as num;
+        }
 
-      movimentacoesComSaldo.add({
-        ...item,
-        'saldo_amb': saldoAmbAcumulado,
-        'saldo_vinte': saldoVinteAcumulado,
+        // Obter nome do produto
+        String produtoNome;
+        if (widget.produtoFiltro == null || widget.produtoFiltro == 'todos') {
+          produtoNome = 'Todos';
+        } else {
+          produtoNome = _nomeProdutoSelecionado ?? 'Produto Selecionado';
+        }
+
+        sintetico.add({
+          'id': 'sintetico_$dataStr',
+          'data_mov': dataStr,
+          'descricao': 'Resumo do dia',
+          'entrada_amb': totalEntradaAmb,
+          'entrada_vinte': totalEntradaVinte,
+          'saida_amb': totalSaidaAmb,
+          'saida_vinte': totalSaidaVinte,
+          'produto_nome': produtoNome,
+          'produto_id': widget.produtoFiltro,
+        });
+      }
+
+      // Calcular saldos acumulados para o sintético
+      num saldoAmbAcumulado = 0;
+      num saldoVinteAcumulado = 0;
+
+      final List<Map<String, dynamic>> movimentacoesComSaldo = [];
+
+      for (var item in sintetico) {
+        final entradaAmb = item['entrada_amb'] ?? 0;
+        final entradaVinte = item['entrada_vinte'] ?? 0;
+        final saidaAmb = item['saida_amb'] ?? 0;
+        final saidaVinte = item['saida_vinte'] ?? 0;
+
+        saldoAmbAcumulado += (entradaAmb as num) - (saidaAmb as num);
+        saldoVinteAcumulado += (entradaVinte as num) - (saidaVinte as num);
+
+        movimentacoesComSaldo.add({
+          ...item,
+          'saldo_amb': saldoAmbAcumulado,
+          'saldo_vinte': saldoVinteAcumulado,
+        });
+      }
+
+      // Atualizar estado com dados sintéticos
+      setState(() {
+        _movimentacoes = movimentacoesComSaldo;
+        _movimentacoesOrdenadas = List.from(movimentacoesComSaldo);
       });
-    }
 
-    _ordenarDados(movimentacoesComSaldo, 'data_mov', true);
+    } catch (e) {
+      debugPrint('Erro ao carregar dados sintéticos: $e');
+      rethrow;
+    }
   }
 
   Future<void> _baixarExcel() async {
@@ -643,7 +524,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         'empresaId': widget.empresaId,
         'mesFiltro': widget.mesFiltro!.toIso8601String(),
         'produtoFiltro': widget.produtoFiltro,
-        'tipoRelatorio': widget.tipoRelatorio, // Adicionado tipo de relatório
+        'tipoRelatorio': widget.tipoRelatorio,
       };
 
       debugPrint('Enviando para Edge Function: $requestData');
