@@ -393,6 +393,8 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
           'data_mov': primeiraMov['data_mov'],
           'status_circuito': primeiraMov['status_circuito'],
           'tipo_op': primeiraMov['tipo_op'],
+          'filial_origem_id': primeiraMov['filial_origem_id'],
+          'filial_destino_id': primeiraMov['filial_destino_id'],
           'placas': placasSet.toList(),
           'quantidade_total': produtosAgrupados.values.fold<double>(0, (sum, value) => sum + value),
           'produtos_agrupados': produtosAgrupados, // ✅ ADICIONADO
@@ -1151,6 +1153,37 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     super.dispose();
   }
 
+  String get _filialAtualId {
+    final usuario = UsuarioAtual.instance;
+    
+    if (usuario == null) {
+      print("DEBUG: Usuário não autenticado");
+      return '';
+    }
+    
+    String filialId;
+    
+    if (usuario.nivel == 3) {
+      // Admin: usa a filial selecionada no filtro
+      filialId = _filialFiltroId ?? '';
+      
+      // Se não tem filial selecionada, pega a primeira da lista
+      if (filialId.isEmpty && _filiais.isNotEmpty) {
+        filialId = _filiais.first['id'].toString();
+        // Atualiza o filtro também
+        _filialFiltroId = filialId;
+      }
+      
+      print("DEBUG: Admin (nível 3) - Filial atual: $filialId");
+    } else {
+      // Usuário normal: usa sua filial
+      filialId = usuario.filialId ?? '';
+      print("DEBUG: Usuário normal - Filial atual: $filialId");
+    }
+    
+    return filialId;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1189,6 +1222,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         child: _mostrarDetalhes
             ? DetalhesOrdemView(
                 ordem: _ordemSelecionada!,
+                filialAtualId: _filialAtualId,
               )
             : Column(
                 children: [
@@ -1214,5 +1248,5 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
               ),
       ),
     );
-  }    
+  }
 }

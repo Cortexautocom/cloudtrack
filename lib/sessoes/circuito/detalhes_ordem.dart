@@ -3,19 +3,28 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum EtapaCircuito {
   programado,
-  aguardando,  // NOVA ETAPA
+  aguardando,
   checkList,
   operacao,
   emissaoNF,
   liberacao,
+  // Nova etapa específica para descarregamento
+  veiculoLiberado,
+}
+
+enum TipoMovimentacao {
+  carregamento,  // Veículo saindo
+  descarregamento, // Veículo chegando
 }
 
 class DetalhesOrdemView extends StatefulWidget {
   final Map<String, dynamic> ordem;
+  final String filialAtualId;
 
   const DetalhesOrdemView({
     super.key,
     required this.ordem,
+    required this.filialAtualId,
   });
 
   @override
@@ -31,6 +40,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
 
   List<Map<String, dynamic>> _movimentacoes = [];
   late EtapaCircuito _etapaAtual;
+  TipoMovimentacao _tipoMovimentacao = TipoMovimentacao.carregamento;
 
   // Adicionado: Variável para armazenar o número de controle da ordem
   String? _numeroControleOrdem;
@@ -42,7 +52,8 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
   bool _nr26Selecionado = false;
   bool _atualizandoChecklist = false;
 
-  final List<_EtapaInfo> _etapas = const [
+  // ETAPAS PARA CARREGAMENTO (veículo saindo)
+  final List<_EtapaInfo> _etapasCarregamento = const [
     _EtapaInfo(
       etapa: EtapaCircuito.programado,
       label: 'Programado',
@@ -52,12 +63,12 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
       statusCodigo: 1,
     ),
     _EtapaInfo(
-      etapa: EtapaCircuito.aguardando,  // NOVA ETAPA
+      etapa: EtapaCircuito.aguardando,
       label: 'Aguardando',
       subtitle: 'Aguardando disponibilidade',
       icon: Icons.hourglass_empty,
-      cor: Color(0xFF9E9E9E),  // Cinza para estado de espera
-      statusCodigo: 15,  // Novo código para etapa de aguardando
+      cor: Color(0xFF9E9E9E),
+      statusCodigo: 15,
     ),
     _EtapaInfo(
       etapa: EtapaCircuito.checkList,
@@ -93,39 +104,52 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     ),
   ];
 
-  // Histórico de fatos ocorridos (exemplo)
-  final List<Map<String, String>> _historicoFatos = [
-    {
-      'data': '15/01/2024',
-      'hora': '09:30',
-      'descricao': 'Programação realizada por Carlos Silva'
-    },
-    {
-      'data': '15/01/2024',
-      'hora': '10:15',
-      'descricao': 'Ordem colocada em espera - Aguardando disponibilidade'
-    },
-    {
-      'data': '15/01/2024',
-      'hora': '10:45',
-      'descricao': 'Veículo deu entrada na base, em fase de check-list.'
-    },
-    {
-      'data': '15/01/2024',
-      'hora': '11:00',
-      'descricao': 'Check-list finalizado, entrou em operação.'
-    },
-    {
-      'data': '15/01/2024',
-      'hora': '12:20',
-      'descricao': 'Veículo carregado. Aguardando emissão de nota fiscal'
-    },
-    {
-      'data': '15/01/2024',
-      'hora': '13:05',
-      'descricao': 'Nota fiscal entregue ao motorista, expedição realizada.'
-    },
+  // ETAPAS PARA DESCARREGAMENTO (veículo chegando)
+  final List<_EtapaInfo> _etapasDescarregamento = const [
+    _EtapaInfo(
+      etapa: EtapaCircuito.programado,
+      label: 'Programado',
+      subtitle: 'Agendamento realizado',
+      icon: Icons.calendar_month,
+      cor: Color.fromARGB(255, 61, 160, 206),
+      statusCodigo: 1,
+    ),
+    _EtapaInfo(
+      etapa: EtapaCircuito.aguardando,
+      label: 'Aguardando',
+      subtitle: 'Aguardando chegada',
+      icon: Icons.hourglass_empty,
+      cor: Color(0xFF9E9E9E),
+      statusCodigo: 15,
+    ),
+    _EtapaInfo(
+      etapa: EtapaCircuito.checkList,
+      label: 'Check-list',
+      subtitle: 'Verificação de segurança',
+      icon: Icons.checklist_outlined,
+      cor: Color(0xFFF57C00),
+      statusCodigo: 2,
+    ),
+    _EtapaInfo(
+      etapa: EtapaCircuito.operacao,
+      label: 'Em operação',
+      subtitle: 'Descarga em andamento',
+      icon: Icons.invert_colors,
+      cor: Color(0xFF7B1FA2),
+      statusCodigo: 3,
+    ),
+    _EtapaInfo(
+      etapa: EtapaCircuito.veiculoLiberado,
+      label: 'Liberado',
+      subtitle: 'Descarga concluída',
+      icon: Icons.done_outline,
+      cor: Color.fromARGB(255, 42, 199, 50),
+      statusCodigo: 5,
+    ),
   ];
+
+  // Histórico de fatos ocorridos - será preenchido dinamicamente
+  List<Map<String, String>> _historicoFatos = [];
 
   // Mapa de cores para produtos - EXPANDIDO PARA TODOS OS PRODUTOS
   final Map<String, Color> _coresProdutos = {
@@ -175,11 +199,103 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
   @override
   void initState() {
     super.initState();
-    _etapaAtual = _resolverEtapaPorStatus(widget.ordem['status_circuito']);
     
-    // Busca o número de controle da ordem
+    // 1. Determinar tipo de movimentação PRIMEIRO
+    _tipoMovimentacao = _determinarTipoMovimentacao();
+    
+    // 2. Depois o resto
+    _etapaAtual = _resolverEtapaPorStatus(widget.ordem['status_circuito']);
     _carregarNumeroControleOrdem();
     _carregarMovimentacoes();
+    _inicializarHistorico();
+  }
+
+  TipoMovimentacao _determinarTipoMovimentacao() {
+    final origemId = widget.ordem['filial_origem_id']?.toString();
+    final destinoId = widget.ordem['filial_destino_id']?.toString();
+    final filialAtualId = widget.filialAtualId; // Recebido como parâmetro    
+    
+    // SUA LÓGICA ESTÁ CORRETA:
+    if (origemId == filialAtualId) {
+      return TipoMovimentacao.carregamento;
+    } else if (destinoId == filialAtualId) {
+      return TipoMovimentacao.descarregamento;
+    }
+    
+    return TipoMovimentacao.carregamento;
+  }
+
+  // Inicializa o histórico baseado no tipo de movimentação
+  void _inicializarHistorico() {
+    if (_tipoMovimentacao == TipoMovimentacao.carregamento) {
+      _historicoFatos = [
+        {
+          'data': '15/01/2024',
+          'hora': '09:30',
+          'descricao': 'Programação de carregamento realizada por Carlos Silva'
+        },
+        {
+          'data': '15/01/2024',
+          'hora': '10:15',
+          'descricao': 'Ordem colocada em espera - Aguardando disponibilidade'
+        },
+        {
+          'data': '15/01/2024',
+          'hora': '10:45',
+          'descricao': 'Veículo deu entrada na base, em fase de check-list.'
+        },
+        {
+          'data': '15/01/2024',
+          'hora': '11:00',
+          'descricao': 'Check-list finalizado, início do carregamento.'
+        },
+        {
+          'data': '15/01/2024',
+          'hora': '12:20',
+          'descricao': 'Veículo carregado. Aguardando emissão de nota fiscal'
+        },
+        {
+          'data': '15/01/2024',
+          'hora': '13:05',
+          'descricao': 'Nota fiscal entregue ao motorista, expedição realizada.'
+        },
+      ];
+    } else {
+      _historicoFatos = [
+        {
+          'data': '15/01/2024',
+          'hora': '09:30',
+          'descricao': 'Programação de descarregamento realizada por Carlos Silva'
+        },
+        {
+          'data': '15/01/2024',
+          'hora': '10:15',
+          'descricao': 'Ordem colocada em espera - Aguardando chegada do veículo'
+        },
+        {
+          'data': '15/01/2024',
+          'hora': '10:45',
+          'descricao': 'Veículo chegou na base, em fase de check-list.'
+        },
+        {
+          'data': '15/01/2024',
+          'hora': '11:00',
+          'descricao': 'Check-list finalizado, início do descarregamento.'
+        },
+        {
+          'data': '15/01/2024',
+          'hora': '12:20',
+          'descricao': 'Descarga concluída, veículo pronto para liberação.'
+        },
+      ];
+    }
+  }
+
+  // Getter para a lista de etapas ativa
+  List<_EtapaInfo> get _etapasAtivas {
+    return _tipoMovimentacao == TipoMovimentacao.carregamento
+        ? _etapasCarregamento
+        : _etapasDescarregamento;
   }
 
   // NOVO MÉTODO: Carrega o número de controle da ordem da tabela 'ordens'
@@ -253,14 +369,24 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
   EtapaCircuito _resolverEtapaPorStatus(dynamic status) {
     final codigo = status is int ? status : int.tryParse(status.toString()) ?? 1;
     
-    // Verifica se o status é 15 para a nova etapa "Aguardando"
+    // Verifica se o status é 15 para a etapa "Aguardando"
     if (codigo == 15) {
       return EtapaCircuito.aguardando;
     }
     
-    return _etapas
+    // Para descarregamento, o status 5 significa "Veículo Liberado"
+    if (_tipoMovimentacao == TipoMovimentacao.descarregamento && codigo == 5) {
+      return EtapaCircuito.veiculoLiberado;
+    }
+    
+    // Para carregamento, o status 5 significa "Expedido"
+    if (_tipoMovimentacao == TipoMovimentacao.carregamento && codigo == 5) {
+      return EtapaCircuito.liberacao;
+    }
+    
+    return _etapasAtivas
         .firstWhere((e) => e.statusCodigo == codigo,
-            orElse: () => _etapas.first)
+            orElse: () => _etapasAtivas.first)
         .etapa;
   }
   
@@ -362,6 +488,41 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                     },
                   ),
                   SizedBox(height: 20),
+                  
+                  // Informação sobre o tipo de operação
+                  Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.blue.shade100),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _tipoMovimentacao == TipoMovimentacao.carregamento
+                              ? Icons.upload
+                              : Icons.download,
+                          size: 16,
+                          color: Colors.blue.shade700,
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _tipoMovimentacao == TipoMovimentacao.carregamento
+                                ? 'Operação: Carregamento (Saída)'
+                                : 'Operação: Descarregamento (Chegada)',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.blue.shade700,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 12),
                   
                   // Mensagem de validação
                   if (_atualizandoChecklist)
@@ -518,17 +679,25 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
 
         // Adicionar ao histórico local
         final agora = DateTime.now();
-        _historicoFatos.insert(3, {  // Ajustado o índice devido à nova etapa
+        final descricaoChecklist = _tipoMovimentacao == TipoMovimentacao.carregamento
+            ? 'Check-list concluído, início do carregamento'
+            : 'Check-list concluído, início do descarregamento';
+        
+        _historicoFatos.insert(3, {
           'data': '${agora.day.toString().padLeft(2, '0')}/${agora.month.toString().padLeft(2, '0')}/${agora.year}',
           'hora': '${agora.hour.toString().padLeft(2, '0')}:${agora.minute.toString().padLeft(2, '0')}',
-          'descricao': 'Check-list concluído por operador'
+          'descricao': descricaoChecklist
         });
 
         // Mostrar mensagem de sucesso
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Check-list concluído! Status atualizado para "Em operação".'),
+              content: Text(
+                _tipoMovimentacao == TipoMovimentacao.carregamento
+                    ? 'Check-list concluído! Status atualizado para "Em operação" (carregamento).'
+                    : 'Check-list concluído! Status atualizado para "Em operação" (descarregamento).',
+              ),
               backgroundColor: Colors.green.shade600,
               duration: Duration(seconds: 3),
             ),
@@ -575,10 +744,18 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
           }
         }
       } else if (tipoOp == 'cacl' || tipoOp == 'emprestimo' || tipoOp == null) {
-        // Usar saida_amb
-        final saida = mov['saida_amb'];
-        if (saida != null && saida > 0) {
-          quantidade = (saida as num).toDouble();
+        // Para descarregamento, usar entrada_amb
+        if (_tipoMovimentacao == TipoMovimentacao.descarregamento) {
+          final entrada = mov['entrada_amb'];
+          if (entrada != null && entrada > 0) {
+            quantidade = (entrada as num).toDouble();
+          }
+        } else {
+          // Para carregamento, usar saida_amb
+          final saida = mov['saida_amb'];
+          if (saida != null && saida > 0) {
+            quantidade = (saida as num).toDouble();
+          }
         }
       }
       
@@ -753,7 +930,52 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
             
             const SizedBox(height: 12),
             
-            // Linha 2: Produtos sendo carregados
+            // Linha 2: Tipo de operação
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: _tipoMovimentacao == TipoMovimentacao.carregamento
+                    ? Colors.orange.shade50
+                    : Colors.green.shade50,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: _tipoMovimentacao == TipoMovimentacao.carregamento
+                      ? Colors.orange.shade200
+                      : Colors.green.shade200,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _tipoMovimentacao == TipoMovimentacao.carregamento
+                        ? Icons.upload
+                        : Icons.download,
+                    size: 14,
+                    color: _tipoMovimentacao == TipoMovimentacao.carregamento
+                        ? Colors.orange.shade700
+                        : Colors.green.shade700,
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    _tipoMovimentacao == TipoMovimentacao.carregamento
+                        ? 'Carregamento (Saída)'
+                        : 'Descarregamento (Chegada)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _tipoMovimentacao == TipoMovimentacao.carregamento
+                          ? Colors.orange.shade700
+                          : Colors.green.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Linha 3: Produtos sendo carregados/descarregados
             if (produtosAgrupados.isNotEmpty)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -761,13 +983,17 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                   Row(
                     children: [
                       Icon(
-                        Icons.local_shipping,
+                        _tipoMovimentacao == TipoMovimentacao.carregamento
+                            ? Icons.local_shipping
+                            : Icons.local_shipping_outlined,
                         size: 16,
                         color: Colors.grey.shade700,
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        'Carga',
+                        _tipoMovimentacao == TipoMovimentacao.carregamento
+                            ? 'Carga para sair'
+                            : 'Carga para descarregar',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -804,7 +1030,9 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Nenhum produto para carregar',
+                      _tipoMovimentacao == TipoMovimentacao.carregamento
+                          ? 'Nenhum produto para carregar'
+                          : 'Nenhum produto para descarregar',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade600,
@@ -854,7 +1082,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
-                ),
+                  ),
                 ),
               ),
               
@@ -910,24 +1138,72 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
 
   // NOVA TIMELINE - Redesenhada completamente
   Widget _buildTimeline() {
-    final etapaIndex = _etapas.indexWhere((e) => e.etapa == _etapaAtual);
+    final etapasAtivas = _etapasAtivas;
+    final etapaIndex = etapasAtivas.indexWhere((e) => e.etapa == _etapaAtual);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 12), // Aumentado de 20 para 24
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Status da Ordem',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF0D47A1),
-              ),
+            // Título com indicador do tipo de operação
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Status da Ordem',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0D47A1),
+                  ),
+                ),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: _tipoMovimentacao == TipoMovimentacao.carregamento
+                        ? Colors.orange.shade50
+                        : Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _tipoMovimentacao == TipoMovimentacao.carregamento
+                          ? Colors.orange.shade200
+                          : Colors.green.shade200,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _tipoMovimentacao == TipoMovimentacao.carregamento
+                            ? Icons.upload
+                            : Icons.download,
+                        size: 12,
+                        color: _tipoMovimentacao == TipoMovimentacao.carregamento
+                            ? Colors.orange.shade700
+                            : Colors.green.shade700,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        _tipoMovimentacao == TipoMovimentacao.carregamento
+                            ? 'Saída'
+                            : 'Chegada',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: _tipoMovimentacao == TipoMovimentacao.carregamento
+                              ? Colors.orange.shade700
+                              : Colors.green.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 32), // Aumentado de 28 para 32
+            const SizedBox(height: 20),
             
             // Container principal para timeline - CENTRALIZADO
             Center(
@@ -935,14 +1211,14 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                 children: [
                   // Container para linha e ícones
                   SizedBox(
-                    height: 60, // Aumentado de 54 para 60
+                    height: 60,
                     child: Stack(
                       children: [
                         // LINHA DE CONEXÃO CONTÍNUA - CENTRALIZADA
                         Positioned(
-                          left: 20,
-                          right: 20,
-                          top: 19, // Mantido mesmo posicionamento
+                          left: 15,
+                          right: 15,
+                          top: 19,
                           child: Container(
                             height: 2,
                             decoration: BoxDecoration(
@@ -955,8 +1231,8 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                         // ÍCONES E LABELS JUNTOS - ALINHADOS VERTICALMENTE
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: List.generate(_etapas.length, (index) {
-                            final etapa = _etapas[index];
+                          children: List.generate(etapasAtivas.length, (index) {
+                            final etapa = etapasAtivas[index];
                             final isCompleta = index <= etapaIndex;
                             final isAtual = index == etapaIndex;
                             final isChecklist = etapa.etapa == EtapaCircuito.checkList;
@@ -974,11 +1250,11 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                                   etapaIndex: etapaIndex,
                                 ),
                                 
-                                const SizedBox(height: 8), // Mantido 8
+                                const SizedBox(height: 8),
                                 
                                 // LABEL - AGORA VINCULADO AO ÍCONE
                                 SizedBox(
-                                  width: 70, // Reduzido para acomodar mais etapas
+                                  width: 65, // Ajustado para 6 etapas
                                   child: Text(
                                     etapa.label,
                                     style: TextStyle(
@@ -987,7 +1263,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                                       color: isCompleta || isAtual ? etapa.cor : Colors.grey.shade600,
                                     ),
                                     textAlign: TextAlign.center,
-                                    maxLines: 1,
+                                    maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -1003,7 +1279,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
             ),
             
             // ESPAÇO EXTRA ABAIXO DA TIMELINE
-            const SizedBox(height: 8), // Adicionado espaço extra abaixo
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -1075,13 +1351,25 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Histórico',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF0D47A1),
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Histórico',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0D47A1),
+                  ),
+                ),
+                Icon(
+                  _tipoMovimentacao == TipoMovimentacao.carregamento
+                      ? Icons.history
+                      : Icons.history_toggle_off,
+                  size: 16,
+                  color: Colors.grey.shade500,
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             ..._historicoFatos.map((fato) => _buildItemHistoricoCompacto(fato)).toList(),
@@ -1206,8 +1494,9 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
         ],
       ),
     );
-  }
+  }  
 }
+
 
 class _EtapaInfo {
   final EtapaCircuito etapa;
