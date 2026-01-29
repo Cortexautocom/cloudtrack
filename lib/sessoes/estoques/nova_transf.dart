@@ -1,28 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:async';
 
 // ==============================================================
 //                COMPONENTE AUTOCOMPLETE REUTILIZÁVEL
 // ==============================================================
-class AutocompleteField<T> extends StatefulWidget {
+class AutocompleteField<T extends Object> extends StatefulWidget {
   final TextEditingController controller;
-  final String label;
   final Future<List<T>> Function(String) buscarItens;
   final String Function(T) obterTextoExibicao;
-  final String Function(T) obterId;
-  final FocusNode? focusNode;
   final void Function(T)? onSelecionado;
   final bool Function(String)? validarParaBusca;
 
   const AutocompleteField({
     super.key,
     required this.controller,
-    required this.label,
     required this.buscarItens,
     required this.obterTextoExibicao,
-    required this.obterId,
-    this.focusNode,
     this.onSelecionado,
     this.validarParaBusca,
   });
@@ -31,171 +24,86 @@ class AutocompleteField<T> extends StatefulWidget {
   State<AutocompleteField<T>> createState() => _AutocompleteFieldState<T>();
 }
 
-class _AutocompleteFieldState<T> extends State<AutocompleteField<T>> {
-  final List<T> _sugestoes = [];
-  bool _carregando = false;
-  Timer? _debounceTimer;
-  OverlayEntry? _overlayEntry;
-  final LayerLink _layerLink = LayerLink();
-  final FocusNode _internalFocusNode = FocusNode();
-  bool _mostrarLista = false;
+class _AutocompleteFieldState<T extends Object> extends State<AutocompleteField<T>> {
+  late FocusNode _focusNode;
 
   @override
   void initState() {
     super.initState();
-    _internalFocusNode.addListener(_onFocusChanged);
-    
-    if (widget.focusNode != null) {
-      widget.focusNode!.addListener(_onExternalFocusChanged);
-    }
+    _focusNode = FocusNode();
   }
 
-  void _onExternalFocusChanged() {
-    if (widget.focusNode!.hasFocus && !_internalFocusNode.hasFocus) {
-      _internalFocusNode.requestFocus();
-    } else if (!widget.focusNode!.hasFocus && _internalFocusNode.hasFocus) {
-      _internalFocusNode.unfocus();
-    }
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
   }
 
-  void _onFocusChanged() {
-    if (_internalFocusNode.hasFocus) {
-      _mostrarLista = true;
-      if (_sugestoes.isNotEmpty) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _mostrarOverlay();
-        });
-      }
-    } else {
-      Future.delayed(const Duration(milliseconds: 200), () {
-        if (!_internalFocusNode.hasFocus) {
-          _fecharOverlay();
-          _mostrarLista = false;
+  @override
+  Widget build(BuildContext context) {
+    return RawAutocomplete<T>(
+      textEditingController: widget.controller,
+      focusNode: _focusNode,
+      optionsBuilder: (TextEditingValue value) async {
+        if (widget.validarParaBusca != null &&
+            !widget.validarParaBusca!(value.text)) {
+          return Iterable<T>.empty();
         }
-      });
-    }
-  }
+        final resultados = await widget.buscarItens(value.text);
+        return resultados;
+      },
+      displayStringForOption: widget.obterTextoExibicao,
+      onSelected: (T item) {
+        widget.controller.text = widget.obterTextoExibicao(item);
+        widget.controller.selection = TextSelection.collapsed(
+          offset: widget.controller.text.length,
+        );
 
-  Future<void> _buscarItens(String texto) async {
-    if (widget.validarParaBusca != null && !widget.validarParaBusca!(texto)) {
-      setState(() {
-        _sugestoes.clear();
-      });
-      _fecharOverlay();
-      return;
-    }
-
-    setState(() {
-      _carregando = true;
-    });
-
-    try {
-      final itens = await widget.buscarItens(texto);
-
-      setState(() {
-        _sugestoes.clear();
-        _sugestoes.addAll(itens);
-        _carregando = false;
-      });
-
-      if (_sugestoes.isNotEmpty && _mostrarLista) {
-        _mostrarOverlay();
-      } else {
-        _fecharOverlay();
-      }
-    } catch (e) {
-      debugPrint('Erro ao buscar itens: $e');
-      setState(() {
-        _sugestoes.clear();
-        _carregando = false;
-      });
-      _fecharOverlay();
-    }
-  }
-
-  void _onTextChanged(String texto) {
-    _debounceTimer?.cancel();
-    
-    if (widget.validarParaBusca != null && !widget.validarParaBusca!(texto)) {
-      setState(() {
-        _sugestoes.clear();
-      });
-      _fecharOverlay();
-      return;
-    }
-
-    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
-      if (mounted) {
-        _buscarItens(texto);
-      }
-    });
-  }
-
-  void _onItemSelecionado(T item) {
-    widget.controller.text = widget.obterTextoExibicao(item);
-    setState(() {
-      _sugestoes.clear();
-    });
-    _fecharOverlay();
-    _internalFocusNode.unfocus();
-    _mostrarLista = false;
-    
-    widget.controller.selection = TextSelection.fromPosition(
-      TextPosition(offset: widget.controller.text.length),
-    );
-    
-    if (widget.onSelecionado != null) {
-      widget.onSelecionado!(item);
-    }
-  }
-
-  void _mostrarOverlay() {
-    if (_sugestoes.isEmpty || _overlayEntry != null) return;
-
-    final renderBox = context.findRenderObject() as RenderBox;
-    final size = renderBox.size;
-
-    _overlayEntry = OverlayEntry(
-      builder: (context) => Positioned(
-        width: size.width,
-        child: CompositedTransformFollower(
-          link: _layerLink,
-          showWhenUnlinked: false,
-          offset: Offset(0, size.height + 4),
+        if (widget.onSelecionado != null) {
+          widget.onSelecionado!(item);
+        }
+      },
+      fieldViewBuilder: (context, controller, focusNode, _) {
+        return TextFormField(
+          controller: controller,
+          focusNode: focusNode,
+          style: const TextStyle(fontSize: 13),
+          decoration: InputDecoration(
+            hintText: 'Digite para buscar...',
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 8,
+            ),
+          ),
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        return Align(
+          alignment: Alignment.topLeft,
           child: Material(
             elevation: 4,
             borderRadius: BorderRadius.circular(4),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(4),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
+            child: ConstrainedBox(
               constraints: BoxConstraints(
                 maxHeight: MediaQuery.of(context).size.height * 0.3,
               ),
               child: ListView.builder(
                 padding: EdgeInsets.zero,
-                shrinkWrap: true,
-                itemCount: _sugestoes.length,
+                itemCount: options.length,
                 itemBuilder: (context, index) {
-                  final item = _sugestoes[index];
-                  return Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => _onItemSelecionado(item),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        child: Text(
-                          widget.obterTextoExibicao(item),
-                          style: const TextStyle(fontSize: 14),
-                        ),
+                  final item = options.elementAt(index);
+                  return InkWell(
+                    onTap: () => onSelected(item),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                        widget.obterTextoExibicao(item),
+                        style: const TextStyle(fontSize: 14),
                       ),
                     ),
                   );
@@ -203,78 +111,12 @@ class _AutocompleteFieldState<T> extends State<AutocompleteField<T>> {
               ),
             ),
           ),
-        ),
-      ),
-    );
-
-    Overlay.of(context).insert(_overlayEntry!);
-  }
-
-  void _fecharOverlay() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
-  }
-
-  @override
-  void dispose() {
-    _debounceTimer?.cancel();
-    _fecharOverlay();
-    _internalFocusNode.removeListener(_onFocusChanged);
-    _internalFocusNode.dispose();
-    
-    if (widget.focusNode != null) {
-      widget.focusNode!.removeListener(_onExternalFocusChanged);
-    }
-    
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return CompositedTransformTarget(
-      link: _layerLink,
-      child: TextFormField(
-        controller: widget.controller,
-        focusNode: _internalFocusNode,
-        onChanged: _onTextChanged,
-        style: const TextStyle(fontSize: 13),
-        decoration: InputDecoration(
-          hintText: 'Digite para buscar...',
-          counterText: '',
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: BorderSide(color: Colors.grey.shade400, width: 1),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.2),
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 8,
-          ),
-          suffixIcon: _carregando
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : null,
-        ),
-      ),
+        );
+      },
     );
   }
 }
 
-// ==============================================================
-//                DIALOG DE NOVA TRANSFERÊNCIA MODERNIZADO
-// ==============================================================
 class NovaTransferenciaDialog extends StatefulWidget {
   const NovaTransferenciaDialog({super.key});
 
@@ -443,10 +285,12 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       // NOVO: Também limpar a transportadora
       _transportadoraController.clear();
       _transportadoraId = null;
+      
+      // ALTERAÇÃO: Limpar também a quantidade
+      _quantidadeController.clear();
     });
   }
 
-  // PASSO 4: FUNÇÃO PARA APLICAR O CONJUNTO NOS CAMPOS
   // PASSO 4: FUNÇÃO PARA APLICAR O CONJUNTO NOS CAMPOS
   void _aplicarConjuntoNosCampos(Map<String, dynamic> conjunto) {
     setState(() {
@@ -456,7 +300,15 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       _reboque1Controller.text = _aplicarMascaraPlaca(conjunto['reboque_um'] ?? '');
       _reboque2Controller.text = _aplicarMascaraPlaca(conjunto['reboque_dois'] ?? '');
       
-      // NOVO: Definir transportadora como "Petroserra" automaticamente
+      // ALTERAÇÃO: Preencher quantidade automaticamente
+      if (conjunto['capac'] != null) {
+        // Converter metros cúbicos para litros (1 m³ = 1000 litros)
+        final capacidadeM3 = double.tryParse(conjunto['capac'].toString()) ?? 0;
+        final capacidadeLitros = (capacidadeM3 * 1000).toInt();
+        _quantidadeController.text = _aplicarMascaraQuantidade(capacidadeLitros.toString());
+      }
+      
+      // Definir transportadora como "Petroserra" automaticamente
       _transportadoraController.text = 'Petroserra';
       
       // Vamos também buscar o ID da transportadora Petroserra
@@ -490,7 +342,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
 
       final response = await supabase
           .from('conjuntos')
-          .select('cavalo, reboque_um, reboque_dois')
+          .select('cavalo, reboque_um, reboque_dois, capac')
           .eq('motorista_id', motoristaId)
           .limit(1)
           .maybeSingle();
@@ -526,12 +378,11 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     }
   }
   
-  Widget _buildCampoAutocomplete<T>({
+  Widget _buildCampoAutocomplete<T extends Object>({
     required TextEditingController controller,
     required String label,
     required Future<List<T>> Function(String) buscarItens,
     required String Function(T) obterTextoExibicao,
-    required String Function(T) obterId,
     required void Function(T)? onSelecionado,
     double? width,
   }) {
@@ -554,10 +405,8 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
           // Campo de autocomplete
           AutocompleteField<T>(
             controller: controller,
-            label: label,
             buscarItens: buscarItens,
             obterTextoExibicao: obterTextoExibicao,
-            obterId: obterId,
             validarParaBusca: (texto) => texto.length >= 3,
             onSelecionado: onSelecionado,
           ),
@@ -628,15 +477,32 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
   Future<List<Map<String, dynamic>>> _buscarMotoristas(String texto) async {
     if (texto.length < 3) return [];
     
-    final supabase = Supabase.instance.client;
-    final response = await supabase
-        .from('motoristas')
-        .select('id, nome')
-        .ilike('nome', '%$texto%')
-        .order('nome')
-        .limit(10);
-    
-    return List<Map<String, dynamic>>.from(response);
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase
+          .from('conjuntos')
+          .select('motorista, motorista_id')
+          .not('reboque_um', 'is', null)  // Filtra apenas conjuntos com reboque_um não nulo
+          .ilike('motorista', '%$texto%')
+          .order('motorista')
+          .limit(10);
+      
+      // Remover duplicados baseado no motorista_id
+      final lista = List<Map<String, dynamic>>.from(response);
+      final Map<String, Map<String, dynamic>> uniqueMap = {};
+      
+      for (final item in lista) {
+        final motoristaId = item['motorista_id']?.toString();
+        if (motoristaId != null && !uniqueMap.containsKey(motoristaId)) {
+          uniqueMap[motoristaId] = item;
+        }
+      }
+      
+      return uniqueMap.values.toList();
+    } catch (e) {
+      debugPrint('Erro ao buscar motoristas: $e');
+      return [];
+    }
   }
 
   Future<List<Map<String, dynamic>>> _buscarTransportadoras(String texto) async {
@@ -1173,7 +1039,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    // Linha 1: Data, Produto, Quantidade
+                    // ALTERAÇÃO 1: Linha 1 - Data, Produto, Motorista
                     Row(
                       children: [
                         // Campo Data
@@ -1284,6 +1150,39 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                         
                         const SizedBox(width: 16),
                         
+                        // Campo Motorista (autocomplete)
+                        Expanded(
+                          flex: 2,
+                          child: _buildCampoAutocomplete<Map<String, dynamic>>(
+                            controller: _motoristaController,
+                            label: 'Motorista',
+                            buscarItens: _buscarMotoristas,
+                            obterTextoExibicao: (item) => item['motorista']?.toString() ?? '',
+                            onSelecionado: (motorista) async {
+                              final motoristaId = motorista['motorista_id']?.toString();
+                              _motoristaId = motoristaId;
+                              
+                              if (motoristaId != null) {
+                                final conjunto = await _buscarConjuntoPorMotorista(motoristaId);
+
+                                if (conjunto == null) {
+                                  _limparMotoristaEPlacas();
+                                  return;
+                                }
+
+                                _aplicarConjuntoNosCampos(conjunto);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // ALTERAÇÃO 1: Linha 2 - Quantidade, Cavalo, Reboque 1, Reboque 2
+                    Row(
+                      children: [
                         // Campo Quantidade
                         Expanded(
                           flex: 1,
@@ -1347,41 +1246,10 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 20),
-                    
-                    // Linha 2: Motorista, Cavalo, Reboque 1, Reboque 2
-                    Row(
-                      children: [
-                        // Campo Motorista (autocomplete) - PASSO 5: MODIFICADO
-                        Expanded(
-                          flex: 2,
-                          child: _buildCampoAutocomplete<Map<String, dynamic>>(
-                            controller: _motoristaController,
-                            label: 'Motorista',
-                            buscarItens: _buscarMotoristas,
-                            obterTextoExibicao: (item) => item['nome']?.toString() ?? '',
-                            obterId: (item) => item['id']?.toString() ?? '',
-                            onSelecionado: (motorista) async {
-                              _motoristaId = motorista['id']?.toString();
-
-                              final conjunto = await _buscarConjuntoPorMotorista(_motoristaId!);
-
-                              if (conjunto == null) {
-                                _limparMotoristaEPlacas();
-                                return;
-                              }
-
-                              _aplicarConjuntoNosCampos(conjunto);
-                            },
-                          ),
-                        ),
                         
                         const SizedBox(width: 16),
                         
-                        // Campo Cavalo (autocomplete melhorado) - PASSO 9: MODIFICADO
+                        // Campo Cavalo (autocomplete melhorado)
                         Expanded(
                           flex: 1,
                           child: _buildCampoPlaca(
@@ -1401,7 +1269,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                         
                         const SizedBox(width: 16),
                         
-                        // Campo Reboque 1 - PASSO 9: MODIFICADO
+                        // Campo Reboque 1
                         Expanded(
                           flex: 1,
                           child: _buildCampoPlaca(
@@ -1421,7 +1289,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                         
                         const SizedBox(width: 16),
                         
-                        // Campo Reboque 2 - PASSO 9: MODIFICADO
+                        // Campo Reboque 2
                         Expanded(
                           flex: 1,
                           child: _buildCampoPlaca(
@@ -1443,7 +1311,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                     
                     const SizedBox(height: 20),
                     
-                    // Linha 3: Transportadora, Origem, Destino
+                    // Linha 3: Transportadora, Origem, Destino (sem alteração)
                     Row(
                       children: [
                         // Campo Transportadora (autocomplete)
@@ -1454,7 +1322,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                             label: 'Transportadora',
                             buscarItens: _buscarTransportadoras,
                             obterTextoExibicao: (item) => item['nome_dois']?.toString() ?? '',
-                            obterId: (item) => item['id']?.toString() ?? '',
                             onSelecionado: (transportadora) {
                               _transportadoraId = transportadora['id']?.toString();
                             },
