@@ -463,7 +463,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     // Navegar para a página de certificado de apuração
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => EmitirOrdemPage( // MUDANÇA AQUI: Usar EmitirOrdemPage
+        builder: (context) => EmitirCertificadoPage( // MUDANÇA AQUI: Usar EmitirOrdemPage
           onVoltar: () {
             Navigator.of(context).pop();
             // Recarregar dados após retornar para atualizar o status se necessário

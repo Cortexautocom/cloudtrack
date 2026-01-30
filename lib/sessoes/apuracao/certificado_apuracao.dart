@@ -271,22 +271,27 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
 }
 
 // ================= PÁGINA PRINCIPAL (COM AS ALTERAÇÕES) =================
-class EmitirOrdemPage extends StatefulWidget {
+class EmitirCertificadoPage extends StatefulWidget {
   final VoidCallback onVoltar;
+  final String? idCertificado; // ALTERADO: Agora recebe idCertificado
 
-  const EmitirOrdemPage({
+  const EmitirCertificadoPage({
     super.key,
     required this.onVoltar,
+    this.idCertificado, // ALTERADO: Parâmetro opcional
   });
 
   @override
-  State<EmitirOrdemPage> createState() =>
-      _EmitirOrdemPageState();
+  State<EmitirCertificadoPage> createState() =>
+      _EmitirCertificadoPageState();
 }
 
-class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
+class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   final _formKey = GlobalKey<FormState>();
   bool _analiseConcluida = false;
+  bool _modoEdicao = false; // NOVO: Indica se está editando um certificado existente
+  Map<String, dynamic>? _dadosExistentes; // NOVO: Para armazenar dados do certificado existente
+  
   // ================= CONTROLLERS =================
   final TextEditingController dataCtrl = TextEditingController();
   final TextEditingController horaCtrl = TextEditingController();
@@ -326,6 +331,116 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
     super.initState();
     _setarDataHoraAtual();
     _carregarProdutos();
+    
+    // NOVO: Verificar se recebeu um ID para edição
+    if (widget.idCertificado != null && widget.idCertificado!.isNotEmpty) {
+      _modoEdicao = true;
+      _carregarDadosCertificado(widget.idCertificado!);
+    }
+  }
+
+  // NOVO: Método para carregar dados do certificado existente
+  Future<void> _carregarDadosCertificado(String idCertificado) async {
+    try {
+      final supabase = Supabase.instance.client;
+      
+      // Buscar o certificado no banco (tabela 'ordens_analises' - mantém nome original do banco)
+      final dados = await supabase
+          .from('ordens_analises')
+          .select('*')
+          .eq('id', idCertificado)
+          .single();
+      
+      // Armazenar os dados
+      _dadosExistentes = Map<String, dynamic>.from(dados);
+      
+      // Preencher os campos com os dados existentes
+      _preencherCamposComDadosExistentes();
+      
+      // Verificar se já está concluído
+      if (_dadosExistentes!['analise_concluida'] == true) {
+        setState(() {
+          _analiseConcluida = true;
+        });
+      }
+      
+    } catch (e) {
+      print('Erro ao carregar certificado: $e');
+      // Se não encontrar, continua em modo criação
+      _modoEdicao = false;
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar certificado: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+  }
+  
+  // NOVO: Método para preencher os campos com dados existentes
+  void _preencherCamposComDadosExistentes() {
+    if (_dadosExistentes == null) return;
+    
+    setState(() {
+      // Preencher os campos principais
+      campos['numeroControle']!.text = _dadosExistentes!['numero_controle']?.toString() ?? '';
+      campos['transportadora']!.text = _dadosExistentes!['transportadora']?.toString() ?? '';
+      campos['motorista']!.text = _dadosExistentes!['motorista']?.toString() ?? '';
+      campos['notas']!.text = _dadosExistentes!['notas_fiscais']?.toString() ?? '';
+      
+      // Placas
+      campos['placaCavalo']!.text = _dadosExistentes!['placa_cavalo']?.toString() ?? '';
+      campos['carreta1']!.text = _dadosExistentes!['carreta1']?.toString() ?? '';
+      campos['carreta2']!.text = _dadosExistentes!['carreta2']?.toString() ?? '';
+      
+      // Coletas
+      campos['tempAmostra']!.text = _formatarDecimalParaExibicao(_dadosExistentes!['temperatura_amostra']);
+      campos['densidadeAmostra']!.text = _formatarDecimalParaExibicao(_dadosExistentes!['densidade_observada']);
+      campos['tempCT']!.text = _formatarDecimalParaExibicao(_dadosExistentes!['temperatura_ct']);
+      
+      // Resultados
+      campos['densidade20']!.text = _formatarDecimalParaExibicao(_dadosExistentes!['densidade_20c']);
+      campos['fatorCorrecao']!.text = _formatarDecimalParaExibicao(_dadosExistentes!['fator_correcao']);
+      
+      // Volumes
+      campos['volumeCarregadoAmb']!.text = _dadosExistentes!['volume_carregado_amb']?.toString() ?? '';
+      campos['volumeApurado20C']!.text = _dadosExistentes!['volume_apurado_20c']?.toString() ?? '';
+      
+      // Data e hora
+      if (_dadosExistentes!['data_analise'] != null) {
+        try {
+          final data = DateTime.parse(_dadosExistentes!['data_analise']);
+          dataCtrl.text = '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}';
+        } catch (_) {
+          // Mantém a data atual se não conseguir parse
+        }
+      }
+      
+      if (_dadosExistentes!['hora_analise'] != null) {
+        horaCtrl.text = _dadosExistentes!['hora_analise'].toString();
+      }
+      
+      // Produto
+      produtoSelecionado = _dadosExistentes!['produto_nome']?.toString();
+    });
+  }
+  
+  // NOVO: Formatar decimal para exibição (converte 0.7456 para 0,7456)
+  String _formatarDecimalParaExibicao(dynamic valor) {
+    if (valor == null) return '';
+    
+    try {
+      String texto = valor.toString();
+      // Substitui ponto por vírgula se existir
+      if (texto.contains('.')) {
+        texto = texto.replaceAll('.', ',');
+      }
+      return texto;
+    } catch (e) {
+      return '';
+    }
   }
 
   void _setarDataHoraAtual() {
@@ -347,6 +462,11 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
         produtos =
             dados.map<String>((p) => p['nome'].toString()).toList();
         carregandoProdutos = false;
+        
+        // NOVO: Se estiver em modo edição e já temos produto, seleciona automaticamente
+        if (_modoEdicao && produtoSelecionado != null && produtos.contains(produtoSelecionado)) {
+          // Já está selecionado pelo _preencherCamposComDadosExistentes
+        }
       });
     } catch (_) {
       carregandoProdutos = false;
@@ -397,7 +517,7 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold( // ADICIONADO: Scaffold como widget raiz
+    return Scaffold(
       body: Column(
         children: [
           // ================= HEADER =================
@@ -407,14 +527,34 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
                 icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
                 onPressed: widget.onVoltar,
               ),
-              const Text(
-                'Certificado de Apuração de Volumes',
-                style: TextStyle(
+              Text(
+                // ALTERADO: Mostra título diferente para edição
+                _modoEdicao 
+                  ? 'Editar Certificado de Apuração de Volumes'
+                  : 'Certificado de Apuração de Volumes',
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF0D47A1),
                 ),
               ),
+              if (_modoEdicao) // NOVO: Indicador de modo edição
+                Container(
+                  margin: const EdgeInsets.only(left: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.orange,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'EDIÇÃO',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
             ],
           ),
           const Divider(),
@@ -435,7 +575,7 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
                           Opacity(
                             opacity: 1.0,
                             child: AbsorbPointer(
-                              absorbing: _analiseConcluida, 
+                              absorbing: _analiseConcluida && !_modoEdicao, // ALTERADO: Em modo edição, pode editar mesmo se concluído
                               child: Column(
                                 children: [
                                 // ================= NÚMERO DE CONTROLE =================
@@ -683,15 +823,18 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
+                              // ALTERADO: Botão com texto dinâmico para edição
                               ElevatedButton.icon(
-                                onPressed: (!_analiseConcluida) ? _confirmarEmissaoCertificado : null,
-                                icon: Icon(_analiseConcluida ? Icons.check_circle_outline : Icons.check_circle, size: 24),
+                                onPressed: (!_analiseConcluida || _modoEdicao) ? _confirmarEmissaoCertificado : null,
+                                icon: Icon(_analiseConcluida && !_modoEdicao ? Icons.check_circle_outline : Icons.check_circle, size: 24),
                                 label: Text(
-                                  _analiseConcluida ? 'Certificado emitido' : 'Emitir certificado',
+                                  _modoEdicao 
+                                    ? (_analiseConcluida ? 'Atualizar certificado' : 'Salvar alterações')
+                                    : (_analiseConcluida ? 'Certificado emitido' : 'Emitir certificado'),
                                   style: const TextStyle(fontSize: 16),
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: _analiseConcluida ? Colors.grey[400] : Colors.green,
+                                  backgroundColor: _analiseConcluida && !_modoEdicao ? Colors.grey[400] : Colors.green,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                                   shape: RoundedRectangleBorder(
@@ -700,7 +843,7 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
                                 ),
                               ),
                               
-                              // BOTÃO GERAR PDF (CENTRO) - AGORA NO MEIO
+                              // BOTÃO GERAR PDF (CENTRO)
                               ElevatedButton.icon(
                                 onPressed: (_analiseConcluida) ? _baixarPDF : null,
                                 icon: Icon(
@@ -717,8 +860,8 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
                                 ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: _analiseConcluida 
-                                      ? const Color(0xFF0D47A1) // Azul quando disponível
-                                      : Colors.grey[300], // Cinza claro quando indisponível
+                                      ? const Color(0xFF0D47A1)
+                                      : Colors.grey[300],
                                   foregroundColor: _analiseConcluida ? Colors.white : Colors.grey[600],
                                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                                   shape: RoundedRectangleBorder(
@@ -730,21 +873,21 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
                                       width: 1,
                                     ),
                                   ),
-                                  elevation: _analiseConcluida ? 2 : 0, // Sombra só quando ativo
+                                  elevation: _analiseConcluida ? 2 : 0,
                                   shadowColor: _analiseConcluida ? const Color(0xFF0D47A1).withOpacity(0.3) : Colors.transparent,
                                 ),
                               ),
                               
-                              // BOTÃO NOVO DOCUMENTO (DIREITA) - AGORA NA DIREITA
+                              // BOTÃO CONCLUIR (DIREITA)
                               ElevatedButton.icon(
                                 onPressed: _concluir,
                                 icon: const Icon(Icons.done_all, size: 24),
-                                label: const Text(
-                                  'Concluir',
-                                  style: TextStyle(fontSize: 16),
+                                label: Text(
+                                  _modoEdicao ? 'Voltar' : 'Concluir', // ALTERADO: Texto dinâmico
+                                  style: const TextStyle(fontSize: 16),
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.orange, // Laranja para destacar
+                                  backgroundColor: _modoEdicao ? Colors.blue : Colors.orange,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                                   shape: RoundedRectangleBorder(
@@ -779,11 +922,10 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
             .toList(),
       );
 
-  // NOVO MÉTODO: Para linhas com controle flexível de tamanho
   Widget _linhaFlexivel(List<Map<String, dynamic>> camposConfig) => Row(
         children: camposConfig
             .map((config) => Expanded(
-                  flex: config['flex'] ?? 1, // flex padrão é 1
+                  flex: config['flex'] ?? 1,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
                     child: config['widget'],
@@ -851,7 +993,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
           nomeProdutoLower.contains('anidro') || 
           nomeProdutoLower.contains('hidratado');
       
-      // Formata temperatura igual ao CACL
       String temperaturaFormatada = temperaturaAmostra
           .replaceAll(' ºC', '')
           .replaceAll('°C', '')
@@ -862,7 +1003,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
       
       temperaturaFormatada = temperaturaFormatada.replaceAll('.', ',');
       
-      // Formata densidade igual ao CACL
       String densidadeFormatada = densidadeObservada
           .replaceAll(' ', '')
           .replaceAll('°C', '')
@@ -936,7 +1076,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
         return valorLimpo;
       }
       
-      // Busca inicial
       final resultado = await supabase
           .from(nomeView)
           .select(nomeColuna)
@@ -948,7 +1087,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
         return _formatarResultado(valorBruto);
       }
       
-      // Fallback para formatos alternativos de temperatura (igual ao CACL)
       List<String> formatosParaTentar = [];
       
       if (temperaturaFormatada.contains(',')) {
@@ -1039,14 +1177,12 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
         return '-';
       }
 
-      // ================= VIEW =================
       final nomeProdutoLower = produtoNome.toLowerCase().trim();
       final nomeView = (nomeProdutoLower.contains('anidro') ||
               nomeProdutoLower.contains('hidratado'))
           ? 'tcv_anidro_hidratado_vw'
           : 'tcv_gasolina_diesel_vw';
 
-      // ================= TEMPERATURA =================
       String temperaturaFormatada = temperaturaTanque
           .replaceAll('°C', '')
           .replaceAll('ºC', '')
@@ -1055,7 +1191,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
           .trim()
           .replaceAll('.', ',');
 
-      // ================= DENSIDADE =================
       String densidadeFormatada =
           densidade20C.trim().replaceAll('.', ',');
 
@@ -1066,7 +1201,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
         return '-';
       }
 
-      // ================= FORMATADOR FCV =================
       String _formatarFCV(String valor) {
         String v = valor.replaceAll('.', ',').trim();
 
@@ -1086,7 +1220,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
         return '$inteiro,$decimal';
       }
 
-      // ================= CONVERTE DENSIDADE EM CÓDIGO =================
       String _densidadeParaCodigo(String densidade) {
         final partes = densidade.split(',');
         if (partes.length != 2) return '';
@@ -1097,7 +1230,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
 
       final codigoOriginal = _densidadeParaCodigo(densidadeFormatada);
 
-      // ================= BUSCA FCV DIRETA =================
       Future<String?> _buscarFCVPorCodigo(String codigo) async {
         final coluna = 'v_$codigo';
 
@@ -1115,12 +1247,9 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
         return null;
       }
 
-      // 1️⃣ Tentativa direta com a densidade original
       final direto = await _buscarFCVPorCodigo(codigoOriginal);
       if (direto != null) return direto;
 
-      // ================= BUSCA DENSIDADE MAIS PRÓXIMA =================
-      // Busca todas as densidades disponíveis na view
       final sampleRow = await supabase
           .from(nomeView)
           .select()
@@ -1131,7 +1260,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
         return '-';
       }
 
-      // Extrai todas as densidades disponíveis da view
       final densidadesDisponiveis = sampleRow.keys
           .where((k) => k.startsWith('v_'))
           .map((k) {
@@ -1156,23 +1284,19 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
         return '-';
       }
 
-      // Ordena por proximidade (menor diferença primeiro)
       densidadesDisponiveis.sort((a, b) {
         final da = a['diferenca'] as double;
         final db = b['diferenca'] as double;
         return da.compareTo(db);
       });
 
-      // Pega a densidade mais próxima
       final densidadeMaisProxima = densidadesDisponiveis.first;
       final codigoMaisProximo = densidadeMaisProxima['codigo'] as String;
       final diferenca = densidadeMaisProxima['diferenca'] as double;
 
-      // 2️⃣ Tenta buscar FCV com a densidade mais próxima
       final aproximado = await _buscarFCVPorCodigo(codigoMaisProximo);
       
       if (aproximado != null) {
-        // Mostra alerta informativo
         if (context.mounted && diferenca > 0.0001) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -1186,7 +1310,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
         return aproximado;
       }
 
-      // 3️⃣ Fallback: tenta buscar com valores de temperatura alternativos
       final temperaturaAlternativas = [
         temperaturaFormatada,
         temperaturaFormatada.replaceAll(',', '.'),
@@ -1225,7 +1348,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
     }
   }
 
-  // Função auxiliar para gerar variações de temperatura
   List<String> _gerarVariacoesTemperatura(String temperatura) {
     final List<String> variacoes = [];
     
@@ -1234,25 +1356,21 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
       final inteiro = partes[0];
       final decimal = partes[1];
       
-      // Para anidro/hidratado
       variacoes.addAll([
-        '$inteiro,${decimal.padRight(2, '0')}', // Completa com zeros
-        '$inteiro,${decimal.substring(0, decimal.length - 1)}', // Remove último dígito
+        '$inteiro,${decimal.padRight(2, '0')}',
+        '$inteiro,${decimal.substring(0, decimal.length - 1)}',
       ]);
       
-      // Para gasolina/diesel
       if (decimal.length > 1) {
         variacoes.add('$inteiro,${decimal.substring(0, 1)}');
       }
       
-      // Versão com ponto
       final temperaturaComPonto = temperatura.replaceAll(',', '.');
       variacoes.addAll([
         temperaturaComPonto,
         '$inteiro.${decimal.padRight(2, '0')}',
       ]);
     } else {
-      // Temperatura sem decimal
       variacoes.addAll([
         '$temperatura,0',
         '$temperatura,00',
@@ -1261,12 +1379,11 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
       ]);
     }
     
-    return variacoes.toSet().toList(); // Remove duplicatas
+    return variacoes.toSet().toList();
   }
 
   // ================= DOWNLOAD PDF =================
   Future<void> _baixarPDF() async {
-    // 1. Validações
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1297,7 +1414,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
       return;
     }
     
-    // 2. Mostra loading
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1307,7 +1423,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
     );
     
     try {
-      // 3. Prepara os dados para o PDF
       final dadosPDF = {
         'numeroControle': campos['numeroControle']!.text,
         'transportadora': campos['transportadora']!.text,
@@ -1325,7 +1440,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
         'volumeApurado20C': campos['volumeApurado20C']!.text,
       };
       
-      // 4. Gera o PDF usando a classe separada
       final pdfDocument = await CertificadoPDF.gerar(
         data: dataCtrl.text,
         hora: horaCtrl.text,
@@ -1333,13 +1447,10 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
         campos: dadosPDF,
       );
       
-      // 5. Converte o documento para bytes
       final pdfBytes = await pdfDocument.save();
       
-      // 6. Fecha loading
       if (context.mounted) Navigator.of(context).pop();
       
-      // 7. Faz download
       if (kIsWeb) {
         await _downloadForWeb(pdfBytes);
       } else {
@@ -1347,7 +1458,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
         _showMobileMessage();
       }
       
-      // 8. Mensagem de sucesso
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1358,7 +1468,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
       }
       
     } catch (e) {
-      // 9. Tratamento de erro
       print('ERRO no _baixarPDF: $e');
       
       if (context.mounted) {
@@ -1373,35 +1482,22 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
     }
   }
 
-  // Função SIMPLES para download Web
-  
   Future<void> _downloadForWeb(Uint8List bytes) async {
     try {
-      // Converte bytes para Base64
       final base64 = base64Encode(bytes);
-      
-      // Cria URL de dados
       final dataUrl = 'data:application/pdf;base64,$base64';
-      
-      // Cria nome do arquivo
       final fileName = 'Certificado_${produtoSelecionado ?? "Analise"}_${DateTime.now().millisecondsSinceEpoch}.pdf';
       
-      // JavaScript para fazer o download
       final jsCode = '''
         try {
-          // Cria elemento de link
           const link = document.createElement('a');
           link.href = '$dataUrl';
           link.download = '$fileName';
           link.style.display = 'none';
           
-          // Adiciona à página
           document.body.appendChild(link);
-          
-          // Clica no link para iniciar download
           link.click();
           
-          // Remove o link depois de um tempo
           setTimeout(() => {
             document.body.removeChild(link);
           }, 100);
@@ -1409,18 +1505,15 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
           console.log('Download iniciado: ' + '$fileName');
         } catch (error) {
           console.error('Erro no download automático:', error);
-          // Fallback: abre em nova aba
           window.open('$dataUrl', '_blank');
         }
       ''';
       
-      // Executa o JavaScript
       js.context.callMethod('eval', [jsCode]);
       
     } catch (e) {
       print('Erro no download Web: $e');
       
-      // Fallback: instruções manuais
       if (context.mounted) {
         showDialog(
           context: context,
@@ -1445,7 +1538,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
     }
   }
 
-  // Função auxiliar para mobile
   void _showMobileMessage() {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1458,17 +1550,14 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
   }
 
   String _aplicarMascaraNotasFiscais(String texto) {
-    // Remove tudo que não é número
     String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
 
-    // Limita a 6 dígitos
     if (apenasNumeros.length > 6) {
       apenasNumeros = apenasNumeros.substring(0, 6);
     }
 
     if (apenasNumeros.isEmpty) return '';
 
-    // Aplica máscara 999.999
     if (apenasNumeros.length > 3) {
       String parteMilhar = apenasNumeros.substring(0, apenasNumeros.length - 3);
       String parteCentena = apenasNumeros.substring(apenasNumeros.length - 3);
@@ -1479,17 +1568,14 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
   }
 
   String _aplicarMascaraTemperatura(String texto) {
-    // Remove tudo que não for número
     String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
 
-    // Limita a 3 dígitos numéricos
     if (apenasNumeros.length > 3) {
       apenasNumeros = apenasNumeros.substring(0, 3);
     }
 
     if (apenasNumeros.isEmpty) return '';
 
-    // Insere vírgula antes do 3º dígito
     if (apenasNumeros.length > 2) {
       return '${apenasNumeros.substring(0, 2)},${apenasNumeros.substring(2)}';
     }
@@ -1498,17 +1584,14 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
   }
 
   String _aplicarMascaraDensidade(String texto) {
-    // Remove tudo que não for número
     String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
 
     if (apenasNumeros.isEmpty) return '';
 
-    // Limita a 5 caracteres no total (ex: 0,7456)
     if (apenasNumeros.length > 5) {
       apenasNumeros = apenasNumeros.substring(0, 5);
     }
 
-    // Primeiro dígito é parte inteira, resto é decimal
     String parteInteira = apenasNumeros.substring(0, 1);
     String parteDecimal =
         apenasNumeros.length > 1 ? apenasNumeros.substring(1) : '';
@@ -1520,7 +1603,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
 
   // Método para confirmar emissão do certificado
   void _confirmarEmissaoCertificado() {
-    // Validações básicas antes de mostrar o diálogo
     if (produtoSelecionado == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1531,10 +1613,19 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
       return;
     }
 
-    // Mostra o diálogo personalizado
+    // ALTERADO: Diálogo com mensagem dinâmica para edição
+    final String titulo = _modoEdicao ? 'Atualizar Certificado' : 'Emitir Certificado';
+    final String mensagem = _modoEdicao 
+      ? 'Tem certeza que deseja atualizar este certificado?'
+      : 'Tem certeza que deseja emitir o certificado?';
+    final String mensagemAviso = _modoEdicao
+      ? 'Esta atualização substituirá os dados anteriores do certificado.'
+      : 'Após a emissão, qualquer edição ou correção no documento só poderá ser realizada por um supervisor nível 3.';
+    final String textoBotao = _modoEdicao ? 'Confirmar Atualização' : 'Confirmar Emissão';
+
     showDialog(
       context: context,
-      barrierDismissible: false, // Não fecha ao clicar fora
+      barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
@@ -1554,13 +1645,13 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
                 topRight: Radius.circular(12),
               ),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.warning_amber, color: Colors.white, size: 28),
-                SizedBox(width: 12),
+                Icon(_modoEdicao ? Icons.edit : Icons.warning_amber, color: Colors.white, size: 28),
+                const SizedBox(width: 12),
                 Text(
-                  'Confirmação',
-                  style: TextStyle(
+                  titulo,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -1570,15 +1661,15 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
             ),
           ),
           content: SizedBox(
-            width: 400, // Largura fixa
+            width: 400,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 8),
-                const Text(
-                  'Tem certeza que deseja emitir o certificado?',
-                  style: TextStyle(
+                Text(
+                  mensagem,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
@@ -1588,20 +1679,21 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.amber[50],
+                    color: _modoEdicao ? Colors.blue[50] : Colors.amber[50],
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.amber[200]!),
+                    border: Border.all(color: _modoEdicao ? Colors.blue[200]! : Colors.amber[200]!),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.info_outline, color: Colors.amber, size: 20),
-                      SizedBox(width: 8),
+                      Icon(_modoEdicao ? Icons.info : Icons.info_outline, 
+                           color: _modoEdicao ? Colors.blue : Colors.amber, size: 20),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Após a emissão, qualquer edição ou correção no documento só poderá ser realizada por um supervisor nível 3.',
+                          mensagemAviso,
                           style: TextStyle(
                             fontSize: 14,
-                            color: Color.fromARGB(255, 239, 108, 0),
+                            color: _modoEdicao ? Colors.blue[800] : const Color.fromARGB(255, 239, 108, 0),
                           ),
                         ),
                       ),
@@ -1613,10 +1705,9 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
             ),
           ),
           actions: [
-            // BOTÃO CANCELAR
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Fecha o diálogo
+                Navigator.of(context).pop();
               },
               style: TextButton.styleFrom(
                 foregroundColor: Colors.grey[700],
@@ -1632,23 +1723,22 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
               ),
             ),
 
-            // BOTÃO CONFIRMAR
             ElevatedButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Fecha o diálogo
-                _processarEmissaoCertificado(); // Processa a emissão
+                Navigator.of(context).pop();
+                _processarEmissaoCertificado();
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
+                backgroundColor: _modoEdicao ? Colors.blue : Colors.green,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text(
-                'Confirmar Emissão',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              child: Text(
+                textoBotao,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -1658,15 +1748,16 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
     );
   }
   
-  // Método para processar a emissão do certificado
+  // Método para processar a emissão/atualização do certificado
   Future<void> _processarEmissaoCertificado() async {
-    // Mostra um loading enquanto processa
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(
+      builder: (context) => Center(
         child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0D47A1)),
+          valueColor: AlwaysStoppedAnimation<Color>(
+            _modoEdicao ? Colors.blue : const Color(0xFF0D47A1)
+          ),
         ),
       ),
     );
@@ -1674,7 +1765,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
     try {
       final supabase = Supabase.instance.client;
       
-      // 1. Obter o usuário autenticado
       final user = supabase.auth.currentUser;
       if (user == null) {
         throw Exception('Usuário não autenticado');
@@ -1685,7 +1775,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
         throw Exception('Usuário sem filial vinculada.');
       }
       
-      // 2. Formatar os dados para o banco
       final Map<String, dynamic> dadosParaBanco = {
         'data_analise': _formatarDataParaBanco(dataCtrl.text),
         'hora_analise': horaCtrl.text,
@@ -1710,7 +1799,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
         'status': 'concluida',
       };
       
-      // 3. Se tiver o produto_id, adicionar também
       final produtoResult = await supabase
           .from('produtos')
           .select('id')
@@ -1721,32 +1809,47 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
         dadosParaBanco['produto_id'] = produtoResult['id'];
       }
       
-      // 4. Inserir no banco de dados (ordens_analises)
-      final response = await supabase
-          .from('ordens_analises')
-          .insert(dadosParaBanco)
-          .select('id, numero_controle')
-          .single();
+      Map<String, dynamic> response;
       
-      // 5. Atualizar o número de controle no campo
+      // ALTERADO: Verifica se está em modo edição
+      if (_modoEdicao && widget.idCertificado != null) {
+        // MODO EDIÇÃO: Atualizar certificado existente
+        response = await supabase
+            .from('ordens_analises')
+            .update(dadosParaBanco)
+            .eq('id', widget.idCertificado!)
+            .select('id, numero_controle')
+            .single();
+      } else {
+        // MODO CRIAÇÃO: Inserir novo certificado
+        response = await supabase
+            .from('ordens_analises')
+            .insert(dadosParaBanco)
+            .select('id, numero_controle')
+            .single();
+      }
+      
       campos['numeroControle']!.text = response['numero_controle'].toString();
       
-      // 6. Salvar também na tabela de movimentações e atualizar status_circuito para "3"
-      dadosParaBanco['id'] = response['id']; // Adicionar ID da análise
-      await _salvarMovimentacao(dadosParaBanco);
+      // ALTERADO: Só salva movimentação se for criação (não edição)
+      if (!_modoEdicao) {
+        dadosParaBanco['id'] = response['id'];
+        await _salvarMovimentacao(dadosParaBanco);
+      }
       
-      // 7. Fechar loading
       if (context.mounted) {
         Navigator.of(context).pop();
       }
       
-      // 8. ATUALIZAR O ESTADO - Análise concluída!
       setState(() {
         _analiseConcluida = true;
       });
       
-      // 9. Mostrar mensagem de sucesso
       if (context.mounted) {
+        final String mensagemSucesso = _modoEdicao
+          ? '✓ Certificado ${response['numero_controle']} atualizado com sucesso!'
+          : '✓ Certificado ${response['numero_controle']} emitido com sucesso! O PDF agora está disponível.';
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -1754,9 +1857,7 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
                 const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    '✓ Certificado ${response['numero_controle']} emitido com sucesso! O PDF agora está disponível.',
-                  ),
+                  child: Text(mensagemSucesso),
                 ),
               ],
             ),
@@ -1767,13 +1868,15 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
       }
       
     } catch (e) {
-      // Fecha o loading em caso de erro
       if (context.mounted) {
         Navigator.of(context).pop();
       }
       
-      // Mostra mensagem de erro
       if (context.mounted) {
+        final String mensagemErro = _modoEdicao
+          ? 'Erro ao atualizar certificado: ${e.toString()}'
+          : 'Erro ao emitir certificado: ${e.toString()}';
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -1781,7 +1884,7 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
                 const Icon(Icons.error, color: Colors.white),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text('Erro ao emitir certificado: ${e.toString()}'),
+                  child: Text(mensagemErro),
                 ),
               ],
             ),
@@ -1791,12 +1894,12 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
         );
       }
       
-      print('Erro ao emitir certificado: $e');
+      print('Erro no processamento do certificado: $e');
     }
   }
 
-  // Método para salvar na tabela de movimentações e atualizar status_circuito para "3"
-  Future<void> _salvarMovimentacao(Map<String, dynamic> dadosOrdem) async {
+  // Método para salvar na tabela de movimentações (apenas para novos certificados)
+  Future<void> _salvarMovimentacao(Map<String, dynamic> dadosCertificado) async {
     try {
       final supabase = Supabase.instance.client;
       
@@ -1860,7 +1963,7 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
       final Map<String, dynamic> dadosMovimentacao = {
         'filial_id': filialId,
         'empresa_id': empresaId,
-        'data_mov': dadosOrdem['data_analise'],
+        'data_mov': dadosCertificado['data_analise'],
         'descricao': null,
         'cliente': null,
         'anp': false,
@@ -1868,7 +1971,7 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
         'entrada_vinte': null,
         'saida_amb': volumeCarregadoAmb,
         'saida_vinte': volumeApurado20C,
-        'produto_id': dadosOrdem['produto_id'],
+        'produto_id': dadosCertificado['produto_id'],
         'placa': placasArray.isNotEmpty ? '{${placasArray.join(',')}}' : null,
         'codigo': null,
         'cacl_id': null,
@@ -1876,9 +1979,9 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
         'forma_pagamento': null,
         'observacoes': null,
         'quantidade': null,
-        'usuario_id': dadosOrdem['usuario_id'],
+        'usuario_id': dadosCertificado['usuario_id'],
         'created_at': DateTime.now().toIso8601String(),
-        'status_circuito': '3', // ALTERAÇÃO: Definir status_circuito como "3"
+        'status_circuito': '3',
         ...camposProduto,
       };
       
@@ -1888,6 +1991,7 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
       
     } catch (e) {
       // Não lançar exceção
+      print('Erro ao salvar movimentação: $e');
     }
   }
 
@@ -1935,15 +2039,22 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
     return camposProduto;
   }  
 
-  // Método para concluir e voltar para a página de acompanhamento
+  // Método para concluir/voltar
   void _concluir() {
-    // VERIFICAÇÃO: Se a análise estiver concluída, apenas volta
-    if (_analiseConcluida) {
+    if (_analiseConcluida && !_modoEdicao) {
       widget.onVoltar();
       return;
     }
     
-    // Se a análise NÃO estiver concluída, mostra confirmação
+    // ALTERADO: Mensagem dinâmica para edição
+    final String titulo = _modoEdicao ? 'Descartar Alterações' : 'Concluir';
+    final String mensagem = _modoEdicao
+      ? 'Deseja realmente voltar sem salvar as alterações?'
+      : 'Deseja realmente concluir e voltar para a página de acompanhamento?';
+    final String descricao = _modoEdicao
+      ? 'Todas as alterações feitas serão perdidas.'
+      : 'Todos os dados preenchidos que não foram salvos serão perdidos.';
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1966,13 +2077,13 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
                 topRight: Radius.circular(12),
               ),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.warning_amber, color: Colors.white, size: 28),
-                SizedBox(width: 12),
+                Icon(_modoEdicao ? Icons.warning : Icons.warning_amber, color: Colors.white, size: 28),
+                const SizedBox(width: 12),
                 Text(
-                  'Concluir',
-                  style: TextStyle(
+                  titulo,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -1981,25 +2092,25 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
               ],
             ),
           ),
-          content: const SizedBox(
+          content: SizedBox(
             width: 400,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Text(
-                  'Deseja realmente concluir e voltar para a página de acompanhamento?',
-                  style: TextStyle(
+                  mensagem,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 Text(
-                  'Todos os dados preenchidos que não foram salvos serão perdidos.',
-                  style: TextStyle(
+                  descricao,
+                  style: const TextStyle(
                     fontSize: 14,
                     color: Colors.black54,
                   ),
@@ -2008,10 +2119,9 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
             ),
           ),
           actions: [
-            // BOTÃO CANCELAR
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Fecha o diálogo
+                Navigator.of(context).pop();
               },
               style: TextButton.styleFrom(
                 foregroundColor: Colors.grey[700],
@@ -2027,11 +2137,10 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
               ),
             ),
 
-            // BOTÃO CONFIRMAR
             ElevatedButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Fecha o diálogo
-                widget.onVoltar(); // Volta para a página de acompanhamento
+                Navigator.of(context).pop();
+                widget.onVoltar();
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0D47A1),
@@ -2041,9 +2150,9 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text(
-                'Concluir',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              child: Text(
+                _modoEdicao ? 'Descartar' : 'Concluir',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -2073,7 +2182,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
     if (texto.isEmpty || texto == '-') return null;
     
     try {
-      // Substituir vírgula por ponto para o PostgreSQL
       final textoLimpo = texto.replaceAll('.', '').replaceAll(',', '.');
       return double.tryParse(textoLimpo);
     } catch (e) {
@@ -2086,7 +2194,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
     if (texto.isEmpty) return null;
     
     try {
-      // Remover pontos de milhar
       final textoLimpo = texto.replaceAll('.', '');
       return int.tryParse(textoLimpo);
     } catch (e) {
