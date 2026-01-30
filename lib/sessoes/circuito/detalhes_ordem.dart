@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../apuracao/certificado_apuracao.dart'; // Import corrigido
 
 enum EtapaCircuito {
   programado,
@@ -390,6 +391,89 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
         .etapa;
   }
   
+  // ✅ NOVO MÉTODO: Abrir certificado de apuração de volumes
+  // NOVO MÉTODO: Abrir certificado de apuração de volumes
+  Future<void> _abrirCertificadoApuracao() async {
+    final ordemId = widget.ordem['ordem_id']?.toString();
+    
+    if (ordemId == null || ordemId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Erro: Ordem ID não encontrado'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    // Verificar se a etapa atual é "Em operação"
+    if (_etapaAtual != EtapaCircuito.operacao) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Esta ordem não está no status "Em operação"'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
+    // Buscar motorista e transportadora da primeira movimentação
+    String motorista = '';
+    String transportadora = '';
+    
+    // Buscar motorista e transportadora do primeiro item da ordem
+    final primeiroItem = widget.ordem['itens']?.first as Map<String, dynamic>?;
+    if (primeiroItem != null) {
+      // Primeiro tenta buscar do próprio item
+      motorista = primeiroItem['motorista']?.toString() ?? '';
+      transportadora = primeiroItem['transportadora']?.toString() ?? '';
+      
+      // Se não encontrou, tenta buscar do motorista_id e transportadora_id
+      if (motorista.isEmpty && primeiroItem['motorista_id'] != null) {
+        try {
+          final motoristaData = await _supabase
+              .from('motoristas')
+              .select('nome')
+              .eq('id', primeiroItem['motorista_id'])
+              .maybeSingle();
+          if (motoristaData != null) {
+            motorista = motoristaData['nome']?.toString() ?? '';
+          }
+        } catch (e) {
+          print('Erro ao buscar motorista: $e');
+        }
+      }
+      
+      if (transportadora.isEmpty && primeiroItem['transportadora_id'] != null) {
+        try {
+          final transportadoraData = await _supabase
+              .from('transportadoras')
+              .select('nome')
+              .eq('id', primeiroItem['transportadora_id'])
+              .maybeSingle();
+          if (transportadoraData != null) {
+            transportadora = transportadoraData['nome']?.toString() ?? '';
+          }
+        } catch (e) {
+          print('Erro ao buscar transportadora: $e');
+        }
+      }
+    }
+    
+    // Navegar para a página de certificado de apuração
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => EmitirOrdemPage( // MUDANÇA AQUI: Usar EmitirOrdemPage
+          onVoltar: () {
+            Navigator.of(context).pop();
+            // Recarregar dados após retornar para atualizar o status se necessário
+            _carregarMovimentacoes();
+          },
+        ),
+      ),
+    );
+  }
+
   // NOVO MÉTODO: Abrir diálogo do Check-list
   Future<void> _abrirDialogoChecklist() async {
     // Resetar seleções
@@ -1537,7 +1621,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     );
   }
   
-  // MÉTODO MELHORADO: Widget para etapa com hover e click
+  // ✅ MÉTODO MODIFICADO: Widget para etapa com hover e click
   Widget _buildEtapaIconComHover({
     required _EtapaInfo etapa,
     required int index,
@@ -1560,6 +1644,9 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     } else if (isChecklist && isAtual) {
       podeClicar = true;
       tooltip = 'Clique para iniciar check-list de segurança';
+    } else if (etapa.etapa == EtapaCircuito.operacao && isAtual) {
+      podeClicar = true;
+      tooltip = 'Clique para emitir certificado de apuração de volumes';
     }
     
     return SizedBox(
@@ -1580,6 +1667,8 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                   _mostrarDialogAguardandoParaChecklist();
                 } else if (isChecklist) {
                   _abrirDialogoChecklist();
+                } else if (etapa.etapa == EtapaCircuito.operacao) {
+                  _abrirCertificadoApuracao();
                 }
               } : null,
               customBorder: const CircleBorder(),
