@@ -596,6 +596,8 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                     backgroundColor: Color(0xFFF57C00),
                     foregroundColor: Colors.white,
                     disabledBackgroundColor: Colors.grey.shade400,
+                    minimumSize: Size(120, 48), // Tamanho mínimo garantido
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                   child: _atualizandoChecklist
                       ? SizedBox(
@@ -606,7 +608,17 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                             color: Colors.white,
                           ),
                         )
-                      : Text('Concluir Check-list'),
+                      : Container(
+                          constraints: BoxConstraints(minWidth: 100), // Largura mínima
+                          child: Text(
+                            'Concluir Check-list',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                 ),
               ],
             );
@@ -989,7 +1001,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Status atualizado para "Aguardando check-list" (15)'),
+              content: Text('Status atualizado para "Aguardando check-list"'),
               backgroundColor: Colors.green,
             ),
           );
@@ -1252,8 +1264,8 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                         SizedBox(width: 4),
                         Text(
                           _tipoMovimentacao == TipoMovimentacao.carregamento
-                              ? 'Carregamento'
-                              : 'Descarregamento',
+                              ? 'Carga'
+                              : 'Descarga',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -1270,7 +1282,6 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
             
             const SizedBox(height: 30),
             
-            // Linha 2: Carga Total e primeiro produto na mesma linha
             // Linha 2: Carga Total e TODOS os produtos na mesma linha
             Row(
               mainAxisAlignment: MainAxisAlignment.start,
@@ -1289,8 +1300,8 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                     const SizedBox(width: 6),
                     Text(
                       _tipoMovimentacao == TipoMovimentacao.carregamento
-                          ? 'Carga para sair'
-                          : 'Carga para descarregar',
+                          ? 'Carga'
+                          : 'Descarga',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -1416,7 +1427,6 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     return _coresProdutos['desconhecido']!;
   }
 
-  // NOVA TIMELINE - Redesenhada completamente
   Widget _buildTimeline() {
     final etapasAtivas = _etapasAtivas;
     final etapaIndex = etapasAtivas.indexWhere((e) => e.etapa == _etapaAtual);
@@ -1451,7 +1461,6 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                     height: 80, // Aumentado de 60 para 80
                     child: Stack(
                       children: [
-                        // LINHA DE CONEXÃO CONTÍNUA - CENTRALIZADA
                         Positioned(
                           left: 15,
                           right: 15,
@@ -1465,7 +1474,6 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                           ),
                         ),
                         
-                        // ÍCONES E LABELS JUNTOS - ALINHADOS VERTICALMENTE
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: List.generate(etapasAtivas.length, (index) {
