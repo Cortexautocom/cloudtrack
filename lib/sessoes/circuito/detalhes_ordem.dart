@@ -67,7 +67,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
       label: 'Aguardando',
       subtitle: 'Aguardando disponibilidade',
       icon: Icons.hourglass_empty,
-      cor: Color(0xFF9E9E9E),
+      cor: Color.fromARGB(255, 5, 151, 0),
       statusCodigo: 15,
     ),
     _EtapaInfo(
@@ -119,7 +119,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
       label: 'Aguardando',
       subtitle: 'Aguardando chegada',
       icon: Icons.hourglass_empty,
-      cor: Color(0xFF9E9E9E),
+      cor: Color.fromARGB(255, 5, 151, 0),
       statusCodigo: 15,
     ),
     _EtapaInfo(
@@ -406,6 +406,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
+              backgroundColor: Colors.white,
               title: Row(
                 children: [
                   Icon(
@@ -726,6 +727,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     final resultado = await showDialog<bool>(
       context: context,
       builder: (context) => Dialog(
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
@@ -821,6 +823,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     final resultado = await showDialog<bool>(
       context: context,
       builder: (context) => Dialog(
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
@@ -1120,273 +1123,266 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     final totalProdutos = produtosAgrupados.values.fold(0.0, (sum, qtd) => sum + qtd);
 
     return Card(
+      color: Colors.white,
       margin: const EdgeInsets.only(bottom: 12),
       child: Container(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Linha 1: Ordem e Placa
+            // Linha 1: Ordem, Placa e Tipo de Operação (alinhado à direita)
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Ordem
+                // Ordem e Placa lado a lado
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.confirmation_number,
-                            size: 14,
-                            color: Colors.grey.shade600,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Ordem nº',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey.shade600,
+                      // Ordem
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.confirmation_number,
+                                  size: 14,
+                                  color: Colors.grey.shade600,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Ordem nº',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 4),
+                            Text(
+                              _numeroControleOrdem ?? '--',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF0D47A1),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _numeroControleOrdem ?? '--',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF0D47A1),
+                      
+                      // Separador
+                      Container(
+                        width: 1,
+                        height: 40,
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
+                        color: Colors.grey.shade300,
+                      ),
+                      
+                      // Placa
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.directions_car,
+                                  size: 14,
+                                  color: Colors.grey.shade600,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Placas',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              placasFormatadas,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF0D47A1),
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
                 
-                // Separador
-                Container(
-                  width: 1,
-                  height: 40,
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
-                  color: Colors.grey.shade300,
-                ),
-                
-                // Placa
-                Expanded(
-                  flex: 2,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.directions_car,
-                            size: 14,
-                            color: Colors.grey.shade600,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Placas',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
+                // Tipo de operação alinhado à direita
+                if (_tipoMovimentacao == TipoMovimentacao.carregamento || 
+                    _tipoMovimentacao == TipoMovimentacao.descarregamento)
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _tipoMovimentacao == TipoMovimentacao.carregamento
+                          ? Colors.orange.shade50
+                          : Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: _tipoMovimentacao == TipoMovimentacao.carregamento
+                            ? Colors.orange.shade200
+                            : Colors.green.shade200,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        placasFormatadas,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF0D47A1),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _tipoMovimentacao == TipoMovimentacao.carregamento
+                              ? Icons.upload
+                              : Icons.download,
+                          size: 12,
+                          color: _tipoMovimentacao == TipoMovimentacao.carregamento
+                              ? Colors.orange.shade700
+                              : Colors.green.shade700,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                        SizedBox(width: 4),
+                        Text(
+                          _tipoMovimentacao == TipoMovimentacao.carregamento
+                              ? 'Carregamento'
+                              : 'Descarregamento',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: _tipoMovimentacao == TipoMovimentacao.carregamento
+                                ? Colors.orange.shade700
+                                : Colors.green.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
               ],
             ),
             
-            const SizedBox(height: 12),
+            const SizedBox(height: 30),
             
-            // Linha 2: Tipo de operação
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: _tipoMovimentacao == TipoMovimentacao.carregamento
-                    ? Colors.orange.shade50
-                    : Colors.green.shade50,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: _tipoMovimentacao == TipoMovimentacao.carregamento
-                      ? Colors.orange.shade200
-                      : Colors.green.shade200,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _tipoMovimentacao == TipoMovimentacao.carregamento
-                        ? Icons.upload
-                        : Icons.download,
-                    size: 14,
-                    color: _tipoMovimentacao == TipoMovimentacao.carregamento
-                        ? Colors.orange.shade700
-                        : Colors.green.shade700,
-                  ),
-                  SizedBox(width: 6),
-                  Text(
-                    _tipoMovimentacao == TipoMovimentacao.carregamento
-                        ? 'Carregamento (Saída)'
-                        : 'Descarregamento (Chegada)',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: _tipoMovimentacao == TipoMovimentacao.carregamento
-                          ? Colors.orange.shade700
-                          : Colors.green.shade700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Linha 3: Produtos sendo carregados/descarregados
-            if (produtosAgrupados.isNotEmpty)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        _tipoMovimentacao == TipoMovimentacao.carregamento
-                            ? Icons.local_shipping
-                            : Icons.local_shipping_outlined,
-                        size: 16,
-                        color: Colors.grey.shade700,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _tipoMovimentacao == TipoMovimentacao.carregamento
-                            ? 'Carga para sair'
-                            : 'Carga para descarregar',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade700,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _formatarNumero(totalProdutos),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF0D47A1),
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 8),
-                  
-                  // Grid de produtos
-                  _buildGridProdutos(produtosAgrupados),
-                ],
-              )
-            else
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
+            // Linha 2: Carga Total e primeiro produto na mesma linha
+            // Linha 2: Carga Total e TODOS os produtos na mesma linha
+            Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Carga Total
+                Row(
                   children: [
                     Icon(
-                      Icons.info_outline,
+                      _tipoMovimentacao == TipoMovimentacao.carregamento
+                          ? Icons.local_shipping
+                          : Icons.local_shipping_outlined,
                       size: 16,
-                      color: Colors.grey.shade500,
+                      color: Colors.grey.shade700,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _tipoMovimentacao == TipoMovimentacao.carregamento
+                          ? 'Carga para sair'
+                          : 'Carga para descarregar',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade700,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      _tipoMovimentacao == TipoMovimentacao.carregamento
-                          ? 'Nenhum produto para carregar'
-                          : 'Nenhum produto para descarregar',
-                      style: TextStyle(
+                      _formatarNumero(totalProdutos),
+                      style: const TextStyle(
                         fontSize: 12,
-                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0D47A1),
                       ),
                     ),
                   ],
                 ),
-              ),
+                
+                const SizedBox(width: 12), // Espaço entre a carga total e os produtos
+                
+                // TODOS os produtos na mesma linha
+                if (produtosAgrupados.isNotEmpty)
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: produtosAgrupados.entries.map((entry) {
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: _buildProdutoBadge(
+                              nome: entry.key,
+                              quantidade: entry.value,
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+              ],
+            ),            
           ],
         ),
       ),
     );
   }
 
-  Widget _buildGridProdutos(Map<String, double> produtos) {
-    final entries = produtos.entries.toList();
+  Widget _buildProdutoBadge({required String nome, required double quantidade}) {
+    final nomeFormatado = _formatarNomeProduto(nome);
+    final cor = _obterCorProduto(nome);
     
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: entries.map((entry) {
-        final produtoNome = entry.key;
-        final quantidade = entry.value;
-        final nomeFormatado = _formatarNomeProduto(produtoNome);
-        final cor = _obterCorProduto(produtoNome);
-        
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: cor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: cor.withOpacity(0.3), width: 1),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Indicador de quantidade
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: cor,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  _formatarNumero(quantidade),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: cor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: cor.withOpacity(0.3), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Indicador de quantidade
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            decoration: BoxDecoration(
+              color: cor,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              _formatarNumero(quantidade),
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
-              
-              const SizedBox(width: 6),
-              
-              // Nome do produto
-              Text(
-                nomeFormatado,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: cor,
-                ),
-              ),
-            ],
+            ),
           ),
-        );
-      }).toList(),
+          
+          const SizedBox(width: 6),
+          
+          // Nome do produto
+          Text(
+            nomeFormatado,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: cor,
+            ),
+          ),
+        ],
+      ),
     );
-  }
+  }  
 
   String _formatarNomeProduto(String produtoNome) {
     return produtoNome;
@@ -1426,6 +1422,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     final etapaIndex = etapasAtivas.indexWhere((e) => e.etapa == _etapaAtual);
 
     return Card(
+      color: Colors.white,
       margin: const EdgeInsets.only(bottom: 12),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 12),
@@ -1622,6 +1619,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
   // 2️⃣ Lista compacta de fatos ocorridos
   Widget _buildHistoricoFatos() {
     return Card(
+      color: Colors.white,
       margin: const EdgeInsets.only(bottom: 12),
       child: Container(
         padding: const EdgeInsets.all(12),
