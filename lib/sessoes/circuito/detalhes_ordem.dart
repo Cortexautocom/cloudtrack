@@ -1643,7 +1643,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     required bool isAguardando,
     required bool isChecklist,
   }) {
-    // Determinar se pode clicar - SÓ SE FOR A ETAPA ATUAL
+    // Determinar se pode clicar - CHECK-LIST e OPERAÇÃO SEMPRE CLICÁVEIS
     bool podeClicar = false;
     String tooltip = '';
     
@@ -1653,12 +1653,26 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     } else if (isAguardando && isAtual) {
       podeClicar = true;
       tooltip = 'Clique para avançar para check-list';
-    } else if (isChecklist && isAtual) {
+    } else if (isChecklist) {
+      // ✅ MODIFICAÇÃO: Sempre clicável, independente de ser a etapa atual
       podeClicar = true;
-      tooltip = 'Clique para iniciar check-list de segurança';
-    } else if (etapa.etapa == EtapaCircuito.operacao && isAtual) {
+      if (isAtual) {
+        tooltip = 'Clique para iniciar check-list de segurança';
+      } else if (isCompleta) {
+        tooltip = 'Check-list já concluído. Clique para visualizar ou reabrir';
+      } else {
+        tooltip = 'Check-list pendente';
+      }
+    } else if (etapa.etapa == EtapaCircuito.operacao) {
+      // ✅ MODIFICAÇÃO: Sempre clicável, independente de ser a etapa atual
       podeClicar = true;
-      tooltip = 'Clique para emitir certificado de apuração de volumes';
+      if (isAtual) {
+        tooltip = 'Clique para emitir certificado de apuração de volumes';
+      } else if (isCompleta) {
+        tooltip = 'Operação já concluída. Clique para visualizar certificado';
+      } else {
+        tooltip = 'Operação pendente';
+      }
     }
     
     return SizedBox(
@@ -1673,14 +1687,44 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
             shape: const CircleBorder(),
             child: InkWell(
               onTap: podeClicar ? () {
+                print('🔍 DEBUG: Clicado na etapa: ${etapa.label}');
+                print('🔍 DEBUG: isAtual: $isAtual, isCompleta: $isCompleta');
+                
                 if (isProgramado) {
                   _mostrarDialogProgramadoParaAguardando();
                 } else if (isAguardando) {
                   _mostrarDialogAguardandoParaChecklist();
                 } else if (isChecklist) {
-                  _abrirDialogoChecklist();
+                  // ✅ AGORA: Check-list sempre clicável
+                  if (isAtual) {
+                    // Etapa atual: abrir check-list normal
+                    _abrirDialogoChecklist();
+                  } else if (isCompleta) {
+                    // Etapa já concluída: oferecer opções
+                    _mostrarOpcoesChecklistConcluido();
+                  } else {
+                    // Etapa futura: informar que ainda não está disponível
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Check-list ainda não está disponível'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                  }
                 } else if (etapa.etapa == EtapaCircuito.operacao) {
-                  _abrirCertificadoApuracao();
+                  // ✅ AGORA: Operação sempre clicável
+                  if (isAtual || isCompleta) {
+                    // Etapa atual ou já concluída: abrir certificado
+                    _abrirCertificadoApuracao();
+                  } else {
+                    // Etapa futura: informar que ainda não está disponível
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Certificado ainda não está disponível'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                  }
                 }
               } : null,
               customBorder: const CircleBorder(),
@@ -1723,7 +1767,51 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
         ),
       ),
     );
-  }  
+  }
+
+  // ✅ NOVO MÉTODO: Mostrar opções quando check-list já está concluído
+  Future<void> _mostrarOpcoesChecklistConcluido() async {
+    final resultado = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            SizedBox(width: 10),
+            Text('Check-list Concluído'),
+          ],
+        ),
+        content: Text('Esta etapa já foi concluída. O que deseja fazer?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop('visualizar'),
+            child: Text('Visualizar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop('reabrir'),
+            child: Text('Reabrir Check-list'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop('cancelar'),
+            child: Text('Cancelar'),
+          ),
+        ],
+      ),
+    );
+
+    if (resultado == 'visualizar') {
+      // Mostrar informações do check-list realizado
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Visualizando check-list concluído...'),
+          backgroundColor: Colors.blue,
+        ),
+      );
+    } else if (resultado == 'reabrir') {
+      // Reabrir o diálogo do check-list
+      _abrirDialogoChecklist();
+    }
+  }
 
   // 2️⃣ Lista compacta de fatos ocorridos
   Widget _buildHistoricoFatos() {
