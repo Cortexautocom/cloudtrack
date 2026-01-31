@@ -1639,17 +1639,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
 
       final aproximado = await _buscarFCVPorCodigo(codigoMaisProximo);
       
-      if (aproximado != null) {
-        if (context.mounted && diferenca > 0.0001) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Usando fator de correção aproximado'),
-                backgroundColor: Colors.orange,
-              ),
-            );
-          });
-        }
+      if (aproximado != null) {        
         return aproximado;
       }
 
@@ -2102,27 +2092,35 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     try {
       final supabase = Supabase.instance.client;
       final user = supabase.auth.currentUser;
-      if (user == null) throw Exception('Usuário não autenticado');
+      if (user == null) {
+        throw Exception('Usuário não autenticado');
+      }
 
       final usuario = UsuarioAtual.instance;
       if (usuario == null || usuario.filialId == null) {
         throw Exception('Usuário sem filial vinculada');
       }
 
+      if (produtoSelecionado == null) {
+        throw Exception('Produto não selecionado');
+      }
+
+      // Resolver produto_id
       final produtoId = await _resolverProdutoId(produtoSelecionado!);
 
-      final dadosOrdem = {
-        // CONTROLE / DATAS
+      // ================= DADOS PARA ordens_analises (100% alinhado ao schema) =================
+      final Map<String, dynamic> dadosOrdem = {
+        // obrigatórios
         'data_analise': _formatarDataParaBanco(dataCtrl.text),
         'hora_analise': horaCtrl.text,
-        'data_conclusao': DateTime.now().toIso8601String(),
 
-        // STATUS
+        // status / fluxo
         'status': 'concluida',
         'analise_concluida': true,
+        'data_conclusao': DateTime.now().toIso8601String(),
         'tipo_operacao': null,
 
-        // LOGÍSTICA
+        // logística
         'transportadora': campos['transportadora']!.text,
         'motorista': campos['motorista']!.text,
         'notas_fiscais': campos['notas']!.text,
@@ -2130,30 +2128,31 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         'carreta1': campos['carreta1']!.text,
         'carreta2': campos['carreta2']!.text,
 
-        // PRODUTO
+        // produto
         'produto_id': produtoId,
         'produto_nome': produtoSelecionado,
 
-        // DADOS TÉCNICOS
+        // dados técnicos
         'temperatura_amostra': _converterParaDecimal(campos['tempAmostra']!.text),
         'densidade_observada': _converterParaDecimal(campos['densidadeAmostra']!.text),
         'temperatura_ct': _converterParaDecimal(campos['tempCT']!.text),
         'densidade_20c': _converterParaDecimal(campos['densidade20']!.text),
         'fator_correcao': _converterParaDecimal(campos['fatorCorrecao']!.text),
 
-        // VOLUMES (tabela pede os dois)
+        // volumes (a tabela pede os quatro; ambiente pode ser null)
         'origem_ambiente': _converterParaInteiro(campos['volumeCarregadoAmb']!.text),
         'destino_ambiente': null,
         'origem_20c': null,
         'destino_20c': _converterParaInteiro(campos['volumeApurado20C']!.text),
 
-        // AUDITORIA
+        // auditoria
         'usuario_id': user.id,
         'filial_id': usuario.filialId,
       };
 
       Map<String, dynamic> response;
 
+      // ================= INSERT ou UPDATE em ordens_analises =================
       if (_modoEdicao && widget.idCertificado != null) {
         response = await supabase
             .from('ordens_analises')
@@ -2167,25 +2166,29 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
             .insert(dadosOrdem)
             .select('id, numero_controle')
             .single();
+      }
 
+      // Atualizar número de controle na UI
+      campos['numeroControle']!.text = response['numero_controle'].toString();
+
+      // ================= ATUALIZAR movimentacoes (UPDATE, NÃO INSERT) =================
+      // Complementa a movimentação existente com o volume a 20 °C
+      if (widget.idMovimentacao != null) {
         final int volume20C =
-            dadosOrdem['destino_20c'] as int;
+            _converterParaInteiro(campos['volumeApurado20C']!.text) ?? 0;
 
-        final String dataMov =
-            dadosOrdem['data_analise'] as String;
-
-        await _salvarMovimentacaoSomente20C(
+        await _atualizarMovimentacaoSomente20C(
+          movimentacaoId: widget.idMovimentacao!,
           produtoId: produtoId,
           volume20C: volume20C,
-          dataMov: dataMov,
-          usuarioId: user.id,
         );
       }
 
-      campos['numeroControle']!.text = response['numero_controle'].toString();
-
       if (context.mounted) Navigator.of(context).pop();
-      setState(() => _analiseConcluida = true);
+
+      setState(() {
+        _analiseConcluida = true;
+      });
 
     } catch (e) {
       if (context.mounted) Navigator.of(context).pop();
@@ -2194,57 +2197,27 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   }
 
 
-
-  // ================= SALVAR MOVIMENTAÇÃO (SOMENTE 20 °C) =================
-  Future<void> _salvarMovimentacaoSomente20C({
+  Future<void> _atualizarMovimentacaoSomente20C({
+    required String movimentacaoId,
     required String produtoId,
     required int volume20C,
-    required String dataMov,
-    required String usuarioId,
   }) async {
     final supabase = Supabase.instance.client;
 
-    final usuarioData = await supabase
-        .from('usuarios')
-        .select('id_filial, empresa_id')
-        .eq('id', usuarioId)
-        .maybeSingle();
-
-    if (usuarioData == null) return;
-
-    final filialId = usuarioData['id_filial'];
-    final empresaId = usuarioData['empresa_id'];
-
+    // Descobre qual coluna _vinte deve ser usada
     final coluna20C = _resolverColuna20C(produtoId);
 
-    final colunas20C = {
-      'g_comum_vinte': 0,
-      'g_aditivada_vinte': 0,
-      'd_s10_vinte': 0,
-      'd_s500_vinte': 0,
-      'etanol_vinte': 0,
-      'anidro_vinte': 0,
-      'b100_vinte': 0,
-      'gasolina_a_vinte': 0,
-      's500_a_vinte': 0,
-      's10_a_vinte': 0,
-    };
-
-    colunas20C[coluna20C] = volume20C;
-
-    final dadosMovimentacao = {
-      'filial_id': filialId,
-      'empresa_id': empresaId,
-      'produto_id': produtoId,
-      'usuario_id': usuarioId,
-      'data_mov': dataMov,
-      'saida_vinte': volume20C,
-      'status_circuito': '3',
-      ...colunas20C,
-    };
-
-    await supabase.from('movimentacoes').insert(dadosMovimentacao);
+    // Atualiza SOMENTE o que interessa
+    await supabase
+        .from('movimentacoes')
+        .update({
+          coluna20C: volume20C,
+          'saida_vinte': volume20C,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', movimentacaoId);
   }
+
 
   // ================= AUXILIAR =================
   Future<String> _resolverProdutoId(String nomeProduto) async {
