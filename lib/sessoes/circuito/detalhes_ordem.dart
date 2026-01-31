@@ -393,10 +393,15 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
   
   // ✅ NOVO MÉTODO: Abrir certificado de apuração de volumes
   // NOVO MÉTODO: Abrir certificado de apuração de volumes
+  // ✅ MÉTODO MODIFICADO: Abrir certificado de apuração de volumes
   Future<void> _abrirCertificadoApuracao() async {
     final ordemId = widget.ordem['ordem_id']?.toString();
     
+    print('DEBUG: Abrindo certificado para ordem ID: $ordemId');
+    print('DEBUG: Tipo de movimentação: $_tipoMovimentacao');
+    
     if (ordemId == null || ordemId.isEmpty) {
+      print('DEBUG ERRO: Ordem ID não encontrado');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Erro: Ordem ID não encontrado'),
@@ -408,6 +413,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     
     // Verificar se a etapa atual é "Em operação"
     if (_etapaAtual != EtapaCircuito.operacao) {
+      print('DEBUG ERRO: Etapa atual é $_etapaAtual, não "operacao"');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Esta ordem não está no status "Em operação"'),
@@ -417,61 +423,115 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
       return;
     }
     
-    // Buscar motorista e transportadora da primeira movimentação
-    String motorista = '';
-    String transportadora = '';
-    
-    // Buscar motorista e transportadora do primeiro item da ordem
-    final primeiroItem = widget.ordem['itens']?.first as Map<String, dynamic>?;
-    if (primeiroItem != null) {
-      // Primeiro tenta buscar do próprio item
-      motorista = primeiroItem['motorista']?.toString() ?? '';
-      transportadora = primeiroItem['transportadora']?.toString() ?? '';
+    try {
+      // Buscar a primeira movimentação da ordem para obter o ID
+      print('DEBUG: Buscando movimentações da ordem ID: $ordemId');
       
-      // Se não encontrou, tenta buscar do motorista_id e transportadora_id
-      if (motorista.isEmpty && primeiroItem['motorista_id'] != null) {
-        try {
-          final motoristaData = await _supabase
-              .from('motoristas')
-              .select('nome')
-              .eq('id', primeiroItem['motorista_id'])
-              .maybeSingle();
-          if (motoristaData != null) {
-            motorista = motoristaData['nome']?.toString() ?? '';
+      final movimentacoes = await _supabase
+          .from('movimentacoes')
+          .select('id, placa, produto_id, motorista_id, transportadora_id, nota_fiscal, status_circuito')
+          .eq('ordem_id', ordemId)
+          .order('id', ascending: true)
+          .limit(1);
+      
+      if (movimentacoes.isEmpty) {
+        print('DEBUG ERRO: Nenhuma movimentação encontrada para esta ordem');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Nenhuma movimentação encontrada para esta ordem'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+      
+      final primeiraMovimentacao = movimentacoes.first;
+      final movimentacaoId = primeiraMovimentacao['id']?.toString();
+      
+      print('DEBUG: Primeira movimentação encontrada - ID: $movimentacaoId');
+      print('DEBUG: Dados da movimentação: ${primeiraMovimentacao.keys}');
+      
+      // Buscar motorista e transportadora da primeira movimentação
+      String motorista = '';
+      String transportadora = '';
+      
+      // Buscar motorista e transportadora do primeiro item da ordem
+      final primeiroItem = widget.ordem['itens']?.first as Map<String, dynamic>?;
+      if (primeiroItem != null) {
+        print('DEBUG: Primeiro item da ordem encontrado: ${primeiroItem.keys}');
+        
+        // Primeiro tenta buscar do próprio item
+        motorista = primeiroItem['motorista']?.toString() ?? '';
+        transportadora = primeiroItem['transportadora']?.toString() ?? '';
+        
+        print('DEBUG: Motorista do item: $motorista');
+        print('DEBUG: Transportadora do item: $transportadora');
+        
+        // Se não encontrou, tenta buscar do motorista_id e transportadora_id
+        if (motorista.isEmpty && primeiroItem['motorista_id'] != null) {
+          try {
+            final motoristaData = await _supabase
+                .from('motoristas')
+                .select('nome')
+                .eq('id', primeiroItem['motorista_id'])
+                .maybeSingle();
+            if (motoristaData != null) {
+              motorista = motoristaData['nome']?.toString() ?? '';
+              print('DEBUG: Motorista do banco: $motorista');
+            }
+          } catch (e) {
+            print('DEBUG ERRO ao buscar motorista: $e');
           }
-        } catch (e) {
-          print('Erro ao buscar motorista: $e');
+        }
+        
+        if (transportadora.isEmpty && primeiroItem['transportadora_id'] != null) {
+          try {
+            final transportadoraData = await _supabase
+                .from('transportadoras')
+                .select('nome')
+                .eq('id', primeiroItem['transportadora_id'])
+                .maybeSingle();
+            if (transportadoraData != null) {
+              transportadora = transportadoraData['nome']?.toString() ?? '';
+              print('DEBUG: Transportadora do banco: $transportadora');
+            }
+          } catch (e) {
+            print('DEBUG ERRO ao buscar transportadora: $e');
+          }
         }
       }
       
-      if (transportadora.isEmpty && primeiroItem['transportadora_id'] != null) {
-        try {
-          final transportadoraData = await _supabase
-              .from('transportadoras')
-              .select('nome')
-              .eq('id', primeiroItem['transportadora_id'])
-              .maybeSingle();
-          if (transportadoraData != null) {
-            transportadora = transportadoraData['nome']?.toString() ?? '';
-          }
-        } catch (e) {
-          print('Erro ao buscar transportadora: $e');
-        }
-      }
-    }
-    
-    // Navegar para a página de certificado de apuração
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => EmitirCertificadoPage( // MUDANÇA AQUI: Usar EmitirOrdemPage
-          onVoltar: () {
-            Navigator.of(context).pop();
-            // Recarregar dados após retornar para atualizar o status se necessário
-            _carregarMovimentacoes();
-          },
+      print('DEBUG: Motorista final: $motorista');
+      print('DEBUG: Transportadora final: $transportadora');
+      print('DEBUG: ID da movimentação a ser passada: $movimentacaoId');
+      
+      // Navegar para a página de certificado de apuração
+      // IMPORTANTE: Agora passamos o ID da movimentação
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => EmitirCertificadoPage(
+            onVoltar: () {
+              print('DEBUG: Retornando da página de certificado');
+              Navigator.of(context).pop();
+              // Recarregar dados após retornar para atualizar o status se necessário
+              _carregarMovimentacoes();
+            },
+            idMovimentacao: movimentacaoId, // ✅ AGORA PASSA O ID DA MOVIMENTAÇÃO
+          ),
         ),
-      ),
-    );
+      );
+      
+      print('DEBUG: Navegação iniciada para certificado com movimentacaoId: $movimentacaoId');
+      
+    } catch (e) {
+      print('DEBUG ERRO CRÍTICO ao abrir certificado: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao abrir certificado: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   // NOVO MÉTODO: Abrir diálogo do Check-list

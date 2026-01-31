@@ -273,12 +273,14 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
 // ================= PÁGINA PRINCIPAL (COM AS ALTERAÇÕES) =================
 class EmitirCertificadoPage extends StatefulWidget {
   final VoidCallback onVoltar;
-  final String? idCertificado; // ALTERADO: Agora recebe idCertificado
+  final String? idCertificado;
+  final String? idMovimentacao; // NOVO: ID da movimentação para povoar dados
 
   const EmitirCertificadoPage({
     super.key,
     required this.onVoltar,
-    this.idCertificado, // ALTERADO: Parâmetro opcional
+    this.idCertificado,
+    this.idMovimentacao, // NOVO: Parâmetro para povoar dados da movimentação
   });
 
   @override
@@ -289,12 +291,14 @@ class EmitirCertificadoPage extends StatefulWidget {
 class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   final _formKey = GlobalKey<FormState>();
   bool _analiseConcluida = false;
-  bool _modoEdicao = false; // NOVO: Indica se está editando um certificado existente
-  Map<String, dynamic>? _dadosExistentes; // NOVO: Para armazenar dados do certificado existente
+  bool _modoEdicao = false;
+  Map<String, dynamic>? _dadosExistentes;
+  bool _carregandoDadosMovimentacao = false; // NOVO: Flag para loading
   
   // ================= CONTROLLERS =================
   final TextEditingController dataCtrl = TextEditingController();
   final TextEditingController horaCtrl = TextEditingController();
+  final FocusNode _focusTempCT = FocusNode(); // ADICIONADO: FocusNode para o campo tempCT
 
   final Map<String, TextEditingController?> campos = {
     // Cabeçalho
@@ -332,19 +336,221 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     _setarDataHoraAtual();
     _carregarProdutos();
     
-    // NOVO: Verificar se recebeu um ID para edição
+    // ADICIONADO: Listener para o campo tempCT (igual à EmitirOrdemPage)
+    _focusTempCT.addListener(() {
+      if (!_focusTempCT.hasFocus) {
+        _calcularResultadosObtidos();
+      }
+    });
+    
+    // Verificar se recebeu um ID para edição
     if (widget.idCertificado != null && widget.idCertificado!.isNotEmpty) {
       _modoEdicao = true;
       _carregarDadosCertificado(widget.idCertificado!);
+    } else if (widget.idMovimentacao != null && widget.idMovimentacao!.isNotEmpty) {
+      // NOVO: Se tem ID de movimentação, povoar os campos
+      _carregarDadosMovimentacao(widget.idMovimentacao!);
     }
   }
 
-  // NOVO: Método para carregar dados do certificado existente
+  // NOVO: Método para carregar dados da movimentação
+  Future<void> _carregarDadosMovimentacao(String idMovimentacao) async {
+    setState(() {
+      _carregandoDadosMovimentacao = true;
+    });
+
+    try {
+      final supabase = Supabase.instance.client;
+      
+      // Buscar dados da movimentação com joins
+      final movimentacao = await supabase
+          .from('movimentacoes')
+          .select('''
+            *,
+            produtos:produto_id(nome),
+            motoristas:motorista_id(nome),
+            transportadoras:transportadora_id(nome),
+            nota_fiscal
+          ''')
+          .eq('id', idMovimentacao)
+          .maybeSingle();
+
+      if (movimentacao != null) {
+        // Preencher Notas Fiscais
+        if (movimentacao['nota_fiscal'] != null) {
+          campos['notas']!.text = movimentacao['nota_fiscal'].toString();
+        }
+
+        // Preencher Produto
+        if (movimentacao['produtos'] != null && movimentacao['produtos']['nome'] != null) {
+          final nomeProduto = movimentacao['produtos']['nome'].toString();
+          produtoSelecionado = nomeProduto;
+          
+          // Aguardar produtos carregarem para selecionar
+          if (produtos.contains(nomeProduto)) {
+            setState(() {
+              produtoSelecionado = nomeProduto;
+            });
+          }
+        }
+
+        // Preencher Motorista
+        if (movimentacao['motoristas'] != null && movimentacao['motoristas']['nome'] != null) {
+          campos['motorista']!.text = movimentacao['motoristas']['nome'].toString();
+        }
+
+        // Preencher Transportadora
+        if (movimentacao['transportadoras'] != null && movimentacao['transportadoras']['nome'] != null) {
+          campos['transportadora']!.text = movimentacao['transportadoras']['nome'].toString();
+        }
+
+        // Preencher Placas (array)
+        if (movimentacao['placa'] != null && movimentacao['placa'] is List) {
+          final placasArray = List<String>.from(movimentacao['placa']);
+          if (placasArray.isNotEmpty) {
+            // Cavalo (primeiro elemento)
+            if (placasArray.length > 0) {
+              campos['placaCavalo']!.text = placasArray[0];
+            }
+            // Carreta 1 (segundo elemento)
+            if (placasArray.length > 1) {
+              campos['carreta1']!.text = placasArray[1];
+            }
+            // Carreta 2 (terceiro elemento)
+            if (placasArray.length > 2) {
+              campos['carreta2']!.text = placasArray[2];
+            }
+          }
+        }
+
+        // Preencher Volume Carregado (ambiente) - buscar coluna específica do produto
+        if (produtoSelecionado != null) {
+          final volumeAmb = _obterVolumeAmbientePorProduto(movimentacao, produtoSelecionado!);
+          if (volumeAmb != null && volumeAmb > 0) {
+            campos['volumeCarregadoAmb']!.text = volumeAmb.toString();
+          }
+        }
+
+        // Se houver volume a 20°C, preencher também
+        if (produtoSelecionado != null) {
+          final volume20C = _obterVolume20CPorProduto(movimentacao, produtoSelecionado!);
+          if (volume20C != null && volume20C > 0) {
+            campos['volumeApurado20C']!.text = volume20C.toString();
+          }
+        }
+      }
+    } catch (e) {
+      print('Erro ao carregar dados da movimentação: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar dados: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _carregandoDadosMovimentacao = false;
+      });
+    }
+  }
+
+  // NOVO: Método auxiliar para obter volume ambiente por produto
+  int? _obterVolumeAmbientePorProduto(Map<String, dynamic> movimentacao, String produtoNome) {
+    final produtoLower = produtoNome.toLowerCase();
+    
+    // Mapeamento de produtos para colunas
+    final mapaColunas = {
+      'gasolina': {
+        'comum': 'g_comum',
+        'aditivada': 'g_aditivada',
+        'outras': 'gasolina_a',
+      },
+      'diesel': {
+        's10': 'd_s10',
+        's500': 'd_s500',
+        's500_a': 's500_a',
+        's10_a': 's10_a',
+      },
+      'etanol': {
+        'hidratado': 'etanol',
+        'anidro': 'anidro',
+      },
+      'b100': {
+        'b100': 'b100',
+      }
+    };
+
+    // Verificar qual produto se encaixa
+    for (final tipoProduto in mapaColunas.keys) {
+      if (produtoLower.contains(tipoProduto)) {
+        for (final variante in mapaColunas[tipoProduto]!.keys) {
+          if (produtoLower.contains(variante)) {
+            final coluna = mapaColunas[tipoProduto]![variante];
+            if (movimentacao[coluna] != null) {
+              return int.tryParse(movimentacao[coluna].toString());
+            }
+          }
+        }
+        
+        // Se não encontrou variante específica, tentar a genérica
+        if (mapaColunas[tipoProduto]!.containsKey('outras')) {
+          final coluna = mapaColunas[tipoProduto]!['outras'];
+          if (movimentacao[coluna] != null) {
+            return int.tryParse(movimentacao[coluna].toString());
+          }
+        }
+      }
+    }
+    
+    return null;
+  }
+
+  // NOVO: Método auxiliar para obter volume a 20°C por produto
+  int? _obterVolume20CPorProduto(Map<String, dynamic> movimentacao, String produtoNome) {
+    final produtoLower = produtoNome.toLowerCase();
+    
+    // Colunas para volume a 20°C têm sufixo '_vinte'
+    final mapaColunas20C = {
+      'g_comum_vinte': ['gasolina', 'comum'],
+      'g_aditivada_vinte': ['gasolina', 'aditivada'],
+      'gasolina_a_vinte': ['gasolina'],
+      'd_s10_vinte': ['diesel', 's10'],
+      'd_s500_vinte': ['diesel', 's500'],
+      's500_a_vinte': ['diesel', 's500'],
+      's10_a_vinte': ['diesel', 's10'],
+      'etanol_vinte': ['etanol', 'hidratado'],
+      'anidro_vinte': ['etanol', 'anidro'],
+      'b100_vinte': ['b100'],
+    };
+
+    // Verificar cada coluna
+    for (final coluna in mapaColunas20C.keys) {
+      final keywords = mapaColunas20C[coluna]!;
+      bool matches = true;
+      
+      for (final keyword in keywords) {
+        if (!produtoLower.contains(keyword)) {
+          matches = false;
+          break;
+        }
+      }
+      
+      if (matches && movimentacao[coluna] != null) {
+        return int.tryParse(movimentacao[coluna].toString());
+      }
+    }
+    
+    return null;
+  }
+
+  // Método para carregar dados do certificado existente
   Future<void> _carregarDadosCertificado(String idCertificado) async {
     try {
       final supabase = Supabase.instance.client;
       
-      // Buscar o certificado no banco (tabela 'ordens_analises' - mantém nome original do banco)
+      // Buscar o certificado no banco
       final dados = await supabase
           .from('ordens_analises')
           .select('*')
@@ -379,7 +585,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     }
   }
   
-  // NOVO: Método para preencher os campos com dados existentes
+  // Método para preencher os campos com dados existentes
   void _preencherCamposComDadosExistentes() {
     if (_dadosExistentes == null) return;
     
@@ -427,7 +633,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     });
   }
   
-  // NOVO: Formatar decimal para exibição (converte 0.7456 para 0,7456)
+  // Formatar decimal para exibição (converte 0.7456 para 0,7456)
   String _formatarDecimalParaExibicao(dynamic valor) {
     if (valor == null) return '';
     
@@ -463,7 +669,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
             dados.map<String>((p) => p['nome'].toString()).toList();
         carregandoProdutos = false;
         
-        // NOVO: Se estiver em modo edição e já temos produto, seleciona automaticamente
+        // Se estiver em modo edição e já temos produto, seleciona automaticamente
         if (_modoEdicao && produtoSelecionado != null && produtos.contains(produtoSelecionado)) {
           // Já está selecionado pelo _preencherCamposComDadosExistentes
         }
@@ -475,7 +681,11 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
 
   // ================= CÁLCULOS =================
   Future<void> _calcularResultadosObtidos() async {
+    print('DEBUG: _calcularResultadosObtidos chamado');
+    print('DEBUG: Produto selecionado: $produtoSelecionado');
+    
     if (produtoSelecionado == null) {
+      print('DEBUG: Produto não selecionado, retornando');
       return;
     }
 
@@ -484,9 +694,17 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     final tempCT = campos['tempCT']!.text;
     final fcvAtual = campos['fatorCorrecao']!.text;
 
+    print('DEBUG: tempAmostra: $tempAmostra, densObs: $densObs, tempCT: $tempCT, fcvAtual: $fcvAtual');
+
     // Limpar campos antes de buscar
     campos['densidade20']!.text = '';
     campos['fatorCorrecao']!.text = '';
+
+    // Se temperatura da amostra OU densidade observada estiverem vazias, não calcula
+    if (tempAmostra.isEmpty || densObs.isEmpty) {
+      print('DEBUG: Campos de temperatura ou densidade vazios');
+      return;
+    }
 
     final dens20 = await _buscarDensidade20C(
       temperaturaAmostra: tempAmostra,
@@ -494,15 +712,24 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       produtoNome: produtoSelecionado!,
     );
 
+    print('DEBUG: densidade20 encontrada: $dens20');
     campos['densidade20']!.text = dens20;
 
-    final fcv = dens20 != '-'
-        ? await _buscarFCV(
-            temperaturaTanque: tempCT,
-            densidade20C: dens20,
-            produtoNome: produtoSelecionado!,
-          )
-        : '-';
+    // Se densidade20 for inválida ou temperatura CT estiver vazia, não busca FCV
+    if (dens20 == '-' || dens20.isEmpty || tempCT.isEmpty) {
+      print('DEBUG: Condições não atendidas para buscar FCV');
+      campos['fatorCorrecao']!.text = '-';
+      setState(() {});
+      return;
+    }
+
+    final fcv = await _buscarFCV(
+      temperaturaTanque: tempCT,
+      densidade20C: dens20,
+      produtoNome: produtoSelecionado!,
+    );
+
+    print('DEBUG: FCV encontrado: $fcv');
 
     if (fcv != '-' && fcv.isNotEmpty) {
       campos['fatorCorrecao']!.text = fcv;
@@ -512,7 +739,103 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       }
     }
 
-    setState(() {});
+    // Se FCV foi atualizado, recalcular volume a 20°C automaticamente
+    if (fcv != '-' && fcv.isNotEmpty && campos['volumeCarregadoAmb']!.text.isNotEmpty) {
+      _calcularVolumeApurado20C();
+    }
+
+    setState(() {
+      print('DEBUG: setState chamado após cálculos');
+    });
+  }
+
+  String _formatarNumeroParaCampo(double valor) {
+    if (valor.isNaN || valor.isInfinite) {
+      return '';
+    }
+    
+    // 1. Arredondar para o número inteiro mais próximo
+    int valorInteiro = valor.round(); // round() arredonda (0.5 para cima)
+    
+    // 2. Converter para string
+    String valorStr = valorInteiro.toString();
+    
+    // 3. Aplicar máscara de milhar
+    valorStr = _aplicarMascaraMilhar(valorStr);
+    
+    return valorStr;
+  }
+
+  String _aplicarMascaraMilhar(String texto) {
+    // Remove tudo que não é número
+    String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
+    
+    if (apenasNumeros.isEmpty || apenasNumeros == '0') {
+      return '0';
+    }
+    
+    // Aplica máscara de milhar
+    String resultado = '';
+    for (int i = apenasNumeros.length - 1, count = 0; i >= 0; i--, count++) {
+      if (count > 0 && count % 3 == 0) {
+        resultado = '.$resultado';
+      }
+      resultado = apenasNumeros[i] + resultado;
+    }
+    
+    return resultado;
+  }
+
+  void _calcularVolumeApurado20C() {
+    try {
+      // 1. Verificar se o FCV está disponível
+      final fcvText = campos['fatorCorrecao']!.text;
+      if (fcvText.isEmpty || fcvText == '-') {
+        print('DEBUG: FCV não disponível para cálculo');
+        return; // Não calcula se não tiver FCV
+      }
+      
+      // 2. Pegar o valor de volume carregado ambiente
+      final volumeAmbText = campos['volumeCarregadoAmb']!.text;
+      if (volumeAmbText.isEmpty) {
+        // Se volume ambiente estiver vazio, limpa o volume a 20°C
+        campos['volumeApurado20C']!.text = '';
+        return;
+      }
+      
+      // 3. Limpar os valores para conversão
+      // Remover ponto de milhar e substituir vírgula por ponto para cálculo
+      final volumeAmbLimpo = volumeAmbText.replaceAll('.', '');
+      final fcvLimpo = fcvText.replaceAll(',', '.');
+      
+      print('DEBUG: volumeAmbLimpo: $volumeAmbLimpo, fcvLimpo: $fcvLimpo');
+      
+      // 4. Converter para números
+      final volumeAmb = double.tryParse(volumeAmbLimpo);
+      final fcv = double.tryParse(fcvLimpo);
+      
+      if (volumeAmb == null || fcv == null) {
+        print('DEBUG: Não conseguiu converter valores para double');
+        return; // Se não conseguir converter, sai
+      }
+      
+      // 5. Calcular: volume a 20°C = volume (ambiente) × FCV
+      final volume20C = volumeAmb * fcv;
+      print('DEBUG: volume20C calculado: $volume20C');
+      
+      // 6. Formatar o resultado SEM casas decimais
+      String volume20CFormatado = _formatarNumeroParaCampo(volume20C);
+      print('DEBUG: volume20C formatado: $volume20CFormatado');
+      
+      // 7. Atualizar o campo volumeApurado20C
+      campos['volumeApurado20C']!.text = volume20CFormatado;
+      
+      // 8. Atualizar a interface
+      setState(() {});
+                    
+    } catch (e) {
+      print('DEBUG ERRO ao calcular volume 20°C automático: $e');
+    }
   }
 
   @override
@@ -528,7 +851,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                 onPressed: widget.onVoltar,
               ),
               Text(
-                // ALTERADO: Mostra título diferente para edição
                 _modoEdicao 
                   ? 'Editar Certificado de Apuração de Volumes'
                   : 'Certificado de Apuração de Volumes',
@@ -538,7 +860,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                   color: Color(0xFF0D47A1),
                 ),
               ),
-              if (_modoEdicao) // NOVO: Indicador de modo edição
+              if (_modoEdicao)
                 Container(
                   margin: const EdgeInsets.only(left: 12),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -571,11 +893,32 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                       key: _formKey,
                       child: Column(
                         children: [
+                          // ================= LOADING =================
+                          if (_carregandoDadosMovimentacao)
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              child: const Column(
+                                children: [
+                                  CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0D47A1)),
+                                  ),
+                                  SizedBox(height: 16),
+                                  Text(
+                                    'Carregando dados da movimentação...',
+                                    style: TextStyle(
+                                      color: Color(0xFF0D47A1),
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          
                           // ================= FORMULÁRIO =================
                           Opacity(
-                            opacity: 1.0,
+                            opacity: _carregandoDadosMovimentacao ? 0.5 : 1.0,
                             child: AbsorbPointer(
-                              absorbing: _analiseConcluida && !_modoEdicao, // ALTERADO: Em modo edição, pode editar mesmo se concluído
+                              absorbing: _analiseConcluida && !_modoEdicao || _carregandoDadosMovimentacao,
                               child: Column(
                                 children: [
                                 // ================= NÚMERO DE CONTROLE =================
@@ -586,7 +929,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                       ),
                                       child: TextFormField(
                                         controller: campos['numeroControle'],
-                                        enabled: false, // Será preenchido automaticamente pelo backend
+                                        enabled: false,
                                         decoration: _decoration('Nº Controle do Certificado').copyWith(
                                           hintText: 'A ser gerado automaticamente',
                                           filled: true,
@@ -669,7 +1012,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                   
                                   _linhaFlexivel([
                                     {
-                                      'flex': 10, // Motorista - 50% (10/20)
+                                      'flex': 10,
                                       'widget': TextFormField(
                                         controller: campos['motorista'],
                                         maxLength: 50,
@@ -679,7 +1022,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                       ),
                                     },
                                     {
-                                      'flex': 10, // Transportadora - 50% (10/20)
+                                      'flex': 10,
                                       'widget': TextFormField(
                                         controller: campos['transportadora'],
                                         maxLength: 50,
@@ -693,21 +1036,21 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                   // LINHA COM OS 3 CAMPOS DE PLACA - COM AUTOCOMPLETE
                                   _linhaFlexivel([
                                     {
-                                      'flex': 4, // Placa do cavalo
+                                      'flex': 4,
                                       'widget': PlacaAutocompleteField(
                                         controller: campos['placaCavalo']!,
                                         label: 'Placa do cavalo',
                                       ),
                                     },
                                     {
-                                      'flex': 4, // Carreta 1
+                                      'flex': 4,
                                       'widget': PlacaAutocompleteField(
                                         controller: campos['carreta1']!,
                                         label: 'Carreta 1',
                                       ),
                                     },
                                     {
-                                      'flex': 4, // Carreta 2
+                                      'flex': 4,
                                       'widget': PlacaAutocompleteField(
                                         controller: campos['carreta2']!,
                                         label: 'Carreta 2',
@@ -753,8 +1096,10 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                       ),
                                     ),
 
+                                    // ALTERADO: Adicionado focusNode e removida chamada onChanged direta
                                     TextFormField(
                                       controller: campos['tempCT'],
+                                      focusNode: _focusTempCT, // ADICIONADO: FocusNode
                                       keyboardType: TextInputType.number,
                                       onChanged: (value) {
                                         final masked = _aplicarMascaraTemperatura(value);
@@ -765,7 +1110,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                             selection: TextSelection.collapsed(offset: masked.length),
                                           );
                                         }
-                                        _calcularResultadosObtidos();
+                                        // REMOVIDO: _calcularResultadosObtidos() chamado apenas no focus listener
                                       },
                                       decoration: _decoration('Temperatura do CT (°C)').copyWith(
                                         hintText: '00,0',
@@ -820,10 +1165,10 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                               ),
                             ),
                           ),
+                          if (!_carregandoDadosMovimentacao) // Só mostra botões quando não estiver carregando
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              // ALTERADO: Botão com texto dinâmico para edição
                               ElevatedButton.icon(
                                 onPressed: (!_analiseConcluida || _modoEdicao) ? _confirmarEmissaoCertificado : null,
                                 icon: Icon(_analiseConcluida && !_modoEdicao ? Icons.check_circle_outline : Icons.check_circle, size: 24),
@@ -843,7 +1188,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                 ),
                               ),
                               
-                              // BOTÃO GERAR PDF (CENTRO)
                               ElevatedButton.icon(
                                 onPressed: (_analiseConcluida) ? _baixarPDF : null,
                                 icon: Icon(
@@ -878,12 +1222,11 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                 ),
                               ),
                               
-                              // BOTÃO CONCLUIR (DIREITA)
                               ElevatedButton.icon(
                                 onPressed: _concluir,
                                 icon: const Icon(Icons.done_all, size: 24),
                                 label: Text(
-                                  _modoEdicao ? 'Voltar' : 'Concluir', // ALTERADO: Texto dinâmico
+                                  _modoEdicao ? 'Voltar' : 'Concluir',
                                   style: const TextStyle(fontSize: 16),
                                 ),
                                 style: ElevatedButton.styleFrom(
@@ -975,7 +1318,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         ],
       );
 
-  // ================= CÁLCULOS - CÓPIA FIÉL DO CACL =================
+  // ================= CÁLCULOS =================
   Future<String> _buscarDensidade20C({
     required String temperaturaAmostra,
     required String densidadeObservada,
@@ -1613,7 +1956,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       return;
     }
 
-    // ALTERADO: Diálogo com mensagem dinâmica para edição
     final String titulo = _modoEdicao ? 'Atualizar Certificado' : 'Emitir Certificado';
     final String mensagem = _modoEdicao 
       ? 'Tem certeza que deseja atualizar este certificado?'
@@ -1749,295 +2091,198 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   }
   
   // Método para processar a emissão/atualização do certificado
+  // ================= PROCESSAR EMISSÃO / ATUALIZAÇÃO DO CERTIFICADO =================
   Future<void> _processarEmissaoCertificado() async {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(
-            _modoEdicao ? Colors.blue : const Color(0xFF0D47A1)
-          ),
-        ),
-      ),
+      builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
     try {
       final supabase = Supabase.instance.client;
-      
       final user = supabase.auth.currentUser;
-      if (user == null) {
-        throw Exception('Usuário não autenticado');
-      }
+      if (user == null) throw Exception('Usuário não autenticado');
 
       final usuario = UsuarioAtual.instance;
       if (usuario == null || usuario.filialId == null) {
-        throw Exception('Usuário sem filial vinculada.');
+        throw Exception('Usuário sem filial vinculada');
       }
-      
-      final Map<String, dynamic> dadosParaBanco = {
+
+      final produtoId = await _resolverProdutoId(produtoSelecionado!);
+
+      final dadosOrdem = {
+        // CONTROLE / DATAS
         'data_analise': _formatarDataParaBanco(dataCtrl.text),
         'hora_analise': horaCtrl.text,
-        'produto_nome': produtoSelecionado!,
+        'data_conclusao': DateTime.now().toIso8601String(),
+
+        // STATUS
+        'status': 'concluida',
+        'analise_concluida': true,
+        'tipo_operacao': null,
+
+        // LOGÍSTICA
         'transportadora': campos['transportadora']!.text,
         'motorista': campos['motorista']!.text,
         'notas_fiscais': campos['notas']!.text,
         'placa_cavalo': campos['placaCavalo']!.text,
         'carreta1': campos['carreta1']!.text,
         'carreta2': campos['carreta2']!.text,
+
+        // PRODUTO
+        'produto_id': produtoId,
+        'produto_nome': produtoSelecionado,
+
+        // DADOS TÉCNICOS
         'temperatura_amostra': _converterParaDecimal(campos['tempAmostra']!.text),
         'densidade_observada': _converterParaDecimal(campos['densidadeAmostra']!.text),
         'temperatura_ct': _converterParaDecimal(campos['tempCT']!.text),
         'densidade_20c': _converterParaDecimal(campos['densidade20']!.text),
         'fator_correcao': _converterParaDecimal(campos['fatorCorrecao']!.text),
-        'volume_carregado_amb': _converterParaInteiro(campos['volumeCarregadoAmb']!.text),
-        'volume_apurado_20c': _converterParaInteiro(campos['volumeApurado20C']!.text),
-        'analise_concluida': true,
-        'data_conclusao': DateTime.now().toIso8601String(),
+
+        // VOLUMES (tabela pede os dois)
+        'origem_ambiente': _converterParaInteiro(campos['volumeCarregadoAmb']!.text),
+        'destino_ambiente': null,
+        'origem_20c': null,
+        'destino_20c': _converterParaInteiro(campos['volumeApurado20C']!.text),
+
+        // AUDITORIA
         'usuario_id': user.id,
         'filial_id': usuario.filialId,
-        'status': 'concluida',
       };
-      
-      final produtoResult = await supabase
-          .from('produtos')
-          .select('id')
-          .eq('nome', produtoSelecionado!)
-          .maybeSingle();
-      
-      if (produtoResult != null) {
-        dadosParaBanco['produto_id'] = produtoResult['id'];
-      }
-      
+
       Map<String, dynamic> response;
-      
-      // ALTERADO: Verifica se está em modo edição
+
       if (_modoEdicao && widget.idCertificado != null) {
-        // MODO EDIÇÃO: Atualizar certificado existente
         response = await supabase
             .from('ordens_analises')
-            .update(dadosParaBanco)
+            .update(dadosOrdem)
             .eq('id', widget.idCertificado!)
             .select('id, numero_controle')
             .single();
       } else {
-        // MODO CRIAÇÃO: Inserir novo certificado
         response = await supabase
             .from('ordens_analises')
-            .insert(dadosParaBanco)
+            .insert(dadosOrdem)
             .select('id, numero_controle')
             .single();
+
+        final int volume20C =
+            dadosOrdem['destino_20c'] as int;
+
+        final String dataMov =
+            dadosOrdem['data_analise'] as String;
+
+        await _salvarMovimentacaoSomente20C(
+          produtoId: produtoId,
+          volume20C: volume20C,
+          dataMov: dataMov,
+          usuarioId: user.id,
+        );
       }
-      
+
       campos['numeroControle']!.text = response['numero_controle'].toString();
-      
-      // ALTERADO: Só salva movimentação se for criação (não edição)
-      if (!_modoEdicao) {
-        dadosParaBanco['id'] = response['id'];
-        await _salvarMovimentacao(dadosParaBanco);
-      }
-      
-      if (context.mounted) {
-        Navigator.of(context).pop();
-      }
-      
-      setState(() {
-        _analiseConcluida = true;
-      });
-      
-      if (context.mounted) {
-        final String mensagemSucesso = _modoEdicao
-          ? '✓ Certificado ${response['numero_controle']} atualizado com sucesso!'
-          : '✓ Certificado ${response['numero_controle']} emitido com sucesso! O PDF agora está disponível.';
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(mensagemSucesso),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
-      
+
+      if (context.mounted) Navigator.of(context).pop();
+      setState(() => _analiseConcluida = true);
+
     } catch (e) {
-      if (context.mounted) {
-        Navigator.of(context).pop();
-      }
-      
-      if (context.mounted) {
-        final String mensagemErro = _modoEdicao
-          ? 'Erro ao atualizar certificado: ${e.toString()}'
-          : 'Erro ao emitir certificado: ${e.toString()}';
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(mensagemErro),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
-      
-      print('Erro no processamento do certificado: $e');
+      if (context.mounted) Navigator.of(context).pop();
+      rethrow;
     }
   }
 
-  // Método para salvar na tabela de movimentações (apenas para novos certificados)
-  Future<void> _salvarMovimentacao(Map<String, dynamic> dadosCertificado) async {
-    try {
-      final supabase = Supabase.instance.client;
-      
-      final user = supabase.auth.currentUser;
-      if (user == null) return;
-      
-      String? filialId;
-      String? empresaId;
-      
-      final usuarioData = await supabase
-          .from('usuarios')
-          .select('id_filial, empresa_id')
-          .eq('id', user.id)
-          .maybeSingle();
-      
-      if (usuarioData != null) {
-        filialId = usuarioData['id_filial']?.toString();
-        empresaId = usuarioData['empresa_id']?.toString();
-      }
-      
-      if (filialId == null) {
-        final primeiraFilial = await supabase
-            .from('filiais')
-            .select('id')
-            .limit(1)
-            .maybeSingle();
-        filialId = primeiraFilial?['id']?.toString();
-      }
-      
-      if (empresaId == null) {
-        final primeiraEmpresa = await supabase
-            .from('empresas')
-            .select('id')
-            .limit(1)
-            .maybeSingle();
-        empresaId = primeiraEmpresa?['id']?.toString();
-      }
-      
-      if (filialId == null || empresaId == null) {
-        return;
-      }
-      
-      final List<String> placasArray = [];
-      
-      void adicionarPlacaSePreenchida(String placa) {
-        final placaLimpa = placa.trim();
-        if (placaLimpa.isNotEmpty && placaLimpa != '-') {
-          placasArray.add(placaLimpa);
-        }
-      }
-      
-      adicionarPlacaSePreenchida(campos['placaCavalo']!.text);
-      adicionarPlacaSePreenchida(campos['carreta1']!.text);
-      adicionarPlacaSePreenchida(campos['carreta2']!.text);
-      
-      final volumeCarregadoAmb = _converterParaInteiro(campos['volumeCarregadoAmb']!.text) ?? 0;
-      final volumeApurado20C = _converterParaInteiro(campos['volumeApurado20C']!.text) ?? 0;
-      
-      final Map<String, dynamic> camposProduto = _mapearCamposProduto();
-      
-      final Map<String, dynamic> dadosMovimentacao = {
-        'filial_id': filialId,
-        'empresa_id': empresaId,
-        'data_mov': dadosCertificado['data_analise'],
-        'descricao': null,
-        'cliente': null,
-        'anp': false,
-        'entrada_amb': null,
-        'entrada_vinte': null,
-        'saida_amb': volumeCarregadoAmb,
-        'saida_vinte': volumeApurado20C,
-        'produto_id': dadosCertificado['produto_id'],
-        'placa': placasArray.isNotEmpty ? '{${placasArray.join(',')}}' : null,
-        'codigo': null,
-        'cacl_id': null,
-        'uf': null,
-        'forma_pagamento': null,
-        'observacoes': null,
-        'quantidade': null,
-        'usuario_id': dadosCertificado['usuario_id'],
-        'created_at': DateTime.now().toIso8601String(),
-        'status_circuito': '3',
-        ...camposProduto,
-      };
-      
-      await supabase
-          .from('movimentacoes')
-          .insert(dadosMovimentacao);
-      
-    } catch (e) {
-      // Não lançar exceção
-      print('Erro ao salvar movimentação: $e');
-    }
+
+
+  // ================= SALVAR MOVIMENTAÇÃO (SOMENTE 20 °C) =================
+  Future<void> _salvarMovimentacaoSomente20C({
+    required String produtoId,
+    required int volume20C,
+    required String dataMov,
+    required String usuarioId,
+  }) async {
+    final supabase = Supabase.instance.client;
+
+    final usuarioData = await supabase
+        .from('usuarios')
+        .select('id_filial, empresa_id')
+        .eq('id', usuarioId)
+        .maybeSingle();
+
+    if (usuarioData == null) return;
+
+    final filialId = usuarioData['id_filial'];
+    final empresaId = usuarioData['empresa_id'];
+
+    final coluna20C = _resolverColuna20C(produtoId);
+
+    final colunas20C = {
+      'g_comum_vinte': 0,
+      'g_aditivada_vinte': 0,
+      'd_s10_vinte': 0,
+      'd_s500_vinte': 0,
+      'etanol_vinte': 0,
+      'anidro_vinte': 0,
+      'b100_vinte': 0,
+      'gasolina_a_vinte': 0,
+      's500_a_vinte': 0,
+      's10_a_vinte': 0,
+    };
+
+    colunas20C[coluna20C] = volume20C;
+
+    final dadosMovimentacao = {
+      'filial_id': filialId,
+      'empresa_id': empresaId,
+      'produto_id': produtoId,
+      'usuario_id': usuarioId,
+      'data_mov': dataMov,
+      'saida_vinte': volume20C,
+      'status_circuito': '3',
+      ...colunas20C,
+    };
+
+    await supabase.from('movimentacoes').insert(dadosMovimentacao);
   }
 
-  Map<String, dynamic> _mapearCamposProduto() {
-    final produto = produtoSelecionado?.toLowerCase() ?? '';
-    final quantidade = _converterParaInteiro(campos['volumeCarregadoAmb']!.text) ?? 0;
-    
-    final camposProduto = {
-      'g_comum': 0,
-      'g_aditivada': 0,
-      'd_s10': 0,
-      'd_s500': 0,
-      'etanol': 0,
-      'anidro': 0,
-      'b100': 0,
-      'gasolina_a': 0,
-      's500_a': 0,
-      's10_a': 0,
+  // ================= AUXILIAR =================
+  Future<String> _resolverProdutoId(String nomeProduto) async {
+    final r = await Supabase.instance.client
+        .from('produtos')
+        .select('id')
+        .eq('nome', nomeProduto)
+        .maybeSingle();
+
+    if (r == null) {
+      throw Exception('Produto não encontrado: $nomeProduto');
+    }
+    return r['id'].toString();
+  }
+  
+  String _resolverColuna20C(String produtoId) {
+    const mapaProdutoColuna20C = {
+      '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 's10_a_vinte',
+      '4da89784-301f-4abe-b97e-c48729969e3d': 's500_a_vinte',
+      '58ce20cf-f252-4291-9ef6-f4821f22c29e': 'd_s10_vinte',
+      '66ca957a-5698-4a02-8c9e-987770b6a151': 'etanol_vinte',
+      '82c348c8-efa1-4d1a-953a-ee384d5780fc': 'g_comum_vinte',
+      '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 'g_aditivada_vinte',
+      'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': 'd_s500_vinte',
+      'cecab8eb-297a-4640-81ae-e88335b88d8b': 'anidro_vinte',
+      'ecd91066-e763-42e3-8a0e-d982ea6da535': 'b100_vinte',
+      'f8e95435-471a-424c-947f-def8809053a0': 'gasolina_a_vinte',
     };
     
-    if (produto.contains('gasolina')) {
-      if (produto.contains('comum')) {
-        camposProduto['g_comum'] = quantidade;
-      } else if (produto.contains('aditivada')) {
-        camposProduto['g_aditivada'] = quantidade;
-      } else {
-        camposProduto['gasolina_a'] = quantidade;
-      }
-    } else if (produto.contains('diesel')) {
-      if (produto.contains('s10')) {
-        camposProduto['d_s10'] = quantidade;
-      } else if (produto.contains('s500')) {
-        camposProduto['d_s500'] = quantidade;
-      }
-    } else if (produto.contains('etanol')) {
-      if (produto.contains('anidro')) {
-        camposProduto['anidro'] = quantidade;
-      } else if (produto.contains('hidratado')) {
-        camposProduto['etanol'] = quantidade;
-      }
-    } else if (produto.contains('b100')) {
-      camposProduto['b100'] = quantidade;
+    final uuidNormalizado = produtoId.trim().toLowerCase();
+    final coluna = mapaProdutoColuna20C[uuidNormalizado];
+    
+    if (coluna == null) {
+      throw Exception('Produto (UUID: $produtoId) sem coluna 20°C configurada');
     }
     
-    return camposProduto;
-  }  
+    return coluna;
+  }    
 
   // Método para concluir/voltar
   void _concluir() {
@@ -2045,8 +2290,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       widget.onVoltar();
       return;
     }
-    
-    // ALTERADO: Mensagem dinâmica para edição
+
     final String titulo = _modoEdicao ? 'Descartar Alterações' : 'Concluir';
     final String mensagem = _modoEdicao
       ? 'Deseja realmente voltar sem salvar as alterações?'
@@ -2160,6 +2404,13 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         );
       },
     );
+  }
+
+  // ADICIONADO: Dispose para limpar o FocusNode
+  @override
+  void dispose() {
+    _focusTempCT.dispose();
+    super.dispose();
   }
 
   // Função para formatar data DD/MM/YYYY para YYYY-MM-DD
