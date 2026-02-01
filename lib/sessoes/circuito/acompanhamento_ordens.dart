@@ -280,6 +280,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             entrada_amb,
             saida_amb,
             cliente,
+            descricao,
             status_circuito,
             data_mov,
             filial_id,
@@ -598,22 +599,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       case 5: return 'Expedido';
       default: return 'Sem status';
     }
-  }
-
-  Color _obterCorStatus(dynamic statusCodigo) {
-    if (statusCodigo == null) return Colors.grey;
-    
-    final codigo = statusCodigo is int ? statusCodigo : int.tryParse(statusCodigo.toString());
-    
-    switch (codigo) {
-      case 1: return Colors.blue.shade700;
-      case 2: return Colors.orange.shade700;
-      case 3: return Colors.green.shade700;
-      case 4: return Colors.purple.shade700;
-      case 5: return Colors.grey.shade700;
-      default: return Colors.grey;
-    }
-  }
+  }  
 
   String _obterTipoOpTexto(dynamic tipoOp) {
     final tipoOpStr = tipoOp?.toString() ?? 'venda';
@@ -630,25 +616,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         return tipoOpStr;
     }
   }
-
-  Color _obterCorTipoOp(dynamic tipoOp) {
-    final tipoOpStr = tipoOp?.toString() ?? 'venda';
-    switch (tipoOpStr.toLowerCase()) {
-      case 'usina':
-        return Colors.blue.shade700;
-      case 'transf':
-        return Colors.purple.shade700;
-      case 'venda':
-        return Colors.green.shade700;
-      case 'emprestimo':
-        return Colors.orange.shade700;
-      case 'outras_op':
-        return Colors.grey.shade700;
-      default:
-        return Colors.grey.shade700;
-    }
-  }
-
+  
   String _formatarPlacas(dynamic placasData) {
     if (placasData == null) return 'N/I';
     
@@ -683,29 +651,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     } catch (e) {
       return dataString;
     }
-  }
-
-  String _obterDescricaoParaCard(Map<String, dynamic> ordem) {
-    final itens = ordem['itens'] as List<Map<String, dynamic>>;
-    if (itens.isEmpty) return 'Sem descrição';
-    
-    final primeiroItem = itens.first;
-    final tipoOp = (primeiroItem['tipo_op']?.toString() ?? 'venda').toLowerCase();
-    
-    if (tipoOp == 'transf') {
-      final origem = primeiroItem['filial_origem'] as Map<String, dynamic>?;
-      final destino = primeiroItem['filial_destino'] as Map<String, dynamic>?;
-      final origemNome = origem?['nome']?.toString() ?? 'Origem';
-      final destinoNome = destino?['nome']?.toString() ?? 'Destino';
-      return '$origemNome → $destinoNome';
-    } else if (tipoOp == 'venda') {
-      final cliente = primeiroItem['cliente']?.toString() ?? '';
-      return cliente.isNotEmpty ? cliente : 'Cliente não informado';
-    } else {
-      final filial = primeiroItem['filiais'] as Map<String, dynamic>?;
-      return filial?['nome']?.toString() ?? 'Filial não informada';
-    }
-  }
+  }  
 
   Widget _buildFiltros() {
     final usuario = UsuarioAtual.instance;
@@ -921,18 +867,61 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   Widget _buildItemOrdem(Map<String, dynamic> ordem, int index) {
     final tipoOp = ordem['tipo_op']?.toString() ?? 'venda';
     final tipoOpTexto = _obterTipoOpTexto(tipoOp);
-    final descricao = _obterDescricaoParaCard(ordem);
     final statusCodigo = ordem['status_circuito'];
     final statusTexto = _obterStatusTexto(statusCodigo);
-    final statusCor = _obterCorStatus(statusCodigo);
-    final tipoOpCor = _obterCorTipoOp(tipoOp);
     
-    // Dados da segunda linha
+    // ✅ Usar as novas cores da timeline
+    final statusCor = _obterCorStatusTimeline(statusCodigo);
+    
+    // Dados da ordem
     final placasFormatadas = _formatarPlacas(ordem['placas']);
     final dataMov = _formatarData(ordem['data_mov']?.toString());
     
-    // ✅ 6️⃣ INJETAR CHIPS DE PRODUTOS NO CARD
+    // ✅ Obter produtos agrupados da ordem
     final produtosAgrupados = ordem['produtos_agrupados'] as Map<String, double>;
+
+    // ✅ Obter clientes/descrições dos tanques (agrupar por produto)
+    final Map<String, List<String>> informacoesPorProduto = {};
+    final itens = ordem['itens'] as List<Map<String, dynamic>>;
+    
+    for (final item in itens) {
+      final produto = item['produtos'];
+      if (produto == null) continue;
+      
+      final nomeProduto = produto['nome_dois']?.toString();
+      if (nomeProduto == null || nomeProduto.isEmpty) continue;
+      
+      if (!informacoesPorProduto.containsKey(nomeProduto)) {
+        informacoesPorProduto[nomeProduto] = [];
+      }
+      
+      // ✅ PARA TRANSFERÊNCIAS, USAR 'descricao' EM VEZ DE 'cliente'
+      String informacao;
+      if (tipoOp == 'transf') {
+        // Buscar descrição da movimentação
+        informacao = (item['descricao'] as String?)?.trim() ?? '';
+        // Se não encontrar 'descricao', tentar buscar outra informação
+        if (informacao.isEmpty) {
+          // Tentar obter informações das filiais
+          final origem = item['filial_origem'] as Map<String, dynamic>?;
+          final destino = item['filial_destino'] as Map<String, dynamic>?;
+          if (origem != null && destino != null) {
+            final origemNome = origem['nome']?.toString() ?? 'Origem';
+            final destinoNome = destino['nome']?.toString() ?? 'Destino';
+            informacao = '$origemNome → $destinoNome';
+          } else {
+            informacao = 'Transferência';
+          }
+        }
+      } else {
+        // Para outros tipos, usar cliente
+        informacao = (item['cliente'] as String?)?.trim() ?? '';
+      }
+      
+      if (informacao.isNotEmpty && !informacoesPorProduto[nomeProduto]!.contains(informacao)) {
+        informacoesPorProduto[nomeProduto]!.add(informacao);
+      }
+    }
 
     // Cor de fundo do card baseada no tipo de movimento
     final corFundoCard = _obterCorFundoCard(ordem);
@@ -947,7 +936,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
           boxShadow: [
             BoxShadow(
               color: Colors.grey.withOpacity(0.1),
-              blurRadius: 4,
+              blurRadius: 3,
               offset: const Offset(0, 2),
             ),
           ],
@@ -955,97 +944,83 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            // ✅ 4️⃣ ALTERE o onTap do card da ordem
             onTap: () {
               _abrirDetalhesOrdem(ordem);
             },
             borderRadius: BorderRadius.circular(8),
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Status (ocupando as duas linhas, 100px de largura)
+                  // ✅ COLUNA 1: Status (vertical) - COM MESMA COR PARA AMBOS
                   Container(
-                    width: 100,
-                    height: 60, // Altura para ocupar as duas linhas
+                    width: tipoOpTexto == 'Transferência' ? 95 : 85,
                     margin: const EdgeInsets.only(right: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
-                      color: statusCor.withOpacity(0.15),
+                      color: statusCor.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                        color: statusCor.withOpacity(0.3),
+                        color: statusCor.withOpacity(0.25),
                         width: 1.5,
                       ),
                     ),
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Text(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
                           statusTexto,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: statusCor,
+                            height: 1.1,
                           ),
                           textAlign: TextAlign.center,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                      ),
+                        const SizedBox(height: 4),
+                        // Tipo da operação dentro do status box - COM MESMA COR
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: statusCor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(
+                              color: statusCor.withOpacity(0.2),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Text(
+                            tipoOpTexto,
+                            style: TextStyle(
+                              fontSize: tipoOpTexto == 'Transferência' ? 9 : 10,
+                              fontWeight: FontWeight.w600,
+                              color: statusCor,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   
+                  // ✅ COLUNA 2: Informações principais
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // PRIMEIRA LINHA: Tipo da operação e Descrição
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Tipo da operação
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: tipoOpCor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: tipoOpCor.withOpacity(0.3)),
-                              ),
-                              child: Text(
-                                tipoOpTexto,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: tipoOpCor,
-                                ),
-                              ),
-                            ),
-                            
-                            const SizedBox(width: 12),
-                            
-                            // Descrição
-                            Expanded(
-                              child: Text(
-                                descricao,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.black87,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
-                            ),
-                          ],
-                        ),
-                        
-                        const SizedBox(height: 12),
-                        
-                        // SEGUNDA LINHA: Detalhes da ordem
+                        // Linha 1: Data e Placas
                         Row(
                           children: [
                             // Data
@@ -1094,47 +1069,151 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                                 ],
                               ),
                             ),
-                            
-                            const SizedBox(width: 16),
-                            
-                            // ✅ 4.2 SUBSTITUIR QUANTIDADE TOTAL POR CHIPS
-                            // ✅ 6️⃣ USAR WIDGET DE CHIPS
-                            produtosAgrupados.isNotEmpty
-                                ? Expanded(
-                                    flex: 3,
-                                    child: buildChipsProdutos(produtosAgrupados),
-                                  )
-                                : Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade100,
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(
-                                        color: Colors.grey.shade300,
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      'Sem produtos',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ),
-                            
-                            const SizedBox(width: 12),
-                            
-                            // Ícone de seta
-                            const Icon(
-                              Icons.arrow_forward_ios,
-                              size: 16,
-                              color: Colors.grey,
-                            ),
                           ],
                         ),
+                        
+                        const SizedBox(height: 10),
+                        
+                        // ✅ Linha 2: Produtos com clientes/descrições
+                        if (produtosAgrupados.isNotEmpty)
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 6,
+                            children: produtosAgrupados.entries.map((produtoEntry) {
+                              final nomeProduto = produtoEntry.key;
+                              final quantidade = produtoEntry.value;
+                              final cor = _obterCorProduto(nomeProduto);
+                              
+                              // ✅ Obter informações para este produto
+                              final informacoesDoProduto = informacoesPorProduto[nomeProduto] ?? [];
+                              final textoInfo = informacoesDoProduto.isNotEmpty
+                                  ? informacoesDoProduto.first
+                                  : (tipoOp == 'transf' ? 'Sem descrição' : 'N/I');
+                              final temMaisInfo = informacoesDoProduto.length > 1;
+                              
+                              return Container(
+                                constraints: const BoxConstraints(maxWidth: 180),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // Quantidade do produto
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: cor,
+                                        borderRadius: const BorderRadius.only(
+                                          topLeft: Radius.circular(4),
+                                          bottomLeft: Radius.circular(4),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        _formatarNumeroDouble(quantidade),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ),
+                                    
+                                    // Nome do produto e cliente/descrição
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: cor.withOpacity(0.08),
+                                        borderRadius: const BorderRadius.only(
+                                          topRight: Radius.circular(4),
+                                          bottomRight: Radius.circular(4),
+                                        ),
+                                        border: Border.all(
+                                          color: cor.withOpacity(0.15),
+                                          width: 0.8,
+                                        ),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          // Nome do produto
+                                          Text(
+                                            _abreviarTexto(nomeProduto, 15),
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: cor,
+                                            ),
+                                          ),
+                                          
+                                          // Cliente ou descrição (para transferências)
+                                          Text(
+                                            _abreviarTexto(textoInfo, 20),
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: Colors.grey.shade700,
+                                              fontStyle: FontStyle.italic,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          
+                                          // Indicador de mais informações
+                                          if (temMaisInfo)
+                                            Text(
+                                              '+${informacoesDoProduto.length - 1}',
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                color: Colors.grey.shade600,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        
+                        // ✅ Caso não tenha produtos
+                        if (produtosAgrupados.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: Colors.grey.shade300,
+                                width: 0.8,
+                              ),
+                            ),
+                            child: const Text(
+                              'Sem produtos',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
                       ],
+                    ),
+                  ),
+                  
+                  // ✅ COLUNA 3: Seta
+                  const Padding(
+                    padding: EdgeInsets.only(left: 6),
+                    child: Icon(
+                      Icons.chevron_right,
+                      size: 20,
+                      color: Colors.grey,
                     ),
                   ),
                 ],
@@ -1145,6 +1224,27 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       ),
     );
   }
+
+  String _abreviarTexto(String texto, int maxLength) {
+    if (texto.length <= maxLength) return texto;
+    return '${texto.substring(0, maxLength)}...';
+  }
+
+  Color _obterCorStatusTimeline(dynamic statusCodigo) {
+    if (statusCodigo == null) return Colors.grey;
+    
+    final codigo = statusCodigo is int ? statusCodigo : int.tryParse(statusCodigo.toString());
+    
+    switch (codigo) {
+      case 1: return const Color.fromARGB(255, 61, 160, 206); // Programado
+      case 15: return const Color.fromARGB(255, 5, 151, 0); // Aguardando
+      case 2: return const Color(0xFFF57C00); // Check-list
+      case 3: return const Color(0xFF7B1FA2); // Em operação
+      case 4: return const Color(0xFFC2185B); // Emissão NF
+      case 5: return const Color.fromARGB(255, 42, 199, 50); // Expedido/Liberado
+      default: return Colors.grey;
+    }
+  }  
 
   @override
   void dispose() {
