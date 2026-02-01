@@ -35,6 +35,33 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
   int grupoAtual = 0;
   bool _hoverGrupo1 = false;
   bool _hoverGrupo2 = false;
+  
+  // Mapa para armazenar cores por ordem_id (cores fixas)
+  Map<String, Color> _coresOrdens = {};
+  
+  // Paleta fixa de 20 cores distintas para as ordens
+  static const List<Color> _paletaCoresOrdens = [
+    Color(0xFFE53935), // Vermelho vibrante
+    Color(0xFF1E88E5), // Azul
+    Color(0xFF43A047), // Verde
+    Color(0xFFFB8C00), // Laranja
+    Color(0xFF8E24AA), // Roxo
+    Color(0xFF0097A7), // Ciano
+    Color(0xFFF4511E), // Laranja escuro
+    Color(0xFF3949AB), // Azul índigo
+    Color(0xFF7CB342), // Verde claro
+    Color(0xFFD81B60), // Rosa
+    Color(0xFF5D4037), // Marrom
+    Color(0xFF546E7A), // Azul cinza
+    Color(0xFFC2185B), // Rosa escuro
+    Color(0xFF00897B), // Verde água
+    Color(0xFF5E35B1), // Roxo profundo
+    Color(0xFF00ACC1), // Ciano claro
+    Color(0xFFF57C00), // Laranja médio
+    Color(0xFF303F9F), // Azul escuro
+    Color(0xFF689F38), // Verde oliva
+    Color(0xFFAD1457), // Magenta
+  ];
 
   @override
   void initState() {
@@ -83,6 +110,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
 
       setState(() {
         movimentacoes = List<Map<String, dynamic>>.from(response);
+        _gerarCoresParaOrdens(); // Gera cores fixas para cada ordem
       });
     } catch (e, stack) {
       debugPrint('Erro ao carregar movimentações: $e');
@@ -103,6 +131,58 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     }
   }
 
+  // Gerar cores FIXAS para cada ordem_id
+  void _gerarCoresParaOrdens() {
+    _coresOrdens.clear();
+    
+    // Coletar todos os ordem_ids únicos
+    final ordemIdsSet = <String>{};
+    for (var mov in movimentacoes) {
+      final ordemId = mov['ordem_id']?.toString();
+      if (ordemId != null && ordemId.isNotEmpty) {
+        ordemIdsSet.add(ordemId);
+      }
+    }
+    
+    // Converter para lista e ORDENAR para garantir consistência
+    final listaOrdens = ordemIdsSet.toList()..sort();
+    
+    // Atribuir cores de forma FIXA baseada na posição ordenada
+    for (var i = 0; i < listaOrdens.length; i++) {
+      final ordemId = listaOrdens[i];
+      // Usar índice modular para garantir cor consistente
+      // Mesma ordem sempre pega a mesma cor da paleta
+      final indiceCor = i % _paletaCoresOrdens.length;
+      _coresOrdens[ordemId] = _paletaCoresOrdens[indiceCor];
+    }
+    
+    debugPrint('Cores geradas para ${listaOrdens.length} ordens distintas');
+  }
+
+  // Obter cor FIXA para uma ordem específica
+  Color? _obterCorParaOrdem(dynamic ordemId) {
+    if (ordemId == null || ordemId.toString().isEmpty) {
+      return null;
+    }
+    
+    final idStr = ordemId.toString();
+    
+    // Se já temos a cor cacheada, retorna
+    if (_coresOrdens.containsKey(idStr)) {
+      return _coresOrdens[idStr];
+    }
+    
+    // Se não tem (pode acontecer com filtros dinâmicos),
+    // gera uma cor baseada no hash do ordem_id para consistência
+    final hash = idStr.hashCode;
+    final indiceCor = hash.abs() % _paletaCoresOrdens.length;
+    final cor = _paletaCoresOrdens[indiceCor];
+    
+    // Cache para próximas vezes
+    _coresOrdens[idStr] = cor;
+    
+    return cor;
+  }
 
   void _mostrarDialogNovaVenda() async {
     // Verificar se filialId está definido
@@ -157,7 +237,8 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
           (t['placa']?.toString().toLowerCase() ?? '').contains(query) ||
           (t['forma_pagamento']?.toString().toLowerCase() ?? '').contains(query) ||
           (t['codigo']?.toString().toLowerCase() ?? '').contains(query) ||
-          (t['uf']?.toString().toLowerCase() ?? '').contains(query)) {
+          (t['uf']?.toString().toLowerCase() ?? '').contains(query) ||
+          (t['ordem_id']?.toString().toLowerCase() ?? '').contains(query)) {
         return true;
       }
 
@@ -635,8 +716,65 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     );
   }
 
+  Widget _buildMenuButton(BuildContext context, Map<String, dynamic> item) {
+    return Container(
+      width: 50,
+      alignment: Alignment.center,
+      child: PopupMenuButton<String>(
+        itemBuilder: (BuildContext context) => [
+          const PopupMenuItem<String>(
+            value: 'editar_ordem',
+            child: Row(
+              children: [
+                Icon(Icons.edit, size: 18),
+                SizedBox(width: 8),
+                Text('Editar ordem'),
+              ],
+            ),
+          ),
+        ],
+        onSelected: (String value) {
+          if (value == 'editar_ordem') {
+            _editarOrdem(item);
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            color: Colors.transparent,
+          ),
+          child: const Icon(
+            Icons.more_vert,
+            size: 20,
+            color: Colors.grey,
+          ),
+        ),
+        tooltip: 'Opções',
+        offset: const Offset(0, 40),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
+  void _editarOrdem(Map<String, dynamic> item) {
+    print('Editar ordem para: ${item['id']}');
+    // Aqui você pode abrir um diálogo ou navegar para outra tela
+    // para editar a ordem da venda
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Editar ordem: ${item['id']}'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   double _obterLarguraTabela() {
-    double larguraFixa = 120 + 100 + 220 + 80 + 60 + 100;
+    // Adicionado 50px para a coluna do menu
+    double larguraFixa = 50 + 120 + 100 + 220 + 80 + 60 + 100;
     
     if (grupoAtual == 0) {
       // Grupo 1: 5 colunas (G. Comum, G. Aditivada, D. S10, D. S500, Etanol)
@@ -648,7 +786,9 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
   }
 
   List<Widget> _obterColunasCabecalho() {
+    // Adicionada coluna vazia para o menu
     final colunasFixas = [
+      _th("", 50), // Coluna para o menu
       _th("Placa", 120),
       _th("Status", 100),
       _th("Cliente", 220),
@@ -707,10 +847,16 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
         ? placas.first.toString() 
         : placas?.toString() ?? "";
 
+    // Obter a cor FIXA para esta ordem
+    final ordemId = t['ordem_id'];
+    final corCliente = _obterCorParaOrdem(ordemId);
+
+    // Adicionado o menu como primeiro item
     final celulasFixas = [
+      _buildMenuButton(context, t), // Menu de 3 pontos
       _cell(placaText, 120),
       _statusCell(statusTexto, corStatus),
-      _cell(t["cliente"]?.toString() ?? "", 220),
+      _cellCliente(t["cliente"]?.toString() ?? "", 220, corCliente), // Célula do cliente com cor FIXA
       _cell(codigo, 80),
       _cell(uf, 60),
       _cell(prazo, 100),
@@ -748,6 +894,26 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
           fontSize: 12,
           color: Colors.grey.shade700,
           fontWeight: isNumber ? FontWeight.w600 : FontWeight.normal,
+        ),
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  // Função específica para célula do cliente com cor FIXA
+  Widget _cellCliente(String texto, double largura, Color? cor) {
+    return Container(
+      width: largura,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      alignment: Alignment.center,
+      child: Text(
+        texto.isNotEmpty ? texto : '-',
+        style: TextStyle(
+          fontSize: 12,
+          color: cor ?? Colors.grey.shade700, // Usa cor FIXA da ordem
+          fontWeight: FontWeight.w600, // Deixa o nome do cliente em negrito
         ),
         textAlign: TextAlign.center,
         maxLines: 1,

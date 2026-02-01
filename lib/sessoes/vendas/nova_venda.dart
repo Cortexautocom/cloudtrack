@@ -372,7 +372,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                             const SizedBox(height: 14),
 
                             Text(
-                              'Deseja continuar e registrar apenas os tanques preenchidos?',
+                              'Deseja continuar com carregamento parcial?',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: Colors.grey.shade700,
