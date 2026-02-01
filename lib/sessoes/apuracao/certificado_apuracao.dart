@@ -9,6 +9,7 @@ import 'certificado_pdf.dart';
 import '../../login_page.dart';
 
 // ================= COMPONENTE PLACA AUTOCOMPLETE =================
+
 class PlacaAutocompleteField extends StatefulWidget {
   final TextEditingController controller;
   final String label;
@@ -310,8 +311,10 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   final _formKey = GlobalKey<FormState>();
   bool _analiseConcluida = false;
   bool _modoEdicao = false;
+  bool _modoVisualizacao = false;
   Map<String, dynamic>? _dadosExistentes;
   bool _carregandoDadosMovimentacao = false;
+
   
   // ================= CONTROLLERS =================
   final TextEditingController dataCtrl = TextEditingController();
@@ -353,55 +356,23 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     super.initState();
     _setarDataHoraAtual();
     _carregarProdutos();
-    
-    // ADICIONADO: Listener para o campo tempCT - SOMENTE se não estiver concluído
+
     _focusTempCT.addListener(() {
-      if (!_analiseConcluida && !_focusTempCT.hasFocus) {
+      if (!_modoVisualizacao && !_focusTempCT.hasFocus) {
         _calcularResultadosObtidos();
       }
     });
-    
-    // Verificar se recebeu um ID para edição
-    if (widget.idCertificado != null && widget.idCertificado!.isNotEmpty) {
-      _modoEdicao = true;
-      _carregarDadosCertificado(widget.idCertificado!);
-    } else if (widget.idMovimentacao != null && widget.idMovimentacao!.isNotEmpty) {
-      _carregarDadosMovimentacao(widget.idMovimentacao!);
-    }
-  }
 
-  // NOVO: Método auxiliar para formatar número inteiro com máscara de milhar
-  String _formatarInteiroComMilhar(dynamic valor) {
-    if (valor == null) return '';
-    
-    try {
-      int valorInteiro;
-      if (valor is int) {
-        valorInteiro = valor;
-      } else if (valor is String) {
-        valorInteiro = int.tryParse(valor.replaceAll('.', '')) ?? 0;
-      } else if (valor is double) {
-        valorInteiro = valor.round();
-      } else {
-        return '';
+    if (widget.idCertificado != null && widget.idCertificado!.isNotEmpty) {
+      // CERTIFICADO EXISTE → VISUALIZAÇÃO
+      _modoVisualizacao = true;
+      _carregarDadosCertificado(widget.idCertificado!);
+    } else {
+      // CERTIFICADO NÃO EXISTE → EDIÇÃO
+      _modoVisualizacao = false;
+      if (widget.idMovimentacao != null && widget.idMovimentacao!.isNotEmpty) {
+        _carregarDadosMovimentacao(widget.idMovimentacao!);
       }
-      
-      if (valorInteiro == 0) return '0';
-      
-      // Aplica máscara de milhar
-      String valorStr = valorInteiro.toString();
-      String resultado = '';
-      for (int i = valorStr.length - 1, count = 0; i >= 0; i--, count++) {
-        if (count > 0 && count % 3 == 0) {
-          resultado = '.$resultado';
-        }
-        resultado = valorStr[i] + resultado;
-      }
-      
-      return resultado;
-    } catch (e) {
-      print('Erro ao formatar inteiro com milhar: $e');
-      return '';
     }
   }
 
@@ -412,7 +383,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
 
     try {
       final supabase = Supabase.instance.client;
-      
+
       final movimentacao = await supabase
           .from('movimentacoes')
           .select('''
@@ -427,60 +398,62 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
 
       if (movimentacao != null) {
         if (movimentacao['nota_fiscal'] != null) {
-          campos['notas']!.text = movimentacao['nota_fiscal'].toString();
+          campos['notas']!.text =
+              movimentacao['nota_fiscal'].toString();
         }
 
-        if (movimentacao['produtos'] != null && movimentacao['produtos']['nome'] != null) {
-          final nomeProduto = movimentacao['produtos']['nome'].toString();
-          produtoSelecionado = nomeProduto;
-          
-          if (produtos.contains(nomeProduto)) {
-            setState(() {
-              produtoSelecionado = nomeProduto;
-            });
-          }
+        if (movimentacao['produtos'] != null &&
+            movimentacao['produtos']['nome'] != null) {
+          produtoSelecionado =
+              movimentacao['produtos']['nome'].toString();
         }
 
-        if (movimentacao['motoristas'] != null && movimentacao['motoristas']['nome'] != null) {
-          campos['motorista']!.text = movimentacao['motoristas']['nome'].toString();
+        if (movimentacao['motoristas'] != null &&
+            movimentacao['motoristas']['nome'] != null) {
+          campos['motorista']!.text =
+              movimentacao['motoristas']['nome'].toString();
         }
 
-        if (movimentacao['transportadoras'] != null && movimentacao['transportadoras']['nome'] != null) {
-          campos['transportadora']!.text = movimentacao['transportadoras']['nome'].toString();
+        if (movimentacao['transportadoras'] != null &&
+            movimentacao['transportadoras']['nome'] != null) {
+          campos['transportadora']!.text =
+              movimentacao['transportadoras']['nome'].toString();
         }
 
-        if (movimentacao['placa'] != null && movimentacao['placa'] is List) {
-          final placasArray = List<String>.from(movimentacao['placa']);
-          if (placasArray.isNotEmpty) {
-            if (placasArray.length > 0) {
-              campos['placaCavalo']!.text = placasArray[0];
+        if (movimentacao['placa'] != null &&
+            movimentacao['placa'] is List) {
+          final placas =
+              List<String>.from(movimentacao['placa']);
+          if (placas.isNotEmpty) {
+            campos['placaCavalo']!.text = placas[0];
+            if (placas.length > 1) {
+              campos['carreta1']!.text = placas[1];
             }
-            if (placasArray.length > 1) {
-              campos['carreta1']!.text = placasArray[1];
+            if (placas.length > 2) {
+              campos['carreta2']!.text = placas[2];
             }
-            if (placasArray.length > 2) {
-              campos['carreta2']!.text = placasArray[2];
-            }
-          }
-        }
-
-        if (produtoSelecionado != null) {
-          final volumeAmb = _obterVolumeAmbientePorProduto(movimentacao, produtoSelecionado!);
-          if (volumeAmb != null && volumeAmb > 0) {
-            // NOVO: Formatar com máscara de milhar
-            campos['volumeCarregadoAmb']!.text = _formatarInteiroComMilhar(volumeAmb);
           }
         }
 
         if (produtoSelecionado != null) {
-          final volume20C = _obterVolume20CPorProduto(movimentacao, produtoSelecionado!);
-          if (volume20C != null && volume20C > 0) {
-            campos['volumeApurado20C']!.text = volume20C.toString();
+          final volumeAmb =
+              _obterVolumeAmbientePorProduto(
+                  movimentacao, produtoSelecionado!);
+          if (volumeAmb != null) {
+            campos['volumeCarregadoAmb']!.text =
+                _mascaraMilharUI(volumeAmb.toString());
+          }
+
+          final volume20C =
+              _obterVolume20CPorProduto(
+                  movimentacao, produtoSelecionado!);
+          if (volume20C != null) {
+            campos['volumeApurado20C']!.text =
+                _mascaraMilharUI(volume20C.toString());
           }
         }
       }
     } catch (e) {
-      print('Erro ao carregar dados da movimentação: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -615,72 +588,61 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   
   void _preencherCamposComDadosExistentes() {
     if (_dadosExistentes == null) return;
-    
+
     setState(() {
-      // Preencher os campos principais
-      campos['numeroControle']!.text = _dadosExistentes!['numero_controle']?.toString() ?? '';
-      campos['transportadora']!.text = _dadosExistentes!['transportadora']?.toString() ?? '';
-      campos['motorista']!.text = _dadosExistentes!['motorista']?.toString() ?? '';
-      campos['notas']!.text = _dadosExistentes!['notas_fiscais']?.toString() ?? '';
-      
-      // Placas
-      campos['placaCavalo']!.text = _dadosExistentes!['placa_cavalo']?.toString() ?? '';
-      campos['carreta1']!.text = _dadosExistentes!['carreta1']?.toString() ?? '';
-      campos['carreta2']!.text = _dadosExistentes!['carreta2']?.toString() ?? '';
-      
-      // PASSO 2: Preencher campos técnicos exclusivamente com valores do banco
-      if (_analiseConcluida) {
-        // Temperatura da amostra
-        campos['tempAmostra']!.text = _formatarDecimalParaExibicao(_dadosExistentes!['temperatura_amostra']);
-        
-        // Densidade observada
-        campos['densidadeAmostra']!.text = _formatarDecimalParaExibicao(_dadosExistentes!['densidade_observada']);
-        
-        // Temperatura do CT
-        campos['tempCT']!.text = _formatarDecimalParaExibicao(_dadosExistentes!['temperatura_ct']);
-        
-        // Densidade a 20°C
-        campos['densidade20']!.text = _formatarDecimalParaExibicao(_dadosExistentes!['densidade_20c']);
-        
-        // FCV
-        campos['fatorCorrecao']!.text = _formatarDecimalParaExibicao(_dadosExistentes!['fator_correcao']);
-        
-        // Quantidade ambiente - PASSO 5: Formatar com máscara de milhar
-        final origemAmbiente = _dadosExistentes!['origem_ambiente'];
-        if (origemAmbiente != null) {
-          campos['volumeCarregadoAmb']!.text = _formatarInteiroComMilhar(origemAmbiente);
-        }
-        
-        // Quantidade 20°C
-        final destino20c = _dadosExistentes!['destino_20c'];
-        if (destino20c != null) {
-          campos['volumeApurado20C']!.text = destino20c.toString();
-        }
-      } else {
-        // Se não estiver concluído, preencher normalmente
-        campos['tempAmostra']!.text = _formatarDecimalParaExibicao(_dadosExistentes!['temperatura_amostra']);
-        campos['densidadeAmostra']!.text = _formatarDecimalParaExibicao(_dadosExistentes!['densidade_observada']);
-        campos['tempCT']!.text = _formatarDecimalParaExibicao(_dadosExistentes!['temperatura_ct']);
-        campos['densidade20']!.text = _formatarDecimalParaExibicao(_dadosExistentes!['densidade_20c']);
-        campos['fatorCorrecao']!.text = _formatarDecimalParaExibicao(_dadosExistentes!['fator_correcao']);
-        campos['volumeCarregadoAmb']!.text = _dadosExistentes!['origem_ambiente']?.toString() ?? '';
-        campos['volumeApurado20C']!.text = _dadosExistentes!['destino_20c']?.toString() ?? '';
+      campos['numeroControle']!.text =
+          _dadosExistentes!['numero_controle']?.toString() ?? '';
+      campos['transportadora']!.text =
+          _dadosExistentes!['transportadora']?.toString() ?? '';
+      campos['motorista']!.text =
+          _dadosExistentes!['motorista']?.toString() ?? '';
+      campos['notas']!.text =
+          _dadosExistentes!['notas_fiscais']?.toString() ?? '';
+
+      campos['placaCavalo']!.text =
+          _dadosExistentes!['placa_cavalo']?.toString() ?? '';
+      campos['carreta1']!.text =
+          _dadosExistentes!['carreta1']?.toString() ?? '';
+      campos['carreta2']!.text =
+          _dadosExistentes!['carreta2']?.toString() ?? '';
+
+      campos['tempAmostra']!.text =
+          _formatarDecimalParaExibicao(_dadosExistentes!['temperatura_amostra']);
+      campos['densidadeAmostra']!.text =
+          _formatarDecimalParaExibicao(_dadosExistentes!['densidade_observada']);
+      campos['tempCT']!.text =
+          _formatarDecimalParaExibicao(_dadosExistentes!['temperatura_ct']);
+      campos['densidade20']!.text =
+          _formatarDecimalParaExibicao(_dadosExistentes!['densidade_20c']);
+      campos['fatorCorrecao']!.text =
+          _formatarDecimalParaExibicao(_dadosExistentes!['fator_correcao']);
+
+      final origemAmb = _dadosExistentes!['origem_ambiente'];
+      if (origemAmb != null) {
+        campos['volumeCarregadoAmb']!.text =
+            _mascaraMilharUI(origemAmb.toString());
       }
-      
-      // Data e hora
+
+      final destino20 = _dadosExistentes!['destino_20c'];
+      if (destino20 != null) {
+        campos['volumeApurado20C']!.text =
+            _mascaraMilharUI(destino20.toString());
+      }
+
       if (_dadosExistentes!['data_analise'] != null) {
         try {
           final data = DateTime.parse(_dadosExistentes!['data_analise']);
-          dataCtrl.text = '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}';
+          dataCtrl.text =
+              '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}';
         } catch (_) {}
       }
-      
+
       if (_dadosExistentes!['hora_analise'] != null) {
         horaCtrl.text = _dadosExistentes!['hora_analise'].toString();
       }
-      
-      // Produto
-      produtoSelecionado = _dadosExistentes!['produto_nome']?.toString();
+
+      produtoSelecionado =
+          _dadosExistentes!['produto_nome']?.toString();
     });
   }
   
@@ -839,17 +801,15 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                 icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
                 onPressed: widget.onVoltar,
               ),
-              Text(
-                _modoEdicao 
-                  ? 'Certificado de Apuração de Volumes'
-                  : 'Certificado de Apuração de Volumes',
-                style: const TextStyle(
+              const Text(
+                'Certificado de Apuração de Volumes',
+                style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF0D47A1),
                 ),
               ),
-              if (_modoEdicao)
+              if (_modoVisualizacao)
                 Container(
                   margin: const EdgeInsets.only(left: 12),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -869,6 +829,16 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
             ],
           ),
           const Divider(),
+
+          // ================= BLOQUEIO GLOBAL =================
+          AbsorbPointer(
+            absorbing: _modoVisualizacao || _carregandoDadosMovimentacao,
+            child: Column(
+              children: [
+                // formulário
+              ],
+            ),
+          ),
 
           // ================= CONTEÚDO =================
           Expanded(
@@ -1144,41 +1114,46 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                     TextFormField(
                                       controller: campos['volumeCarregadoAmb'],
                                       keyboardType: TextInputType.number,
-                                      enabled: !_analiseConcluida, // PASSO 3
-                                      onChanged: _analiseConcluida ? null : (value) { // PASSO 3
-                                        final ctrl = campos['volumeCarregadoAmb']!;
-                                        final masked = _aplicarMascaraNotasFiscais(value);
+                                      enabled: !_modoVisualizacao,
+                                      onChanged: _modoVisualizacao
+                                          ? null
+                                          : (value) {
+                                              final ctrl = campos['volumeCarregadoAmb']!;
+                                              final masked = _mascaraMilharUI(value);
 
-                                        if (masked != value) {
-                                          ctrl.value = TextEditingValue(
-                                            text: masked,
-                                            selection: TextSelection.collapsed(offset: masked.length),
-                                          );
-                                        }
-                                      },
+                                              if (masked != value) {
+                                                ctrl.value = TextEditingValue(
+                                                  text: masked,
+                                                  selection: TextSelection.collapsed(offset: masked.length),
+                                                );
+                                              }
+                                            },
                                       decoration: _decoration('Volume carregado (ambiente)').copyWith(
-                                        fillColor: _analiseConcluida ? Colors.grey[200] : Colors.white,
+                                        fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
                                       ),
                                     ),
+
                                     
                                     // PASSO 3: Volume apurado a 20°C - bloqueado quando concluído
                                     TextFormField(
                                       controller: campos['volumeApurado20C'],
                                       keyboardType: TextInputType.number,
-                                      enabled: !_analiseConcluida, // PASSO 3
-                                      onChanged: _analiseConcluida ? null : (value) { // PASSO 3
-                                        final ctrl = campos['volumeApurado20C']!;
-                                        final masked = _aplicarMascaraNotasFiscais(value);
+                                      enabled: !_modoVisualizacao,
+                                      onChanged: _modoVisualizacao
+                                          ? null
+                                          : (value) {
+                                              final ctrl = campos['volumeApurado20C']!;
+                                              final masked = _mascaraMilharUI(value);
 
-                                        if (masked != value) {
-                                          ctrl.value = TextEditingValue(
-                                            text: masked,
-                                            selection: TextSelection.collapsed(offset: masked.length),
-                                          );
-                                        }
-                                      },
+                                              if (masked != value) {
+                                                ctrl.value = TextEditingValue(
+                                                  text: masked,
+                                                  selection: TextSelection.collapsed(offset: masked.length),
+                                                );
+                                              }
+                                            },
                                       decoration: _decoration('Volume apurado a 20 ºC').copyWith(
-                                        fillColor: _analiseConcluida ? Colors.grey[200] : Colors.white,
+                                        fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
                                       ),
                                     ),
                                   ]),
@@ -1188,97 +1163,67 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                             ),
                           ),
                           if (!_carregandoDadosMovimentacao)
+                          // ================= BOTÕES =================
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               ElevatedButton.icon(
-                                onPressed: (!_analiseConcluida || _modoEdicao) ? _confirmarEmissaoCertificado : null,
-                                icon: Icon(_analiseConcluida && !_modoEdicao ? Icons.check_circle_outline : Icons.check_circle, size: 24),
+                                onPressed: _modoVisualizacao ? null : _confirmarEmissaoCertificado,
+                                icon: const Icon(Icons.check_circle, size: 24),
                                 label: Text(
-                                  _modoEdicao 
-                                    ? (_analiseConcluida ? 'Atualizar certificado' : 'Salvar alterações')
-                                    : (_analiseConcluida ? 'Certificado emitido' : 'Emitir certificado'),
+                                  _modoVisualizacao ? 'Certificado emitido' : 'Emitir certificado',
                                   style: const TextStyle(fontSize: 16),
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: _analiseConcluida && !_modoEdicao ? Colors.grey[400] : Colors.green,
+                                  backgroundColor:
+                                      _modoVisualizacao ? Colors.grey[400] : Colors.green,
                                   foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                 ),
                               ),
-                              
+
                               ElevatedButton.icon(
-                                onPressed: (_analiseConcluida) ? _baixarPDF : null,
-                                icon: Icon(
-                                  Icons.picture_as_pdf, 
-                                  size: 24,
-                                  color: _analiseConcluida ? Colors.white : Colors.grey[600],
-                                ),
-                                label: Text(
+                                onPressed: _modoVisualizacao ? _baixarPDF : null,
+                                icon: const Icon(Icons.picture_as_pdf, size: 24),
+                                label: const Text(
                                   'Gerar Certificado PDF',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: _analiseConcluida ? Colors.white : Colors.grey[600],
-                                  ),
+                                  style: TextStyle(fontSize: 16),
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: _analiseConcluida 
+                                  backgroundColor: _modoVisualizacao
                                       ? const Color(0xFF0D47A1)
                                       : Colors.grey[300],
-                                  foregroundColor: _analiseConcluida ? Colors.white : Colors.grey[600],
-                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                  foregroundColor:
+                                      _modoVisualizacao ? Colors.white : Colors.grey[600],
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8),
-                                    side: BorderSide(
-                                      color: _analiseConcluida 
-                                          ? const Color(0xFF0D47A1)
-                                          : Colors.grey[400]!,
-                                      width: 1,
-                                    ),
                                   ),
-                                  elevation: _analiseConcluida ? 2 : 0,
-                                  shadowColor: _analiseConcluida ? const Color(0xFF0D47A1).withOpacity(0.3) : Colors.transparent,
                                 ),
                               ),
-                              
-                              // PASSO 7: Substituir "Concluir" por "Voltar" quando análise concluída
-                              if (_analiseConcluida && !_modoEdicao)
-                                ElevatedButton.icon(
-                                  onPressed: widget.onVoltar, // PASSO 8: Voltar diretamente
-                                  icon: const Icon(Icons.arrow_back, size: 24),
-                                  label: const Text(
-                                    'Voltar',
-                                    style: TextStyle(fontSize: 16),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                )
-                              else
-                                ElevatedButton.icon(
-                                  onPressed: _concluir,
-                                  icon: const Icon(Icons.done_all, size: 24),
-                                  label: Text(
-                                    _modoEdicao ? 'Voltar' : 'Concluir',
-                                    style: const TextStyle(fontSize: 16),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: _modoEdicao ? Colors.blue : Colors.orange,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
+
+                              ElevatedButton.icon(
+                                onPressed: widget.onVoltar,
+                                icon: const Icon(Icons.arrow_back, size: 24),
+                                label: const Text(
+                                  'Voltar',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
                                 ),
+                              ),
                             ],
                           ),
                         ],
@@ -2124,6 +2069,8 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   
   // Método para processar a emissão/atualização do certificado
   Future<void> _processarEmissaoCertificado() async {
+    if (!mounted) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -2133,76 +2080,60 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     try {
       final supabase = Supabase.instance.client;
       final user = supabase.auth.currentUser;
-      if (user == null) {
-        throw Exception('Usuário não autenticado');
-      }
+      if (user == null) throw Exception('Usuário não autenticado');
 
       final usuario = UsuarioAtual.instance;
       if (usuario == null || usuario.filialId == null) {
         throw Exception('Usuário sem filial vinculada');
       }
 
-      if (produtoSelecionado == null) {
-        throw Exception('Produto não selecionado');
-      }
-
       final produtoId = await _resolverProdutoId(produtoSelecionado!);
 
-      final Map<String, dynamic> dadosOrdem = {
+      final dadosOrdem = {
         'data_analise': _formatarDataParaBanco(dataCtrl.text),
         'hora_analise': horaCtrl.text,
-        
         'analise_concluida': true,
         'data_conclusao': DateTime.now().toIso8601String(),
-
-        // 🔹 VÍNCULO DEFINITIVO COM A MOVIMENTAÇÃO
         'movimentacao_id': widget.idMovimentacao,
-
         'transportadora': campos['transportadora']!.text,
         'motorista': campos['motorista']!.text,
         'notas_fiscais': campos['notas']!.text,
         'placa_cavalo': campos['placaCavalo']!.text,
         'carreta1': campos['carreta1']!.text,
         'carreta2': campos['carreta2']!.text,
-
         'produto_id': produtoId,
         'produto_nome': produtoSelecionado,
-
-        'temperatura_amostra': _converterParaDecimal(campos['tempAmostra']!.text),
-        'densidade_observada': _converterParaDecimal(campos['densidadeAmostra']!.text),
-        'temperatura_ct': _converterParaDecimal(campos['tempCT']!.text),
-        'densidade_20c': _converterParaDecimal(campos['densidade20']!.text),
-        'fator_correcao': _converterParaDecimal(campos['fatorCorrecao']!.text),
-
-        'origem_ambiente': _converterParaInteiro(campos['volumeCarregadoAmb']!.text),
-        'destino_20c': _converterParaInteiro(campos['volumeApurado20C']!.text),
-
+        'temperatura_amostra':
+            _converterParaDecimal(campos['tempAmostra']!.text),
+        'densidade_observada':
+            _converterParaDecimal(campos['densidadeAmostra']!.text),
+        'temperatura_ct':
+            _converterParaDecimal(campos['tempCT']!.text),
+        'densidade_20c':
+            _converterParaDecimal(campos['densidade20']!.text),
+        'fator_correcao':
+            _converterParaDecimal(campos['fatorCorrecao']!.text),
+        'origem_ambiente':
+            _converterParaInteiro(campos['volumeCarregadoAmb']!.text),
+        'destino_20c':
+            _converterParaInteiro(campos['volumeApurado20C']!.text),
         'usuario_id': user.id,
         'filial_id': usuario.filialId,
       };
 
+      final response = await supabase
+          .from('ordens_analises')
+          .insert(dadosOrdem)
+          .select('id, numero_controle')
+          .single();
 
-      Map<String, dynamic> response;
+      if (!mounted) return;
 
-      if (_modoEdicao && widget.idCertificado != null) {
-        response = await supabase
-            .from('ordens_analises')
-            .update(dadosOrdem)
-            .eq('id', widget.idCertificado!)
-            .select('id, numero_controle')
-            .single();
-      } else {
-        response = await supabase
-            .from('ordens_analises')
-            .insert(dadosOrdem)
-            .select('id, numero_controle')
-            .single();
-      }
-
-      campos['numeroControle']!.text = response['numero_controle'].toString();
+      campos['numeroControle']!.text =
+          response['numero_controle'].toString();
 
       if (widget.idMovimentacao != null) {
-        final int volume20C =
+        final volume20C =
             _converterParaInteiro(campos['volumeApurado20C']!.text) ?? 0;
 
         await _atualizarMovimentacaoSomente20C(
@@ -2212,17 +2143,20 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         );
       }
 
-      if (context.mounted) Navigator.of(context).pop();
+      if (!mounted) return;
+      Navigator.of(context).pop();
 
       setState(() {
-        _analiseConcluida = true;
+        _modoVisualizacao = true;
       });
-
-    } catch (e) {
-      if (context.mounted) Navigator.of(context).pop();
+    } catch (_) {
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
       rethrow;
     }
   }
+
 
 
   Future<void> _atualizarMovimentacaoSomente20C({
@@ -2280,140 +2214,8 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     }
     
     return coluna;
-  }    
-
-  // PASSO 8: Método para concluir/voltar
-  void _concluir() {
-    // Se estiver em visualização (análise concluída e não edição), volta direto
-    if (_analiseConcluida && !_modoEdicao) {
-      widget.onVoltar();
-      return;
-    }
-
-    // NOVO: se estiver em modo edição, mas apenas visualização (sem permissão real de edição)
-    // não exibe diálogo de descarte
-    if (_analiseConcluida && _modoEdicao) {
-      widget.onVoltar();
-      return;
-    }
-
-    final String titulo = _modoEdicao ? 'Descartar Alterações' : 'Concluir';
-    final String mensagem = _modoEdicao
-        ? 'Deseja realmente voltar sem salvar as alterações?'
-        : 'Deseja realmente concluir e voltar para a página de acompanhamento?';
-    final String descricao = _modoEdicao
-        ? 'Todas as alterações feitas serão perdidas.'
-        : 'Todos os dados preenchidos que não foram salvos serão perdidos.';
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.0),
-            side: const BorderSide(
-              color: Color(0xFF0D47A1),
-              width: 2.0,
-            ),
-          ),
-          backgroundColor: Colors.white,
-          title: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              color: Color(0xFF0D47A1),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  _modoEdicao ? Icons.warning : Icons.warning_amber,
-                  color: Colors.white,
-                  size: 28,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  titulo,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          content: SizedBox(
-            width: 400,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 8),
-                Text(
-                  mensagem,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  descricao,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.black54,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.grey[700],
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(color: Colors.grey[400]!),
-                ),
-              ),
-              child: const Text(
-                'Cancelar',
-                style: TextStyle(fontSize: 16),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                widget.onVoltar();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0D47A1),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(
-                _modoEdicao ? 'Descartar' : 'Concluir',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        );
-      },
-    );
   }
-
-
+  
   @override
   void dispose() {
     _focusTempCT.dispose();
@@ -2454,5 +2256,17 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     } catch (e) {
       return null;
     }
+  }
+
+  String _mascaraMilharUI(String texto) {
+    final numeros = texto.replaceAll(RegExp(r'[^\d]'), '');
+    if (numeros.isEmpty) return '';
+
+    String resultado = '';
+    for (int i = numeros.length - 1, c = 0; i >= 0; i--, c++) {
+      if (c > 0 && c % 3 == 0) resultado = '.$resultado';
+      resultado = numeros[i] + resultado;
+    }
+    return resultado;
   }
 }
