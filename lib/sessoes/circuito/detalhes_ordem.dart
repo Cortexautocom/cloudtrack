@@ -1211,12 +1211,48 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     
     return resultado;
   }
-
-  // 1️⃣ Card remodelado com produtos organizados - ATUALIZADO COM NÚMERO DE CONTROLE
+  
+  // 1️⃣ Card remodelado com produtos organizados - NOVO ESTILO COM CLIENTE/DESCRIÇÃO
   Widget _buildResumoCompacto() {
     final placasFormatadas = _formatarPlacas(widget.ordem['placas']);
     final produtosAgrupados = _agruparProdutosParaCarregar();
     final totalProdutos = produtosAgrupados.values.fold(0.0, (sum, qtd) => sum + qtd);
+    
+    // ✅ Obter tipo de operação para determinar se é transferência
+    final tipoOp = widget.ordem['tipo_op']?.toString() ?? 'venda';
+    
+    // ✅ Obter informações de clientes/descrições para cada produto
+    final Map<String, List<String>> informacoesPorProduto = {};
+    
+    for (var mov in _movimentacoes) {
+      final produto = mov['produtos'] as Map<String, dynamic>?;
+      if (produto == null) continue;
+      
+      final nomeProduto = produto['nome_dois']?.toString();
+      if (nomeProduto == null || nomeProduto.isEmpty) continue;
+      
+      if (!informacoesPorProduto.containsKey(nomeProduto)) {
+        informacoesPorProduto[nomeProduto] = [];
+      }
+      
+      // ✅ Para transferências, usar descrição (se disponível) em vez de cliente
+      String informacao;
+      if (tipoOp == 'transf') {
+        // Tentar buscar descrição
+        informacao = (mov['descricao'] as String?)?.trim() ?? '';
+        if (informacao.isEmpty) {
+          // Fallback para cliente se descrição não existir
+          informacao = (mov['cliente'] as String?)?.trim() ?? '';
+        }
+      } else {
+        // Para outros tipos, usar cliente
+        informacao = (mov['cliente'] as String?)?.trim() ?? '';
+      }
+      
+      if (informacao.isNotEmpty && !informacoesPorProduto[nomeProduto]!.contains(informacao)) {
+        informacoesPorProduto[nomeProduto]!.add(informacao);
+      }
+    }
 
     return Card(
       color: Colors.white,
@@ -1364,123 +1400,182 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
               ],
             ),
             
-            const SizedBox(height: 30),
+            const SizedBox(height: 20),
             
-            // Linha 2: Carga Total e TODOS os produtos na mesma linha
+            // Linha 2: Carga Total
             Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Carga Total
-                Row(
-                  children: [
-                    Icon(
-                      _tipoMovimentacao == TipoMovimentacao.carregamento
-                          ? Icons.local_shipping
-                          : Icons.local_shipping_outlined,
-                      size: 16,
-                      color: Colors.grey.shade700,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      _tipoMovimentacao == TipoMovimentacao.carregamento
-                          ? 'Carga'
-                          : 'Descarga',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _formatarNumero(totalProdutos),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF0D47A1),
-                      ),
-                    ),
-                  ],
+                Icon(
+                  _tipoMovimentacao == TipoMovimentacao.carregamento
+                      ? Icons.local_shipping
+                      : Icons.local_shipping_outlined,
+                  size: 16,
+                  color: Colors.grey.shade700,
                 ),
-                
-                const SizedBox(width: 12), // Espaço entre a carga total e os produtos
-                
-                // TODOS os produtos na mesma linha
-                if (produtosAgrupados.isNotEmpty)
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: produtosAgrupados.entries.map((entry) {
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: _buildProdutoBadge(
-                              nome: entry.key,
-                              quantidade: entry.value,
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
+                const SizedBox(width: 6),
+                Text(
+                  _tipoMovimentacao == TipoMovimentacao.carregamento
+                      ? 'Carga'
+                      : 'Descarga',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700,
                   ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _formatarNumero(totalProdutos),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0D47A1),
+                  ),
+                ),
               ],
-            ),            
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // ✅ NOVO: Produtos com cliente/descrição (mesmo estilo da página de acompanhamento)
+            if (produtosAgrupados.isNotEmpty)
+              Wrap(
+                spacing: 10,
+                runSpacing: 8,
+                children: produtosAgrupados.entries.map((produtoEntry) {
+                  final nomeProduto = produtoEntry.key;
+                  final quantidade = produtoEntry.value;
+                  final cor = _obterCorProduto(nomeProduto);
+                  
+                  // ✅ Obter informações para este produto
+                  final informacoesDoProduto = informacoesPorProduto[nomeProduto] ?? [];
+                  final textoInfo = informacoesDoProduto.isNotEmpty
+                      ? informacoesDoProduto.first
+                      : (tipoOp == 'transf' ? 'Sem descrição' : 'N/I');
+                  final temMaisInfo = informacoesDoProduto.length > 1;
+                  
+                  return Container(
+                    constraints: BoxConstraints(maxWidth: 180),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Quantidade do produto - NOVO ESTILO
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: cor,
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(4),
+                              bottomLeft: Radius.circular(4),
+                            ),
+                          ),
+                          child: Text(
+                            _formatarNumero(quantidade),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                        
+                        // Nome do produto e cliente/descrição - NOVO ESTILO
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: cor.withOpacity(0.08),
+                            borderRadius: const BorderRadius.only(
+                              topRight: Radius.circular(4),
+                              bottomRight: Radius.circular(4),
+                            ),
+                            border: Border.all(
+                              color: cor.withOpacity(0.15),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Nome do produto
+                              Text(
+                                _abreviarTexto(nomeProduto, 15),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: cor,
+                                ),
+                              ),
+                              
+                              // Cliente ou descrição (para transferências)
+                              Text(
+                                _abreviarTexto(textoInfo, 20),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey.shade700,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              
+                              // Indicador de mais informações
+                              if (temMaisInfo)
+                                Text(
+                                  '+${informacoesDoProduto.length - 1}',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            
+            // ✅ Caso não tenha produtos
+            if (produtosAgrupados.isEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: Colors.grey.shade300,
+                    width: 0.8,
+                  ),
+                ),
+                child: const Text(
+                  'Sem produtos',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildProdutoBadge({required String nome, required double quantidade}) {
-    final nomeFormatado = _formatarNomeProduto(nome);
-    final cor = _obterCorProduto(nome);
-    
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: cor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: cor.withOpacity(0.3), width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Indicador de quantidade
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            decoration: BoxDecoration(
-              color: cor,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              _formatarNumero(quantidade),
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          
-          const SizedBox(width: 6),
-          
-          // Nome do produto
-          Text(
-            nomeFormatado,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: cor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }  
-
-  String _formatarNomeProduto(String produtoNome) {
-    return produtoNome;
+  // ✅ Adicione este método auxiliar à classe _DetalhesOrdemViewState
+  String _abreviarTexto(String texto, int maxLength) {
+    if (texto.length <= maxLength) return texto;
+    return '${texto.substring(0, maxLength)}...';
   }
 
   Color _obterCorProduto(String produtoNome) {
