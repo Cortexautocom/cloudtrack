@@ -841,7 +841,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
               ),
               Text(
                 _modoEdicao 
-                  ? 'Editar Certificado de Apuração de Volumes'
+                  ? 'Certificado de Apuração de Volumes'
                   : 'Certificado de Apuração de Volumes',
                 style: const TextStyle(
                   fontSize: 24,
@@ -858,7 +858,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Text(
-                    'EDIÇÃO',
+                    'Modo Visualização',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -2284,19 +2284,26 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
 
   // PASSO 8: Método para concluir/voltar
   void _concluir() {
-    // PASSO 8: Se análise concluída e não estiver em modo edição, volta diretamente
+    // Se estiver em visualização (análise concluída e não edição), volta direto
     if (_analiseConcluida && !_modoEdicao) {
+      widget.onVoltar();
+      return;
+    }
+
+    // NOVO: se estiver em modo edição, mas apenas visualização (sem permissão real de edição)
+    // não exibe diálogo de descarte
+    if (_analiseConcluida && _modoEdicao) {
       widget.onVoltar();
       return;
     }
 
     final String titulo = _modoEdicao ? 'Descartar Alterações' : 'Concluir';
     final String mensagem = _modoEdicao
-      ? 'Deseja realmente voltar sem salvar as alterações?'
-      : 'Deseja realmente concluir e voltar para a página de acompanhamento?';
+        ? 'Deseja realmente voltar sem salvar as alterações?'
+        : 'Deseja realmente concluir e voltar para a página de acompanhamento?';
     final String descricao = _modoEdicao
-      ? 'Todas as alterações feitas serão perdidas.'
-      : 'Todos os dados preenchidos que não foram salvos serão perdidos.';
+        ? 'Todas as alterações feitas serão perdidas.'
+        : 'Todos os dados preenchidos que não foram salvos serão perdidos.';
 
     showDialog(
       context: context,
@@ -2313,16 +2320,20 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
           backgroundColor: Colors.white,
           title: Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0D47A1),
-              borderRadius: const BorderRadius.only(
+            decoration: const BoxDecoration(
+              color: Color(0xFF0D47A1),
+              borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
               ),
             ),
             child: Row(
               children: [
-                Icon(_modoEdicao ? Icons.warning : Icons.warning_amber, color: Colors.white, size: 28),
+                Icon(
+                  _modoEdicao ? Icons.warning : Icons.warning_amber,
+                  color: Colors.white,
+                  size: 28,
+                ),
                 const SizedBox(width: 12),
                 Text(
                   titulo,
@@ -2363,9 +2374,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
+              onPressed: () => Navigator.of(context).pop(),
               style: TextButton.styleFrom(
                 foregroundColor: Colors.grey[700],
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -2379,7 +2388,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                 style: TextStyle(fontSize: 16),
               ),
             ),
-
             ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pop();
@@ -2404,6 +2412,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       },
     );
   }
+
 
   @override
   void dispose() {
