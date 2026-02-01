@@ -417,7 +417,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     try {
       final movimentacoes = await _supabase
           .from('movimentacoes')
-          .select('id, placa, produto_id, motorista_id, transportadora_id, nota_fiscal, status_circuito')
+          .select('id')
           .eq('ordem_id', ordemId)
           .order('id', ascending: true)
           .limit(1);
@@ -433,46 +433,45 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
       }
 
       final movimentacaoId = movimentacoes.first['id']?.toString();
-      final primeiroItem = widget.ordem['itens']?.first as Map<String, dynamic>?;
-
-      String motorista = '';
-      String transportadora = '';
-
-      if (primeiroItem != null) {
-        motorista = primeiroItem['motorista']?.toString() ?? '';
-        transportadora = primeiroItem['transportadora']?.toString() ?? '';
-
-        if (motorista.isEmpty && primeiroItem['motorista_id'] != null) {
-          final motoristaData = await _supabase
-              .from('motoristas')
-              .select('nome')
-              .eq('id', primeiroItem['motorista_id'])
-              .maybeSingle();
-          if (motoristaData != null) {
-            motorista = motoristaData['nome']?.toString() ?? '';
-          }
-        }
-
-        if (transportadora.isEmpty && primeiroItem['transportadora_id'] != null) {
-          final transportadoraData = await _supabase
-              .from('transportadoras')
-              .select('nome')
-              .eq('id', primeiroItem['transportadora_id'])
-              .maybeSingle();
-          if (transportadoraData != null) {
-            transportadora = transportadoraData['nome']?.toString() ?? '';
-          }
-        }
-      }
+      if (movimentacaoId == null) return;
 
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => EmitirCertificadoPage(
-            onVoltar: () {
-              Navigator.of(context).pop();
-              _carregarMovimentacoes();
-            },
             idMovimentacao: movimentacaoId,
+            onVoltar: () async {
+              final ordemId = widget.ordem['ordem_id'];
+              if (ordemId == null) return;
+
+              if (_tipoMovimentacao == TipoMovimentacao.descarregamento) {
+                // DESCARGA → pula 4 e grava direto 5
+                await _supabase
+                    .from('movimentacoes')
+                    .update({'status_circuito': 5})
+                    .eq('ordem_id', ordemId);
+
+                if (!mounted) return;
+                setState(() {
+                  _etapaAtual = EtapaCircuito.veiculoLiberado;
+                  widget.ordem['status_circuito'] = 5;
+                });
+              } else {
+                // CARGA → vai para 4 (Emissão NF)
+                await _supabase
+                    .from('movimentacoes')
+                    .update({'status_circuito': 4})
+                    .eq('ordem_id', ordemId);
+
+                if (!mounted) return;
+                setState(() {
+                  _etapaAtual = EtapaCircuito.emissaoNF;
+                  widget.ordem['status_circuito'] = 4;
+                });
+              }
+
+              _carregarMovimentacoes();
+              Navigator.of(context).pop();
+            },
           ),
         ),
       );
@@ -485,6 +484,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
       );
     }
   }
+
 
   // NOVO MÉTODO: Abrir diálogo do Check-list
   Future<void> _abrirDialogoChecklist() async {
@@ -1177,6 +1177,20 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     };
     
     return mapaProdutoColuna[produtoId.toLowerCase()];
+  } 
+
+  Future<void> _finalizarCargaExpedicao() async {
+    final ordemId = widget.ordem['ordem_id'];
+    if (ordemId == null) return;
+
+    await _supabase
+        .from('movimentacoes')
+        .update({'status_circuito': 5})
+        .eq('ordem_id', ordemId);
+
+    setState(() {
+      _etapaAtual = EtapaCircuito.liberacao;
+    });
   }
 
   String _formatarPlacas(dynamic placasData) {
@@ -1643,38 +1657,28 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     required bool isAguardando,
     required bool isChecklist,
   }) {
-    // Determinar se pode clicar - CHECK-LIST e OPERAÇÃO SEMPRE CLICÁVEIS
     bool podeClicar = false;
     String tooltip = '';
-    
+
     if (isProgramado && isAtual) {
       podeClicar = true;
-      tooltip = 'Clique para confirmar veículo presente e avançar para aguardando';
+      tooltip = 'Confirmar veículo presente e avançar para aguardando';
     } else if (isAguardando && isAtual) {
       podeClicar = true;
-      tooltip = 'Clique para avançar para check-list';
-    } else if (isChecklist) {
-      // ✅ MODIFICAÇÃO: Sempre clicável, independente de ser a etapa atual
+      tooltip = 'Avançar para check-list';
+    } else if (isChecklist && isAtual) {
       podeClicar = true;
-      if (isAtual) {
-        tooltip = 'Clique para iniciar check-list de segurança';
-      } else if (isCompleta) {
-        tooltip = 'Check-list já concluído. Clique para visualizar ou reabrir';
-      } else {
-        tooltip = 'Check-list pendente';
-      }
-    } else if (etapa.etapa == EtapaCircuito.operacao) {
-      // ✅ MODIFICAÇÃO: Sempre clicável, independente de ser a etapa atual
+      tooltip = 'Iniciar check-list de segurança';
+    } else if (etapa.etapa == EtapaCircuito.operacao && isAtual) {
       podeClicar = true;
-      if (isAtual) {
-        tooltip = 'Clique para emitir certificado de apuração de volumes';
-      } else if (isCompleta) {
-        tooltip = 'Operação já concluída. Clique para visualizar certificado';
-      } else {
-        tooltip = 'Operação pendente';
-      }
+      tooltip = 'Emitir certificado de apuração';
+    } else if (_tipoMovimentacao == TipoMovimentacao.carregamento &&
+        etapa.etapa == EtapaCircuito.emissaoNF &&
+        isAtual) {
+      podeClicar = true;
+      tooltip = 'Finalizar expedição';
     }
-    
+
     return SizedBox(
       width: 50,
       height: 50,
@@ -1686,47 +1690,23 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
             color: Colors.transparent,
             shape: const CircleBorder(),
             child: InkWell(
-              onTap: podeClicar ? () {
-                print('🔍 DEBUG: Clicado na etapa: ${etapa.label}');
-                print('🔍 DEBUG: isAtual: $isAtual, isCompleta: $isCompleta');
-                
-                if (isProgramado) {
-                  _mostrarDialogProgramadoParaAguardando();
-                } else if (isAguardando) {
-                  _mostrarDialogAguardandoParaChecklist();
-                } else if (isChecklist) {
-                  // ✅ AGORA: Check-list sempre clicável
-                  if (isAtual) {
-                    // Etapa atual: abrir check-list normal
-                    _abrirDialogoChecklist();
-                  } else if (isCompleta) {
-                    // Etapa já concluída: oferecer opções
-                    _mostrarOpcoesChecklistConcluido();
-                  } else {
-                    // Etapa futura: informar que ainda não está disponível
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Check-list ainda não está disponível'),
-                        backgroundColor: Colors.orange,
-                      ),
-                    );
-                  }
-                } else if (etapa.etapa == EtapaCircuito.operacao) {
-                  // ✅ AGORA: Operação sempre clicável
-                  if (isAtual || isCompleta) {
-                    // Etapa atual ou já concluída: abrir certificado
-                    _abrirCertificadoApuracao();
-                  } else {
-                    // Etapa futura: informar que ainda não está disponível
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Certificado ainda não está disponível'),
-                        backgroundColor: Colors.orange,
-                      ),
-                    );
-                  }
-                }
-              } : null,
+              onTap: podeClicar
+                  ? () {
+                      if (isProgramado) {
+                        _mostrarDialogProgramadoParaAguardando();
+                      } else if (isAguardando) {
+                        _mostrarDialogAguardandoParaChecklist();
+                      } else if (isChecklist) {
+                        _abrirDialogoChecklist();
+                      } else if (etapa.etapa == EtapaCircuito.operacao) {
+                        _abrirCertificadoApuracao();
+                      } else if (_tipoMovimentacao ==
+                              TipoMovimentacao.carregamento &&
+                          etapa.etapa == EtapaCircuito.emissaoNF) {
+                        _finalizarCargaExpedicao();
+                      }
+                    }
+                  : null,
               customBorder: const CircleBorder(),
               splashColor: podeClicar ? etapa.cor.withOpacity(0.3) : null,
               highlightColor: podeClicar ? etapa.cor.withOpacity(0.1) : null,
@@ -1740,7 +1720,8 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                     shape: BoxShape.circle,
                     color: isCompleta ? etapa.cor : Colors.grey.shade300,
                     border: Border.all(
-                      color: podeClicar ? etapa.cor.withOpacity(0.3) : Colors.transparent,
+                      color:
+                          podeClicar ? etapa.cor.withOpacity(0.3) : Colors.transparent,
                       width: podeClicar ? 2 : 0,
                     ),
                     boxShadow: podeClicar
@@ -1768,50 +1749,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
       ),
     );
   }
-
-  // ✅ NOVO MÉTODO: Mostrar opções quando check-list já está concluído
-  Future<void> _mostrarOpcoesChecklistConcluido() async {
-    final resultado = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green),
-            SizedBox(width: 10),
-            Text('Check-list Concluído'),
-          ],
-        ),
-        content: Text('Esta etapa já foi concluída. O que deseja fazer?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop('visualizar'),
-            child: Text('Visualizar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop('reabrir'),
-            child: Text('Reabrir Check-list'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop('cancelar'),
-            child: Text('Cancelar'),
-          ),
-        ],
-      ),
-    );
-
-    if (resultado == 'visualizar') {
-      // Mostrar informações do check-list realizado
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Visualizando check-list concluído...'),
-          backgroundColor: Colors.blue,
-        ),
-      );
-    } else if (resultado == 'reabrir') {
-      // Reabrir o diálogo do check-list
-      _abrirDialogoChecklist();
-    }
-  }
+  
 
   // 2️⃣ Lista compacta de fatos ocorridos
   Widget _buildHistoricoFatos() {

@@ -729,36 +729,19 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
 
   // ================= CÁLCULOS =================
   Future<void> _calcularResultadosObtidos() async {
-    // PASSO 4: Guarda para impedir recálculo em ordem concluída
-    if (_analiseConcluida) {
-      print('DEBUG: Cálculos bloqueados - análise já concluída');
-      return;
-    }
-    
-    print('DEBUG: _calcularResultadosObtidos chamado');
-    print('DEBUG: Produto selecionado: $produtoSelecionado');
-    
-    if (produtoSelecionado == null) {
-      print('DEBUG: Produto não selecionado, retornando');
-      return;
-    }
+    if (_analiseConcluida) return;
+
+    if (produtoSelecionado == null) return;
 
     final tempAmostra = campos['tempAmostra']!.text;
     final densObs = campos['densidadeAmostra']!.text;
     final tempCT = campos['tempCT']!.text;
     final fcvAtual = campos['fatorCorrecao']!.text;
 
-    print('DEBUG: tempAmostra: $tempAmostra, densObs: $densObs, tempCT: $tempCT, fcvAtual: $fcvAtual');
-
-    // Limpar campos antes de buscar
     campos['densidade20']!.text = '';
     campos['fatorCorrecao']!.text = '';
 
-    // Se temperatura da amostra OU densidade observada estiverem vazias, não calcula
-    if (tempAmostra.isEmpty || densObs.isEmpty) {
-      print('DEBUG: Campos de temperatura ou densidade vazios');
-      return;
-    }
+    if (tempAmostra.isEmpty || densObs.isEmpty) return;
 
     final dens20 = await _buscarDensidade20C(
       temperaturaAmostra: tempAmostra,
@@ -766,12 +749,9 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       produtoNome: produtoSelecionado!,
     );
 
-    print('DEBUG: densidade20 encontrada: $dens20');
     campos['densidade20']!.text = dens20;
 
-    // Se densidade20 for inválida ou temperatura CT estiver vazia, não busca FCV
     if (dens20 == '-' || dens20.isEmpty || tempCT.isEmpty) {
-      print('DEBUG: Condições não atendidas para buscar FCV');
       campos['fatorCorrecao']!.text = '-';
       setState(() {});
       return;
@@ -783,8 +763,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       produtoNome: produtoSelecionado!,
     );
 
-    print('DEBUG: FCV encontrado: $fcv');
-
     if (fcv != '-' && fcv.isNotEmpty) {
       campos['fatorCorrecao']!.text = fcv;
     } else {
@@ -793,96 +771,62 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       }
     }
 
-    // Se FCV foi atualizado, recalcular volume a 20°C automaticamente
-    if (fcv != '-' && fcv.isNotEmpty && campos['volumeCarregadoAmb']!.text.isNotEmpty) {
+    if (fcv != '-' &&
+        fcv.isNotEmpty &&
+        campos['volumeCarregadoAmb']!.text.isNotEmpty) {
       _calcularVolumeApurado20C();
     }
 
-    setState(() {
-      print('DEBUG: setState chamado após cálculos');
-    });
+    setState(() {});
   }
 
   String _formatarNumeroParaCampo(double valor) {
-    if (valor.isNaN || valor.isInfinite) {
-      return '';
-    }
-    
-    int valorInteiro = valor.round();
-    
-    String valorStr = valorInteiro.toString();
-    
-    valorStr = _aplicarMascaraMilhar(valorStr);
-    
-    return valorStr;
+    if (valor.isNaN || valor.isInfinite) return '';
+
+    final valorInteiro = valor.round();
+    return _aplicarMascaraMilhar(valorInteiro.toString());
   }
 
   String _aplicarMascaraMilhar(String texto) {
-    String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
-    
-    if (apenasNumeros.isEmpty || apenasNumeros == '0') {
-      return '0';
-    }
-    
+    final apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
+
+    if (apenasNumeros.isEmpty || apenasNumeros == '0') return '0';
+
     String resultado = '';
-    for (int i = apenasNumeros.length - 1, count = 0; i >= 0; i--, count++) {
-      if (count > 0 && count % 3 == 0) {
-        resultado = '.$resultado';
-      }
+    for (int i = apenasNumeros.length - 1, c = 0; i >= 0; i--, c++) {
+      if (c > 0 && c % 3 == 0) resultado = '.$resultado';
       resultado = apenasNumeros[i] + resultado;
     }
-    
+
     return resultado;
   }
 
   void _calcularVolumeApurado20C() {
-    // PASSO 4: Guarda para impedir recálculo em ordem concluída
-    if (_analiseConcluida) {
-      print('DEBUG: Cálculo de volume bloqueado - análise já concluída');
+    if (_analiseConcluida) return;
+
+    final fcvText = campos['fatorCorrecao']!.text;
+    if (fcvText.isEmpty || fcvText == '-') return;
+
+    final volumeAmbText = campos['volumeCarregadoAmb']!.text;
+    if (volumeAmbText.isEmpty) {
+      campos['volumeApurado20C']!.text = '';
       return;
     }
-    
-    try {
-      final fcvText = campos['fatorCorrecao']!.text;
-      if (fcvText.isEmpty || fcvText == '-') {
-        print('DEBUG: FCV não disponível para cálculo');
-        return;
-      }
-      
-      final volumeAmbText = campos['volumeCarregadoAmb']!.text;
-      if (volumeAmbText.isEmpty) {
-        campos['volumeApurado20C']!.text = '';
-        return;
-      }
-      
-      final volumeAmbLimpo = volumeAmbText.replaceAll('.', '');
-      final fcvLimpo = fcvText.replaceAll(',', '.');
-      
-      print('DEBUG: volumeAmbLimpo: $volumeAmbLimpo, fcvLimpo: $fcvLimpo');
-      
-      final volumeAmb = double.tryParse(volumeAmbLimpo);
-      final fcv = double.tryParse(fcvLimpo);
-      
-      if (volumeAmb == null || fcv == null) {
-        print('DEBUG: Não conseguiu converter valores para double');
-        return;
-      }
-      
-      final volume20C = volumeAmb * fcv;
-      print('DEBUG: volume20C calculado: $volume20C');
-      
-      String volume20CFormatado = _formatarNumeroParaCampo(volume20C);
-      print('DEBUG: volume20C formatado: $volume20CFormatado');
-      
-      campos['volumeApurado20C']!.text = volume20CFormatado;
-      
-      setState(() {});
-                    
-    } catch (e) {
-      print('DEBUG ERRO ao calcular volume 20°C automático: $e');
-    }
-  }
 
+    final volumeAmb =
+        double.tryParse(volumeAmbText.replaceAll('.', ''));
+    final fcv =
+        double.tryParse(fcvText.replaceAll(',', '.'));
+
+    if (volumeAmb == null || fcv == null) return;
+
+    final volume20C = volumeAmb * fcv;
+    campos['volumeApurado20C']!.text =
+        _formatarNumeroParaCampo(volume20C);
+
+    setState(() {});
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2208,7 +2152,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         'data_analise': _formatarDataParaBanco(dataCtrl.text),
         'hora_analise': horaCtrl.text,
 
-        'status': 'concluida',
+        'status': 'TRUE',
         'analise_concluida': true,
         'data_conclusao': DateTime.now().toIso8601String(),
         'tipo_operacao': null,
@@ -2295,7 +2239,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         .update({
           coluna20C: volume20C,
           'saida_vinte': volume20C,
-          'status_circuito': '4',
           'updated_at': DateTime.now().toIso8601String(),
         })
         .eq('id', movimentacaoId);
