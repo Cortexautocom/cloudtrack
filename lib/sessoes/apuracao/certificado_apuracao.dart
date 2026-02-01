@@ -826,7 +826,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
 
     setState(() {});
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2151,11 +2151,12 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       final Map<String, dynamic> dadosOrdem = {
         'data_analise': _formatarDataParaBanco(dataCtrl.text),
         'hora_analise': horaCtrl.text,
-
-        'status': 'TRUE',
+        
         'analise_concluida': true,
         'data_conclusao': DateTime.now().toIso8601String(),
-        'tipo_operacao': null,
+
+        // 🔹 VÍNCULO DEFINITIVO COM A MOVIMENTAÇÃO
+        'movimentacao_id': widget.idMovimentacao,
 
         'transportadora': campos['transportadora']!.text,
         'motorista': campos['motorista']!.text,
@@ -2174,13 +2175,12 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         'fator_correcao': _converterParaDecimal(campos['fatorCorrecao']!.text),
 
         'origem_ambiente': _converterParaInteiro(campos['volumeCarregadoAmb']!.text),
-        'destino_ambiente': null,
-        'origem_20c': null,
         'destino_20c': _converterParaInteiro(campos['volumeApurado20C']!.text),
 
         'usuario_id': user.id,
         'filial_id': usuario.filialId,
       };
+
 
       Map<String, dynamic> response;
 

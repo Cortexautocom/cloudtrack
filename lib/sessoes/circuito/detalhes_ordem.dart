@@ -393,58 +393,40 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
   
   Future<void> _abrirCertificadoApuracao() async {
     final ordemId = widget.ordem['ordem_id']?.toString();
-
-    if (ordemId == null || ordemId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Erro: Ordem ID não encontrado'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    if (_etapaAtual != EtapaCircuito.operacao) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Esta ordem não está no status "Em operação"'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
+    if (ordemId == null || ordemId.isEmpty) return;
 
     try {
       final movimentacoes = await _supabase
           .from('movimentacoes')
-          .select('id')
+          .select('id, status_circuito')
           .eq('ordem_id', ordemId)
           .order('id', ascending: true)
           .limit(1);
 
-      if (movimentacoes.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Nenhuma movimentação encontrada para esta ordem'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
-      }
+      if (!mounted) return;
+      if (movimentacoes.isEmpty) return;
 
       final movimentacaoId = movimentacoes.first['id']?.toString();
       if (movimentacaoId == null) return;
 
+      final certificado = await _supabase
+          .from('ordens_analises')
+          .select('id, analise_concluida')
+          .eq('movimentacao_id', movimentacaoId)
+          .maybeSingle();
+
+      if (!mounted) return;
+
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => EmitirCertificadoPage(
+          builder: (_) => EmitirCertificadoPage(
+            idCertificado: certificado?['id'],
             idMovimentacao: movimentacaoId,
             onVoltar: () async {
               final ordemId = widget.ordem['ordem_id'];
               if (ordemId == null) return;
 
               if (_tipoMovimentacao == TipoMovimentacao.descarregamento) {
-                // DESCARGA → pula 4 e grava direto 5
                 await _supabase
                     .from('movimentacoes')
                     .update({'status_circuito': 5})
@@ -456,7 +438,6 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                   widget.ordem['status_circuito'] = 5;
                 });
               } else {
-                // CARGA → vai para 4 (Emissão NF)
                 await _supabase
                     .from('movimentacoes')
                     .update({'status_circuito': 4})
@@ -470,21 +451,14 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
               }
 
               _carregarMovimentacoes();
+              if (!mounted) return;
               Navigator.of(context).pop();
             },
           ),
         ),
       );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao abrir certificado: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+    } catch (_) {}
   }
-
 
   // NOVO MÉTODO: Abrir diálogo do Check-list
   Future<void> _abrirDialogoChecklist() async {
@@ -1669,9 +1643,9 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     } else if (isChecklist && isAtual) {
       podeClicar = true;
       tooltip = 'Iniciar check-list de segurança';
-    } else if (etapa.etapa == EtapaCircuito.operacao && isAtual) {
+    } else if (etapa.etapa == EtapaCircuito.operacao && isCompleta) {
       podeClicar = true;
-      tooltip = 'Emitir certificado de apuração';
+      tooltip = 'Abrir certificado de apuração';
     } else if (_tipoMovimentacao == TipoMovimentacao.carregamento &&
         etapa.etapa == EtapaCircuito.emissaoNF &&
         isAtual) {
