@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'sessoes/ajuda/suporte.dart';
 
 class HomeCards extends StatelessWidget {
   final String menuSelecionado;
@@ -66,6 +67,13 @@ class HomeCards extends StatelessWidget {
   Widget _buildCardsAjuda(BuildContext context) {
     final List<Map<String, dynamic>> cards = [
       {
+        'titulo': 'Suporte',
+        'descricao': 'Central de ajuda, FAQs e contato com suporte técnico',
+        'icone': Icons.support_agent,
+        'cor': const Color(0xFF0D47A1),
+        'tipo': 'suporte',
+      },
+      {
         'titulo': 'O Grande Arquiteto',
         'descricao': 'Dicionário de dados, relações e estruturas do sistema',
         'icone': Icons.architecture,
@@ -90,7 +98,7 @@ class HomeCards extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.hardEdge,
       child: InkWell(
-        onTap: () => onCardSelecionado(context, card['tipo']),
+        onTap: () => _handleCardTap(context, card['tipo']),
         hoverColor: const Color(0xFFE8F5E9),
         child: Container(
           decoration: BoxDecoration(
@@ -136,5 +144,23 @@ class HomeCards extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // Novo método para lidar com o tap dos cards
+  void _handleCardTap(BuildContext context, String tipo) {
+    switch (tipo) {
+      case 'suporte':
+        // Navega para a página de Suporte
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const SuportePage(),
+          ),
+        );
+        break;
+      default:
+        // Para outros cards, usa o callback original
+        onCardSelecionado(context, tipo);
+    }
   }
 }
