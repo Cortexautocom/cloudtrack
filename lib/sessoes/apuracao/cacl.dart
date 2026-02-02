@@ -566,76 +566,65 @@ class _CalcPageState extends State<CalcPage> {
   Future<double> _buscarVolumeReal(String? cm, String? mm) async {
     final supabase = Supabase.instance.client;
 
-    if (cm == null || cm.isEmpty) {
-      return 0;
-    }
+    if (cm == null || cm.isEmpty) return 0;
 
     final intCm = int.tryParse(cm) ?? 0;
     final intMm = int.tryParse(mm ?? '0') ?? 0;
 
     final String? filialId = widget.dadosFormulario['filial_id']?.toString();
-    String nomeTabela;
-    
-    if (filialId != null) {
-      switch (filialId) {
-        case '9d476aa0-11fe-4470-8881-2699cb528690':
-          nomeTabela = 'arqueacao_jequie';
-          break;
-        case 'bcc92c8e-bd40-4d26-acb0-87acdd2ce2b7':
-          nomeTabela = 'arqueacao_base_teste';
-          break;
-        default:
-          nomeTabela = 'arqueacao_base_teste';
-      }
-    } else {
-      nomeTabela = 'arqueacao_base_teste';
+    String? nomeTabela;
+
+    // 1. Definição restrita das tabelas
+    if (filialId == '9d476aa0-11fe-4470-8881-2699cb528690') {
+      nomeTabela = 'arqueacao_jequie';
+    } else if (filialId == 'bcc92c8e-bd40-4d26-acb0-87acdd2ce2b7') {
+      nomeTabela = 'arqueacao_janauba';
     }
 
+    // 2. Validação de existência da tabela
+    if (nomeTabela == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Sem tabela de arqueação cadastrada")),
+      );
+      return 0;
+    }
+
+    // Lógica de identificação do tanque (mantida)
     final String tanqueRef = widget.dadosFormulario['tanque']?.toString() ?? '';
     String numeroTanque = '01';
-    
     if (tanqueRef.isNotEmpty) {
       final numeros = tanqueRef.replaceAll(RegExp(r'[^0-9]'), '');
-      if (numeros.isNotEmpty) {
-        numeroTanque = numeros.padLeft(2, '0');
-      }
+      if (numeros.isNotEmpty) numeroTanque = numeros.padLeft(2, '0');
     }
 
     final colunaCm = 'tq_${numeroTanque}_cm';
     final colunaMm = 'tq_${numeroTanque}_mm';
 
     try {
+      // Busca CM
       final resultadoCm = await supabase
           .from(nomeTabela)
           .select(colunaCm)
           .eq('altura_cm_mm', intCm)
           .maybeSingle();
 
-      if (resultadoCm == null || resultadoCm[colunaCm] == null) {
-        return 0;
-      }
+      if (resultadoCm == null || resultadoCm[colunaCm] == null) return 0;
 
       final volumeCm = _converterVolumeLitros(resultadoCm[colunaCm]);
+      if (intMm == 0) return volumeCm;
 
-      if (intMm == 0) {
-        return volumeCm;
-      }
-
+      // Busca MM
       final resultadoMm = await supabase
           .from(nomeTabela)
           .select(colunaMm)
           .eq('altura_cm_mm', intMm)
           .maybeSingle();
 
-      if (resultadoMm == null || resultadoMm[colunaMm] == null) {
-        return volumeCm;
-      }
+      final volumeMm = (resultadoMm != null && resultadoMm[colunaMm] != null)
+          ? _converterVolumeLitros(resultadoMm[colunaMm])
+          : 0.0;
 
-      final volumeMm = _converterVolumeLitros(resultadoMm[colunaMm]);
-      final volumeTotal = volumeCm + volumeMm;
-      
-      return double.parse(volumeTotal.toStringAsFixed(3));
-      
+      return double.parse((volumeCm + volumeMm).toStringAsFixed(3));
     } catch (e) {
       return 0;
     }
