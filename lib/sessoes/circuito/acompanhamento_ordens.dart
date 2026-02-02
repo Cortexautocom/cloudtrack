@@ -959,7 +959,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                     margin: const EdgeInsets.only(right: 12),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 6,
-                      vertical: 5,
+                      vertical: 10,
                     ),
                     decoration: BoxDecoration(
                       color: statusCor.withOpacity(0.12),
@@ -984,7 +984,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 12),
                         // Tipo da operação dentro do status box - COM MESMA COR
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -1004,7 +1004,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                             style: TextStyle(
                               fontSize: tipoOpTexto == 'Transferência' ? 9 : 10,
                               fontWeight: FontWeight.w600,
-                              color: statusCor,
+                              color: const Color.fromARGB(255, 121, 121, 121),
                             ),
                             textAlign: TextAlign.center,
                             maxLines: 2,
