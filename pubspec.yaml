@@ -49,12 +49,7 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/logo_top_home.png
-    - assets/logo_top_home3.png
-    - assets/background_login8.png
-    - assets/logo_top_login.png
-    - assets/logo_top_login3.png
-    - assets/arquiteto.png
+    - assets/
 
   fonts:
     - family: Cinzel
