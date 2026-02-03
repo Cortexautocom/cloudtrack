@@ -632,7 +632,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     child: MouseRegion(
                       cursor: SystemMouseCursors.click,
                       child: Image.asset(
-                        'assets/logo_top_home.png',
+                        'assets/logo_top_home3.png',
                         fit: BoxFit.contain,
                       ),
                     ),

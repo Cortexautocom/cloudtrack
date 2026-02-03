@@ -9,12 +9,12 @@
 
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="cloudtrack">
+  <meta name="apple-mobile-web-app-title" content="PowerTank">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
-  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="icon" href="favicon.ico"/>
 
-  <title>cloudtrack</title>
+  <title>PowerTank</title>
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
@@ -25,7 +25,7 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('flutter_service_worker.js?v=1');
+        navigator.serviceWorker.register('flutter_service_worker.js?v=2');
       });
     }
   </script>
