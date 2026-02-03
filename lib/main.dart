@@ -53,7 +53,7 @@ class _MyAppState extends State<MyApp> {
     
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'CloudTrack',
+      title: 'PowerTank',
       theme: ThemeData(
         fontFamily: 'Arial',
         scaffoldBackgroundColor: Colors.white,
