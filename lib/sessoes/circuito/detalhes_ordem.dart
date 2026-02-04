@@ -417,47 +417,44 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
 
       if (!mounted) return;
 
-      Navigator.of(context).push(
+      // MODIFICAÇÃO AQUI: Use await Navigator.push e capture o resultado
+      final result = await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => EmitirCertificadoPage(
             idCertificado: certificado?['id'],
             idMovimentacao: movimentacaoId,
-            onVoltar: () async {
-              final ordemId = widget.ordem['ordem_id'];
-              if (ordemId == null) return;
-
-              if (_tipoMovimentacao == TipoMovimentacao.descarregamento) {
-                await _supabase
-                    .from('movimentacoes')
-                    .update({'status_circuito': 5})
-                    .eq('ordem_id', ordemId);
-
-                if (!mounted) return;
-                setState(() {
-                  _etapaAtual = EtapaCircuito.veiculoLiberado;
-                  widget.ordem['status_circuito'] = 5;
-                });
-              } else {
-                await _supabase
-                    .from('movimentacoes')
-                    .update({'status_circuito': 4})
-                    .eq('ordem_id', ordemId);
-
-                if (!mounted) return;
-                setState(() {
-                  _etapaAtual = EtapaCircuito.emissaoNF;
-                  widget.ordem['status_circuito'] = 4;
-                });
-              }
-
-              _carregarMovimentacoes();
-              if (!mounted) return;
-              Navigator.of(context).pop();
+            onVoltar: () {
+              // Agora apenas fecha a página
+              Navigator.of(context).pop(true); // ← Retorna true
             },
           ),
         ),
       );
-    } catch (_) {}
+
+      // VERIFICAÇÃO DO RESULTADO: Se voltou com true, atualize a tela
+      if (result == true && mounted) {
+        // Recarregue os dados da tela atual
+        await _carregarMovimentacoes();
+        
+        // Atualize o status local se necessário
+        final movimentacoesAtualizadas = await _supabase
+            .from('movimentacoes')
+            .select('status_circuito')
+            .eq('ordem_id', ordemId)
+            .order('id', ascending: true)
+            .limit(1);
+
+        if (movimentacoesAtualizadas.isNotEmpty && mounted) {
+          final novoStatus = movimentacoesAtualizadas.first['status_circuito'];
+          setState(() {
+            widget.ordem['status_circuito'] = novoStatus;
+            _etapaAtual = _resolverEtapaPorStatus(novoStatus);
+          });
+        }
+      }
+    } catch (_) {
+      // Tratamento de erro
+    }
   }
 
   // NOVO MÉTODO: Abrir diálogo do Check-list

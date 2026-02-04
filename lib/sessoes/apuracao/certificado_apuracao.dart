@@ -1896,9 +1896,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   void _voltar() {
     FocusScope.of(context).unfocus();
     
-    if (Navigator.canPop(context)) {
-      Navigator.of(context).pop();
-    }
+    Navigator.of(context).pop(true);
   }
 
   // Método para confirmar emissão do certificado
@@ -2180,7 +2178,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       await supabase
           .from('movimentacoes')
           .update({
-            'status_circuito': 'CONCLUIDO', // ou outro status apropriado
+            'status_circuito': '4', // ou outro status apropriado
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('id', movimentacaoId);
