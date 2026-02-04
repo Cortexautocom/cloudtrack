@@ -50,6 +50,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     'Vendas',
     'Gestão de Frota',
     'Bombeios e Cotas',
+    'Financeiro',
+    'Jurídico',
+    'Gestão de Projetos',
+    'Recursos Humanos',
     'Relatórios',
     'Configurações',
     'Ajuda'
@@ -126,6 +130,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     'Vendas': const Color(0xFF4CAF50),   // Verde
     'Gestão de Frota': const Color(0xFFF44336), // Vermelho
     'Bombeios e Cotas': const Color(0xFF00BCD4), // Ciano
+    'Financeiro': const Color(0xFF009688), // Verde-água
+    'Jurídico': const Color(0xFF3F51B5), // Índigo
+    'Gestão de Projetos': const Color(0xFFFF5722), // Laranja profundo
+    'Recursos Humanos': const Color(0xFFE91E63), // Rosa
     'Relatórios': const Color(0xFF795548), // Marrom
     'Configurações': const Color(0xFF607D8B), // Azul cinza
     'Ajuda': const Color(0xFF673AB7), // Roxo profundo
@@ -707,6 +715,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           itemCount: menuItems.length,
                           itemBuilder: (context, index) {
                             bool isSelected = selectedIndex == index;
+                            final nomeItem = menuItems[index];
+                            final nomeFormatado = _formatarNomeMenu(nomeItem);
+                            
                             return InkWell(
                               onTap: () {
                                 _resetarTodasFlags();
@@ -725,7 +736,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 400),
                                 padding: const EdgeInsets.symmetric(
-                                    vertical: 15, horizontal: 10),
+                                    vertical: 16, horizontal: 10), // Aumentei de 15 para 16
                                 decoration: BoxDecoration(
                                   color: isSelected
                                       ? Colors.white
@@ -740,24 +751,31 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   ),
                                 ),
                                 child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center, // Centraliza verticalmente
                                   children: [
                                     Icon(
-                                      _getMenuIcon(menuItems[index]),
+                                      _getMenuIcon(nomeItem),
                                       color: isSelected
-                                          ? _getCorPorSessao(menuItems[index])
+                                          ? _getCorPorSessao(nomeItem)
                                           : Colors.grey[700],
                                       size: 20,
                                     ),
                                     const SizedBox(width: 10),
-                                    Text(
-                                      menuItems[index],
-                                      style: TextStyle(
-                                        fontWeight: isSelected
-                                            ? FontWeight.bold
-                                            : FontWeight.w500,
-                                        color: isSelected
-                                            ? _getCorPorSessao(menuItems[index])
-                                            : Colors.grey[800],
+                                    Expanded( // Adiciona Expanded para melhor controle
+                                      child: Text(
+                                        nomeFormatado,
+                                        style: TextStyle(
+                                          fontWeight: isSelected
+                                              ? FontWeight.bold
+                                              : FontWeight.w500,
+                                          color: isSelected
+                                              ? _getCorPorSessao(nomeItem)
+                                              : Colors.grey[800],
+                                          fontSize: 13, // Pode ajustar se necessário
+                                          height: 1.1, // Controla espaçamento entre linhas
+                                        ),
+                                        maxLines: 2, // Permite até 2 linhas
+                                        overflow: TextOverflow.visible, // Não corta o texto
                                       ),
                                     ),
                                   ],
@@ -841,6 +859,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         }
         return _buildAjudaPage();
 
+      case 'Financeiro':
+      case 'Jurídico':
+      case 'Gestão de Projetos':
+      case 'Recursos Humanos':
+        return _buildAreaIndisponivelPage();
+
       case 'Estoques':
       case 'Apuração':
       case 'Circuito':
@@ -852,6 +876,43 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       default:
         return const SizedBox.shrink();
     }
+  }
+
+  // NOVO: Página padronizada para áreas indisponíveis
+  Widget _buildAreaIndisponivelPage() {
+    final areaAtual = menuItems[selectedIndex];
+    
+    return _buildPaginaPadronizada(
+      titulo: areaAtual,
+      conteudo: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.do_not_disturb,
+              size: 80,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 30), // Aumente este espaçamento
+            const Text(
+              'Ainda indisponível para sua organização',
+              style: TextStyle(
+                fontSize: 24,
+                color: Colors.grey,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 15), // Aumente este espaçamento
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              
+            ),
+            // BOTÃO REMOVIDO - apenas mantenha a mensagem
+          ],
+        ),
+      ),
+      mostrarVoltar: false,
+    );
   }
 
   Widget _buildAjudaPage() {
@@ -2001,6 +2062,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         return Icons.local_shipping;
       case 'Bombeios e Cotas':
         return Icons.invert_colors;
+      case 'Financeiro':
+        return Icons.account_balance_wallet;
+      case 'Jurídico':
+        return Icons.gavel;
+      case 'Gestão de Projetos':
+        return Icons.assignment;
+      case 'Recursos Humanos':
+        return Icons.people;
       case 'Relatórios':
         return Icons.bar_chart;
       case 'Configurações':
@@ -2089,4 +2158,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       },
     );
   }
+
+  // Método para adicionar quebras de linha nos nomes longos
+  String _formatarNomeMenu(String nomeOriginal) {
+    // Mapeia os nomes que precisam de quebra de linha
+    final Map<String, String> quebras = {
+      'Recursos Humanos': 'Recursos\nHumanos',
+      'Gestão de Projetos': 'Gestão de\nProjetos',
+      'Bombeios e Cotas': 'Bombeios\ne Cotas',
+      'Configurações': 'Configurações', // Mantém igual (opcional)
+    };
+    
+    return quebras[nomeOriginal] ?? nomeOriginal;
+  }
+
 }
