@@ -161,10 +161,9 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       // Carregar estoque inicial (do final do mês anterior)
       await _carregarEstoqueInicial();
 
-      // Carregar movimentações
-      if (widget.tipoRelatorio == 'analitico') {
-        await _carregarDadosAnalitico();
-      } else {
+      await _carregarDadosAnalitico();
+
+      if (widget.tipoRelatorio == 'sintetico') {
         await _carregarDadosSintetico();
       }
       
@@ -516,10 +515,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
 
   Future<void> _carregarDadosSintetico() async {
     try {
-      // Primeiro carregar os dados analíticos
-      await _carregarDadosAnalitico();
       
-      // Agrupar por data
       final Map<String, List<Map<String, dynamic>>> porDia = {};
       
       for (var mov in _movimentacoes) {
@@ -862,7 +858,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            if (widget.mesFiltro != null || widget.produtoFiltro != null)
               Text(
                 _getSubtitleFiltros(),
                 style: const TextStyle(
@@ -972,47 +967,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   }
 
   Widget _buildIndicadorFiltros() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE3F2FD),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF0D47A1).withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.filter_alt, color: Color(0xFF0D47A1), size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              _getSubtitleFiltros(),
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF0D47A1),
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: const Text(
-              'Alterar',
-              style: TextStyle(
-                fontSize: 12,
-                color: Color(0xFF0D47A1),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return const SizedBox.shrink();
   }
 
   Widget _buildCarregando() {
