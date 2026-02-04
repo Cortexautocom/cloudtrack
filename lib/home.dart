@@ -1177,7 +1177,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
 
     if (_mostrarTempDensMedia) {
-      return TemperaturaDensidadeMediaPage();
+      return TemperaturaDensidadeMediaPage(
+        onVoltar: () {
+          setState(() {
+            _mostrarTempDensMedia = false;
+            _mostrarFilhosDaSessao('Apuração');
+          });
+        },
+      );
     }
 
     if (_mostrarCalcGerado) {

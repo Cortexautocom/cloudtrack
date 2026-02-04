@@ -15,7 +15,7 @@ class PlacaAutocompleteField extends StatefulWidget {
   final String label;
   final FocusNode? focusNode;
   final void Function(String)? onChanged;
-  final bool enabled; // NOVO: Parâmetro para habilitar/desabilitar
+  final bool enabled;
 
   const PlacaAutocompleteField({
     super.key,
@@ -23,7 +23,7 @@ class PlacaAutocompleteField extends StatefulWidget {
     required this.label,
     this.focusNode,
     this.onChanged,
-    this.enabled = true, // NOVO: Valor padrão true
+    this.enabled = true,
   });
 
   @override
@@ -43,7 +43,6 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
     super.initState();
     _internalFocusNode.addListener(_onFocusChanged);
     
-    // Se um focusNode externo foi fornecido, sincronize com o interno
     if (widget.focusNode != null) {
       widget.focusNode!.addListener(_onExternalFocusChanged);
     }
@@ -58,13 +57,11 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
   }
 
   void _onFocusChanged() {
-    // NOVO: Verificar se está habilitado
     if (!widget.enabled) return;
     
     if (_internalFocusNode.hasFocus) {
       _mostrarOverlay();
     } else {
-      // Pequeno delay para permitir clique nos itens
       Future.delayed(const Duration(milliseconds: 200), () {
         if (!_internalFocusNode.hasFocus) {
           _fecharOverlay();
@@ -74,7 +71,6 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
   }
 
   Future<void> _buscarPlacas(String texto) async {
-    // NOVO: Verificar se está habilitado
     if (!widget.enabled) return;
     
     if (texto.length < 3) {
@@ -121,13 +117,10 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
   }
 
   void _onTextChanged(String texto) {
-    // NOVO: Verificar se está habilitado
     if (!widget.enabled) return;
     
-    // Cancelar timer anterior
     _debounceTimer?.cancel();
     
-    // Limpar sugestões imediatamente se texto muito curto
     if (texto.length < 3) {
       setState(() {
         _sugestoes.clear();
@@ -136,21 +129,18 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
       return;
     }
 
-    // Configurar novo timer de debounce
     _debounceTimer = Timer(const Duration(milliseconds: 300), () {
       if (mounted) {
         _buscarPlacas(texto);
       }
     });
 
-    // Chamar callback externo se fornecido
     if (widget.onChanged != null) {
       widget.onChanged!(texto);
     }
   }
 
   void _onPlacaSelecionada(String placa) {
-    // NOVO: Verificar se está habilitado
     if (!widget.enabled) return;
     
     widget.controller.text = placa;
@@ -160,14 +150,12 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
     _fecharOverlay();
     _internalFocusNode.unfocus();
     
-    // Mover cursor para o final
     widget.controller.selection = TextSelection.fromPosition(
       TextPosition(offset: placa.length),
     );
   }
 
   void _mostrarOverlay() {
-    // NOVO: Verificar se está habilitado
     if (!widget.enabled) return;
     
     if (_sugestoes.isEmpty || _overlayEntry != null) return;
@@ -264,13 +252,13 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
             maxLength: 8,
             textCapitalization: TextCapitalization.characters,
             onChanged: _onTextChanged,
-            enabled: widget.enabled, // NOVO: Usar parâmetro enabled
+            enabled: widget.enabled,
             decoration: InputDecoration(
               labelText: widget.label,
               counterText: '',
               hintText: '',
               filled: true,
-              fillColor: widget.enabled ? Colors.white : Colors.grey[200], // NOVO: Cor diferente quando desabilitado
+              fillColor: widget.enabled ? Colors.white : Colors.grey[200],
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
               ),
@@ -289,7 +277,7 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
   }
 }
 
-// ================= PÁGINA PRINCIPAL (COM AS ALTERAÇÕES) =================
+// ================= PÁGINA PRINCIPAL =================
 class EmitirCertificadoPage extends StatefulWidget {
   final VoidCallback onVoltar;
   final String? idCertificado;
@@ -309,20 +297,17 @@ class EmitirCertificadoPage extends StatefulWidget {
 
 class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   final _formKey = GlobalKey<FormState>();
-  bool _analiseConcluida = false;
-  bool _modoEdicao = false;
   bool _modoVisualizacao = false;
   Map<String, dynamic>? _dadosExistentes;
   bool _carregandoDadosMovimentacao = false;
+  bool _salvandoCertificado = false;
 
-  
   // ================= CONTROLLERS =================
   final TextEditingController dataCtrl = TextEditingController();
   final TextEditingController horaCtrl = TextEditingController();
   final FocusNode _focusTempCT = FocusNode();
 
   final Map<String, TextEditingController?> campos = {
-    // Cabeçalho
     'numeroControle': TextEditingController(),
     'transportadora': TextEditingController(),
     'motorista': TextEditingController(),
@@ -332,16 +317,13 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     'carreta1': TextEditingController(),
     'carreta2': TextEditingController(),
 
-    // Coletas (usuário)
     'tempAmostra': TextEditingController(),
     'densidadeAmostra': TextEditingController(),
     'tempCT': TextEditingController(),
 
-    // Resultados (automáticos)
     'densidade20': TextEditingController(),
     'fatorCorrecao': TextEditingController(),
 
-    // Volumes apurados
     'volumeCarregadoAmb': TextEditingController(),
     'volumeApurado20C': TextEditingController(),
   };
@@ -364,11 +346,11 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     });
 
     if (widget.idCertificado != null && widget.idCertificado!.isNotEmpty) {
-      // CERTIFICADO EXISTE → VISUALIZAÇÃO
+      // MODO VISUALIZAÇÃO - Certificado já existe
       _modoVisualizacao = true;
       _carregarDadosCertificado(widget.idCertificado!);
     } else {
-      // CERTIFICADO NÃO EXISTE → EDIÇÃO
+      // MODO CRIAÇÃO - Novo certificado
       _modoVisualizacao = false;
       if (widget.idMovimentacao != null && widget.idMovimentacao!.isNotEmpty) {
         _carregarDadosMovimentacao(widget.idMovimentacao!);
@@ -563,18 +545,10 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       
       _dadosExistentes = Map<String, dynamic>.from(dados);
       
-      // PASSO 1: Detectar se a análise está concluída
-      if (_dadosExistentes!['analise_concluida'] == true) {
-        setState(() {
-          _analiseConcluida = true;
-        });
-      }
-      
       _preencherCamposComDadosExistentes();
       
     } catch (e) {
       print('Erro ao carregar certificado: $e');
-      _modoEdicao = false;
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -679,10 +653,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         produtos =
             dados.map<String>((p) => p['nome'].toString()).toList();
         carregandoProdutos = false;
-        
-        if (_modoEdicao && produtoSelecionado != null && produtos.contains(produtoSelecionado)) {
-          // Já está selecionado pelo _preencherCamposComDadosExistentes
-        }
       });
     } catch (_) {
       carregandoProdutos = false;
@@ -691,14 +661,13 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
 
   // ================= CÁLCULOS =================
   Future<void> _calcularResultadosObtidos() async {
-    if (_analiseConcluida) return;
+    if (_modoVisualizacao) return;
 
     if (produtoSelecionado == null) return;
 
     final tempAmostra = campos['tempAmostra']!.text;
     final densObs = campos['densidadeAmostra']!.text;
     final tempCT = campos['tempCT']!.text;
-    final fcvAtual = campos['fatorCorrecao']!.text;
 
     campos['densidade20']!.text = '';
     campos['fatorCorrecao']!.text = '';
@@ -728,9 +697,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     if (fcv != '-' && fcv.isNotEmpty) {
       campos['fatorCorrecao']!.text = fcv;
     } else {
-      if (fcvAtual.isEmpty || fcvAtual == '-') {
-        campos['fatorCorrecao']!.text = '-';
-      }
+      campos['fatorCorrecao']!.text = '-';
     }
 
     if (fcv != '-' &&
@@ -764,7 +731,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   }
 
   void _calcularVolumeApurado20C() {
-    if (_analiseConcluida) return;
+    if (_modoVisualizacao) return;
 
     final fcvText = campos['fatorCorrecao']!.text;
     if (fcvText.isEmpty || fcvText == '-') return;
@@ -799,7 +766,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
             children: [
               IconButton(
                 icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
-                onPressed: widget.onVoltar,
+                onPressed: _voltar,
               ),
               const Text(
                 'Certificado de Apuração de Volumes',
@@ -814,11 +781,11 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                   margin: const EdgeInsets.only(left: 12),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.orange,
+                    color: Colors.green,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Text(
-                    'Modo Visualização',
+                    'Certificado Emitido',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -829,16 +796,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
             ],
           ),
           const Divider(),
-
-          // ================= BLOQUEIO GLOBAL =================
-          AbsorbPointer(
-            absorbing: _modoVisualizacao || _carregandoDadosMovimentacao,
-            child: Column(
-              children: [
-                // formulário
-              ],
-            ),
-          ),
 
           // ================= CONTEÚDO =================
           Expanded(
@@ -877,10 +834,10 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                           Opacity(
                             opacity: _carregandoDadosMovimentacao ? 0.5 : 1.0,
                             child: AbsorbPointer(
-                              absorbing: _analiseConcluida && !_modoEdicao || _carregandoDadosMovimentacao,
+                              absorbing: _modoVisualizacao || _carregandoDadosMovimentacao,
                               child: Column(
                                 children: [
-                                // ================= NÚMERO DE CONTROLE =================
+                                  // ================= NÚMERO DE CONTROLE =================
                                   _linha([
                                     Material(
                                       shape: RoundedRectangleBorder(
@@ -890,7 +847,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                         controller: campos['numeroControle'],
                                         enabled: false,
                                         decoration: _decoration('Nº Controle do Certificado').copyWith(
-                                          hintText: 'A ser gerado automaticamente',
+                                          hintText: _modoVisualizacao ? '' : 'A ser gerado automaticamente',
                                           filled: true,
                                           fillColor: Colors.grey[200],
                                         ),
@@ -908,8 +865,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                       'widget': TextFormField(
                                                   controller: campos['notas'],
                                                   keyboardType: TextInputType.number,
-                                                  // PASSO 3: Desabilitar onChanged quando concluído
-                                                  onChanged: _analiseConcluida ? null : (value) {
+                                                  onChanged: _modoVisualizacao ? null : (value) {
                                                     final cursorPosition = campos['notas']!.selection.baseOffset;
                                                     final maskedValue = _aplicarMascaraNotasFiscais(value);
 
@@ -922,10 +878,10 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                                       );
                                                     }
                                                   },
-                                                  enabled: !_analiseConcluida, // PASSO 3
+                                                  enabled: !_modoVisualizacao,
                                                   decoration: _decoration('Notas Fiscais').copyWith(
                                                     hintText: '',
-                                                    fillColor: _analiseConcluida ? Colors.grey[200] : Colors.white,
+                                                    fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
                                                   ),
                                                 ),
                                     },
@@ -952,14 +908,14 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                                     ),
                                                   )
                                                   .toList(),
-                                              onChanged: _analiseConcluida ? null : (valor) { // ← Quando onChanged é null, o campo fica automaticamente desabilitado
+                                              onChanged: _modoVisualizacao ? null : (valor) {
                                                 setState(() {
                                                   produtoSelecionado = valor;
                                                 });
                                                 _calcularResultadosObtidos();
                                               },
                                               decoration: _decoration('Produto').copyWith(
-                                                fillColor: _analiseConcluida ? Colors.grey[200] : Colors.white,
+                                                fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
                                               ),
                                             ),
                                     },
@@ -980,10 +936,10 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                       'widget': TextFormField(
                                         controller: campos['motorista'],
                                         maxLength: 50,
-                                        enabled: !_analiseConcluida, // PASSO 3
+                                        enabled: !_modoVisualizacao,
                                         decoration: _decoration('Motorista').copyWith(
                                           counterText: '',
-                                          fillColor: _analiseConcluida ? Colors.grey[200] : Colors.white,
+                                          fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
                                         ),
                                       ),
                                     },
@@ -992,10 +948,10 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                       'widget': TextFormField(
                                         controller: campos['transportadora'],
                                         maxLength: 50,
-                                        enabled: !_analiseConcluida, // PASSO 3
+                                        enabled: !_modoVisualizacao,
                                         decoration: _decoration('Transportadora').copyWith(
                                           counterText: '',
-                                          fillColor: _analiseConcluida ? Colors.grey[200] : Colors.white,
+                                          fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
                                         ),
                                       ),
                                     },
@@ -1008,7 +964,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                       'widget': PlacaAutocompleteField(
                                         controller: campos['placaCavalo']!,
                                         label: 'Placa do cavalo',
-                                        enabled: !_analiseConcluida, // PASSO 3
+                                        enabled: !_modoVisualizacao,
                                       ),
                                     },
                                     {
@@ -1016,7 +972,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                       'widget': PlacaAutocompleteField(
                                         controller: campos['carreta1']!,
                                         label: 'Carreta 1',
-                                        enabled: !_analiseConcluida, // PASSO 3
+                                        enabled: !_modoVisualizacao,
                                       ),
                                     },
                                     {
@@ -1024,19 +980,18 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                       'widget': PlacaAutocompleteField(
                                         controller: campos['carreta2']!,
                                         label: 'Carreta 2',
-                                        enabled: !_analiseConcluida, // PASSO 3
+                                        enabled: !_modoVisualizacao,
                                       ),
                                     },
                                   ]),
                                   const SizedBox(height: 20),
                                   _secao('Coletas na presença do motorista'),
                                   _linha([
-                                    // PASSO 3: Temperatura da amostra - bloqueado quando concluído
                                     TextFormField(
                                       controller: campos['tempAmostra'],
                                       keyboardType: TextInputType.number,
-                                      enabled: !_analiseConcluida, // PASSO 3
-                                      onChanged: _analiseConcluida ? null : (value) { // PASSO 3
+                                      enabled: !_modoVisualizacao,
+                                      onChanged: _modoVisualizacao ? null : (value) {
                                         final masked = _aplicarMascaraTemperatura(value);
 
                                         if (masked != value) {
@@ -1048,16 +1003,15 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                       },
                                       decoration: _decoration('Temperatura da amostra (°C)').copyWith(
                                         hintText: '00,0',
-                                        fillColor: _analiseConcluida ? Colors.grey[200] : Colors.white,
+                                        fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
                                       ),
                                     ),
 
-                                    // PASSO 3: Densidade observada - bloqueado quando concluído
                                     TextFormField(
                                       controller: campos['densidadeAmostra'],
                                       keyboardType: TextInputType.number,
-                                      enabled: !_analiseConcluida, // PASSO 3
-                                      onChanged: _analiseConcluida ? null : (value) { // PASSO 3
+                                      enabled: !_modoVisualizacao,
+                                      onChanged: _modoVisualizacao ? null : (value) {
                                         final masked = _aplicarMascaraDensidade(value);
 
                                         if (masked != value) {
@@ -1069,17 +1023,16 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                       },
                                       decoration: _decoration('Densidade observada').copyWith(
                                         hintText: '0,0000',
-                                        fillColor: _analiseConcluida ? Colors.grey[200] : Colors.white,
+                                        fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
                                       ),
                                     ),
 
-                                    // PASSO 3: Temperatura do CT - bloqueado quando concluído
                                     TextFormField(
                                       controller: campos['tempCT'],
-                                      focusNode: _analiseConcluida ? null : _focusTempCT, // PASSO 3
+                                      focusNode: _modoVisualizacao ? null : _focusTempCT,
                                       keyboardType: TextInputType.number,
-                                      enabled: !_analiseConcluida, // PASSO 3
-                                      onChanged: _analiseConcluida ? null : (value) { // PASSO 3
+                                      enabled: !_modoVisualizacao,
+                                      onChanged: _modoVisualizacao ? null : (value) {
                                         final masked = _aplicarMascaraTemperatura(value);
 
                                         if (masked != value) {
@@ -1091,26 +1044,22 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                       },
                                       decoration: _decoration('Temperatura do CT (°C)').copyWith(
                                         hintText: '00,0',
-                                        fillColor: _analiseConcluida ? Colors.grey[200] : Colors.white,
+                                        fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
                                       ),
                                     ),
-
                                   ]),
                                   const SizedBox(height: 20),
                                   _secao('Resultados obtidos'),
                                   _linha([
-                                    // PASSO 3: Densidade a 20°C - bloqueado quando concluído
                                     _campo('Densidade a 20 ºC', campos['densidade20']!, 
-                                           enabled: !_analiseConcluida), // PASSO 3
+                                           enabled: false), 
                                     
-                                    // PASSO 3: FCV - bloqueado quando concluído
                                     _campo('Fator de correção (FCV)', campos['fatorCorrecao']!, 
-                                           enabled: !_analiseConcluida), // PASSO 3
+                                           enabled: false), 
                                   ]),
                                   const SizedBox(height: 20),
                                   _secao('Volumes apurados'),
                                   _linha([
-                                    // PASSO 3: Volume carregado ambiente - bloqueado quando concluído
                                     TextFormField(
                                       controller: campos['volumeCarregadoAmb'],
                                       keyboardType: TextInputType.number,
@@ -1133,8 +1082,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                       ),
                                     ),
 
-                                    
-                                    // PASSO 3: Volume apurado a 20°C - bloqueado quando concluído
                                     TextFormField(
                                       controller: campos['volumeApurado20C'],
                                       keyboardType: TextInputType.number,
@@ -1167,25 +1114,54 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              ElevatedButton.icon(
-                                onPressed: _modoVisualizacao ? null : _confirmarEmissaoCertificado,
-                                icon: const Icon(Icons.check_circle, size: 24),
-                                label: Text(
-                                  _modoVisualizacao ? 'Certificado emitido' : 'Emitir certificado',
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      _modoVisualizacao ? Colors.grey[400] : Colors.green,
-                                  foregroundColor: Colors.white,
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
+                              // BOTÃO EMITIR CERTIFICADO
+                              if (!_modoVisualizacao)
+                                ElevatedButton.icon(
+                                  onPressed: _salvandoCertificado ? null : _confirmarEmissaoCertificado,
+                                  icon: _salvandoCertificado 
+                                      ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Icon(Icons.check_circle, size: 24),
+                                  label: Text(
+                                    _salvandoCertificado ? 'Emitindo...' : 'Emitir certificado',
+                                    style: const TextStyle(fontSize: 16),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    foregroundColor: Colors.white,
+                                    padding:
+                                        const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                )
+                              else
+                                ElevatedButton.icon(
+                                  onPressed: null,
+                                  icon: const Icon(Icons.check_circle, size: 24),
+                                  label: const Text(
+                                    'Certificado emitido',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.grey[400],
+                                    foregroundColor: Colors.white,
+                                    padding:
+                                        const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
                                   ),
                                 ),
-                              ),
 
+                              // BOTÃO GERAR PDF
                               ElevatedButton.icon(
                                 onPressed: _modoVisualizacao ? _baixarPDF : null,
                                 icon: const Icon(Icons.picture_as_pdf, size: 24),
@@ -1207,8 +1183,9 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                 ),
                               ),
 
+                              // BOTÃO VOLTAR
                               ElevatedButton.icon(
-                                onPressed: widget.onVoltar,
+                                onPressed: _voltar,
                                 icon: const Icon(Icons.arrow_back, size: 24),
                                 label: const Text(
                                   'Voltar',
@@ -1647,12 +1624,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
           if (r != null && r['v_$codigoMaisProximo'] != null) {
             if (context.mounted && diferenca > 0.0001) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Usando fator de correção aproximado'),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
               });
             }
             return _formatarFCV(r['v_$codigoMaisProximo'].toString());
@@ -1714,10 +1685,10 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       return;
     }
 
-    if (!_analiseConcluida) {
+    if (!_modoVisualizacao) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Conclua a análise primeiro para gerar o PDF!'),
+          content: Text('Emita o certificado primeiro para gerar o PDF!'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -1921,6 +1892,15 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         : '$parteInteira,$parteDecimal';
   }
 
+  // ================= BOTÃO VOLTAR =================
+  void _voltar() {
+    FocusScope.of(context).unfocus();
+    
+    if (Navigator.canPop(context)) {
+      Navigator.of(context).pop();
+    }
+  }
+
   // Método para confirmar emissão do certificado
   void _confirmarEmissaoCertificado() {
     if (produtoSelecionado == null) {
@@ -1932,15 +1912,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       );
       return;
     }
-
-    final String titulo = _modoEdicao ? 'Atualizar Certificado' : 'Emitir Certificado';
-    final String mensagem = _modoEdicao 
-      ? 'Tem certeza que deseja atualizar este certificado?'
-      : 'Tem certeza que deseja emitir o certificado?';
-    final String mensagemAviso = _modoEdicao
-      ? 'Esta atualização substituirá os dados anteriores do certificado.'
-      : 'Após a emissão, qualquer edição ou correção no documento só poderá ser realizada por um supervisor nível 3.';
-    final String textoBotao = _modoEdicao ? 'Confirmar Atualização' : 'Confirmar Emissão';
 
     showDialog(
       context: context,
@@ -1966,11 +1937,11 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
             ),
             child: Row(
               children: [
-                Icon(_modoEdicao ? Icons.edit : Icons.warning_amber, color: Colors.white, size: 28),
+                const Icon(Icons.warning_amber, color: Colors.white, size: 28),
                 const SizedBox(width: 12),
-                Text(
-                  titulo,
-                  style: const TextStyle(
+                const Text(
+                  'Emitir Certificado',
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -1986,9 +1957,9 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 8),
-                Text(
-                  mensagem,
-                  style: const TextStyle(
+                const Text(
+                  'Tem certeza que deseja emitir o certificado?',
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
@@ -1998,21 +1969,21 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: _modoEdicao ? Colors.blue[50] : Colors.amber[50],
+                    color: Colors.amber[50],
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: _modoEdicao ? Colors.blue[200]! : Colors.amber[200]!),
+                    border: Border.all(color: Colors.amber[200]!),
                   ),
-                  child: Row(
+                  child: const Row(
                     children: [
-                      Icon(_modoEdicao ? Icons.info : Icons.info_outline, 
-                           color: _modoEdicao ? Colors.blue : Colors.amber, size: 20),
-                      const SizedBox(width: 8),
+                      Icon(Icons.info_outline, 
+                           color: Colors.amber, size: 20),
+                      SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          mensagemAviso,
+                          'Após a emissão, qualquer edição ou correção no documento só poderá ser realizada por um supervisor nível 3.',
                           style: TextStyle(
                             fontSize: 14,
-                            color: _modoEdicao ? Colors.blue[800] : const Color.fromARGB(255, 239, 108, 0),
+                            color: Color.fromARGB(255, 239, 108, 0),
                           ),
                         ),
                       ),
@@ -2048,16 +2019,16 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                 _processarEmissaoCertificado();
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: _modoEdicao ? Colors.blue : Colors.green,
+                backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: Text(
-                textoBotao,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              child: const Text(
+                'Confirmar Emissão',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -2067,15 +2038,13 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     );
   }
   
-  // Método para processar a emissão/atualização do certificado
+  // Método para processar a emissão do certificado
   Future<void> _processarEmissaoCertificado() async {
     if (!mounted) return;
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+    setState(() {
+      _salvandoCertificado = true;
+    });
 
     try {
       final supabase = Supabase.instance.client;
@@ -2089,6 +2058,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
 
       final produtoId = await _resolverProdutoId(produtoSelecionado!);
 
+      // Dados do certificado
       final dadosOrdem = {
         'data_analise': _formatarDataParaBanco(dataCtrl.text),
         'hora_analise': horaCtrl.text,
@@ -2121,6 +2091,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         'filial_id': usuario.filialId,
       };
 
+      // INSERIR o certificado
       final response = await supabase
           .from('ordens_analises')
           .insert(dadosOrdem)
@@ -2132,6 +2103,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       campos['numeroControle']!.text =
           response['numero_controle'].toString();
 
+      // Atualizar movimentação com volume 20°C
       if (widget.idMovimentacao != null) {
         final volume20C =
             _converterParaInteiro(campos['volumeApurado20C']!.text) ?? 0;
@@ -2141,23 +2113,45 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
           produtoId: produtoId,
           volume20C: volume20C,
         );
+        
+        // ATUALIZAR STATUS_CIRCUITO APENAS AQUI - quando certificado é emitido
+        await _atualizarStatusCircuito(movimentacaoId: widget.idMovimentacao!);
       }
 
       if (!mounted) return;
-      Navigator.of(context).pop();
 
       setState(() {
         _modoVisualizacao = true;
+        _salvandoCertificado = false;
       });
-    } catch (_) {
+
       if (mounted) {
-        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✓ Certificado emitido com sucesso!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
       }
-      rethrow;
+
+    } catch (e) {
+      print('Erro ao emitir certificado: $e');
+      
+      if (mounted) {
+        setState(() {
+          _salvandoCertificado = false;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao emitir certificado: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
-
-
 
   Future<void> _atualizarMovimentacaoSomente20C({
     required String movimentacaoId,
@@ -2176,6 +2170,26 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
           'updated_at': DateTime.now().toIso8601String(),
         })
         .eq('id', movimentacaoId);
+  }
+
+  // NOVO MÉTODO: Atualizar status_circuito apenas quando certificado é emitido
+  Future<void> _atualizarStatusCircuito({required String movimentacaoId}) async {
+    try {
+      final supabase = Supabase.instance.client;
+      
+      await supabase
+          .from('movimentacoes')
+          .update({
+            'status_circuito': 'CONCLUIDO', // ou outro status apropriado
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', movimentacaoId);
+          
+      print('✓ status_circuito atualizado para CONCLUIDO na movimentação $movimentacaoId');
+    } catch (e) {
+      print('Erro ao atualizar status_circuito: $e');
+      // Não lançar erro aqui para não interromper o fluxo principal
+    }
   }
 
   // ================= AUXILIAR =================
