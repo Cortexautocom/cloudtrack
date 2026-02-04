@@ -1347,16 +1347,12 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     if (corPersonalizada != null) {
       cor = corPersonalizada;
     } else if (isInicial) {
-      cor = Colors.blue; // Estoque inicial sempre azul
+      cor = Colors.blue;
     } else {
-      // Para estoque final, verifica se é negativo
-      // O texto já vem formatado com pontos e possível sinal negativo
       
       if (texto.startsWith('-')) {
-        // Se começa com "-", é negativo
         cor = Colors.red;
       } else {
-        // Se não começa com "-", é positivo ou zero
         cor = Colors.green.shade700;
       }
     }
