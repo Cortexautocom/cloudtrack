@@ -36,21 +36,34 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   String _mensagemErro = '';
   String? _nomeProdutoSelecionado;
 
+  // Estoque inicial e final
+  Map<String, dynamic> _estoqueInicial = {
+    'ambiente': 0,
+    'vinte_graus': 0,
+  };
+  
+  Map<String, dynamic> _estoqueFinal = {
+    'ambiente': 0,
+    'vinte_graus': 0,
+  };
+
   // ScrollControllers
   final ScrollController _verticalScrollController = ScrollController();
   final ScrollController _horizontalHeaderController = ScrollController();
   final ScrollController _horizontalBodyController = ScrollController();
 
-  // Constantes de layout - REMOVIDA A LINHA _larguraTabela fixa
+  // Constantes de layout
   static const double _alturaCabecalho = 40;
   static const double _alturaLinha = 40;
   static const double _alturaRodape = 32;
+  static const double _alturaEstoqueLinha = 32;
 
   // Larguras das colunas
   static const double _larguraData = 120;
   static const double _larguraProduto = 180;
   static const double _larguraDescricao = 240;
   static const double _larguraNumerica = 120;
+  static const double _larguraLabelEstoque = 100;
 
   // GETTER para calcular largura total DINAMICAMENTE
   double get _larguraTabela {
@@ -145,12 +158,18 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         _nomeProdutoSelecionado = produtoData?['nome']?.toString();
       }
 
-      // Alteração: Usar dispatcher conforme definição
+      // Carregar estoque inicial (do final do mês anterior)
+      await _carregarEstoqueInicial();
+
+      // Carregar movimentações
       if (widget.tipoRelatorio == 'analitico') {
         await _carregarDadosAnalitico();
       } else {
         await _carregarDadosSintetico();
       }
+      
+      // Calcular estoque final
+      _calcularEstoqueFinal();
       
       if (mounted) {
         setState(() {
@@ -168,6 +187,98 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         });
       }
     }
+  }
+
+  Future<void> _carregarEstoqueInicial() async {
+    try {
+      if (widget.mesFiltro == null) return;
+      
+      final ultimoDiaMesAnterior = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month, 0);
+
+      // Buscar saldo final do mês anterior
+      final movimentacoesAnteriores = await _supabase
+          .from('movimentacoes')
+          .select('''
+            entrada_amb,
+            entrada_vinte,
+            saida_amb,
+            saida_vinte
+          ''')
+          .or('filial_id.eq.${widget.filialId},filial_destino_id.eq.${widget.filialId},filial_origem_id.eq.${widget.filialId}')
+          .eq('empresa_id', _empresaId!)
+          .lte('data_mov', ultimoDiaMesAnterior.toIso8601String());
+
+      if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
+        // Se há filtro de produto, aplicar também para estoque inicial
+        final movsProduto = await _supabase
+            .from('movimentacoes')
+            .select('''
+              entrada_amb,
+              entrada_vinte,
+              saida_amb,
+              saida_vinte
+            ''')
+            .or('filial_id.eq.${widget.filialId},filial_destino_id.eq.${widget.filialId},filial_origem_id.eq.${widget.filialId}')
+            .eq('empresa_id', _empresaId!)
+            .eq('produto_id', widget.produtoFiltro!)
+            .lte('data_mov', ultimoDiaMesAnterior.toIso8601String());
+
+        if (movsProduto.isNotEmpty) {
+          num saldoAmb = 0;
+          num saldoVinte = 0;
+
+          for (var mov in movsProduto) {
+            saldoAmb += (mov['entrada_amb'] ?? 0) as num;
+            saldoAmb -= (mov['saida_amb'] ?? 0) as num;
+            saldoVinte += (mov['entrada_vinte'] ?? 0) as num;
+            saldoVinte -= (mov['saida_vinte'] ?? 0) as num;
+          }
+
+          _estoqueInicial = {
+            'ambiente': saldoAmb,
+            'vinte_graus': saldoVinte,
+          };
+          return;
+        }
+      }
+
+      // Cálculo geral (sem filtro de produto ou quando não há movimentações específicas)
+      num saldoAmb = 0;
+      num saldoVinte = 0;
+
+      for (var mov in movimentacoesAnteriores) {
+        saldoAmb += (mov['entrada_amb'] ?? 0) as num;
+        saldoAmb -= (mov['saida_amb'] ?? 0) as num;
+        saldoVinte += (mov['entrada_vinte'] ?? 0) as num;
+        saldoVinte -= (mov['saida_vinte'] ?? 0) as num;
+      }
+
+      _estoqueInicial = {
+        'ambiente': saldoAmb,
+        'vinte_graus': saldoVinte,
+      };
+
+    } catch (e) {
+      debugPrint('Erro ao carregar estoque inicial: $e');
+      _estoqueInicial = {
+        'ambiente': 0,
+        'vinte_graus': 0,
+      };
+    }
+  }
+
+  void _calcularEstoqueFinal() {
+    if (_movimentacoesOrdenadas.isEmpty) {
+      _estoqueFinal = Map.from(_estoqueInicial);
+      return;
+    }
+
+    // Pegar o último saldo das movimentações
+    final ultimaMov = _movimentacoesOrdenadas.last;
+    _estoqueFinal = {
+      'ambiente': ultimaMov['saldo_amb'] ?? 0,
+      'vinte_graus': ultimaMov['saldo_vinte'] ?? 0,
+    };
   }
 
   // NOVA FUNÇÃO: Normalização de movimentação
@@ -364,6 +475,10 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       // Gerar lista analítica normalizada
       final List<Map<String, dynamic>> analitico = [];
 
+      // Calcular saldo acumulado começando com estoque inicial
+      num saldoAmb = _estoqueInicial['ambiente'] as num;
+      num saldoVinte = _estoqueInicial['vinte_graus'] as num;
+
       for (var mov in dados) {
         final normalizado = _normalizarMovimentacao(
           mov,
@@ -374,6 +489,10 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         final produto = mov['produtos'] as Map<String, dynamic>?;
         final produtoNome = produto?['nome']?.toString() ?? '';
 
+        // Atualizar saldos
+        saldoAmb += (normalizado['entrada_amb'] as num) - (normalizado['saida_amb'] as num);
+        saldoVinte += (normalizado['entrada_vinte'] as num) - (normalizado['saida_vinte'] as num);
+
         analitico.add({
           ...normalizado,
           'id': mov['id'],
@@ -381,19 +500,9 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           'descricao': mov['descricao'] ?? '',
           'produto_nome': produtoNome,
           'produto_id': mov['produto_id'],
+          'saldo_amb': saldoAmb,
+          'saldo_vinte': saldoVinte,
         });
-      }
-
-      // Calcular saldo acumulado
-      num saldoAmb = 0;
-      num saldoVinte = 0;
-
-      for (var item in analitico) {
-        saldoAmb += (item['entrada_amb'] as num) - (item['saida_amb'] as num);
-        saldoVinte += (item['entrada_vinte'] as num) - (item['saida_vinte'] as num);
-
-        item['saldo_amb'] = saldoAmb;
-        item['saldo_vinte'] = saldoVinte;
       }
 
       // Ordenar e atualizar estado
@@ -427,6 +536,10 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       // Ordenar datas
       final datasOrdenadas = porDia.keys.toList()..sort();
 
+      // Calcular saldos começando com estoque inicial
+      num saldoAmbAcumulado = _estoqueInicial['ambiente'] as num;
+      num saldoVinteAcumulado = _estoqueInicial['vinte_graus'] as num;
+
       for (var dataStr in datasOrdenadas) {
         final movsDoDia = porDia[dataStr]!;
         
@@ -442,6 +555,10 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           totalSaidaAmb += (mov['saida_amb'] ?? 0) as num;
           totalSaidaVinte += (mov['saida_vinte'] ?? 0) as num;
         }
+
+        // Atualizar saldos acumulados
+        saldoAmbAcumulado += totalEntradaAmb - totalSaidaAmb;
+        saldoVinteAcumulado += totalEntradaVinte - totalSaidaVinte;
 
         // Obter nome do produto
         String produtoNome;
@@ -461,26 +578,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           'saida_vinte': totalSaidaVinte,
           'produto_nome': produtoNome,
           'produto_id': widget.produtoFiltro,
-        });
-      }
-
-      // Calcular saldos acumulados para o sintético
-      num saldoAmbAcumulado = 0;
-      num saldoVinteAcumulado = 0;
-
-      final List<Map<String, dynamic>> movimentacoesComSaldo = [];
-
-      for (var item in sintetico) {
-        final entradaAmb = item['entrada_amb'] ?? 0;
-        final entradaVinte = item['entrada_vinte'] ?? 0;
-        final saidaAmb = item['saida_amb'] ?? 0;
-        final saidaVinte = item['saida_vinte'] ?? 0;
-
-        saldoAmbAcumulado += (entradaAmb as num) - (saidaAmb as num);
-        saldoVinteAcumulado += (entradaVinte as num) - (saidaVinte as num);
-
-        movimentacoesComSaldo.add({
-          ...item,
           'saldo_amb': saldoAmbAcumulado,
           'saldo_vinte': saldoVinteAcumulado,
         });
@@ -488,8 +585,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
 
       // Atualizar estado com dados sintéticos
       setState(() {
-        _movimentacoes = movimentacoesComSaldo;
-        _movimentacoesOrdenadas = List.from(movimentacoesComSaldo);
+        _movimentacoes = sintetico;
+        _movimentacoesOrdenadas = List.from(sintetico);
       });
 
     } catch (e) {
@@ -540,6 +637,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         'mesFiltro': widget.mesFiltro!.toIso8601String(),
         'produtoFiltro': widget.produtoFiltro,
         'tipoRelatorio': widget.tipoRelatorio,
+        'estoqueInicial': _estoqueInicial,
+        'estoqueFinal': _estoqueFinal,
       };
 
       debugPrint('Enviando para Edge Function: $requestData');
@@ -865,7 +964,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                           if (widget.mesFiltro != null || widget.produtoFiltro != null)
                             _buildIndicadorFiltros(),
                           const SizedBox(height: 16),
-                          Expanded(child: _buildTabela()),
+                          Expanded(child: _buildTabelaComEstoque()),
                         ],
                       ),
       ),
@@ -1065,8 +1164,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     }
   }
 
-  // Método principal da tabela
-  Widget _buildTabela() {
+  // Método principal da tabela com estoque
+  Widget _buildTabelaComEstoque() {
     return Scrollbar(
       controller: _verticalScrollController,
       thumbVisibility: true,
@@ -1080,12 +1179,182 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           ),
           child: Column(
             children: [
+              _buildLinhaEstoqueInicial(),
               _buildTabelaCabecalho(),
               _buildTabelaCorpo(),
+              _buildLinhaEstoqueFinal(),
               _buildContadorResultados(),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // Adicione este método na classe _EstoqueMesPageState
+  // MÉTODO CORRIGIDO - VERSÃO FINAL
+  double _calcularLarguraColunasAntesDoSaldo(bool mostrarColunaProduto) {
+    double larguraTotal = 0;
+    
+    // Soma todas as colunas que vêm antes das colunas de SALDO
+    larguraTotal += _larguraData;                    // Coluna Data
+    
+    if (mostrarColunaProduto) {
+      larguraTotal += _larguraProduto;              // Coluna Produto (se visível)
+    }
+    
+    larguraTotal += _larguraDescricao;              // Coluna Descrição
+    larguraTotal += _larguraNumerica * 4;           // 4 colunas (Entrada Amb, 20ºC, Saída Amb, 20ºC)
+    
+    // AGORA SUBTRAI a largura do label, porque ele também ocupa espaço
+    // e queremos que fique colado aos valores
+    larguraTotal -= _larguraLabelEstoque;
+    
+    // Garante que não seja negativo (caso de erro)
+    if (larguraTotal < 0) {
+      larguraTotal = 0;
+    }
+    
+    return larguraTotal;
+  }
+
+  // Linha de estoque inicial
+  Widget _buildLinhaEstoqueInicial() {
+    bool mostrarColunaProduto = widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
+    
+    return Scrollbar(
+      controller: _horizontalHeaderController,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _horizontalHeaderController,
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: _larguraTabela,
+          child: Container(
+            height: _alturaEstoqueLinha,
+            color: Colors.blue.shade50,
+            child: Row(
+              children: [
+                // ESPAÇO EM BRANCO que empurra o label para a direita
+                Container(
+                  width: _calcularLarguraColunasAntesDoSaldo(mostrarColunaProduto),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  alignment: Alignment.center,
+                  child: const Text(''),
+                ),
+                
+                // Label "Estoque Inicial" - AGORA ALINHADO À DIREITA
+                Container(
+                  width: _larguraLabelEstoque,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  alignment: Alignment.centerRight,  // ALTERAÇÃO AQUI
+                  child: const Text(
+                    'Estoque Inicial:',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
+                ),
+                
+                // Apenas as células de saldo (remova as outras células vazias)
+                _cellEstoque(
+                  _formatarNumero(_estoqueInicial['ambiente'] as num?),
+                  _larguraNumerica,
+                  isInicial: true,
+                ),
+                _cellEstoque(
+                  _formatarNumero(_estoqueInicial['vinte_graus'] as num?),
+                  _larguraNumerica,
+                  isInicial: true,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Linha de estoque final
+  Widget _buildLinhaEstoqueFinal() {
+    bool mostrarColunaProduto = widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
+    
+    return Scrollbar(
+      controller: _horizontalHeaderController,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _horizontalHeaderController,
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: _larguraTabela,
+          child: Container(
+            height: _alturaEstoqueLinha,
+            color: Colors.green.shade50,
+            child: Row(
+              children: [
+                // ESPAÇO EM BRANCO
+                Container(
+                  width: _calcularLarguraColunasAntesDoSaldo(mostrarColunaProduto),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  alignment: Alignment.center,
+                  child: const Text(''),
+                ),
+                                
+                Container(
+                  width: _larguraLabelEstoque,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  alignment: Alignment.centerRight,  // ALTERAÇÃO AQUI
+                  child: const Text(
+                    'Estoque Final:',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                  ),
+                ),
+                
+                // Apenas as células de saldo
+                _cellEstoque(
+                  _formatarNumero(_estoqueFinal['ambiente'] as num?),
+                  _larguraNumerica,
+                  isInicial: false,
+                ),
+                _cellEstoque(
+                  _formatarNumero(_estoqueFinal['vinte_graus'] as num?),
+                  _larguraNumerica,
+                  isInicial: false,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Célula de estoque
+  Widget _cellEstoque(
+    String texto,
+    double largura, {
+    bool isInicial = true,
+  }) {
+    return Container(
+      width: largura,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      alignment: Alignment.center,
+      child: Text(
+        texto,
+        style: TextStyle(
+          fontSize: 12,
+          color: isInicial ? Colors.blue : Colors.green,
+          fontWeight: FontWeight.bold,
+          overflow: TextOverflow.ellipsis,
+        ),
+        textAlign: TextAlign.center,
+        maxLines: 1,
       ),
     );
   }
