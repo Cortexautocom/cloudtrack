@@ -1291,7 +1291,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           width: _larguraTabela,
           child: Container(
             height: _alturaEstoqueLinha,
-            color: Colors.green.shade50,
+            color: Colors.grey.shade100,
             child: Row(
               children: [
                 // ESPAÇO EM BRANCO
@@ -1311,7 +1311,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: Colors.green,
+                      color: Color.fromARGB(255, 99, 99, 99),
                     ),
                   ),
                 ),
@@ -1320,12 +1320,12 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                 _cellEstoque(
                   _formatarNumero(_estoqueFinal['ambiente'] as num?),
                   _larguraNumerica,
-                  isInicial: false,
+                  isInicial: false, // Isso ativa a lógica de verificação
                 ),
                 _cellEstoque(
                   _formatarNumero(_estoqueFinal['vinte_graus'] as num?),
                   _larguraNumerica,
-                  isInicial: false,
+                  isInicial: false, // Isso ativa a lógica de verificação
                 ),
               ],
             ),
@@ -1340,7 +1340,27 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     String texto,
     double largura, {
     bool isInicial = true,
+    Color? corPersonalizada,
   }) {
+    Color cor;
+    
+    if (corPersonalizada != null) {
+      cor = corPersonalizada;
+    } else if (isInicial) {
+      cor = Colors.blue; // Estoque inicial sempre azul
+    } else {
+      // Para estoque final, verifica se é negativo
+      // O texto já vem formatado com pontos e possível sinal negativo
+      
+      if (texto.startsWith('-')) {
+        // Se começa com "-", é negativo
+        cor = Colors.red;
+      } else {
+        // Se não começa com "-", é positivo ou zero
+        cor = Colors.green.shade700;
+      }
+    }
+    
     return Container(
       width: largura,
       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1349,7 +1369,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         texto,
         style: TextStyle(
           fontSize: 12,
-          color: isInicial ? Colors.blue : Colors.green,
+          color: cor,
           fontWeight: FontWeight.bold,
           overflow: TextOverflow.ellipsis,
         ),
