@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'sessoes/ajuda/suporte.dart';
 
 class HomeCards extends StatelessWidget {
   final String menuSelecionado;
@@ -148,19 +147,6 @@ class HomeCards extends StatelessWidget {
 
   // Novo método para lidar com o tap dos cards
   void _handleCardTap(BuildContext context, String tipo) {
-    switch (tipo) {
-      case 'suporte':
-        // Navega para a página de Suporte
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const SuportePage(),
-          ),
-        );
-        break;
-      default:
-        // Para outros cards, usa o callback original
-        onCardSelecionado(context, tipo);
-    }
+    onCardSelecionado(context, tipo);
   }
 }

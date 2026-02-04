@@ -27,6 +27,7 @@ import 'sessoes/apuracao/temp_dens_media.dart';
 import 'home_cards.dart';
 import 'sessoes/ajuda/arquiteto.dart';
 import 'sessoes/estoques/filtro_moviment.dart';
+import 'sessoes/ajuda/suporte.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -66,6 +67,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool carregandoSessoes = false;
   bool showUsuarios = false;
   bool _mostrarAcompanhamentoOrdens = false;
+  bool _mostrarSuporte = false;
+
   
   // FLAGS PARA SESSÕES ESPECÍFICAS
   bool _mostrarCalcGerado = false;
@@ -501,6 +504,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarFiltroMovimentacoes = false;
       _mostrarTempDensMedia = false;
       _mostrarMenuAjuda = false;
+      _mostrarSuporte = false;
       _resetarTodasFlagsGestaoFrota();
       _mostrarFilhosSessao = false;
       _sessaoAtual = null;
@@ -560,6 +564,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarCalcGerado = false;
       _mostrarTempDensMedia = false;
       _mostrarMenuAjuda = false;
+      _mostrarSuporte = false;
       _mostrarVeiculos = false;
       _mostrarDetalhesVeiculo = false;
       _veiculoSelecionado = null;
@@ -850,6 +855,19 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         return _buildConfiguracoesPage(usuario);
 
       case 'Ajuda':
+        if (_mostrarSuporte) {
+          return _buildPaginaPadronizada(
+            titulo: 'Suporte',
+            conteudo: const SuportePage(),
+            onVoltar: () {
+              setState(() {
+                _mostrarSuporte = false;
+                _mostrarMenuAjuda = true;
+              });
+            },
+          );
+        }
+
         if (!_mostrarMenuAjuda) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             setState(() {
@@ -857,6 +875,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             });
           });
         }
+
         return _buildAjudaPage();
 
       case 'Financeiro':
@@ -920,6 +939,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       menuSelecionado: 'Ajuda',
       onCardSelecionado: (context, tipoCard) {
         switch (tipoCard) {
+          case 'suporte':
+            setState(() {
+              _mostrarSuporte = true;
+            });
+            break;
+
           case 'grande_arquiteto':
             Navigator.push(
               context,
@@ -929,30 +954,22 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             );
             break;
 
-          case 'atualizar_app':
-            if (atualizarApp != null) {
-              atualizarApp!.callAsFunction();
-            } else {
-              debugPrint('❌ atualizarApp não está disponível no JS');
-            }
-            break;
-
           default:
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Funcionalidade $tipoCard em desenvolvimento...'),
-              ),
+              SnackBar(content: Text('Funcionalidade $tipoCard em desenvolvimento...')),
             );
         }
       },
       onVoltar: () {
         setState(() {
           _mostrarMenuAjuda = false;
+          _mostrarSuporte = false;
           selectedIndex = -1;
         });
       },
     );
   }
+
 
   Widget _buildRelatoriosPage() {
     return _buildPaginaPadronizada(
@@ -1051,7 +1068,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           }
         },
       );
-    }
+    }    
 
     if (showConversaoList) {
       return TabelasDeConversao(
@@ -1338,7 +1355,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   _mostrarHistorico || _mostrarEscolherFilial || _mostrarMedicaoTanques || _mostrarTanques || 
                   _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || 
                   _mostrarFiltroMovimentacoes || _mostrarTempDensMedia || _mostrarCalcGerado || 
-                  _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarFiltrosEstoque))
+                  _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarFiltrosEstoque ||
+                  _mostrarSuporte))
+
                 IconButton(
                   icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
                   onPressed: onVoltar ?? _voltarParaCardsPai,
@@ -1348,7 +1367,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   _mostrarHistorico || _mostrarEscolherFilial || _mostrarMedicaoTanques || _mostrarTanques || 
                   _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || 
                   _mostrarFiltroMovimentacoes || _mostrarTempDensMedia || _mostrarCalcGerado || 
-                  _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarFiltrosEstoque))
+                  _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarFiltrosEstoque ||
+                  _mostrarSuporte))
                 const SizedBox(width: 10),
               Text(
                 titulo,
