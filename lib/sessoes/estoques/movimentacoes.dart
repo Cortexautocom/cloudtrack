@@ -32,6 +32,15 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
   final ScrollController _horizontalBodyController = ScrollController();
   final ScrollController _verticalScrollController = ScrollController();
   
+  // Dados para estoque inicial e final (sempre inicializados, mesmo zerados)
+  Map<String, dynamic> _estoqueInicial = {
+    'quantidade': 0,
+  };
+  
+  Map<String, dynamic> _estoqueFinal = {
+    'quantidade': 0,
+  };
+  
   static const Map<String, String> _produtoParaColuna = {
     // Gasolinas
     '82c348c8-efa1-4d1a-953a-ee384d5780fc': 'g_comum',       // Gasolina Comum
@@ -90,7 +99,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
     try {
       final supabase = Supabase.instance.client;
       
-      // ✅ NOVO: Buscar nome do produto se houver filtro
+      // ✅ Buscar nome do produto se houver filtro
       if (widget.produtoId != 'todos') {
         try {
           final produtoResult = await supabase
@@ -111,7 +120,10 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
         _produtoFiltradoNome = null;
       }
 
-      // ✅ ATUALIZADO: Incluir todos os campos específicos de produto
+      // Carregar estoque inicial (do período anterior)
+      await _carregarEstoqueInicial();
+
+      // ✅ Incluir todos os campos específicos de produto
       dynamic query = supabase
           .from("movimentacoes")
           .select('''
@@ -174,6 +186,10 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
       setState(() {
         movimentacoes = lista;
       });
+
+      // Calcular estoque final
+      _calcularEstoqueFinal();
+
     } catch (e) {
       debugPrint("Erro ao carregar movimentações: $e");
       if (mounted) {
@@ -189,6 +205,116 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
     if (mounted) {
       setState(() => carregando = false);
     }
+  }
+
+  Future<void> _carregarEstoqueInicial() async {
+    try {
+      if (widget.filialId == 'todas') {
+        _estoqueInicial = {'quantidade': 0};
+        return;
+      }
+
+      final supabase = Supabase.instance.client;
+      
+      // Buscar saldo anterior à data de início
+      final dataAnterior = widget.dataInicio.subtract(const Duration(days: 1));
+      
+      var query = supabase
+          .from('movimentacoes')
+          .select('''
+            quantidade,
+            produto_id,
+            tipo_op,
+            filial_origem_id,
+            filial_destino_id,
+            tipo_mov_orig,
+            tipo_mov_dest
+          ''')
+          .or('filial_origem_id.eq.${widget.filialId},filial_destino_id.eq.${widget.filialId}')
+          .lte('data_mov', dataAnterior.toIso8601String().split('T')[0]);
+
+      if (widget.produtoId != 'todos') {
+        query = query.eq('produto_id', widget.produtoId);
+      }
+
+      final movimentacoesAnteriores = await query;
+
+      num saldoTotal = 0;
+
+      for (var mov in movimentacoesAnteriores) {
+        if (widget.filialId != 'todas') {
+          final filialUsuarioId = widget.filialId;
+          final tipoOp = mov['tipo_op']?.toString().toLowerCase() ?? '';
+          
+          // Lógica para determinar se é entrada ou saída
+          if (tipoOp == 'cacl') {
+            // CACL sempre é entrada para a filial
+            saldoTotal += mov['quantidade'] as num;
+          } else if (mov['filial_origem_id'] == filialUsuarioId) {
+            // A filial do usuário é a origem
+            if (mov['tipo_mov_orig'] == 'saida') {
+              saldoTotal -= mov['quantidade'] as num;
+            }
+          } else if (mov['filial_destino_id'] == filialUsuarioId) {
+            // A filial do usuário é o destino
+            if (mov['tipo_mov_dest'] == 'entrada') {
+              saldoTotal += mov['quantidade'] as num;
+            }
+          }
+        } else {
+          // Para filial "todas", usar lógica simples
+          saldoTotal += mov['quantidade'] as num;
+        }
+      }
+
+      _estoqueInicial = {
+        'quantidade': saldoTotal,
+      };
+
+    } catch (e) {
+      debugPrint('Erro ao carregar estoque inicial: $e');
+      _estoqueInicial = {
+        'quantidade': 0,
+      };
+    }
+  }
+
+  void _calcularEstoqueFinal() {
+    // Sempre inicia com o estoque inicial
+    num saldoFinal = _estoqueInicial['quantidade'] as num;
+    
+    // Adiciona ou subtrai as movimentações
+    for (var mov in movimentacoes) {
+      if (widget.filialId != 'todas') {
+        final filialUsuarioId = widget.filialId;
+        final tipoOp = mov['tipo_op']?.toString().toLowerCase() ?? '';
+        final quantidade = _obterQuantidadeProduto(mov) as num;
+        
+        // Lógica para determinar se é entrada ou saída
+        if (tipoOp == 'cacl') {
+          // CACL sempre é entrada para a filial
+          saldoFinal += quantidade;
+        } else if (mov['filial_origem_id'] == filialUsuarioId) {
+          // A filial do usuário é a origem
+          if (mov['tipo_mov_orig'] == 'saida') {
+            saldoFinal -= quantidade;
+          }
+        } else if (mov['filial_destino_id'] == filialUsuarioId) {
+          // A filial do usuário é o destino
+          if (mov['tipo_mov_dest'] == 'entrada') {
+            saldoFinal += quantidade;
+          }
+        }
+      } else {
+        // Para filial "todas", usar lógica simples
+        final quantidade = _obterQuantidadeProduto(mov) as num;
+        saldoFinal += quantidade;
+      }
+    }
+
+    _estoqueFinal = {
+      'quantidade': saldoFinal,
+    };
   }
 
   // ✅ MODIFICADO: Função para obter a quantidade específica do produto
@@ -248,11 +374,29 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
   }
 
   // Função para formatar quantidade para "999.999"
-  String _formatarQuantidade(int quantidade) {
-    return quantidade.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]}.',
-    );
+  String _formatarQuantidade(num quantidade) {
+    if (quantidade == 0) return '0';
+    
+    bool isNegativo = quantidade < 0;
+    String valorString = quantidade.abs().toStringAsFixed(0);
+    
+    String resultado = '';
+    int contador = 0;
+    
+    for (int i = valorString.length - 1; i >= 0; i--) {
+      contador++;
+      resultado = valorString[i] + resultado;
+      
+      if (contador % 3 == 0 && i > 0) {
+        resultado = '.$resultado';
+      }
+    }
+    
+    if (isNegativo) {
+      resultado = '-$resultado';
+    }
+    
+    return resultado;
   }
 
   // Função para determinar se é entrada ou saída para a filial específica
@@ -391,46 +535,6 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
     return cabecalhos;
   }
 
-  // ✅ NOVO MÉTODO: Construir células dinamicamente
-  List<Widget> _construirCelulas(
-    Map<String, dynamic> m,
-    DateTime data,
-    String produtoNome,
-    String quantidadeFormatada,
-    String descricaoFormatada,
-    String origemNome,
-    String destinoFormatado,
-  ) {
-    final celulas = <Widget>[
-      _cell(
-        '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}',
-        _larguras[0],
-      ),
-      _cell(_formatarTipoOp(m['tipo_op']?.toString() ?? ''), _larguras[1]),
-    ];
-    
-    // Condição: Só adiciona célula "Produto" se estiver mostrando todos
-    if (widget.produtoId == 'todos') {
-      celulas.add(_cell(produtoNome, _larguras[2]));
-    }
-    
-    // Ajustar índices das colunas restantes
-    final indiceBase = widget.produtoId == 'todos' ? 3 : 2;
-    
-    celulas.addAll([
-      _cell(descricaoFormatada, _larguras[indiceBase]),
-      _cell(
-        quantidadeFormatada,
-        _larguras[indiceBase + 1],
-        isNumber: true,
-      ),
-      _cell(origemNome, _larguras[indiceBase + 2]),
-      _cell(destinoFormatado, _larguras[indiceBase + 3]),
-    ]);
-    
-    return celulas;
-  }
-
   List<Map<String, dynamic>> get _movimentacoesFiltradas {
     final query = _searchController.text.toLowerCase().trim();
     if (query.isEmpty) return movimentacoes;
@@ -456,7 +560,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_tituloPagina), // ✅ ALTERADO: Título dinâmico
+        title: Text(_tituloPagina),
         actions: [
           Container(
             width: 300,
@@ -472,9 +576,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
       ),
       body: carregando
           ? const Center(child: CircularProgressIndicator())
-          : _movimentacoesFiltradas.isEmpty
-              ? _buildVazio()
-              : _buildTabelaConteudo(),
+          : _buildTabelaConteudo(),
     );
   }
 
@@ -523,39 +625,9 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
     );
   }
 
-  Widget _buildVazio() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.receipt_long,
-              size: 64, color: Colors.grey.shade400),
-          const SizedBox(height: 16),
-          Text(
-            'Nenhuma movimentação encontrada',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey.shade600,
-            ),
-          ),
-          if (widget.filialId != 'todas')
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                'Filtro aplicado: ${widget.tipoMov != 'todos' ? widget.tipoMov : ''} '
-                '${widget.tipoOp != 'todos' ? widget.tipoOp : ''}',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade500,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildTabelaConteudo() {
+    final movimentacoesParaExibir = _movimentacoesFiltradas;
+
     return Scrollbar(
       controller: _verticalScrollController,
       thumbVisibility: true,
@@ -563,7 +635,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
         controller: _verticalScrollController,
         child: Column(
           children: [
-            // CABEÇALHO
+            // CABEÇALHO (FIXO)
             Scrollbar(
               controller: _horizontalHeaderController,
               thumbVisibility: true,
@@ -576,14 +648,14 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                     height: 40,
                     color: const Color(0xFF0D47A1),
                     child: Row(
-                      children: _construirCabecalho(), // ✅ ALTERADO: Cabeçalho dinâmico
+                      children: _construirCabecalho(),
                     ),
                   ),
                 ),
               ),
             ),
 
-            // CORPO
+            // CORPO DA TABELA (SEMPRE com estoque inicial e final)
             Scrollbar(
               controller: _horizontalBodyController,
               thumbVisibility: true,
@@ -595,15 +667,67 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                   child: ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _movimentacoesFiltradas.length,
+                    itemCount: movimentacoesParaExibir.length + 2, // +2 para estoque inicial e final (SEMPRE)
                     itemBuilder: (context, index) {
-                      final m = _movimentacoesFiltradas[index];
-                      final data = m['data_mov'] is String
+                      // LINHA 1: ESTOQUE INICIAL (SEMPRE)
+                      if (index == 0) {
+                        final quantidadeInicial = _estoqueInicial['quantidade'] as num;
+                        final quantidadeFormatada = _formatarQuantidade(quantidadeInicial);
+                        
+                        return Container(
+                          height: 40,
+                          color: Colors.blue.shade50, // Cor diferenciada
+                          child: Row(
+                            children: _construirLinhaEstoque(
+                              data: '',
+                              tipoOp: '',
+                              produtoNome: '',
+                              descricao: 'Estoque Inicial',
+                              quantidade: quantidadeFormatada,
+                              origem: '',
+                              destino: '',
+                              isInicial: true,
+                            ),
+                          ),
+                        );
+                      }
+                      
+                      // ÚLTIMA LINHA: ESTOQUE FINAL (SEMPRE)
+                      if (index == movimentacoesParaExibir.length + 1) {
+                        final quantidadeFinal = _estoqueFinal['quantidade'] as num;
+                        final quantidadeFormatada = _formatarQuantidade(quantidadeFinal);
+                        
+                        return Container(
+                          height: 40,
+                          color: Colors.grey.shade100, // Cor diferenciada
+                          child: Row(
+                            children: _construirLinhaEstoque(
+                              data: '',
+                              tipoOp: '',
+                              produtoNome: '',
+                              descricao: 'Estoque Final',
+                              quantidade: quantidadeFormatada,
+                              origem: '',
+                              destino: '',
+                              isInicial: false,
+                            ),
+                          ),
+                        );
+                      }
+                      
+                      // LINHAS NORMAIS DAS MOVIMENTAÇÕES
+                      final movIndex = index - 1; // -1 porque a primeira linha é o estoque inicial
+                      final m = movimentacoesParaExibir[movIndex];
+                      
+                      // Obter dados da movimentação
+                      final dataObj = m['data_mov'] is String
                           ? DateTime.parse(m['data_mov'])
                           : m['data_mov'];
+                      final dataFormatada = '${dataObj.day.toString().padLeft(2, '0')}/${dataObj.month.toString().padLeft(2, '0')}';
+                      
                       final produtoNome = m['produtos']?['nome']?.toString() ?? '';
                       final quantidade = _obterQuantidadeProduto(m);
-                      final quantidadeFormatada = _formatarQuantidade(quantidade);
+                      final quantidadeFormatada = _formatarQuantidade(quantidade.toDouble());
                       
                       String tipoMovimento = 'N/A';
                       if (widget.filialId != 'todas') {
@@ -615,7 +739,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                       final destinoFormatado = _obterDestinoFormatado(m);
                       
                       Color corFundo = Colors.white;
-                      if (index % 2 == 0) {
+                      if (movIndex % 2 == 0) {
                         corFundo = Colors.grey.shade50;
                       }
                       
@@ -637,14 +761,14 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                           ),
                         ),
                         child: Row(
-                          children: _construirCelulas( // ✅ ALTERADO: Células dinâmicas
-                            m,
-                            data,
-                            produtoNome,
-                            quantidadeFormatada,
-                            descricaoFormatada,
-                            origemNome,
-                            destinoFormatado,
+                          children: _construirLinhaNormal(
+                            data: dataFormatada,
+                            tipoOp: _formatarTipoOp(m['tipo_op']?.toString() ?? ''),
+                            produtoNome: produtoNome,
+                            descricao: descricaoFormatada,
+                            quantidade: quantidadeFormatada,
+                            origem: origemNome,
+                            destino: destinoFormatado,
                           ),
                         ),
                       );
@@ -664,7 +788,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '${_movimentacoesFiltradas.length} movimentação(ões)',
+                    '${movimentacoesParaExibir.length} movimentação(ões)',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey.shade600,
@@ -720,6 +844,83 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
     );
   }
 
+  // MÉTODO PARA CONSTRUIR LINHA DE ESTOQUE (INICIAL OU FINAL)
+  List<Widget> _construirLinhaEstoque({
+    required String data,
+    required String tipoOp,
+    required String produtoNome,
+    required String descricao,
+    required String quantidade,
+    required String origem,
+    required String destino,
+    required bool isInicial,
+  }) {
+    final celulas = <Widget>[
+      _cell(data, _larguras[0], isEstoque: true, isInicial: isInicial),
+      _cell(tipoOp, _larguras[1], isEstoque: true, isInicial: isInicial),
+    ];
+    
+    // Condição: Só adiciona célula "Produto" se estiver mostrando todos
+    if (widget.produtoId == 'todos') {
+      celulas.add(_cell(produtoNome, _larguras[2], isEstoque: true, isInicial: isInicial));
+    }
+    
+    // Ajustar índices das colunas restantes
+    final indiceBase = widget.produtoId == 'todos' ? 3 : 2;
+    
+    celulas.addAll([
+      _cell(descricao, _larguras[indiceBase], isEstoque: true, isInicial: isInicial),
+      _cell(
+        quantidade,
+        _larguras[indiceBase + 1],
+        isEstoque: true,
+        isInicial: isInicial,
+        isNumber: true,
+      ),
+      _cell(origem, _larguras[indiceBase + 2], isEstoque: true, isInicial: isInicial),
+      _cell(destino, _larguras[indiceBase + 3], isEstoque: true, isInicial: isInicial),
+    ]);
+    
+    return celulas;
+  }
+
+  // MÉTODO PARA CONSTRUIR LINHA NORMAL (MOVIMENTAÇÕES)
+  List<Widget> _construirLinhaNormal({
+    required String data,
+    required String tipoOp,
+    required String produtoNome,
+    required String descricao,
+    required String quantidade,
+    required String origem,
+    required String destino,
+  }) {
+    final celulas = <Widget>[
+      _cell(data, _larguras[0]),
+      _cell(tipoOp, _larguras[1]),
+    ];
+    
+    // Condição: Só adiciona célula "Produto" se estiver mostrando todos
+    if (widget.produtoId == 'todos') {
+      celulas.add(_cell(produtoNome, _larguras[2]));
+    }
+    
+    // Ajustar índices das colunas restantes
+    final indiceBase = widget.produtoId == 'todos' ? 3 : 2;
+    
+    celulas.addAll([
+      _cell(descricao, _larguras[indiceBase]),
+      _cell(
+        quantidade,
+        _larguras[indiceBase + 1],
+        isNumber: true,
+      ),
+      _cell(origem, _larguras[indiceBase + 2]),
+      _cell(destino, _larguras[indiceBase + 3]),
+    ]);
+    
+    return celulas;
+  }
+
   Widget _th(String texto, double largura) {
     return Container(
       width: largura,
@@ -736,17 +937,26 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
     );
   }
 
-  Widget _cell(String texto, double largura,
-      {bool isNumber = false, bool isEntrada = false, bool isSaida = false}) {
+  Widget _cell(String texto, double largura, {
+    bool isNumber = false,
+    bool isEstoque = false,
+    bool isInicial = false,
+  }) {
     Color corTexto = Colors.grey.shade700;
     FontWeight peso = isNumber ? FontWeight.w600 : FontWeight.normal;
     
-    if (isEntrada) {
-      corTexto = Colors.green.shade800;
-      peso = FontWeight.w600;
-    } else if (isSaida) {
-      corTexto = Colors.red.shade800;
-      peso = FontWeight.w600;
+    if (isEstoque) {
+      if (isInicial) {
+        corTexto = Colors.blue;
+      } else {
+        // Para estoque final, verificar se é negativo
+        if (texto.startsWith('-')) {
+          corTexto = Colors.red;
+        } else {
+          corTexto = Colors.black;
+        }
+      }
+      peso = FontWeight.bold;
     }
 
     return Container(
