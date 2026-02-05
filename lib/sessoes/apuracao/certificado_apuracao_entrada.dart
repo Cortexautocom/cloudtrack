@@ -8,8 +8,6 @@ import 'dart:js' as js;
 import 'certificado_pdf.dart';
 import '../../login_page.dart';
 
-// ================= COMPONENTE PLACA AUTOCOMPLETE =================
-
 class PlacaAutocompleteField extends StatefulWidget {
   final TextEditingController controller;
   final String label;
@@ -42,7 +40,6 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
   void initState() {
     super.initState();
     _internalFocusNode.addListener(_onFocusChanged);
-    
     if (widget.focusNode != null) {
       widget.focusNode!.addListener(_onExternalFocusChanged);
     }
@@ -58,7 +55,6 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
 
   void _onFocusChanged() {
     if (!widget.enabled) return;
-    
     if (_internalFocusNode.hasFocus) {
       _mostrarOverlay();
     } else {
@@ -72,7 +68,6 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
 
   Future<void> _buscarPlacas(String texto) async {
     if (!widget.enabled) return;
-    
     if (texto.length < 3) {
       setState(() {
         _sugestoes.clear();
@@ -107,7 +102,6 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
         _fecharOverlay();
       }
     } catch (e) {
-      print('Erro ao buscar placas: $e');
       setState(() {
         _sugestoes.clear();
         _carregando = false;
@@ -118,9 +112,7 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
 
   void _onTextChanged(String texto) {
     if (!widget.enabled) return;
-    
     _debounceTimer?.cancel();
-    
     if (texto.length < 3) {
       setState(() {
         _sugestoes.clear();
@@ -142,14 +134,12 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
 
   void _onPlacaSelecionada(String placa) {
     if (!widget.enabled) return;
-    
     widget.controller.text = placa;
     setState(() {
       _sugestoes.clear();
     });
     _fecharOverlay();
     _internalFocusNode.unfocus();
-    
     widget.controller.selection = TextSelection.fromPosition(
       TextPosition(offset: placa.length),
     );
@@ -157,17 +147,13 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
 
   void _mostrarOverlay() {
     if (!widget.enabled) return;
-    
     if (_sugestoes.isEmpty || _overlayEntry != null) return;
 
     final renderBox = context.findRenderObject() as RenderBox;
     final size = renderBox.size;
-    final offset = renderBox.localToGlobal(Offset.zero);
 
     _overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
-        left: offset.dx,
-        top: offset.dy + size.height + 4,
         width: size.width,
         child: CompositedTransformFollower(
           link: _layerLink,
@@ -231,11 +217,9 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
     _fecharOverlay();
     _internalFocusNode.removeListener(_onFocusChanged);
     _internalFocusNode.dispose();
-    
     if (widget.focusNode != null) {
       widget.focusNode!.removeListener(_onExternalFocusChanged);
     }
-    
     super.dispose();
   }
 
@@ -277,19 +261,16 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
   }
 }
 
-// ================= PÁGINA PRINCIPAL =================
 class EmitirCertificadoEntrada extends StatefulWidget {
   final VoidCallback onVoltar;
   final String? idCertificado;
   final String? idMovimentacao;
-  final Map<String, dynamic>? dadosOrdem; // NOVO: Dados da ordem
 
   const EmitirCertificadoEntrada({
     super.key,
     required this.onVoltar,
     this.idCertificado,
     this.idMovimentacao,
-    this.dadosOrdem, // NOVO: Parâmetro para receber dados da ordem
   });
 
   @override
@@ -304,7 +285,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
   bool _carregandoDadosMovimentacao = false;
   bool _salvandoCertificado = false;
 
-  // ================= CONTROLLERS =================
   final TextEditingController dataCtrl = TextEditingController();
   final TextEditingController horaCtrl = TextEditingController();
   final FocusNode _focusTempCT = FocusNode();
@@ -314,23 +294,18 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
     'transportadora': TextEditingController(),
     'motorista': TextEditingController(),
     'notas': TextEditingController(),
-
     'placaCavalo': TextEditingController(),
     'carreta1': TextEditingController(),
     'carreta2': TextEditingController(),
-
     'tempAmostra': TextEditingController(),
     'densidadeAmostra': TextEditingController(),
     'tempCT': TextEditingController(),
-
     'densidade20': TextEditingController(),
     'fatorCorrecao': TextEditingController(),
-
     'volumeCarregadoAmb': TextEditingController(),
     'volumeApurado20C': TextEditingController(),
   };
 
-  // ================= PRODUTOS =================
   List<String> produtos = [];
   String? produtoSelecionado;
   bool carregandoProdutos = true;
@@ -347,83 +322,15 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       }
     });
 
-    // NOVO: Primeiro verifica se há dados da ordem para preencher
-    if (widget.dadosOrdem != null && widget.dadosOrdem!.isNotEmpty) {
-      _preencherCamposComDadosOrdem();
-    } else if (widget.idCertificado != null && widget.idCertificado!.isNotEmpty) {
-      // MODO VISUALIZAÇÃO - Certificado já existe
+    if (widget.idCertificado != null && widget.idCertificado!.isNotEmpty) {
       _modoVisualizacao = true;
       _carregarDadosCertificado(widget.idCertificado!);
     } else {
-      // MODO CRIAÇÃO - Novo certificado
       _modoVisualizacao = false;
       if (widget.idMovimentacao != null && widget.idMovimentacao!.isNotEmpty) {
         _carregarDadosMovimentacao(widget.idMovimentacao!);
       }
     }
-  }
-
-  // NOVO: Método para preencher campos com dados da ordem
-  void _preencherCamposComDadosOrdem() {
-    if (widget.dadosOrdem == null) return;
-
-    setState(() {
-      // Preencher campos básicos da ordem
-      if (widget.dadosOrdem!['nota_fiscal'] != null) {
-        campos['notas']!.text = widget.dadosOrdem!['nota_fiscal'].toString();
-      }
-
-      if (widget.dadosOrdem!['produto_nome'] != null) {
-        produtoSelecionado = widget.dadosOrdem!['produto_nome'].toString();
-      }
-
-      if (widget.dadosOrdem!['motorista_nome'] != null) {
-        campos['motorista']!.text = widget.dadosOrdem!['motorista_nome'].toString();
-      }
-
-      if (widget.dadosOrdem!['transportadora_nome'] != null) {
-        campos['transportadora']!.text = widget.dadosOrdem!['transportadora_nome'].toString();
-      }
-
-      // Preencher placas
-      if (widget.dadosOrdem!['placa'] != null && 
-          widget.dadosOrdem!['placa'] is List) {
-        final placas = List<String>.from(widget.dadosOrdem!['placa']);
-        if (placas.isNotEmpty) {
-          campos['placaCavalo']!.text = placas[0];
-          if (placas.length > 1) {
-            campos['carreta1']!.text = placas[1];
-          }
-          if (placas.length > 2) {
-            campos['carreta2']!.text = placas[2];
-          }
-        }
-      }
-
-      // Preencher volumes (se disponíveis)
-      if (widget.dadosOrdem!['volume_ambiente'] != null) {
-        campos['volumeCarregadoAmb']!.text = 
-            _mascaraMilharUI(widget.dadosOrdem!['volume_ambiente'].toString());
-      }
-
-      if (widget.dadosOrdem!['volume_20c'] != null) {
-        campos['volumeApurado20C']!.text = 
-            _mascaraMilharUI(widget.dadosOrdem!['volume_20c'].toString());
-      }
-
-      // Preencher data/hora específica se disponível
-      if (widget.dadosOrdem!['data_operacao'] != null) {
-        try {
-          final data = DateTime.parse(widget.dadosOrdem!['data_operacao']);
-          dataCtrl.text =
-              '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}';
-        } catch (_) {}
-      }
-
-      if (widget.dadosOrdem!['hora_operacao'] != null) {
-        horaCtrl.text = widget.dadosOrdem!['hora_operacao'].toString();
-      }
-    });
   }
 
   Future<void> _carregarDadosMovimentacao(String idMovimentacao) async {
@@ -446,61 +353,64 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
           .eq('id', idMovimentacao)
           .maybeSingle();
 
-      if (movimentacao != null) {
-        if (movimentacao['nota_fiscal'] != null) {
-          campos['notas']!.text =
-              movimentacao['nota_fiscal'].toString();
+      if (movimentacao == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Movimentação não encontrada: $idMovimentacao'),
+              backgroundColor: Colors.orange,
+            ),
+          );
         }
+        return;
+      }
 
-        if (movimentacao['produtos'] != null &&
-            movimentacao['produtos']['nome'] != null) {
-          produtoSelecionado =
-              movimentacao['produtos']['nome'].toString();
-        }
+      if (movimentacao['nota_fiscal'] != null) {
+        campos['notas']!.text = movimentacao['nota_fiscal'].toString();
+      }
 
-        if (movimentacao['motoristas'] != null &&
-            movimentacao['motoristas']['nome'] != null) {
-          campos['motorista']!.text =
-              movimentacao['motoristas']['nome'].toString();
-        }
+      if (movimentacao['produtos'] != null &&
+          movimentacao['produtos']['nome'] != null) {
+        produtoSelecionado = movimentacao['produtos']['nome'].toString();
+      }
 
-        if (movimentacao['transportadoras'] != null &&
-            movimentacao['transportadoras']['nome'] != null) {
-          campos['transportadora']!.text =
-              movimentacao['transportadoras']['nome'].toString();
-        }
+      if (movimentacao['motoristas'] != null &&
+          movimentacao['motoristas']['nome'] != null) {
+        campos['motorista']!.text = movimentacao['motoristas']['nome'].toString();
+      }
 
-        if (movimentacao['placa'] != null &&
-            movimentacao['placa'] is List) {
-          final placas =
-              List<String>.from(movimentacao['placa']);
-          if (placas.isNotEmpty) {
-            campos['placaCavalo']!.text = placas[0];
-            if (placas.length > 1) {
-              campos['carreta1']!.text = placas[1];
-            }
-            if (placas.length > 2) {
-              campos['carreta2']!.text = placas[2];
-            }
+      if (movimentacao['transportadoras'] != null &&
+          movimentacao['transportadoras']['nome'] != null) {
+        campos['transportadora']!.text = 
+            movimentacao['transportadoras']['nome'].toString();
+      }
+
+      if (movimentacao['placa'] != null && movimentacao['placa'] is List) {
+        final placas = List<String>.from(movimentacao['placa']);
+        if (placas.isNotEmpty) {
+          campos['placaCavalo']!.text = placas[0];
+          if (placas.length > 1) {
+            campos['carreta1']!.text = placas[1];
+          }
+          if (placas.length > 2) {
+            campos['carreta2']!.text = placas[2];
           }
         }
+      }
 
-        if (produtoSelecionado != null) {
-          final volumeAmb =
-              _obterVolumeAmbientePorProduto(
-                  movimentacao, produtoSelecionado!);
-          if (volumeAmb != null) {
-            campos['volumeCarregadoAmb']!.text =
-                _mascaraMilharUI(volumeAmb.toString());
-          }
+      if (produtoSelecionado != null) {
+        final volumeAmb = _obterVolumeAmbientePorProduto(
+            movimentacao, produtoSelecionado!);
+        if (volumeAmb != null) {
+          campos['volumeCarregadoAmb']!.text = 
+              _mascaraMilharUI(volumeAmb.toString());
+        }
 
-          final volume20C =
-              _obterVolume20CPorProduto(
-                  movimentacao, produtoSelecionado!);
-          if (volume20C != null) {
-            campos['volumeApurado20C']!.text =
-                _mascaraMilharUI(volume20C.toString());
-          }
+        final volume20C = _obterVolume20CPorProduto(
+            movimentacao, produtoSelecionado!);
+        if (volume20C != null) {
+          campos['volumeApurado20C']!.text = 
+              _mascaraMilharUI(volume20C.toString());
         }
       }
     } catch (e) {
@@ -520,6 +430,13 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
   }
 
   int? _obterVolumeAmbientePorProduto(Map<String, dynamic> movimentacao, String produtoNome) {
+    if (movimentacao['entrada_amb'] != null) {
+      final entradaAmb = movimentacao['entrada_amb'];
+      if (entradaAmb is num && entradaAmb > 0) {
+        return entradaAmb.toInt();
+      }
+    }
+
     final produtoLower = produtoNome.toLowerCase();
     
     final mapaColunas = {
@@ -612,11 +529,9 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
           .single();
       
       _dadosExistentes = Map<String, dynamic>.from(dados);
-      
       _preencherCamposComDadosExistentes();
       
     } catch (e) {
-      print('Erro ao carregar certificado: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -690,7 +605,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
   
   String _formatarDecimalParaExibicao(dynamic valor) {
     if (valor == null) return '';
-    
     try {
       String texto = valor.toString();
       if (texto.contains('.')) {
@@ -727,10 +641,8 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
     }
   }
 
-  // ================= CÁLCULOS =================
   Future<void> _calcularResultadosObtidos() async {
     if (_modoVisualizacao) return;
-
     if (produtoSelecionado == null) return;
 
     final tempAmostra = campos['tempAmostra']!.text;
@@ -779,14 +691,12 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
 
   String _formatarNumeroParaCampo(double valor) {
     if (valor.isNaN || valor.isInfinite) return '';
-
     final valorInteiro = valor.round();
     return _aplicarMascaraMilhar(valorInteiro.toString());
   }
 
   String _aplicarMascaraMilhar(String texto) {
     final apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
-
     if (apenasNumeros.isEmpty || apenasNumeros == '0') return '0';
 
     String resultado = '';
@@ -800,7 +710,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
 
   void _calcularVolumeApurado20C() {
     if (_modoVisualizacao) return;
-
     final fcvText = campos['fatorCorrecao']!.text;
     if (fcvText.isEmpty || fcvText == '-') return;
 
@@ -829,7 +738,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
     return Scaffold(
       body: Column(
         children: [
-          // ================= HEADER =================
           Row(
             children: [
               IconButton(
@@ -864,8 +772,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
             ],
           ),
           const Divider(),
-
-          // ================= CONTEÚDO =================
           Expanded(
             child: SingleChildScrollView(
               child: Center(
@@ -877,7 +783,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                       key: _formKey,
                       child: Column(
                         children: [
-                          // ================= LOADING =================
                           if (_carregandoDadosMovimentacao)
                             Container(
                               padding: const EdgeInsets.all(20),
@@ -897,15 +802,12 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                                 ],
                               ),
                             ),
-                          
-                          // ================= FORMULÁRIO =================
                           Opacity(
                             opacity: _carregandoDadosMovimentacao ? 0.5 : 1.0,
                             child: AbsorbPointer(
                               absorbing: _modoVisualizacao || _carregandoDadosMovimentacao,
                               child: Column(
                                 children: [
-                                  // ================= NÚMERO DE CONTROLE =================
                                   _linha([
                                     Material(
                                       shape: RoundedRectangleBorder(
@@ -997,7 +899,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                                     },
                                   ]),
                                   const SizedBox(height: 12),
-                                  
                                   _linhaFlexivel([
                                     {
                                       'flex': 10,
@@ -1024,8 +925,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                                       ),
                                     },
                                   ]),
-                                  const SizedBox(height: 12),                                
-                                  // LINHA COM OS 3 CAMPOS DE PLACA - COM AUTOCOMPLETE
+                                  const SizedBox(height: 12),
                                   _linhaFlexivel([
                                     {
                                       'flex': 4,
@@ -1121,7 +1021,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                                   _linha([
                                     _campo('Densidade a 20 ºC', campos['densidade20']!, 
                                            enabled: false), 
-                                    
                                     _campo('Fator de correção (FCV)', campos['fatorCorrecao']!, 
                                            enabled: false), 
                                   ]),
@@ -1145,7 +1044,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                                                 );
                                               }
                                             },
-                                      decoration: _decoration('Volume carregado (ambiente)').copyWith(
+                                      decoration: _decoration('Volume recebido (ambiente)').copyWith(
                                         fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
                                       ),
                                     ),
@@ -1167,7 +1066,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                                                 );
                                               }
                                             },
-                                      decoration: _decoration('Volume apurado a 20 ºC').copyWith(
+                                      decoration: _decoration('Volume recebido a 20 ºC').copyWith(
                                         fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
                                       ),
                                     ),
@@ -1178,11 +1077,9 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                             ),
                           ),
                           if (!_carregandoDadosMovimentacao)
-                          // ================= BOTÕES =================
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              // BOTÃO EMITIR CERTIFICADO
                               if (!_modoVisualizacao)
                                 ElevatedButton.icon(
                                   onPressed: _salvandoCertificado ? null : _confirmarEmissaoCertificado,
@@ -1229,7 +1126,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                                   ),
                                 ),
 
-                              // BOTÃO GERAR PDF
                               ElevatedButton.icon(
                                 onPressed: _modoVisualizacao ? _baixarPDF : null,
                                 icon: const Icon(Icons.picture_as_pdf, size: 24),
@@ -1251,7 +1147,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                                 ),
                               ),
 
-                              // BOTÃO VOLTAR
                               ElevatedButton.icon(
                                 onPressed: _voltar,
                                 icon: const Icon(Icons.arrow_back, size: 24),
@@ -1284,7 +1179,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
     );
   }
 
-  // ================= UI HELPERS =================
   Widget _linha(List<Widget> campos) => Row(
         children: campos
             .map((c) => Expanded(
@@ -1350,7 +1244,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         ],
       );
 
-  // ================= CÁLCULOS =================
   Future<String> _buscarDensidade20C({
     required String temperaturaAmostra,
     required String densidadeObservada,
@@ -1536,7 +1429,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       return '-';
     }
   }
-  
+
   Future<String> _buscarFCV({
     required String temperaturaTanque,
     required String densidade20C,
@@ -1667,7 +1560,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
 
       final densidadeMaisProxima = densidadesDisponiveis.first;
       final codigoMaisProximo = densidadeMaisProxima['codigo'] as String;
-      final diferenca = densidadeMaisProxima['diferenca'] as double;
 
       final aproximado = await _buscarFCVPorCodigo(codigoMaisProximo);
       
@@ -1690,10 +1582,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
               .maybeSingle();
 
           if (r != null && r['v_$codigoMaisProximo'] != null) {
-            if (context.mounted && diferenca > 0.0001) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-              });
-            }
             return _formatarFCV(r['v_$codigoMaisProximo'].toString());
           }
         } catch (_) {
@@ -1741,7 +1629,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
     return variacoes.toSet().toList();
   }
 
-  // ================= DOWNLOAD PDF =================
   Future<void> _baixarPDF() async {
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1813,7 +1700,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       if (kIsWeb) {
         await _downloadForWeb(pdfBytes);
       } else {
-        print('PDF gerado (${pdfBytes.length} bytes) - Plataforma não web');
         _showMobileMessage();
       }
       
@@ -1827,8 +1713,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       }
       
     } catch (e) {
-      print('ERRO no _baixarPDF: $e');
-      
       if (context.mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1860,10 +1744,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
           setTimeout(() => {
             document.body.removeChild(link);
           }, 100);
-          
-          console.log('Download iniciado: ' + '$fileName');
         } catch (error) {
-          console.error('Erro no download automático:', error);
           window.open('$dataUrl', '_blank');
         }
       ''';
@@ -1871,8 +1752,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       js.context.callMethod('eval', [jsCode]);
       
     } catch (e) {
-      print('Erro no download Web: $e');
-      
       if (context.mounted) {
         showDialog(
           context: context,
@@ -1960,14 +1839,11 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         : '$parteInteira,$parteDecimal';
   }
 
-  // ================= BOTÃO VOLTAR =================
   void _voltar() {
     FocusScope.of(context).unfocus();
-    
     Navigator.of(context).pop(true);
   }
 
-  // Método para confirmar emissão do certificado
   void _confirmarEmissaoCertificado() {
     if (produtoSelecionado == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2104,7 +1980,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
     );
   }
   
-  // Método para processar a emissão do certificado
   Future<void> _processarEmissaoCertificado() async {
     if (!mounted) return;
 
@@ -2124,7 +1999,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
 
       final produtoId = await _resolverProdutoId(produtoSelecionado!);
 
-      // Dados do certificado
       final dadosOrdem = {
         'data_analise': _formatarDataParaBanco(dataCtrl.text),
         'hora_analise': horaCtrl.text,
@@ -2157,7 +2031,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         'filial_id': usuario.filialId,
       };
 
-      // INSERIR o certificado
       final response = await supabase
           .from('ordens_analises')
           .insert(dadosOrdem)
@@ -2169,7 +2042,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       campos['numeroControle']!.text =
           response['numero_controle'].toString();
 
-      // Atualizar movimentação com volume 20°C
       if (widget.idMovimentacao != null) {
         final volume20C =
             _converterParaInteiro(campos['volumeApurado20C']!.text) ?? 0;
@@ -2180,7 +2052,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
           volume20C: volume20C,
         );
         
-        // ATUALIZADO: Inclui status_circuito_destino com valor "4"
         await _atualizarDataCargaEStatusCircuito(movimentacaoId: widget.idMovimentacao!);
       }
 
@@ -2202,8 +2073,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       }
 
     } catch (e) {
-      print('Erro ao emitir certificado: $e');
-      
       if (mounted) {
         setState(() {
           _salvandoCertificado = false;
@@ -2219,29 +2088,21 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
     }
   }
 
-  // MÉTODO ATUALIZADO: Agora salva status_circuito_destino com valor "4"
   Future<void> _atualizarDataCargaEStatusCircuito({required String movimentacaoId}) async {
     try {
       final supabase = Supabase.instance.client;
-      
-      // Obtém a data/hora atual no formato UTC
       final agora = DateTime.now().toUtc().toIso8601String();
       
       await supabase
           .from('movimentacoes')
           .update({
-            'data_carga': agora, // TIMESTAMPTZ com data/hora atual
-            'status_circuito': '4', // Status circuito origem
-            'status_circuito_destino': '4', // NOVO: Status circuito destino com valor "4"
+            'data_carga': agora,
+            'status_circuito': '4',
+            'status_circuito_destino': '4',
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('id', movimentacaoId);
-          
-      print('✓ data_carga, status_circuito e status_circuito_destino atualizados na movimentação $movimentacaoId');
-    } catch (e) {
-      print('Erro ao atualizar data_carga e status_circuito: $e');
-      // Não lançar erro aqui para não interromper o fluxo principal
-    }
+    } catch (e) {}
   }
 
   Future<void> _atualizarMovimentacaoSomente20C({
@@ -2257,13 +2118,12 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         .from('movimentacoes')
         .update({
           coluna20C: volume20C,
-          'saida_vinte': volume20C,
+          'entrada_vinte': volume20C,
           'updated_at': DateTime.now().toIso8601String(),
         })
         .eq('id', movimentacaoId);
   }
   
-  // ================= AUXILIAR =================
   Future<String> _resolverProdutoId(String nomeProduto) async {
     final r = await Supabase.instance.client
         .from('produtos')

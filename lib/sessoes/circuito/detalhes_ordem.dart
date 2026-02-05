@@ -440,12 +440,20 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
         }
       } else {
         // MOVIMENTO DE ENTRADA: Abre EmitirCertificadoEntrada
+        final certificadoEntrada = await _supabase
+        .from('ordens_analises')
+        .select('id, analise_concluida')
+        .eq('movimentacao_id', movimentacaoId)
+        .maybeSingle();
+
         final result = await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => EmitirCertificadoEntrada(
               onVoltar: () {
                 Navigator.of(context).pop(true);
               },
+              idCertificado: certificadoEntrada?['id'], // NOVO
+              idMovimentacao: movimentacaoId, // NOVO
             ),
           ),
         );
