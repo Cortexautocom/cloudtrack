@@ -2112,8 +2112,8 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
           volume20C: volume20C,
         );
         
-        // ATUALIZAR STATUS_CIRCUITO APENAS AQUI - quando certificado é emitido
-        await _atualizarStatusCircuito(movimentacaoId: widget.idMovimentacao!);
+        // NOVO: Atualizar data_carga e status_circuito
+        await _atualizarDataCargaEStatusCircuito(movimentacaoId: widget.idMovimentacao!);
       }
 
       if (!mounted) return;
@@ -2151,6 +2151,30 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     }
   }
 
+  // NOVO MÉTODO: Atualizar data_carga e status_circuito
+  Future<void> _atualizarDataCargaEStatusCircuito({required String movimentacaoId}) async {
+    try {
+      final supabase = Supabase.instance.client;
+      
+      // Obtém a data/hora atual no formato UTC
+      final agora = DateTime.now().toUtc().toIso8601String();
+      
+      await supabase
+          .from('movimentacoes')
+          .update({
+            'data_carga': agora, // TIMESTAMPTZ com data/hora atual
+            'status_circuito': '4', // ou outro status apropriado
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', movimentacaoId);
+          
+      print('✓ data_carga e status_circuito atualizados na movimentação $movimentacaoId');
+    } catch (e) {
+      print('Erro ao atualizar data_carga e status_circuito: $e');
+      // Não lançar erro aqui para não interromper o fluxo principal
+    }
+  }
+
   Future<void> _atualizarMovimentacaoSomente20C({
     required String movimentacaoId,
     required String produtoId,
@@ -2169,27 +2193,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         })
         .eq('id', movimentacaoId);
   }
-
-  // NOVO MÉTODO: Atualizar status_circuito apenas quando certificado é emitido
-  Future<void> _atualizarStatusCircuito({required String movimentacaoId}) async {
-    try {
-      final supabase = Supabase.instance.client;
-      
-      await supabase
-          .from('movimentacoes')
-          .update({
-            'status_circuito': '4', // ou outro status apropriado
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', movimentacaoId);
-          
-      print('✓ status_circuito atualizado para CONCLUIDO na movimentação $movimentacaoId');
-    } catch (e) {
-      print('Erro ao atualizar status_circuito: $e');
-      // Não lançar erro aqui para não interromper o fluxo principal
-    }
-  }
-
+  
   // ================= AUXILIAR =================
   Future<String> _resolverProdutoId(String nomeProduto) async {
     final r = await Supabase.instance.client
