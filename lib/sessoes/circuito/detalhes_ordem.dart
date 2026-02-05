@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../apuracao/certificado_apuracao_saida.dart'; // Import corrigido
+import '../apuracao/certificado_apuracao_saida.dart';
+import '../apuracao/certificado_apuracao_entrada.dart';
 
 enum EtapaCircuito {
   programado,
@@ -391,6 +392,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
         .etapa;
   }  
   
+  // MÉTODO MODIFICADO: Abrir certificado baseado no tipo de movimentação
   Future<void> _abrirCertificadoApuracao() async {
     final ordemId = widget.ordem['ordem_id']?.toString();
     if (ordemId == null || ordemId.isEmpty) return;
@@ -417,43 +419,74 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
 
       if (!mounted) return;
 
-      // MODIFICAÇÃO AQUI: Use await Navigator.push e capture o resultado
-      final result = await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => EmitirCertificadoPage(
-            idCertificado: certificado?['id'],
-            idMovimentacao: movimentacaoId,
-            onVoltar: () {
-              // Agora apenas fecha a página
-              Navigator.of(context).pop(true); // ← Retorna true
-            },
+      // VERIFICAÇÃO DO TIPO DE MOVIMENTAÇÃO
+      if (_tipoMovimentacao == TipoMovimentacao.carregamento) {
+        // MOVIMENTO DE SAÍDA: Abre EmitirCertificadoPage
+        final result = await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => EmitirCertificadoPage(
+              idCertificado: certificado?['id'],
+              idMovimentacao: movimentacaoId,
+              onVoltar: () {
+                Navigator.of(context).pop(true);
+              },
+            ),
           ),
-        ),
-      );
+        );
 
-      // VERIFICAÇÃO DO RESULTADO: Se voltou com true, atualize a tela
-      if (result == true && mounted) {
-        // Recarregue os dados da tela atual
-        await _carregarMovimentacoes();
-        
-        // Atualize o status local se necessário
-        final movimentacoesAtualizadas = await _supabase
-            .from('movimentacoes')
-            .select('status_circuito')
-            .eq('ordem_id', ordemId)
-            .order('id', ascending: true)
-            .limit(1);
+        // Recarregar dados se voltou com sucesso
+        if (result == true && mounted) {
+          await _atualizarTelaAposCertificado(ordemId);
+        }
+      } else {
+        // MOVIMENTO DE ENTRADA: Abre EmitirCertificadoEntrada
+        final result = await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => EmitirCertificadoEntrada(
+              onVoltar: () {
+                Navigator.of(context).pop(true);
+              },
+            ),
+          ),
+        );
 
-        if (movimentacoesAtualizadas.isNotEmpty && mounted) {
-          final novoStatus = movimentacoesAtualizadas.first['status_circuito'];
-          setState(() {
-            widget.ordem['status_circuito'] = novoStatus;
-            _etapaAtual = _resolverEtapaPorStatus(novoStatus);
-          });
+        // Recarregar dados se voltou com sucesso
+        if (result == true && mounted) {
+          await _atualizarTelaAposCertificado(ordemId);
         }
       }
-    } catch (_) {
-      // Tratamento de erro
+    } catch (e) {
+      print('Erro ao abrir certificado: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Método auxiliar para atualizar a tela após fechar o certificado
+  Future<void> _atualizarTelaAposCertificado(String ordemId) async {
+    // Recarregue os dados da tela atual
+    await _carregarMovimentacoes();
+    
+    // Atualize o status local se necessário
+    final movimentacoesAtualizadas = await _supabase
+        .from('movimentacoes')
+        .select('status_circuito')
+        .eq('ordem_id', ordemId)
+        .order('id', ascending: true)
+        .limit(1);
+
+    if (movimentacoesAtualizadas.isNotEmpty && mounted) {
+      final novoStatus = movimentacoesAtualizadas.first['status_circuito'];
+      setState(() {
+        widget.ordem['status_circuito'] = novoStatus;
+        _etapaAtual = _resolverEtapaPorStatus(novoStatus);
+      });
     }
   }
 
