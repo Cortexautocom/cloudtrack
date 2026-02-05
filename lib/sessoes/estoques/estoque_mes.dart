@@ -56,23 +56,21 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   static const double _alturaCabecalho = 40;
   static const double _alturaLinha = 40;
   static const double _alturaRodape = 32;
-  static const double _alturaEstoqueLinha = 32;
 
   // Larguras das colunas
   static const double _larguraData = 120;
   static const double _larguraProduto = 180;
   static const double _larguraDescricao = 240;
   static const double _larguraNumerica = 120;
-  static const double _larguraLabelEstoque = 100;
 
   // GETTER para calcular largura total DINAMICAMENTE
   double get _larguraTabela {
     bool mostrarColunaProduto = widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
     
-    // Soma das larguras fixas (6 colunas numéricas)
+    // Soma das larguras fixas (7 colunas numéricas - agora com a nova coluna Sobra/Perda)
     double soma = _larguraData + 
                   _larguraDescricao + 
-                  (_larguraNumerica * 6); // 6 colunas numéricas
+                  (_larguraNumerica * 7); // 7 colunas numéricas (incluindo Sobra/Perda)
     
     // Adiciona coluna de produto se necessário
     if (mostrarColunaProduto) {
@@ -1134,10 +1132,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           ),
           child: Column(
             children: [
-              _buildLinhaEstoqueInicial(),
               _buildTabelaCabecalho(),
               _buildTabelaCorpo(),
-              _buildLinhaEstoqueFinal(),
               _buildContadorResultados(),
             ],
           ),
@@ -1146,191 +1142,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     );
   }
 
-  // Adicione este método na classe _EstoqueMesPageState
-  // MÉTODO CORRIGIDO - VERSÃO FINAL
-  double _calcularLarguraColunasAntesDoSaldo(bool mostrarColunaProduto) {
-    double larguraTotal = 0;
-    
-    // Soma todas as colunas que vêm antes das colunas de SALDO
-    larguraTotal += _larguraData;                    // Coluna Data
-    
-    if (mostrarColunaProduto) {
-      larguraTotal += _larguraProduto;              // Coluna Produto (se visível)
-    }
-    
-    larguraTotal += _larguraDescricao;              // Coluna Descrição
-    larguraTotal += _larguraNumerica * 4;           // 4 colunas (Entrada Amb, 20ºC, Saída Amb, 20ºC)
-    
-    // AGORA SUBTRAI a largura do label, porque ele também ocupa espaço
-    // e queremos que fique colado aos valores
-    larguraTotal -= _larguraLabelEstoque;
-    
-    // Garante que não seja negativo (caso de erro)
-    if (larguraTotal < 0) {
-      larguraTotal = 0;
-    }
-    
-    return larguraTotal;
-  }
-
-  // Linha de estoque inicial
-  Widget _buildLinhaEstoqueInicial() {
-    bool mostrarColunaProduto = widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
-    
-    return Scrollbar(
-      controller: _horizontalHeaderController,
-      thumbVisibility: true,
-      child: SingleChildScrollView(
-        controller: _horizontalHeaderController,
-        scrollDirection: Axis.horizontal,
-        child: SizedBox(
-          width: _larguraTabela,
-          child: Container(
-            height: _alturaEstoqueLinha,
-            color: Colors.blue.shade50,
-            child: Row(
-              children: [
-                // ESPAÇO EM BRANCO que empurra o label para a direita
-                Container(
-                  width: _calcularLarguraColunasAntesDoSaldo(mostrarColunaProduto),
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  alignment: Alignment.center,
-                  child: const Text(''),
-                ),
-                
-                // Label "Estoque Inicial" - AGORA ALINHADO À DIREITA
-                Container(
-                  width: _larguraLabelEstoque,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  alignment: Alignment.centerRight,  // ALTERAÇÃO AQUI
-                  child: const Text(
-                    'Estoque Inicial:',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
-                    ),
-                  ),
-                ),
-                
-                // Apenas as células de saldo (remova as outras células vazias)
-                _cellEstoque(
-                  _formatarNumero(_estoqueInicial['ambiente'] as num?),
-                  _larguraNumerica,
-                  isInicial: true,
-                ),
-                _cellEstoque(
-                  _formatarNumero(_estoqueInicial['vinte_graus'] as num?),
-                  _larguraNumerica,
-                  isInicial: true,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Linha de estoque final
-  Widget _buildLinhaEstoqueFinal() {
-    bool mostrarColunaProduto = widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
-    
-    return Scrollbar(
-      controller: _horizontalHeaderController,
-      thumbVisibility: true,
-      child: SingleChildScrollView(
-        controller: _horizontalHeaderController,
-        scrollDirection: Axis.horizontal,
-        child: SizedBox(
-          width: _larguraTabela,
-          child: Container(
-            height: _alturaEstoqueLinha,
-            color: Colors.grey.shade100,
-            child: Row(
-              children: [
-                // ESPAÇO EM BRANCO
-                Container(
-                  width: _calcularLarguraColunasAntesDoSaldo(mostrarColunaProduto),
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  alignment: Alignment.center,
-                  child: const Text(''),
-                ),
-                                
-                Container(
-                  width: _larguraLabelEstoque,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  alignment: Alignment.centerRight,  // ALTERAÇÃO AQUI
-                  child: const Text(
-                    'Estoque Final:',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Color.fromARGB(255, 99, 99, 99),
-                    ),
-                  ),
-                ),
-                
-                // Apenas as células de saldo
-                _cellEstoque(
-                  _formatarNumero(_estoqueFinal['ambiente'] as num?),
-                  _larguraNumerica,
-                  isInicial: false, // Isso ativa a lógica de verificação
-                ),
-                _cellEstoque(
-                  _formatarNumero(_estoqueFinal['vinte_graus'] as num?),
-                  _larguraNumerica,
-                  isInicial: false, // Isso ativa a lógica de verificação
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Célula de estoque
-  Widget _cellEstoque(
-    String texto,
-    double largura, {
-    bool isInicial = true,
-    Color? corPersonalizada,
-  }) {
-    Color cor;
-    
-    if (corPersonalizada != null) {
-      cor = corPersonalizada;
-    } else if (isInicial) {
-      cor = Colors.blue;
-    } else {
-      
-      if (texto.startsWith('-')) {
-        cor = Colors.red;
-      } else {
-        cor = Colors.green.shade700;
-      }
-    }
-    
-    return Container(
-      width: largura,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      alignment: Alignment.center,
-      child: Text(
-        texto,
-        style: TextStyle(
-          fontSize: 12,
-          color: cor,
-          fontWeight: FontWeight.bold,
-          overflow: TextOverflow.ellipsis,
-        ),
-        textAlign: TextAlign.center,
-        maxLines: 1,
-      ),
-    );
-  }
-
-  // Cabeçalho da tabela com scroll horizontal
+  // Cabeçalho da tabela com scroll horizontal (COM a nova coluna Sobra/Perda)
   Widget _buildTabelaCabecalho() {
     bool mostrarColunaProduto = widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
     
@@ -1355,6 +1167,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                 _th('Entrada (20ºC)', _larguraNumerica, onTap: () => _onSort('entrada_vinte')),
                 _th('Saída (Amb)', _larguraNumerica, onTap: () => _onSort('saida_amb')),
                 _th('Saída (20ºC)', _larguraNumerica, onTap: () => _onSort('saida_vinte')),
+                _th('Sobra/Perda', _larguraNumerica), // NOVA COLUNA
                 _th('Saldo (Amb)', _larguraNumerica, onTap: () => _onSort('saldo_amb')),
                 _th('Saldo (20ºC)', _larguraNumerica, onTap: () => _onSort('saldo_vinte')),
               ],
@@ -1403,16 +1216,101 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           child: ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: _movimentacoesOrdenadas.length,
+            itemCount: _movimentacoesOrdenadas.length + 2, // +2 para estoque inicial e final
             itemBuilder: (context, index) {
-              final e = _movimentacoesOrdenadas[index];
+              // Primeira linha: Estoque Inicial
+              if (index == 0) {
+                return Container(
+                  height: _alturaLinha,
+                  color: Colors.blue.shade50, // Cor diferenciada
+                  child: Row(
+                    children: [
+                      // Data vazia para estoque inicial
+                      _cell('', _larguraData),
+                      if (mostrarColunaProduto)
+                        _cell('', _larguraProduto),
+                      // Descrição: Estoque Inicial
+                      _cell('Estoque Inicial', _larguraDescricao, cor: Colors.blue, fontWeight: FontWeight.bold),
+                      // Entradas e Saídas zeradas
+                      _cell('0', _larguraNumerica, isNumber: true),
+                      _cell('0', _larguraNumerica, isNumber: true),
+                      _cell('0', _larguraNumerica, isNumber: true),
+                      _cell('0', _larguraNumerica, isNumber: true),
+                      // Sobra/Perda vazia
+                      _cell('-', _larguraNumerica, isNumber: true),
+                      // Saldo Ambiente (estoque inicial)
+                      _cell(
+                        _formatarNumero(_estoqueInicial['ambiente'] as num?),
+                        _larguraNumerica,
+                        cor: Colors.blue,
+                        fontWeight: FontWeight.bold,
+                        isNumber: true,
+                      ),
+                      // Saldo 20ºC (estoque inicial)
+                      _cell(
+                        _formatarNumero(_estoqueInicial['vinte_graus'] as num?),
+                        _larguraNumerica,
+                        cor: Colors.blue,
+                        fontWeight: FontWeight.bold,
+                        isNumber: true,
+                      ),
+                    ],
+                  ),
+                );
+              }
+              
+              // Última linha: Estoque Final
+              if (index == _movimentacoesOrdenadas.length + 1) {
+                return Container(
+                  height: _alturaLinha,
+                  color: Colors.grey.shade100, // Cor diferenciada
+                  child: Row(
+                    children: [
+                      // Data vazia para estoque final
+                      _cell('', _larguraData),
+                      if (mostrarColunaProduto)
+                        _cell('', _larguraProduto),
+                      // Descrição: Estoque Final
+                      _cell('Estoque Final', _larguraDescricao, cor: Colors.grey.shade700, fontWeight: FontWeight.bold),
+                      // Entradas e Saídas zeradas
+                      _cell('0', _larguraNumerica, isNumber: true),
+                      _cell('0', _larguraNumerica, isNumber: true),
+                      _cell('0', _larguraNumerica, isNumber: true),
+                      _cell('0', _larguraNumerica, isNumber: true),
+                      // Sobra/Perda vazia
+                      _cell('-', _larguraNumerica, isNumber: true),
+                      // Saldo Ambiente (estoque final)
+                      _cell(
+                        _formatarNumero(_estoqueFinal['ambiente'] as num?),
+                        _larguraNumerica,
+                        cor: ((_estoqueFinal['ambiente'] as num?) ?? 0) < 0 ? Colors.red : Colors.black,
+                        fontWeight: FontWeight.bold,
+                        isNumber: true,
+                      ),
+
+                      // Saldo 20ºC (estoque final)
+                      _cell(
+                        _formatarNumero(_estoqueFinal['vinte_graus'] as num?),
+                        _larguraNumerica,
+                        cor: ((_estoqueFinal['vinte_graus'] as num?) ?? 0) < 0 ? Colors.red : Colors.black,
+                        fontWeight: FontWeight.bold,
+                        isNumber: true,
+                      ),
+                    ],
+                  ),
+                );
+              }
+              
+              // Linhas normais das movimentações
+              final movIndex = index - 1; // -1 porque a primeira linha é o estoque inicial
+              final e = _movimentacoesOrdenadas[movIndex];
               final saldoAmb = e['saldo_amb'] ?? 0;
               final saldoVinte = e['saldo_vinte'] ?? 0;
 
               return Container(
                 height: _alturaLinha,
                 decoration: BoxDecoration(
-                  color: index % 2 == 0
+                  color: movIndex % 2 == 0
                       ? Colors.grey.shade50
                       : Colors.white,
                   border: Border(
@@ -1436,6 +1334,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                           fundo: _getCorFundoSaida(), isNumber: true),
                     _cell(_formatarNumero(e['saida_vinte']), _larguraNumerica, 
                           fundo: _getCorFundoSaida(), isNumber: true),
+                    _cell('-', _larguraNumerica, isNumber: true), // NOVA COLUNA - VAZIA
                     _cell(
                       _formatarNumero(saldoAmb),
                       _larguraNumerica,
@@ -1464,6 +1363,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     double largura, {
     Color? fundo,
     Color? cor,
+    FontWeight? fontWeight,
     bool isNumber = false,
   }) {
     return Container(
@@ -1476,7 +1376,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         style: TextStyle(
           fontSize: 12,
           color: cor ?? Colors.grey.shade700,
-          fontWeight: isNumber ? FontWeight.w600 : FontWeight.normal,
+          fontWeight: fontWeight ?? (isNumber ? FontWeight.w600 : FontWeight.normal),
           overflow: TextOverflow.ellipsis,
         ),
         textAlign: TextAlign.center,
