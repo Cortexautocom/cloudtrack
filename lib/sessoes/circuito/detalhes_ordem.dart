@@ -206,10 +206,19 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     _tipoMovimentacao = _determinarTipoMovimentacao();
     
     // 2. Depois o resto
-    _etapaAtual = _resolverEtapaPorStatus(widget.ordem['status_circuito']);
+    _etapaAtual = _resolverEtapaPorStatus(_obterStatusAtual());
     _carregarNumeroControleOrdem();
     _carregarMovimentacoes();
     _inicializarHistorico();
+  }
+
+  // NOVO MÉTODO: Obter o campo de status correto baseado no tipo
+  dynamic _obterStatusAtual() {
+    if (_tipoMovimentacao == TipoMovimentacao.carregamento) {
+      return widget.ordem['status_circuito_orig'];
+    } else {
+      return widget.ordem['status_circuito_dest'];
+    }
   }
 
   TipoMovimentacao _determinarTipoMovimentacao() {
@@ -400,7 +409,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     try {
       final movimentacoes = await _supabase
           .from('movimentacoes')
-          .select('id, status_circuito')
+          .select('id, status_circuito_orig, status_circuito_dest')
           .eq('ordem_id', ordemId)
           .order('id', ascending: true)
           .limit(1);
@@ -484,15 +493,24 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     // Atualize o status local se necessário
     final movimentacoesAtualizadas = await _supabase
         .from('movimentacoes')
-        .select('status_circuito')
+        .select('status_circuito_orig, status_circuito_dest')
         .eq('ordem_id', ordemId)
         .order('id', ascending: true)
         .limit(1);
 
     if (movimentacoesAtualizadas.isNotEmpty && mounted) {
-      final novoStatus = movimentacoesAtualizadas.first['status_circuito'];
+      final novoStatus = _tipoMovimentacao == TipoMovimentacao.carregamento
+          ? movimentacoesAtualizadas.first['status_circuito_orig']
+          : movimentacoesAtualizadas.first['status_circuito_dest'];
+      
+      // Atualiza o widget.ordem com o status correto
+      if (_tipoMovimentacao == TipoMovimentacao.carregamento) {
+        widget.ordem['status_circuito_orig'] = novoStatus;
+      } else {
+        widget.ordem['status_circuito_dest'] = novoStatus;
+      }
+      
       setState(() {
-        widget.ordem['status_circuito'] = novoStatus;
         _etapaAtual = _resolverEtapaPorStatus(novoStatus);
       });
     }
@@ -787,15 +805,27 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
       // Atualizar todas as movimentações relacionadas a esta ordem
       final ordemId = widget.ordem['ordem_id'];
       if (ordemId != null) {
+        // Determinar qual campo atualizar baseado no tipo de movimentação
+        final campoStatus = _tipoMovimentacao == TipoMovimentacao.carregamento
+            ? 'status_circuito_orig'
+            : 'status_circuito_dest';
+        
         await _supabase
             .from('movimentacoes')
-            .update({'status_circuito': 3})
+            .update({campoStatus: 3})
             .eq('ordem_id', ordemId);
 
         // Atualizar estado local
         setState(() {
           _etapaAtual = EtapaCircuito.operacao;
           _atualizandoChecklist = false;
+          
+          // Atualiza também no widget.ordem para manter sincronizado
+          if (_tipoMovimentacao == TipoMovimentacao.carregamento) {
+            widget.ordem['status_circuito_orig'] = 3;
+          } else {
+            widget.ordem['status_circuito_dest'] = 3;
+          }
         });
 
         // Adicionar ao histórico local
@@ -1037,17 +1067,29 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
   // NOVO MÉTODO: Atualizar status para 2 (check-list)
   Future<void> _avancarParaChecklist() async {
     try {
-      // Atualizar status_circuito para 2 (check-list)
+      // Atualizar status_circuito_orig ou status_circuito_dest para 2 (check-list)
       final ordemId = widget.ordem['ordem_id'];
       if (ordemId != null) {
+        // Determinar qual campo atualizar
+        final campoStatus = _tipoMovimentacao == TipoMovimentacao.carregamento
+            ? 'status_circuito_orig'
+            : 'status_circuito_dest';
+        
         await _supabase
             .from('movimentacoes')
-            .update({'status_circuito': 2})
+            .update({campoStatus: 2})
             .eq('ordem_id', ordemId);
 
         // Atualizar estado local
         setState(() {
           _etapaAtual = EtapaCircuito.checkList;
+          
+          // Atualiza também no widget.ordem
+          if (_tipoMovimentacao == TipoMovimentacao.carregamento) {
+            widget.ordem['status_circuito_orig'] = 2;
+          } else {
+            widget.ordem['status_circuito_dest'] = 2;
+          }
         });
 
         // Adicionar ao histórico local
@@ -1084,17 +1126,29 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
   // NOVO MÉTODO: Atualizar status para 15 (aguardando)
   Future<void> _avancarParaAguardando() async {
     try {
-      // Atualizar status_circuito para 15 (aguardando check-list)
+      // Atualizar status_circuito_orig ou status_circuito_dest para 15 (aguardando check-list)
       final ordemId = widget.ordem['ordem_id'];
       if (ordemId != null) {
+        // Determinar qual campo atualizar
+        final campoStatus = _tipoMovimentacao == TipoMovimentacao.carregamento
+            ? 'status_circuito_orig'
+            : 'status_circuito_dest';
+        
         await _supabase
             .from('movimentacoes')
-            .update({'status_circuito': 15})
+            .update({campoStatus: 15})
             .eq('ordem_id', ordemId);
 
         // Atualizar estado local
         setState(() {
           _etapaAtual = EtapaCircuito.aguardando;
+          
+          // Atualiza também no widget.ordem
+          if (_tipoMovimentacao == TipoMovimentacao.carregamento) {
+            widget.ordem['status_circuito_orig'] = 15;
+          } else {
+            widget.ordem['status_circuito_dest'] = 15;
+          }
         });
 
         // Adicionar ao histórico local
@@ -1195,13 +1249,25 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     final ordemId = widget.ordem['ordem_id'];
     if (ordemId == null) return;
 
+    // Determinar qual campo atualizar
+    final campoStatus = _tipoMovimentacao == TipoMovimentacao.carregamento
+        ? 'status_circuito_orig'
+        : 'status_circuito_dest';
+    
     await _supabase
         .from('movimentacoes')
-        .update({'status_circuito': 5})
+        .update({campoStatus: 5})
         .eq('ordem_id', ordemId);
 
     setState(() {
       _etapaAtual = EtapaCircuito.liberacao;
+      
+      // Atualiza também no widget.ordem
+      if (_tipoMovimentacao == TipoMovimentacao.carregamento) {
+        widget.ordem['status_circuito_orig'] = 5;
+      } else {
+        widget.ordem['status_circuito_dest'] = 5;
+      }
     });
   }
 

@@ -2097,7 +2097,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
           .from('movimentacoes')
           .update({
             'data_carga': agora,
-            'status_circuito': '4',
             'status_circuito_destino': '4',
             'updated_at': DateTime.now().toIso8601String(),
           })
