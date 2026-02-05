@@ -274,11 +274,6 @@ class _TemperaturaDensidadeMediaPageState
     }
   }
 
-  Future<void> _carregarMais() async {
-    if (_carregandoMais || !_temMaisPaginas) return;
-    await _carregarDados(carregarMais: true);
-  }
-
   // ----------------- FILTRO -----------------
 
   List<Map<String, dynamic>> get _registrosFiltrados {
@@ -455,7 +450,6 @@ class _TemperaturaDensidadeMediaPageState
                 decoration: InputDecoration(
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                  hintText: campo.contains('Temp.') ? '°C' : 'kg/m³',
                 ),
                 onChanged: (value) {
                   // Aqui será implementada a lógica para salvar no banco
@@ -557,6 +551,97 @@ class _TemperaturaDensidadeMediaPageState
     );
   }
 
+  // ----------------- WIDGET DE PESQUISA (IGUAL AO DA PROGRAMAÇÃO) -----------------
+
+  Widget _buildSearchField() {
+    return Container(
+      height: 40,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 12),
+          Icon(Icons.calendar_today, color: Colors.grey.shade600, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              controller: _dataController,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                hintText: 'DD/MM/AAAA',
+                hintStyle: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                ),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+          if (_dataController.text.isNotEmpty)
+            IconButton(
+              icon: Icon(Icons.clear, color: Colors.grey.shade600, size: 20),
+              onPressed: () {
+                _dataController.clear();
+                setState(() {});
+              },
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlacaSearchField() {
+    return Container(
+      width: 200,
+      height: 40,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 12),
+          Icon(Icons.directions_car, color: Colors.grey.shade600, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              controller: _placaController,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                hintText: 'Placa',
+                hintStyle: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                ),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+          if (_placaController.text.isNotEmpty)
+            IconButton(
+              icon: Icon(Icons.clear, color: Colors.grey.shade600, size: 20),
+              onPressed: () {
+                _placaController.clear();
+                setState(() {});
+              },
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_carregando && _registros.isEmpty) {
@@ -571,81 +656,84 @@ class _TemperaturaDensidadeMediaPageState
     final grupos = _agruparPorHora(registros);
     final chavesOrdenadas = grupos.keys.toList()..sort();
 
-    if (registros.isEmpty) {
-      return Scaffold(
-        body: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: margemLateral),
-          child: Column(
-            children: [
-              // TOPO
-              Container(
-                height: kToolbarHeight + MediaQuery.of(context).padding.top,
-                padding: EdgeInsets.only(
-                  top: MediaQuery.of(context).padding.top,
+    return Scaffold(
+      appBar: null,
+      body: Column(
+        children: [
+          // AppBar personalizada FIXA (igual à da Programação)
+          Container(
+            height: kToolbarHeight + MediaQuery.of(context).padding.top,
+            padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top,
+              left: 16,
+              right: 16,
+            ),
+            color: Colors.white,
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.black),
+                  onPressed: widget.onVoltar,
                 ),
-                color: Colors.white,
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: widget.onVoltar,
-                    ),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Temperatura e Densidade Média',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                        ),
+                const SizedBox(width: 8),
+                // Título alinhado à esquerda
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Temperatura e Densidade Média',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
-                    SizedBox(
-                      width: 150,
-                      child: TextField(
-                        controller: _dataController,
-                        onChanged: (_) => _carregarDados(),
-                        decoration: const InputDecoration(
-                          hintText: 'DD/MM/AAAA',
-                          isDense: true,
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 150,
-                      child: TextField(
-                        controller: _placaController,
-                        onChanged: (_) => setState(() {}),
-                        decoration: const InputDecoration(
-                          hintText: 'Placa',
-                          isDense: true,
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.refresh),
-                      onPressed: () => _carregarDados(),
-                      tooltip: 'Atualizar',
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              Container(height: 1, color: Colors.grey.shade300),
-              Expanded(child: _buildVazio()),
-            ],
+                // Campos de busca
+                Container(
+                  width: 200,
+                  margin: const EdgeInsets.only(right: 12),
+                  child: _buildSearchField(),
+                ),
+                Container(
+                  width: 200,
+                  margin: const EdgeInsets.only(right: 12),
+                  child: _buildPlacaSearchField(),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh, color: Colors.black),
+                  onPressed: () => _carregarDados(),
+                  tooltip: 'Atualizar',
+                ),
+              ],
+            ),
           ),
-        ),
-      );
-    }
+          // Linha divisória opcional
+          Container(
+            height: 1,
+            color: Colors.grey.shade300,
+          ),
+          // Resto do conteúdo
+          Expanded(
+            child: registros.isEmpty
+                ? _buildVazio()
+                : _buildBodyContent(grupos, chavesOrdenadas),
+          ),
+        ],
+      ),
+    );
+  }
 
+  Widget _buildBodyContent(
+    Map<String, List<Map<String, dynamic>>> grupos,
+    List<String> chavesOrdenadas,
+  ) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final larguraDisponivel = constraints.maxWidth - (margemLateral * 2);
-
         final larguras = _calcularLarguras(larguraDisponivel);
 
         final colHorario = larguras['horario']!;
@@ -655,220 +743,185 @@ class _TemperaturaDensidadeMediaPageState
         final colEditavel = larguras['editavel']!;
         final larguraTabela = larguras['total']!;
 
-        return Scaffold(
-          body: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: margemLateral),
-            child: Column(
-              children: [
-                // TOPO
-                Container(
-                  height: kToolbarHeight + MediaQuery.of(context).padding.top,
-                  padding: EdgeInsets.only(
-                    top: MediaQuery.of(context).padding.top,
-                  ),
-                  color: Colors.white,
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back),
-                        onPressed: widget.onVoltar,
-                      ),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Temperatura e Densidade Média',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 150,
-                        child: TextField(
-                          controller: _dataController,
-                          onChanged: (_) => _carregarDados(),
-                          decoration: const InputDecoration(
-                            hintText: 'DD/MM/AAAA',
-                            isDense: true,
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 150,
-                        child: TextField(
-                          controller: _placaController,
-                          onChanged: (_) => setState(() {}),
-                          decoration: const InputDecoration(
-                            hintText: 'Placa',
-                            isDense: true,
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.refresh),
-                        onPressed: () => _carregarDados(),
-                        tooltip: 'Atualizar',
-                      ),
-                    ],
-                  ),
-                ),
-                Container(height: 1, color: Colors.grey.shade300),
+        return Column(
+          children: [
+            // Cabeçalho da tabela - FIXO
+            _buildFixedHeader(larguraTabela, colHorario, colTq, colPlacas, colProduto, colEditavel),
+            
+            // Corpo rolável da tabela
+            Expanded(
+              child: _buildScrollableTable(
+                grupos,
+                chavesOrdenadas,
+                larguraTabela,
+                colHorario,
+                colTq,
+                colPlacas,
+                colProduto,
+                colEditavel,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
-                // TABELA
-                Expanded(
-                  child: Column(
-                    children: [
-                      SingleChildScrollView(
-                        controller: _horizontalHeaderController,
-                        scrollDirection: Axis.horizontal,
-                        child: Container(
-                          height: 40,
-                          width: larguraTabela,
-                          color: Colors.blue.shade900,
-                          child: Row(
-                            children: [
-                              _th('Horário', colHorario),
-                              _th('TQ operação', colTq),
-                              _th('Placas', colPlacas),
-                              _th('Produto', colProduto),
-                              _th('Temp. Tanque', colEditavel),
-                              _th('Dens. Tanque', colEditavel),
-                              _th('Temp. Amostra', colEditavel),
-                              _th('Dens. Amostra', colEditavel),
-                            ],
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: NotificationListener<ScrollNotification>(
-                          onNotification: (scrollNotification) {
-                            if (scrollNotification is ScrollEndNotification &&
-                                _verticalScrollController.position.extentAfter == 0 &&
-                                _temMaisPaginas &&
-                                !_carregandoMais) {
-                              _carregarMais();
-                              return true;
-                            }
-                            return false;
-                          },
-                          child: SingleChildScrollView(
-                            controller: _verticalScrollController,
-                            child: SingleChildScrollView(
-                              controller: _horizontalBodyController,
-                              scrollDirection: Axis.horizontal,
-                              child: SizedBox(
-                                width: larguraTabela,
-                                child: Column(
-                                  children: [
-                                    ...chavesOrdenadas.expand((faixa) {
-                                      final itens = grupos[faixa]!;
-                                      return [
-                                        Container(
-                                          height: 34,
-                                          width: larguraTabela,
-                                          color: Colors.grey.shade300,
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 12),
-                                          alignment: Alignment.centerLeft,
-                                          child: Text(
-                                            faixa,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ),
-                                        ...List.generate(itens.length, (i) {
-                                          final r = itens[i];
-                                          final dt = r['data_carga'] as DateTime;
-                                          return Container(
-                                            height: 46,
-                                            color: i.isEven
-                                                ? Colors.grey.shade50
-                                                : Colors.white,
-                                            child: Row(
-                                              children: [
-                                                _cell(
-                                                  '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}',
-                                                  colHorario,
-                                                ),
-                                                SizedBox(
-                                                  width: colTq,
-                                                  child: Center(
-                                                    child: TextField(
-                                                      textAlign: TextAlign.center,
-                                                      style: const TextStyle(fontSize: 12),
-                                                      decoration: const InputDecoration(
-                                                        border: InputBorder.none,
-                                                        contentPadding: EdgeInsets.zero,
-                                                        hintText: '',
-                                                      ),
-                                                      onChanged: (value) {
-                                                        // Salvar TQ operação quando implementado
-                                                      },
-                                                    ),
-                                                  ),
-                                                ),
-                                                _cell(
-                                                  (r['placas'] as List<String>)
-                                                      .join(' / '),
-                                                  colPlacas,
-                                                ),
-                                                _cell(
-                                                  r['produto'],
-                                                  colProduto,
-                                                ),
-                                                _editableCell(colEditavel, 'Temp. Tanque', i, faixa),
-                                                _editableCell(colEditavel, 'Dens. Tanque', i, faixa),
-                                                _editableCell(colEditavel, 'Temp. Amostra', i, faixa),
-                                                _editableCell(colEditavel, 'Dens. Amostra', i, faixa),
-                                              ],
-                                            ),
-                                          );
-                                        }),
-                                      ];
-                                    }).toList(),
-                                    if (_carregandoMais)
-                                      Container(
-                                        height: 60,
-                                        color: Colors.white,
-                                        child: const Center(
-                                          child: CircularProgressIndicator(),
-                                        ),
-                                      ),
-                                    if (!_temMaisPaginas && registros.isNotEmpty)
-                                      Container(
-                                        height: 40,
-                                        color: Colors.grey.shade50,
-                                        alignment: Alignment.center,
-                                        child: Text(
-                                          'Fim dos registros (${registros.length} total)',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+  Widget _buildFixedHeader(
+    double larguraTabela,
+    double colHorario,
+    double colTq,
+    double colPlacas,
+    double colProduto,
+    double colEditavel,
+  ) {
+    return Scrollbar(
+      controller: _horizontalHeaderController,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _horizontalHeaderController,
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: larguraTabela,
+          child: Container(
+            height: 40,
+            color: Colors.blue.shade900,
+            child: Row(
+              children: [
+                _th('Horário', colHorario),
+                _th('TQ operação', colTq),
+                _th('Placas', colPlacas),
+                _th('Produto', colProduto),
+                _th('Temp. CT', colEditavel),
+                _th('Dens. Amostra', colEditavel),
+                _th('Temp. Amostra', colEditavel),
+                _th('Dens. Amostra', colEditavel),
               ],
             ),
           ),
-        );
-      },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScrollableTable(
+    Map<String, List<Map<String, dynamic>>> grupos,
+    List<String> chavesOrdenadas,
+    double larguraTabela,
+    double colHorario,
+    double colTq,
+    double colPlacas,
+    double colProduto,
+    double colEditavel,
+  ) {
+    return Scrollbar(
+      controller: _verticalScrollController,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _verticalScrollController,
+        child: Scrollbar(
+          controller: _horizontalBodyController,
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            controller: _horizontalBodyController,
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: larguraTabela,
+              child: Column(
+                children: [
+                  ...chavesOrdenadas.expand((faixa) {
+                    final itens = grupos[faixa]!;
+                    return [
+                      Container(
+                        height: 34,
+                        width: larguraTabela,
+                        color: Colors.grey.shade300,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12),
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          faixa,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      ...List.generate(itens.length, (i) {
+                        final r = itens[i];
+                        final dt = r['data_carga'] as DateTime;
+                        return Container(
+                          height: 46,
+                          color: Colors.white,
+                          child: Row(
+                            children: [
+                              _cell(
+                                '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}',
+                                colHorario,
+                              ),
+                              SizedBox(
+                                width: colTq,
+                                child: Center(
+                                  child: TextField(
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(fontSize: 12),
+                                    decoration: const InputDecoration(
+                                      border: InputBorder.none,
+                                      contentPadding: EdgeInsets.zero,
+                                      hintText: '',
+                                    ),
+                                    onChanged: (value) {
+                                      // Salvar TQ operação quando implementado
+                                    },
+                                  ),
+                                ),
+                              ),
+                              _cell(
+                                (r['placas'] as List<String>)
+                                    .join(' / '),
+                                colPlacas,
+                              ),
+                              _cell(
+                                r['produto'],
+                                colProduto,
+                              ),
+                              _editableCell(colEditavel, 'Temp. Tanque', i, faixa),
+                              _editableCell(colEditavel, 'Dens. Tanque', i, faixa),
+                              _editableCell(colEditavel, 'Temp. Amostra', i, faixa),
+                              _editableCell(colEditavel, 'Dens. Amostra', i, faixa),
+                            ],
+                          ),
+                        );
+                      }),
+                    ];
+                  }).toList(),
+                  if (_carregandoMais)
+                    Container(
+                      height: 60,
+                      color: Colors.white,
+                      child: const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    ),
+                  if (!_temMaisPaginas && _registrosFiltrados.isNotEmpty)
+                    Container(
+                      height: 40,
+                      color: Colors.grey.shade50,
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Fim dos registros (${_registrosFiltrados.length} total)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

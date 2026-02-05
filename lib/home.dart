@@ -2114,8 +2114,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           SizedBox(height: 20),
           Text(
             usuario != null 
-              ? 'Olá, ${usuario.nome}! Bem-vindo ao VoxPower!'
-              : 'Bem-vindo ao VoxPower!',
+              ? 'Olá, ${usuario.nome}! Bem-vindo ao PowerTank!'
+              : 'Bem-vindo ao PowerTank!',
             style: TextStyle(
               fontSize: 24,
               color: Color(0xFF0D47A1),
