@@ -2113,7 +2113,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
             
             // Campos de status e data
             'data_carga': agora,
-            'status_circuito_dest': '4',
+            'status_circuito_dest': '5',
             
             // Timestamp de atualização
             'updated_at': agora,
@@ -2124,7 +2124,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       print('  - entrada_vinte: $volume20C');
       print('  - $coluna20C: $volume20C');
       print('  - data_carga: $agora');
-      print('  - status_circuito_dest: 4');
+      print('  - status_circuito_dest: 5');
     } catch (e) {
       print('✗ Erro ao atualizar movimentação: $e');
       rethrow;
