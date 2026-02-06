@@ -264,11 +264,15 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
 class EmitirCertificadoEntrada extends StatefulWidget {
   final VoidCallback onVoltar;
   final String? idMovimentacao;
+  final bool modoSomenteVisualizacao;
+  final String? idAnaliseExistente;
 
   const EmitirCertificadoEntrada({
     super.key,
     required this.onVoltar,
     this.idMovimentacao,
+    this.modoSomenteVisualizacao = false,
+    this.idAnaliseExistente,
   });
 
   @override
@@ -350,15 +354,108 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       }
     });
 
-    if (widget.idMovimentacao != null && widget.idMovimentacao!.isNotEmpty) {
-      // Primeiro carrega dados básicos da movimentação
-      _carregarDadosMovimentacao(widget.idMovimentacao!).then((_) {
-        // DEPOIS tenta carregar a ordem de análise completa
-        // (só depois de garantir que os dados da movimentação foram carregados)
-        if (mounted) {
-          _carregarDadosOrdensAnalises(widget.idMovimentacao!);
+    // NOVA LÓGICA: Considera o modoSomenteVisualizacao
+    if (widget.modoSomenteVisualizacao) {
+      // MODO VISUALIZAÇÃO - Forçado pelo parâmetro
+      _modoVisualizacao = true;
+      
+      // Se tem idAnaliseExistente, carrega diretamente
+      if (widget.idAnaliseExistente != null && widget.idAnaliseExistente!.isNotEmpty) {
+        _carregarDadosAnaliseExistente(widget.idAnaliseExistente!);
+      }
+      // Se não tem idAnaliseExistente mas tem idMovimentacao, tenta buscar
+      else if (widget.idMovimentacao != null && widget.idMovimentacao!.isNotEmpty) {
+        _buscarAnalisePorMovimentacao(widget.idMovimentacao!);
+      }
+    } else {
+      // MODO CRIAÇÃO/EDIÇÃO - Lógica original
+      if (widget.idMovimentacao != null && widget.idMovimentacao!.isNotEmpty) {
+        // Primeiro carrega dados básicos da movimentação
+        _carregarDadosMovimentacao(widget.idMovimentacao!).then((_) {
+          // DEPOIS tenta carregar a ordem de análise completa
+          // (só depois de garantir que os dados da movimentação foram carregados)
+          if (mounted) {
+            _carregarDadosOrdensAnalises(widget.idMovimentacao!);
+          }
+        });
+      }
+    }
+  }
+
+  // Método para carregar análise existente quando em modo visualização
+  Future<void> _carregarDadosAnaliseExistente(String idAnalise) async {
+    try {
+      final supabase = Supabase.instance.client;
+      
+      final analise = await supabase
+          .from('ordens_analises')
+          .select('''
+            *,
+            produtos:produto_id(nome)
+          ''')
+          .eq('id', idAnalise)
+          .maybeSingle();
+          
+      if (analise != null) {
+        // Preencher campos com os dados da análise
+        campos['numeroControle']!.text = analise['numero_controle']?.toString() ?? '';
+        campos['transportadora']!.text = analise['transportadora']?.toString() ?? '';
+        campos['motorista']!.text = analise['motorista']?.toString() ?? '';
+        campos['notas']!.text = analise['notas_fiscais']?.toString() ?? '';
+        
+        campos['placaCavalo']!.text = analise['placa_cavalo']?.toString() ?? '';
+        campos['carreta1']!.text = analise['carreta1']?.toString() ?? '';
+        campos['carreta2']!.text = analise['carreta2']?.toString() ?? '';
+        
+        campos['tempAmostra']!.text = _formatarDecimalParaTela(analise['temperatura_amostra']);
+        campos['densidadeAmostra']!.text = _formatarDecimalParaTela(analise['densidade_observada']);
+        campos['tempCT']!.text = _formatarDecimalParaTela(analise['temperatura_ct']);
+        campos['densidade20']!.text = _formatarDecimalParaTela(analise['densidade_20c']);
+        campos['fatorCorrecao']!.text = _formatarDecimalParaTela(analise['fator_correcao']);
+        
+        campos['origemAmb']!.text = _formatarInteiroParaTela(analise['origem_ambiente']);
+        campos['destinoAmb']!.text = _formatarInteiroParaTela(analise['destino_ambiente']);
+        campos['origem20']!.text = _formatarInteiroParaTela(analise['origem_20c']);
+        campos['destino20']!.text = _formatarInteiroParaTela(analise['destino_20c']);
+        
+        _calcularDiferencaAmbiente();
+        _calcularDiferenca20C();
+        
+        if (analise['produtos'] != null && analise['produtos']['nome'] != null) {
+          produtoSelecionado = analise['produtos']['nome'].toString();
         }
-      });
+        
+        if (analise['data_analise'] != null) {
+          dataCtrl.text = _formatarDataParaTela(analise['data_analise'].toString());
+        }
+        if (analise['hora_analise'] != null) {
+          horaCtrl.text = analise['hora_analise'].toString();
+        }
+        
+        setState(() {});
+      }
+    } catch (e) {
+      print('Erro ao carregar análise existente: $e');
+    }
+  }
+
+  // Método para buscar análise por movimentação (quando em modo visualização)
+  Future<void> _buscarAnalisePorMovimentacao(String movimentacaoId) async {
+    try {
+      final supabase = Supabase.instance.client;
+      
+      final analise = await supabase
+          .from('ordens_analises')
+          .select('id')
+          .eq('movimentacao_id', movimentacaoId)
+          .eq('tipo_analise', 'destino')
+          .maybeSingle();
+          
+      if (analise != null && analise['id'] != null) {
+        await _carregarDadosAnaliseExistente(analise['id'].toString());
+      }
+    } catch (e) {
+      print('Erro ao buscar análise por movimentação: $e');
     }
   }
 
@@ -1993,7 +2090,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       final dadosOrdem = {
         'data_analise': _formatarDataParaBanco(dataCtrl.text),
         'hora_analise': horaCtrl.text,
-        'analise_concluida': true,
         'data_conclusao': DateTime.now().toIso8601String(),
         'movimentacao_id': widget.idMovimentacao,
         'produto_id': produtoId,

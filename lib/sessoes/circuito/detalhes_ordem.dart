@@ -441,21 +441,36 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
 
       // VERIFICAÇÃO DO TIPO DE MOVIMENTAÇÃO
       if (_tipoMovimentacao == TipoMovimentacao.carregamento) {
-        // MOVIMENTO DE SAÍDA: Abre EmitirCertificadoPage
-        final certificado = await _supabase
+        // FLUXO DE SAÍDA (CARREGAMENTO): Abre EmitirCertificadoPage
+        // Verifica se existe análise com "origem" para esta movimentação
+        final analises = await _supabase
           .from('ordens_analises')
-          .select('id, analise_concluida')
+          .select('id, tipo_analise')
           .eq('movimentacao_id', movimentacaoId)
-          .maybeSingle();
+          .eq('tipo_analise', 'origem');
+        
+        bool modoSomenteVisualizacao = false;
+        String? idAnaliseExistente;
+        
+        // Verificar se existe análise com tipo_analise contendo "origem"
+        for (var analise in analises) {
+          final tipoAnalise = analise['tipo_analise']?.toString().toLowerCase() ?? '';
+          if (tipoAnalise.contains('origem')) {
+            modoSomenteVisualizacao = true;
+            idAnaliseExistente = analise['id']?.toString();
+            break;
+          }
+        }
 
         final result = await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => EmitirCertificadoPage(
-              idCertificado: certificado?['id'],
+              idCertificado: idAnaliseExistente,
               idMovimentacao: movimentacaoId,
               onVoltar: () {
                 Navigator.of(context).pop(true);
               },
+              modoSomenteVisualizacao: modoSomenteVisualizacao, // NOVO PARÂMETRO
             ),
           ),
         );
@@ -465,15 +480,35 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
           await _atualizarTelaAposCertificado(ordemId);
         }
       } else {
-        // MOVIMENTO DE ENTRADA: Abre EmitirCertificadoEntrada
-        // NÃO verifica certificado existente - sempre cria novo
+        // FLUXO DE ENTRADA (DESCARREGAMENTO): Abre EmitirCertificadoEntrada
+        // Verifica se existe análise com "destino" para esta movimentação
+        final analises = await _supabase
+          .from('ordens_analises')
+          .select('id, tipo_analise')
+          .eq('tipo_analise', 'destino');
+        
+        bool modoSomenteVisualizacao = false;
+        String? idAnaliseExistente;
+        
+        // Verificar se existe análise com tipo_analise contendo "destino"
+        for (var analise in analises) {
+          final tipoAnalise = analise['tipo_analise']?.toString().toLowerCase() ?? '';
+          if (tipoAnalise.contains('destino')) {
+            modoSomenteVisualizacao = true;
+            idAnaliseExistente = analise['id']?.toString();
+            break;
+          }
+        }
+
         final result = await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => EmitirCertificadoEntrada(
               onVoltar: () {
                 Navigator.of(context).pop(true);
               },
-              idMovimentacao: movimentacaoId, // APENAS idMovimentacao
+              idMovimentacao: movimentacaoId,
+              modoSomenteVisualizacao: modoSomenteVisualizacao, // NOVO PARÂMETRO
+              idAnaliseExistente: idAnaliseExistente, // ID da análise existente
             ),
           ),
         );

@@ -282,12 +282,14 @@ class EmitirCertificadoPage extends StatefulWidget {
   final VoidCallback onVoltar;
   final String? idCertificado;
   final String? idMovimentacao;
+  final bool modoSomenteVisualizacao;
 
   const EmitirCertificadoPage({
     super.key,
     required this.onVoltar,
     this.idCertificado,
     this.idMovimentacao,
+    this.modoSomenteVisualizacao = false,
   });
 
   @override
@@ -345,10 +347,12 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       }
     });
 
-    if (widget.idCertificado != null && widget.idCertificado!.isNotEmpty) {
-      // MODO VISUALIZAÇÃO - Certificado já existe
+    if (widget.modoSomenteVisualizacao || (widget.idCertificado != null && widget.idCertificado!.isNotEmpty)) {
+      // MODO VISUALIZAÇÃO - Forçado pelo parâmetro ou certificado já existe
       _modoVisualizacao = true;
-      _carregarDadosCertificado(widget.idCertificado!);
+      if (widget.idCertificado != null && widget.idCertificado!.isNotEmpty) {
+        _carregarDadosCertificado(widget.idCertificado!);
+      }
     } else {
       // MODO CRIAÇÃO - Novo certificado
       _modoVisualizacao = false;
@@ -2054,15 +2058,53 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         throw Exception('Usuário sem filial vinculada');
       }
 
+      // ========== VERIFICAÇÃO CRÍTICA ==========
+      // Se veio de uma movimentação, verifica se já existe certificado de ORIGEM
+      if (widget.idMovimentacao != null && widget.idMovimentacao!.isNotEmpty) {
+        final certificadoExistente = await supabase
+            .from('ordens_analises')
+            .select('id, numero_controle, tipo_analise')
+            .eq('movimentacao_id', widget.idMovimentacao!)
+            .eq('tipo_analise', 'origem') // ← Filtra apenas certificados de origem
+            .maybeSingle();
+
+        if (certificadoExistente != null && 
+            certificadoExistente['id'] != null &&
+            certificadoExistente['tipo_analise'] == 'origem') {
+          // Já existe certificado de ORIGEM para esta movimentação!
+          if (!mounted) return;
+          
+          setState(() {
+            _salvandoCertificado = false;
+            _modoVisualizacao = true; // Força modo visualização
+          });
+          
+          // Carrega os dados do certificado de origem existente
+          await _carregarDadosCertificado(certificadoExistente['id'].toString());
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('⚠️ Já existe um certificado de ORIGEM para esta movimentação (Nº ${certificadoExistente['numero_controle'] ?? '--'})!'),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          }
+          return; // Não prossegue com a criação
+        }
+      }
+      // =========================================
+
       final produtoId = await _resolverProdutoId(produtoSelecionado!);
 
-      // Dados do certificado
+      // Dados do certificado - ADICIONA tipo_analise = 'origem'
       final dadosOrdem = {
         'data_analise': _formatarDataParaBanco(dataCtrl.text),
         'hora_analise': horaCtrl.text,
-        'analise_concluida': true,
         'data_conclusao': DateTime.now().toIso8601String(),
         'movimentacao_id': widget.idMovimentacao,
+        'tipo_analise': 'origem', // ← ADICIONADO: define como análise de origem
         'transportadora': campos['transportadora']!.text,
         'motorista': campos['motorista']!.text,
         'notas_fiscais': campos['notas']!.text,
@@ -2112,7 +2154,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
           volume20C: volume20C,
         );
         
-        // NOVO: Atualizar data_carga e status_circuito
+        // Atualizar data_carga e status_circuito
         await _atualizarDataCargaEStatusCircuito(movimentacaoId: widget.idMovimentacao!);
       }
 
@@ -2126,7 +2168,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✓ Certificado emitido com sucesso!'),
+            content: Text('✓ Certificado de ORIGEM emitido com sucesso!'),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 3),
           ),
