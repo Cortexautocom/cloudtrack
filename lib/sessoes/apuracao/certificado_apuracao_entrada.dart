@@ -337,7 +337,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         _calcularDestino20CAutomatico();
       }
     });
-  
+
     _focusDestino20.addListener(() {
       if (!_modoVisualizacao && !_focusDestino20.hasFocus) {
         _calcularDiferenca20C();
@@ -351,7 +351,14 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
     });
 
     if (widget.idMovimentacao != null && widget.idMovimentacao!.isNotEmpty) {
-      _carregarDadosMovimentacao(widget.idMovimentacao!);
+      // Primeiro carrega dados básicos da movimentação
+      _carregarDadosMovimentacao(widget.idMovimentacao!).then((_) {
+        // DEPOIS tenta carregar a ordem de análise completa
+        // (só depois de garantir que os dados da movimentação foram carregados)
+        if (mounted) {
+          _carregarDadosOrdensAnalises(widget.idMovimentacao!);
+        }
+      });
     }
   }
 
@@ -517,15 +524,27 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
   }
 
   String _aplicarMascaraMilhar(String texto) {
-    final apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
-    if (apenasNumeros.isEmpty || apenasNumeros == '0') return '0';
-
+    // Remove tudo que não é número
+    String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
+    
+    if (apenasNumeros.isEmpty || apenasNumeros == '0') {
+      return '0';
+    }
+    
+    // Remove zeros à esquerda
+    while (apenasNumeros.length > 1 && apenasNumeros[0] == '0') {
+      apenasNumeros = apenasNumeros.substring(1);
+    }
+    
+    // Aplica máscara de milhar
     String resultado = '';
-    for (int i = apenasNumeros.length - 1, c = 0; i >= 0; i--, c++) {
-      if (c > 0 && c % 3 == 0) resultado = '.$resultado';
+    for (int i = apenasNumeros.length - 1, count = 0; i >= 0; i--, count++) {
+      if (count > 0 && count % 3 == 0) {
+        resultado = '.$resultado';
+      }
       resultado = apenasNumeros[i] + resultado;
     }
-
+    
     return resultado;
   }
 
@@ -1992,6 +2011,8 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         'filial_id': usuario.filialId,
         'created_at': DateTime.now().toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
+        // ADICIONE ESTA LINHA ↓
+        'tipo_analise': 'destino', // Define como "destino" para ENTRADA
       };
 
       final response = await supabase
@@ -2137,6 +2158,163 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         return '${partes[2]}-${partes[1]}-${partes[0]}';
       }
       return '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  Future<void> _carregarDadosOrdensAnalises(String idMovimentacao) async {
+    try {
+      final supabase = Supabase.instance.client;
+
+      // Busca a ordem de análise do tipo "destino" relacionada à movimentação
+      final ordemAnalise = await supabase
+          .from('ordens_analises')
+          .select('''
+            *,
+            produtos:produto_id(nome)
+          ''')
+          .eq('movimentacao_id', idMovimentacao)
+          .eq('tipo_analise', 'destino')  // Exatamente "destino"
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (ordemAnalise == null) {
+        print('Nenhuma ordem de análise do tipo "destino" encontrada');
+        return; // Não encontrou, mantém modo criação
+      }
+
+      // Preencher TODOS os campos da ordem_analises
+      
+      // Cabeçalho
+      campos['numeroControle']!.text = ordemAnalise['numero_controle']?.toString() ?? '';
+      campos['transportadora']!.text = ordemAnalise['transportadora']?.toString() ?? '';
+      campos['motorista']!.text = ordemAnalise['motorista']?.toString() ?? '';
+      campos['notas']!.text = ordemAnalise['notas_fiscais']?.toString() ?? '';
+      
+      // Placas
+      campos['placaCavalo']!.text = ordemAnalise['placa_cavalo']?.toString() ?? '';
+      campos['carreta1']!.text = ordemAnalise['carreta1']?.toString() ?? '';
+      campos['carreta2']!.text = ordemAnalise['carreta2']?.toString() ?? '';
+      
+      // Coletas (formatar com vírgula decimal)
+      campos['tempAmostra']!.text = _formatarDecimalParaTela(ordemAnalise['temperatura_amostra']);
+      campos['densidadeAmostra']!.text = _formatarDecimalParaTela(ordemAnalise['densidade_observada']);
+      campos['tempCT']!.text = _formatarDecimalParaTela(ordemAnalise['temperatura_ct']);
+      
+      // Resultados
+      campos['densidade20']!.text = _formatarDecimalParaTela(ordemAnalise['densidade_20c']);
+      campos['fatorCorrecao']!.text = _formatarDecimalParaTela(ordemAnalise['fator_correcao']);
+      
+      // Volumes (formatar com ponto de milhar)
+      campos['origemAmb']!.text = _formatarInteiroParaTela(ordemAnalise['origem_ambiente']);
+      campos['destinoAmb']!.text = _formatarInteiroParaTela(ordemAnalise['destino_ambiente']);
+      campos['origem20']!.text = _formatarInteiroParaTela(ordemAnalise['origem_20c']);
+      campos['destino20']!.text = _formatarInteiroParaTela(ordemAnalise['destino_20c']);
+      
+      // Calcular diferenças automaticamente
+      _calcularDiferencaAmbiente();
+      _calcularDiferenca20C();
+      
+      // Produto
+      if (ordemAnalise['produtos'] != null && ordemAnalise['produtos']['nome'] != null) {
+        produtoSelecionado = ordemAnalise['produtos']['nome'].toString();
+      }
+      
+      // Data e Hora
+      if (ordemAnalise['data_analise'] != null) {
+        dataCtrl.text = _formatarDataParaTela(ordemAnalise['data_analise'].toString());
+      }
+      if (ordemAnalise['hora_analise'] != null) {
+        horaCtrl.text = ordemAnalise['hora_analise'].toString();
+      }
+      
+      // Entrar em modo visualização
+      setState(() {
+        _modoVisualizacao = true;
+      });
+      
+      print('✓ Dados da ordem de análise carregados (modo visualização)');
+      
+    } catch (e) {
+      print('Erro ao carregar dados da ordem de análise: $e');
+    }
+  }
+
+  // Formata inteiro do banco (999999) para exibição (999.999)
+  String _formatarInteiroParaTela(dynamic valorBanco) {
+    if (valorBanco == null) return '';
+    
+    try {
+      // Converte para string
+      String valorStr = valorBanco.toString();
+      
+      // Remove quaisquer caracteres não numéricos
+      String apenasNumeros = valorStr.replaceAll(RegExp(r'[^\d]'), '');
+      
+      if (apenasNumeros.isEmpty) return '';
+      
+      // Aplica máscara de milhar
+      return _aplicarMascaraMilhar(apenasNumeros);
+    } catch (e) {
+      return '';
+    }
+  }
+
+  // Formata decimal do banco para exibição com vírgula
+  String _formatarDecimalParaTela(dynamic valorBanco) {
+    if (valorBanco == null) return '';
+    
+    try {
+      // Converte para string
+      String valorStr = valorBanco.toString();
+      
+      // Substitui ponto por vírgula (banco usa ponto como separador decimal)
+      valorStr = valorStr.replaceAll('.', ',');
+      
+      // Para densidade (formato 0,0000)
+      if (valorStr.contains(',')) {
+        final partes = valorStr.split(',');
+        if (partes.length == 2) {
+          String parteInteira = partes[0];
+          String parteDecimal = partes[1];
+          
+          // Garante 4 casas decimais para densidade
+          if (valorBanco is num && valorBanco < 1) {
+            // É uma densidade (ex: 0.7456)
+            parteDecimal = parteDecimal.padRight(4, '0');
+            if (parteDecimal.length > 4) {
+              parteDecimal = parteDecimal.substring(0, 4);
+            }
+          } else if (valorBanco is num && valorBanco > 1 && valorBanco < 10) {
+            // É temperatura (ex: 15.5)
+            parteDecimal = parteDecimal.padRight(1, '0');
+            if (parteDecimal.length > 1) {
+              parteDecimal = parteDecimal.substring(0, 1);
+            }
+          }
+          
+          return '$parteInteira,$parteDecimal';
+        }
+      }
+      
+      return valorStr;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  // Formata data do banco (YYYY-MM-DD) para DD/MM/YYYY
+  String _formatarDataParaTela(String dataBanco) {
+    if (dataBanco.isEmpty) return '';
+    
+    try {
+      final partes = dataBanco.split('-');
+      if (partes.length == 3) {
+        return '${partes[2]}/${partes[1]}/${partes[0]}';
+      }
+      return dataBanco;
     } catch (e) {
       return '';
     }
