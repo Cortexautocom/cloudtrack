@@ -8,10 +8,8 @@ enum EtapaCircuito {
   aguardando,
   checkList,
   operacao,
-  emissaoNF,
-  liberacao,
-  // Nova etapa específica para descarregamento
-  veiculoLiberado,
+  emissaoNF,    // Apenas para Carregamento
+  liberacao,    // 5 para ambos os fluxos
 }
 
 enum TipoMovimentacao {
@@ -54,7 +52,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
   bool _nr26Selecionado = false;
   bool _atualizandoChecklist = false;
 
-  // ETAPAS PARA CARREGAMENTO (veículo saindo)
+  // ETAPAS PARA AMBOS OS FLUXOS (diferença apenas na etapa 4 - Emissão NF)
   final List<_EtapaInfo> _etapasCarregamento = const [
     _EtapaInfo(
       etapa: EtapaCircuito.programado,
@@ -98,7 +96,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     ),
     _EtapaInfo(
       etapa: EtapaCircuito.liberacao,
-      label: 'Expedido',
+      label: 'Liberado',
       subtitle: 'Operação concluída',
       icon: Icons.done_outline,
       cor: Color.fromARGB(255, 42, 199, 50),
@@ -106,7 +104,6 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     ),
   ];
 
-  // ETAPAS PARA DESCARREGAMENTO (veículo chegando)
   final List<_EtapaInfo> _etapasDescarregamento = const [
     _EtapaInfo(
       etapa: EtapaCircuito.programado,
@@ -141,12 +138,12 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
       statusCodigo: 3,
     ),
     _EtapaInfo(
-      etapa: EtapaCircuito.veiculoLiberado,
+      etapa: EtapaCircuito.liberacao,
       label: 'Liberado',
       subtitle: 'Descarga concluída',
       icon: Icons.done_outline,
       cor: Color.fromARGB(255, 42, 199, 50),
-      statusCodigo: 5,
+      statusCodigo: 5,  // Status 5 para Liberação (mesmo do Carregamento)
     ),
   ];
 
@@ -205,7 +202,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     // 1. Determinar tipo de movimentação PRIMEIRO
     _tipoMovimentacao = _determinarTipoMovimentacao();
     
-    // 2. Depois o resto
+    _carregarStatusAtualDaOrdem();
     _etapaAtual = _resolverEtapaPorStatus(_obterStatusAtual());
     _carregarNumeroControleOrdem();
     _carregarMovimentacoes();
@@ -268,7 +265,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
         {
           'data': '15/01/2024',
           'hora': '13:05',
-          'descricao': 'Nota fiscal entregue ao motorista, expedição realizada.'
+          'descricao': 'Nota fiscal entregue ao motorista, liberação realizada.'
         },
       ];
     } else {
@@ -299,6 +296,28 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
           'descricao': 'Descarga concluída, veículo pronto para liberação.'
         },
       ];
+    }
+  }
+
+  Future<void> _carregarStatusAtualDaOrdem() async {
+    final ordemId = widget.ordem['ordem_id'];
+    if (ordemId == null) return;
+
+    final dados = await _supabase
+        .from('movimentacoes')
+        .select('status_circuito_orig, status_circuito_dest')
+        .eq('ordem_id', ordemId)
+        .order('id', ascending: true)
+        .limit(1);
+
+    if (dados.isNotEmpty && mounted) {
+      final status = _tipoMovimentacao == TipoMovimentacao.carregamento
+          ? dados.first['status_circuito_orig']
+          : dados.first['status_circuito_dest'];
+
+      setState(() {
+        _etapaAtual = _resolverEtapaPorStatus(status);
+      });
     }
   }
 
@@ -379,26 +398,26 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
 
   EtapaCircuito _resolverEtapaPorStatus(dynamic status) {
     final codigo = status is int ? status : int.tryParse(status.toString()) ?? 1;
-    
-    // Verifica se o status é 15 para a etapa "Aguardando"
-    if (codigo == 15) {
-      return EtapaCircuito.aguardando;
+
+    // Mapeamento simplificado para ambos os fluxos
+    switch (codigo) {
+      case 1:
+        return EtapaCircuito.programado;
+      case 15:
+        return EtapaCircuito.aguardando;
+      case 2:
+        return EtapaCircuito.checkList;
+      case 3:
+        return EtapaCircuito.operacao;
+      case 4:
+        // Status 4 apenas existe para Carregamento (Emissão NF)
+        return EtapaCircuito.emissaoNF;
+      case 5:
+        // Status 5 para Liberação em ambos os fluxos
+        return EtapaCircuito.liberacao;
+      default:
+        return EtapaCircuito.programado;
     }
-    
-    // Para descarregamento, o status 5 significa "Veículo Liberado"
-    if (_tipoMovimentacao == TipoMovimentacao.descarregamento && codigo == 5) {
-      return EtapaCircuito.veiculoLiberado;
-    }
-    
-    // Para carregamento, o status 5 significa "Expedido"
-    if (_tipoMovimentacao == TipoMovimentacao.carregamento && codigo == 5) {
-      return EtapaCircuito.liberacao;
-    }
-    
-    return _etapasAtivas
-        .firstWhere((e) => e.statusCodigo == codigo,
-            orElse: () => _etapasAtivas.first)
-        .etapa;
   }  
   
   // MÉTODO MODIFICADO: Abrir certificado baseado no tipo de movimentação
@@ -1254,21 +1273,32 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
         ? 'status_circuito_orig'
         : 'status_circuito_dest';
     
+    // No carregamento, ao clicar em "Emissão NF", atualiza para status 4
     await _supabase
         .from('movimentacoes')
-        .update({campoStatus: 5})
+        .update({campoStatus: 4})
         .eq('ordem_id', ordemId);
 
     setState(() {
-      _etapaAtual = EtapaCircuito.liberacao;
+      _etapaAtual = EtapaCircuito.emissaoNF;
       
       // Atualiza também no widget.ordem
       if (_tipoMovimentacao == TipoMovimentacao.carregamento) {
-        widget.ordem['status_circuito_orig'] = 5;
+        widget.ordem['status_circuito_orig'] = 4;
       } else {
-        widget.ordem['status_circuito_dest'] = 5;
+        widget.ordem['status_circuito_dest'] = 4;
       }
     });
+    
+    // Mostrar mensagem de sucesso
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Status atualizado para "Emissão NF"'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
   }
 
   String _formatarPlacas(dynamic placasData) {
@@ -1712,7 +1742,8 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
 
   Widget _buildTimeline() {
     final etapasAtivas = _etapasAtivas;
-    final etapaIndex = etapasAtivas.indexWhere((e) => e.etapa == _etapaAtual);
+    int etapaIndex = etapasAtivas.indexWhere((e) => e.etapa == _etapaAtual);
+    if (etapaIndex < 0) etapaIndex = 0;
 
     return Card(
       color: Colors.white,
@@ -1766,6 +1797,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                             final isProgramado = etapa.etapa == EtapaCircuito.programado;
                             final isAguardando = etapa.etapa == EtapaCircuito.aguardando;
                             final isChecklist = etapa.etapa == EtapaCircuito.checkList;
+                            final isEmissaoNF = etapa.etapa == EtapaCircuito.emissaoNF;
                             
                             return Column(
                               mainAxisSize: MainAxisSize.min,
@@ -1781,6 +1813,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                                     isProgramado: isProgramado,
                                     isAguardando: isAguardando,
                                     isChecklist: isChecklist,
+                                    isEmissaoNF: isEmissaoNF,
                                   ),
                                 ),
                                 
@@ -1829,6 +1862,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     required bool isProgramado,
     required bool isAguardando,
     required bool isChecklist,
+    required bool isEmissaoNF,
   }) {
     bool podeClicar = false;
     String tooltip = '';
@@ -1845,11 +1879,9 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     } else if (etapa.etapa == EtapaCircuito.operacao && isCompleta) {
       podeClicar = true;
       tooltip = 'Abrir certificado de apuração';
-    } else if (_tipoMovimentacao == TipoMovimentacao.carregamento &&
-        etapa.etapa == EtapaCircuito.emissaoNF &&
-        isAtual) {
+    } else if (isEmissaoNF && isAtual && _tipoMovimentacao == TipoMovimentacao.carregamento) {
       podeClicar = true;
-      tooltip = 'Finalizar expedição';
+      tooltip = 'Finalizar emissão NF';
     }
 
     return SizedBox(
@@ -1873,9 +1905,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                         _abrirDialogoChecklist();
                       } else if (etapa.etapa == EtapaCircuito.operacao) {
                         _abrirCertificadoApuracao();
-                      } else if (_tipoMovimentacao ==
-                              TipoMovimentacao.carregamento &&
-                          etapa.etapa == EtapaCircuito.emissaoNF) {
+                      } else if (isEmissaoNF && _tipoMovimentacao == TipoMovimentacao.carregamento) {
                         _finalizarCargaExpedicao();
                       }
                     }

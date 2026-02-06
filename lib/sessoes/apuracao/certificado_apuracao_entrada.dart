@@ -2046,13 +2046,12 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         final volume20C =
             _converterParaInteiro(campos['volumeApurado20C']!.text) ?? 0;
 
-        await _atualizarMovimentacaoSomente20C(
+        // Método unificado que atualiza tudo de uma vez
+        await _atualizarMovimentacaoCompleta(
           movimentacaoId: widget.idMovimentacao!,
           produtoId: produtoId,
           volume20C: volume20C,
         );
-        
-        await _atualizarDataCargaEStatusCircuito(movimentacaoId: widget.idMovimentacao!);
       }
 
       if (!mounted) return;
@@ -2088,54 +2087,54 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
     }
   }
 
-  Future<void> _atualizarDataCargaEStatusCircuito({required String movimentacaoId}) async {
-    try {
-      final supabase = Supabase.instance.client;
-      final agora = DateTime.now().toUtc().toIso8601String();
-      
-      await supabase
-          .from('movimentacoes')
-          .update({
-            'data_carga': agora,
-            'status_circuito_destino': '4',
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', movimentacaoId);
-    } catch (e) {}
-  }
+  // ==============================================
+  // MÉTODO UNIFICADO PARA ATUALIZAR MOVIMENTAÇÃO
+  // ==============================================
 
-  Future<void> _atualizarMovimentacaoSomente20C({
+  Future<void> _atualizarMovimentacaoCompleta({
     required String movimentacaoId,
     required String produtoId,
     required int volume20C,
   }) async {
-    final supabase = Supabase.instance.client;
-
-    final coluna20C = _resolverColuna20C(produtoId);
-
-    await supabase
-        .from('movimentacoes')
-        .update({
-          coluna20C: volume20C,
-          'entrada_vinte': volume20C,
-          'updated_at': DateTime.now().toIso8601String(),
-        })
-        .eq('id', movimentacaoId);
-  }
-  
-  Future<String> _resolverProdutoId(String nomeProduto) async {
-    final r = await Supabase.instance.client
-        .from('produtos')
-        .select('id')
-        .eq('nome', nomeProduto)
-        .maybeSingle();
-
-    if (r == null) {
-      throw Exception('Produto não encontrado: $nomeProduto');
+    try {
+      final supabase = Supabase.instance.client;
+      final agora = DateTime.now().toUtc().toIso8601String();
+      
+      // Resolve qual coluna específica do produto usar para 20°C
+      final coluna20C = _resolverColuna20C(produtoId);
+      
+      // Atualiza TUDO em uma única operação
+      await supabase
+          .from('movimentacoes')
+          .update({
+            // Campos de volume (ambos recebem o mesmo valor)
+            'entrada_vinte': volume20C,      // Campo geral para entrada a 20°C
+            coluna20C: volume20C,           // Campo específico do produto
+            
+            // Campos de status e data
+            'data_carga': agora,
+            'status_circuito_dest': '4',
+            
+            // Timestamp de atualização
+            'updated_at': agora,
+          })
+          .eq('id', movimentacaoId);
+          
+      print('✓ Movimentação $movimentacaoId atualizada com sucesso');
+      print('  - entrada_vinte: $volume20C');
+      print('  - $coluna20C: $volume20C');
+      print('  - data_carga: $agora');
+      print('  - status_circuito_dest: 4');
+    } catch (e) {
+      print('✗ Erro ao atualizar movimentação: $e');
+      rethrow;
     }
-    return r['id'].toString();
   }
-  
+
+  // ==============================================
+  // MÉTODO AUXILIAR PARA RESOLVER COLUNA 20°C
+  // ==============================================
+
   String _resolverColuna20C(String produtoId) {
     const mapaProdutoColuna20C = {
       '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 's10_a_vinte',
@@ -2158,6 +2157,19 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
     }
     
     return coluna;
+  }
+  
+  Future<String> _resolverProdutoId(String nomeProduto) async {
+    final r = await Supabase.instance.client
+        .from('produtos')
+        .select('id')
+        .eq('nome', nomeProduto)
+        .maybeSingle();
+
+    if (r == null) {
+      throw Exception('Produto não encontrado: $nomeProduto');
+    }
+    return r['id'].toString();
   }
   
   @override

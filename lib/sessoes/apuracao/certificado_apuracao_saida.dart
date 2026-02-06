@@ -2163,7 +2163,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
           .from('movimentacoes')
           .update({
             'data_carga': agora, // TIMESTAMPTZ com data/hora atual
-            'status_circuito': '4', // ou outro status apropriado
+            'status_circuito_orig': '4', // ou outro status apropriado
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('id', movimentacaoId);
