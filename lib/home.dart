@@ -13,6 +13,7 @@ import 'sessoes/apuracao/tanques.dart';
 import 'sessoes/apuracao/escolherfilial.dart';
 import 'sessoes/vendas/programacao.dart'; 
 import 'sessoes/estoques/estoque_geral.dart';
+import 'sessoes/estoques/estoque_tanque.dart';
 import 'sessoes/apuracao/historico_cacl.dart';
 import 'sessoes/apuracao/listar_cacls.dart';
 import 'sessoes/estoques/estoque_downloads.dart';
@@ -82,6 +83,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarEscolherFilial = false;
   bool _mostrarEstoquePorEmpresa = false;
   bool _mostrarFiliaisDaEmpresa = false;
+  bool _mostrarEstoquePorTanque = false;
   bool _mostrarFiltroMovimentacoes = false;
   bool _mostrarMenuAjuda = false;
   bool _mostrarTempDensMedia = false;
@@ -232,6 +234,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     _filhosPorSessao['Estoques'] = [
       {'id': 'fallback-geral', 'icon': Icons.hub, 'label': 'Estoque Geral', 'descricao': 'Visão consolidada dos estoques da base', 'tipo': 'estoque_geral', 'sessao_pai': 'Estoques'},
       {'id': 'fallback-empresa', 'icon': Icons.business, 'label': 'Estoque por empresa', 'descricao': 'Estoques separados por empresa', 'tipo': 'estoque_por_empresa', 'sessao_pai': 'Estoques'},
+      {'id': 'fallback-tanque', 'icon': Icons.water_drop, 'label': 'Estoque por tanque', 'descricao': 'Acompanhar estoques por tanque', 'tipo': 'estoque_por_tanque', 'sessao_pai': 'Estoques'},
       {'id': 'fallback-mov', 'icon': Icons.swap_horiz, 'label': 'Movimentações', 'descricao': 'Acompanhar entradas e saídas em geral', 'tipo': 'movimentacoes', 'sessao_pai': 'Estoques'},
       {'id': 'fallback-transf', 'icon': Icons.compare_arrows, 'label': 'Transferências', 'descricao': 'Gerenciar transferências entre filiais', 'tipo': 'transferencias', 'sessao_pai': 'Estoques'},
     ];
@@ -263,6 +266,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       'tanques': Icons.oil_barrel,
       'estoque_geral': Icons.hub,
       'estoque_por_empresa': Icons.business,
+      'estoque_por_tanque': Icons.water_drop,
       'movimentacoes': Icons.swap_horiz,
       'transferencias': Icons.compare_arrows,
       'acompanhar_ordem': Icons.directions_car,
@@ -287,6 +291,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       'tanques': 'Gerenciamento de tanques',
       'estoque_geral': 'Visão consolidada dos estoques da base',
       'estoque_por_empresa': 'Estoques separados por empresa',
+      'estoque_por_tanque': 'Acompanhar estoques por tanque',
       'movimentacoes': 'Acompanhar entradas e saídas em geral',
       'transferencias': 'Gerenciar transferências entre filiais',
       'acompanhar_ordem': 'Acompanhar situação da ordem',
@@ -501,6 +506,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarEscolherFilial = false;
       _mostrarEstoquePorEmpresa = false;
       _mostrarFiliaisDaEmpresa = false;
+      _mostrarEstoquePorTanque = false;
       _mostrarFiltroMovimentacoes = false;
       _mostrarTempDensMedia = false;
       _mostrarMenuAjuda = false;
@@ -597,6 +603,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarTanques = false;
       _mostrarFiliaisDaEmpresa = false;
       _mostrarEstoquePorEmpresa = false;
+      _mostrarEstoquePorTanque = false;
       _mostrarFiltrosEstoque = false;
       _mostrarCalcGerado = false;
       _mostrarTempDensMedia = false;
@@ -1230,6 +1237,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       return _buildEstoquePorEmpresaPage();
     }
 
+    if (_mostrarEstoquePorTanque) {
+      return Container(
+        margin: const EdgeInsets.only(left: 12),
+        child: EstoquePorTanquePage(
+          key: const ValueKey('estoque-por-tanque'),
+          onVoltar: () {
+            setState(() {
+              _mostrarEstoquePorTanque = false;
+              _mostrarFilhosDaSessao('Estoques');
+            });
+          },
+        ),
+      );
+    }
+
     
 
     if (_mostrarAcompanhamentoOrdens) {
@@ -1353,7 +1375,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             children: [
               if (mostrarVoltar && (_mostrarDownloads || showConversaoList || _mostrarListarCacls || _mostrarOrdensAnalise || 
                   _mostrarHistorico || _mostrarEscolherFilial || _mostrarMedicaoTanques || _mostrarTanques || 
-                  _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || 
+                  _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || _mostrarEstoquePorTanque ||
                   _mostrarFiltroMovimentacoes || _mostrarTempDensMedia || _mostrarCalcGerado || 
                   _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarFiltrosEstoque ||
                   _mostrarSuporte))
@@ -1365,7 +1387,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 ),
               if (mostrarVoltar && (_mostrarDownloads || showConversaoList || _mostrarListarCacls || _mostrarOrdensAnalise || 
                   _mostrarHistorico || _mostrarEscolherFilial || _mostrarMedicaoTanques || _mostrarTanques || 
-                  _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || 
+                  _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || _mostrarEstoquePorTanque ||
                   _mostrarFiltroMovimentacoes || _mostrarTempDensMedia || _mostrarCalcGerado || 
                   _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarFiltrosEstoque ||
                   _mostrarSuporte))
@@ -1857,6 +1879,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _carregarEmpresas();
         });
         break;
+      case 'estoque_por_tanque':
+        setState(() {
+          _mostrarEstoquePorTanque = true;
+        });
+        break;
       case 'movimentacoes':
         setState(() {
           _mostrarFiltroMovimentacoes = true;
@@ -1878,8 +1905,22 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   void _navegarParaCardCircuito(String tipo) {
+    final usuario = UsuarioAtual.instance;
+    
     switch (tipo) {      
-      case 'acompanhar_ordem':  // ✅ MODIFICADO: Agora usa estado, não Navigator
+      case 'acompanhar_ordem':
+        // Validar se o usuário tem filial vinculada
+        if (usuario?.filialId == null || usuario!.filialId!.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Você precisa ter uma filial vinculada para acessar esta funcionalidade.'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            ),
+          );
+          return;
+        }
+        
         setState(() {
           _mostrarAcompanhamentoOrdens = true;
         });
