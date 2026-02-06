@@ -263,13 +263,11 @@ class _PlacaAutocompleteFieldState extends State<PlacaAutocompleteField> {
 
 class EmitirCertificadoEntrada extends StatefulWidget {
   final VoidCallback onVoltar;
-  final String? idCertificado;
   final String? idMovimentacao;
 
   const EmitirCertificadoEntrada({
     super.key,
     required this.onVoltar,
-    this.idCertificado,
     this.idMovimentacao,
   });
 
@@ -281,13 +279,16 @@ class EmitirCertificadoEntrada extends StatefulWidget {
 class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
   final _formKey = GlobalKey<FormState>();
   bool _modoVisualizacao = false;
-  Map<String, dynamic>? _dadosExistentes;
   bool _carregandoDadosMovimentacao = false;
   bool _salvandoCertificado = false;
 
   final TextEditingController dataCtrl = TextEditingController();
   final TextEditingController horaCtrl = TextEditingController();
+  
   final FocusNode _focusTempCT = FocusNode();
+  final FocusNode _focusDestinoAmb = FocusNode();
+  final FocusNode _focusDestino20 = FocusNode();
+  final FocusNode _focusOrigem20 = FocusNode();
 
   final Map<String, TextEditingController?> campos = {
     'numeroControle': TextEditingController(),
@@ -302,8 +303,16 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
     'tempCT': TextEditingController(),
     'densidade20': TextEditingController(),
     'fatorCorrecao': TextEditingController(),
-    'volumeCarregadoAmb': TextEditingController(),
-    'volumeApurado20C': TextEditingController(),
+    
+    // Volumes Ambiente
+    'origemAmb': TextEditingController(),
+    'destinoAmb': TextEditingController(),
+    'difAmb': TextEditingController(),
+    
+    // Volumes 20°C
+    'origem20': TextEditingController(),
+    'destino20': TextEditingController(),
+    'dif20': TextEditingController(),
   };
 
   List<String> produtos = [];
@@ -321,15 +330,28 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         _calcularResultadosObtidos();
       }
     });
-
-    if (widget.idCertificado != null && widget.idCertificado!.isNotEmpty) {
-      _modoVisualizacao = true;
-      _carregarDadosCertificado(widget.idCertificado!);
-    } else {
-      _modoVisualizacao = false;
-      if (widget.idMovimentacao != null && widget.idMovimentacao!.isNotEmpty) {
-        _carregarDadosMovimentacao(widget.idMovimentacao!);
+    
+    _focusDestinoAmb.addListener(() {
+      if (!_modoVisualizacao && !_focusDestinoAmb.hasFocus) {
+        _calcularDiferencaAmbiente();
+        _calcularDestino20CAutomatico();
       }
+    });
+  
+    _focusDestino20.addListener(() {
+      if (!_modoVisualizacao && !_focusDestino20.hasFocus) {
+        _calcularDiferenca20C();
+      }
+    });
+    
+    _focusOrigem20.addListener(() {
+      if (!_modoVisualizacao && !_focusOrigem20.hasFocus) {
+        _calcularDestino20CAutomatico();
+      }
+    });
+
+    if (widget.idMovimentacao != null && widget.idMovimentacao!.isNotEmpty) {
+      _carregarDadosMovimentacao(widget.idMovimentacao!);
     }
   }
 
@@ -365,6 +387,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         return;
       }
 
+      // APENAS OS CAMPOS ESPECIFICADOS
       if (movimentacao['nota_fiscal'] != null) {
         campos['notas']!.text = movimentacao['nota_fiscal'].toString();
       }
@@ -398,21 +421,8 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         }
       }
 
-      if (produtoSelecionado != null) {
-        final volumeAmb = _obterVolumeAmbientePorProduto(
-            movimentacao, produtoSelecionado!);
-        if (volumeAmb != null) {
-          campos['volumeCarregadoAmb']!.text = 
-              _mascaraMilharUI(volumeAmb.toString());
-        }
+      // NÃO carregar volumes - isso será calculado pelo usuário
 
-        final volume20C = _obterVolume20CPorProduto(
-            movimentacao, produtoSelecionado!);
-        if (volume20C != null) {
-          campos['volumeApurado20C']!.text = 
-              _mascaraMilharUI(volume20C.toString());
-        }
-      }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -426,193 +436,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       setState(() {
         _carregandoDadosMovimentacao = false;
       });
-    }
-  }
-
-  int? _obterVolumeAmbientePorProduto(Map<String, dynamic> movimentacao, String produtoNome) {
-    if (movimentacao['entrada_amb'] != null) {
-      final entradaAmb = movimentacao['entrada_amb'];
-      if (entradaAmb is num && entradaAmb > 0) {
-        return entradaAmb.toInt();
-      }
-    }
-
-    final produtoLower = produtoNome.toLowerCase();
-    
-    final mapaColunas = {
-      'gasolina': {
-        'comum': 'g_comum',
-        'aditivada': 'g_aditivada',
-        'outras': 'gasolina_a',
-      },
-      'diesel': {
-        's10': 'd_s10',
-        's500': 'd_s500',
-        's500_a': 's500_a',
-        's10_a': 's10_a',
-      },
-      'etanol': {
-        'hidratado': 'etanol',
-        'anidro': 'anidro',
-      },
-      'b100': {
-        'b100': 'b100',
-      }
-    };
-
-    for (final tipoProduto in mapaColunas.keys) {
-      if (produtoLower.contains(tipoProduto)) {
-        for (final variante in mapaColunas[tipoProduto]!.keys) {
-          if (produtoLower.contains(variante)) {
-            final coluna = mapaColunas[tipoProduto]![variante];
-            if (movimentacao[coluna] != null) {
-              return int.tryParse(movimentacao[coluna].toString());
-            }
-          }
-        }
-        
-        if (mapaColunas[tipoProduto]!.containsKey('outras')) {
-          final coluna = mapaColunas[tipoProduto]!['outras'];
-          if (movimentacao[coluna] != null) {
-            return int.tryParse(movimentacao[coluna].toString());
-          }
-        }
-      }
-    }
-    
-    return null;
-  }
-
-  int? _obterVolume20CPorProduto(Map<String, dynamic> movimentacao, String produtoNome) {
-    final produtoLower = produtoNome.toLowerCase();
-    
-    final mapaColunas20C = {
-      'g_comum_vinte': ['gasolina', 'comum'],
-      'g_aditivada_vinte': ['gasolina', 'aditivada'],
-      'gasolina_a_vinte': ['gasolina'],
-      'd_s10_vinte': ['diesel', 's10'],
-      'd_s500_vinte': ['diesel', 's500'],
-      's500_a_vinte': ['diesel', 's500'],
-      's10_a_vinte': ['diesel', 's10'],
-      'etanol_vinte': ['etanol', 'hidratado'],
-      'anidro_vinte': ['etanol', 'anidro'],
-      'b100_vinte': ['b100'],
-    };
-
-    for (final coluna in mapaColunas20C.keys) {
-      final keywords = mapaColunas20C[coluna]!;
-      bool matches = true;
-      
-      for (final keyword in keywords) {
-        if (!produtoLower.contains(keyword)) {
-          matches = false;
-          break;
-        }
-      }
-      
-      if (matches && movimentacao[coluna] != null) {
-        return int.tryParse(movimentacao[coluna].toString());
-      }
-    }
-    
-    return null;
-  }
-
-  Future<void> _carregarDadosCertificado(String idCertificado) async {
-    try {
-      final supabase = Supabase.instance.client;
-      
-      final dados = await supabase
-          .from('ordens_analises')
-          .select('*')
-          .eq('id', idCertificado)
-          .single();
-      
-      _dadosExistentes = Map<String, dynamic>.from(dados);
-      _preencherCamposComDadosExistentes();
-      
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao carregar certificado: $e'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    }
-  }
-  
-  void _preencherCamposComDadosExistentes() {
-    if (_dadosExistentes == null) return;
-
-    setState(() {
-      campos['numeroControle']!.text =
-          _dadosExistentes!['numero_controle']?.toString() ?? '';
-      campos['transportadora']!.text =
-          _dadosExistentes!['transportadora']?.toString() ?? '';
-      campos['motorista']!.text =
-          _dadosExistentes!['motorista']?.toString() ?? '';
-      campos['notas']!.text =
-          _dadosExistentes!['notas_fiscais']?.toString() ?? '';
-
-      campos['placaCavalo']!.text =
-          _dadosExistentes!['placa_cavalo']?.toString() ?? '';
-      campos['carreta1']!.text =
-          _dadosExistentes!['carreta1']?.toString() ?? '';
-      campos['carreta2']!.text =
-          _dadosExistentes!['carreta2']?.toString() ?? '';
-
-      campos['tempAmostra']!.text =
-          _formatarDecimalParaExibicao(_dadosExistentes!['temperatura_amostra']);
-      campos['densidadeAmostra']!.text =
-          _formatarDecimalParaExibicao(_dadosExistentes!['densidade_observada']);
-      campos['tempCT']!.text =
-          _formatarDecimalParaExibicao(_dadosExistentes!['temperatura_ct']);
-      campos['densidade20']!.text =
-          _formatarDecimalParaExibicao(_dadosExistentes!['densidade_20c']);
-      campos['fatorCorrecao']!.text =
-          _formatarDecimalParaExibicao(_dadosExistentes!['fator_correcao']);
-
-      final origemAmb = _dadosExistentes!['origem_ambiente'];
-      if (origemAmb != null) {
-        campos['volumeCarregadoAmb']!.text =
-            _mascaraMilharUI(origemAmb.toString());
-      }
-
-      final destino20 = _dadosExistentes!['destino_20c'];
-      if (destino20 != null) {
-        campos['volumeApurado20C']!.text =
-            _mascaraMilharUI(destino20.toString());
-      }
-
-      if (_dadosExistentes!['data_analise'] != null) {
-        try {
-          final data = DateTime.parse(_dadosExistentes!['data_analise']);
-          dataCtrl.text =
-              '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}';
-        } catch (_) {}
-      }
-
-      if (_dadosExistentes!['hora_analise'] != null) {
-        horaCtrl.text = _dadosExistentes!['hora_analise'].toString();
-      }
-
-      produtoSelecionado =
-          _dadosExistentes!['produto_nome']?.toString();
-    });
-  }
-  
-  String _formatarDecimalParaExibicao(dynamic valor) {
-    if (valor == null) return '';
-    try {
-      String texto = valor.toString();
-      if (texto.contains('.')) {
-        texto = texto.replaceAll('.', ',');
-      }
-      return texto;
-    } catch (e) {
-      return '';
     }
   }
 
@@ -680,10 +503,8 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       campos['fatorCorrecao']!.text = '-';
     }
 
-    if (fcv != '-' &&
-        fcv.isNotEmpty &&
-        campos['volumeCarregadoAmb']!.text.isNotEmpty) {
-      _calcularVolumeApurado20C();
+    if (fcv != '-' && fcv.isNotEmpty) {
+      _calcularDestino20CAutomatico();
     }
 
     setState(() {});
@@ -708,29 +529,118 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
     return resultado;
   }
 
-  void _calcularVolumeApurado20C() {
-    if (_modoVisualizacao) return;
-    final fcvText = campos['fatorCorrecao']!.text;
-    if (fcvText.isEmpty || fcvText == '-') return;
-
-    final volumeAmbText = campos['volumeCarregadoAmb']!.text;
-    if (volumeAmbText.isEmpty) {
-      campos['volumeApurado20C']!.text = '';
-      return;
+  void _calcularDestino20CAutomatico() {
+    try {
+      final fcvText = campos['fatorCorrecao']!.text;
+      if (fcvText.isEmpty || fcvText == '-') {
+        print('FCV não disponível para cálculo');
+        return;
+      }
+      
+      final destinoAmbText = campos['destinoAmb']!.text;
+      if (destinoAmbText.isEmpty) {
+        campos['destino20']!.text = '';
+        _calcularDiferenca20C();
+        return;
+      }
+      
+      final destinoAmbLimpo = destinoAmbText.replaceAll('.', '');
+      final fcvLimpo = fcvText.replaceAll(',', '.');
+      
+      final destinoAmb = double.tryParse(destinoAmbLimpo);
+      final fcv = double.tryParse(fcvLimpo);
+      
+      if (destinoAmb == null || fcv == null) {
+        return;
+      }
+      
+      final destino20C = destinoAmb * fcv;
+      String destino20CFormatado = _formatarNumeroParaCampo(destino20C);
+      
+      campos['destino20']!.text = destino20CFormatado;
+      _calcularDiferenca20C();
+                  
+    } catch (e) {
+      print('Erro ao calcular destino 20°C automático: $e');
     }
+  }
 
-    final volumeAmb =
-        double.tryParse(volumeAmbText.replaceAll('.', ''));
-    final fcv =
-        double.tryParse(fcvText.replaceAll(',', '.'));
+  void _calcularDiferencaAmbiente() {
+    try {
+      final origemText = campos['origemAmb']!.text;
+      final destinoText = campos['destinoAmb']!.text;
+      
+      if (origemText.isEmpty || destinoText.isEmpty) {
+        campos['difAmb']!.text = '';
+        return;
+      }
+      
+      final origemLimpa = origemText.replaceAll('.', '');
+      final destinoLimpa = destinoText.replaceAll('.', '');
+      
+      final origem = double.tryParse(origemLimpa);
+      final destino = double.tryParse(destinoLimpa);
+      
+      if (origem != null && destino != null) {
+        final diferenca = destino - origem;
+        final resultadoFormatado = _formatarDiferencaComSinal(diferenca);
+        campos['difAmb']!.text = resultadoFormatado;
+      } else {
+        campos['difAmb']!.text = '';
+      }
+    } catch (e) {
+      print('Erro ao calcular diferença ambiente: $e');
+      campos['difAmb']!.text = '';
+    }
+  }
 
-    if (volumeAmb == null || fcv == null) return;
+  void _calcularDiferenca20C() {
+    try {
+      final origemText = campos['origem20']!.text;
+      final destinoText = campos['destino20']!.text;
+      
+      if (origemText.isEmpty || destinoText.isEmpty) {
+        campos['dif20']!.text = '';
+        return;
+      }
+      
+      final origemLimpa = origemText.replaceAll('.', '');
+      final destinoLimpa = destinoText.replaceAll('.', '');
+      
+      final origem = double.tryParse(origemLimpa);
+      final destino = double.tryParse(destinoLimpa);
+      
+      if (origem != null && destino != null) {
+        final diferenca = destino - origem;
+        final resultadoFormatado = _formatarDiferencaComSinal(diferenca);
+        campos['dif20']!.text = resultadoFormatado;
+      } else {
+        campos['dif20']!.text = '';
+      }
+    } catch (e) {
+      print('Erro ao calcular diferença 20°C: $e');
+      campos['dif20']!.text = '';
+    }
+  }
 
-    final volume20C = volumeAmb * fcv;
-    campos['volumeApurado20C']!.text =
-        _formatarNumeroParaCampo(volume20C);
-
-    setState(() {});
+  String _formatarDiferencaComSinal(double valor) {
+    if (valor.isNaN || valor.isInfinite) {
+      return '';
+    }
+    
+    String sinal = '';
+    if (valor > 0) {
+      sinal = '+';
+    } else if (valor < 0) {
+      sinal = '-';
+    }
+    
+    double valorAbs = valor.abs();
+    int valorInteiro = valorAbs.floor();
+    String valorFormatado = valorInteiro.toString();
+    valorFormatado = _aplicarMascaraMilhar(valorFormatado);
+    
+    return sinal + valorFormatado;
   }
 
   @override
@@ -1025,17 +935,17 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                                            enabled: false), 
                                   ]),
                                   const SizedBox(height: 20),
-                                  _secao('Volumes apurados'),
+                                  _secao('Volumes apurados - Ambiente'),
                                   _linha([
                                     TextFormField(
-                                      controller: campos['volumeCarregadoAmb'],
+                                      controller: campos['origemAmb'],
                                       keyboardType: TextInputType.number,
                                       enabled: !_modoVisualizacao,
                                       onChanged: _modoVisualizacao
                                           ? null
                                           : (value) {
-                                              final ctrl = campos['volumeCarregadoAmb']!;
-                                              final masked = _mascaraMilharUI(value);
+                                              final ctrl = campos['origemAmb']!;
+                                              final masked = _aplicarMascaraNotasFiscais(value);
 
                                               if (masked != value) {
                                                 ctrl.value = TextEditingValue(
@@ -1043,21 +953,23 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                                                   selection: TextSelection.collapsed(offset: masked.length),
                                                 );
                                               }
+                                              _calcularDiferencaAmbiente();
                                             },
-                                      decoration: _decoration('Volume recebido (ambiente)').copyWith(
+                                      decoration: _decoration('Quantidade de origem').copyWith(
                                         fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
                                       ),
                                     ),
 
                                     TextFormField(
-                                      controller: campos['volumeApurado20C'],
+                                      controller: campos['destinoAmb'],
+                                      focusNode: _modoVisualizacao ? null : _focusDestinoAmb,
                                       keyboardType: TextInputType.number,
                                       enabled: !_modoVisualizacao,
                                       onChanged: _modoVisualizacao
                                           ? null
                                           : (value) {
-                                              final ctrl = campos['volumeApurado20C']!;
-                                              final masked = _mascaraMilharUI(value);
+                                              final ctrl = campos['destinoAmb']!;
+                                              final masked = _aplicarMascaraNotasFiscais(value);
 
                                               if (masked != value) {
                                                 ctrl.value = TextEditingValue(
@@ -1066,8 +978,64 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                                                 );
                                               }
                                             },
-                                      decoration: _decoration('Volume recebido a 20 ºC').copyWith(
+                                      decoration: _decoration('Quantidade de destino').copyWith(
                                         fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
+                                      ),
+                                    ),
+                                    
+                                    TextFormField(
+                                      controller: campos['difAmb'],
+                                      enabled: false,
+                                      keyboardType: TextInputType.number,
+                                      decoration: _decoration('Complemento/Retirada').copyWith(
+                                        fillColor: Colors.grey[200],
+                                      ),
+                                    ),
+                                  ]),
+                                  const SizedBox(height: 20),
+                                  _secao('Volumes apurados a 20 ºC'),
+                                  _linha([
+                                    TextFormField(
+                                      controller: campos['origem20'],
+                                      focusNode: _modoVisualizacao ? null : _focusOrigem20,
+                                      keyboardType: TextInputType.number,
+                                      enabled: !_modoVisualizacao,
+                                      onChanged: _modoVisualizacao
+                                          ? null
+                                          : (value) {
+                                              final ctrl = campos['origem20']!;
+                                              final masked = _aplicarMascaraNotasFiscais(value);
+
+                                              if (masked != value) {
+                                                ctrl.value = TextEditingValue(
+                                                  text: masked,
+                                                  selection: TextSelection.collapsed(offset: masked.length),
+                                                );
+                                              }
+                                              _calcularDiferenca20C();
+                                            },
+                                      decoration: _decoration('Quantidade de origem').copyWith(
+                                        fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
+                                      ),
+                                    ),
+
+                                    TextFormField(
+                                      controller: campos['destino20'],
+                                      style: TextStyle(color: const Color.fromARGB(255, 0, 81, 255)),
+                                      enabled: false,
+                                      focusNode: _modoVisualizacao ? null : _focusDestino20,
+                                      keyboardType: TextInputType.number,
+                                      decoration: _decoration('Quantidade de destino').copyWith(
+                                        fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
+                                      ),
+                                    ),
+                                    
+                                    TextFormField(
+                                      controller: campos['dif20'],
+                                      enabled: false,
+                                      keyboardType: TextInputType.number,
+                                      decoration: _decoration('Diferença').copyWith(
+                                        fillColor: Colors.grey[200],
                                       ),
                                     ),
                                   ]),
@@ -1682,8 +1650,12 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         'tempCT': campos['tempCT']!.text,
         'densidade20': campos['densidade20']!.text,
         'fatorCorrecao': campos['fatorCorrecao']!.text,
-        'volumeCarregadoAmb': campos['volumeCarregadoAmb']!.text,
-        'volumeApurado20C': campos['volumeApurado20C']!.text,
+        'origemAmb': campos['origemAmb']!.text,
+        'destinoAmb': campos['destinoAmb']!.text,
+        'difAmb': campos['difAmb']!.text,
+        'origem20': campos['origem20']!.text,
+        'destino20': campos['destino20']!.text,
+        'dif20': campos['dif20']!.text,
       };
       
       final pdfDocument = await CertificadoPDF.gerar(
@@ -2005,30 +1977,21 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         'analise_concluida': true,
         'data_conclusao': DateTime.now().toIso8601String(),
         'movimentacao_id': widget.idMovimentacao,
-        'transportadora': campos['transportadora']!.text,
-        'motorista': campos['motorista']!.text,
-        'notas_fiscais': campos['notas']!.text,
-        'placa_cavalo': campos['placaCavalo']!.text,
-        'carreta1': campos['carreta1']!.text,
-        'carreta2': campos['carreta2']!.text,
         'produto_id': produtoId,
         'produto_nome': produtoSelecionado,
-        'temperatura_amostra':
-            _converterParaDecimal(campos['tempAmostra']!.text),
-        'densidade_observada':
-            _converterParaDecimal(campos['densidadeAmostra']!.text),
-        'temperatura_ct':
-            _converterParaDecimal(campos['tempCT']!.text),
-        'densidade_20c':
-            _converterParaDecimal(campos['densidade20']!.text),
-        'fator_correcao':
-            _converterParaDecimal(campos['fatorCorrecao']!.text),
-        'origem_ambiente':
-            _converterParaInteiro(campos['volumeCarregadoAmb']!.text),
-        'destino_20c':
-            _converterParaInteiro(campos['volumeApurado20C']!.text),
+        'temperatura_amostra': _converterParaDecimal(campos['tempAmostra']!.text),
+        'densidade_observada': _converterParaDecimal(campos['densidadeAmostra']!.text),
+        'temperatura_ct': _converterParaDecimal(campos['tempCT']!.text),
+        'densidade_20c': _converterParaDecimal(campos['densidade20']!.text),
+        'fator_correcao': _converterParaDecimal(campos['fatorCorrecao']!.text),
+        'origem_ambiente': _converterParaInteiro(campos['origemAmb']!.text),
+        'destino_ambiente': _converterParaInteiro(campos['destinoAmb']!.text),
+        'origem_20c': _converterParaInteiro(campos['origem20']!.text),
+        'destino_20c': _converterParaInteiro(campos['destino20']!.text),
         'usuario_id': user.id,
         'filial_id': usuario.filialId,
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
       };
 
       final response = await supabase
@@ -2044,9 +2007,8 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
 
       if (widget.idMovimentacao != null) {
         final volume20C =
-            _converterParaInteiro(campos['volumeApurado20C']!.text) ?? 0;
+            _converterParaInteiro(campos['destino20']!.text) ?? 0;
 
-        // Método unificado que atualiza tudo de uma vez
         await _atualizarMovimentacaoCompleta(
           movimentacaoId: widget.idMovimentacao!,
           produtoId: produtoId,
@@ -2087,10 +2049,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
     }
   }
 
-  // ==============================================
-  // MÉTODO UNIFICADO PARA ATUALIZAR MOVIMENTAÇÃO
-  // ==============================================
-
   Future<void> _atualizarMovimentacaoCompleta({
     required String movimentacaoId,
     required String produtoId,
@@ -2100,22 +2058,15 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       final supabase = Supabase.instance.client;
       final agora = DateTime.now().toUtc().toIso8601String();
       
-      // Resolve qual coluna específica do produto usar para 20°C
       final coluna20C = _resolverColuna20C(produtoId);
       
-      // Atualiza TUDO em uma única operação
       await supabase
           .from('movimentacoes')
           .update({
-            // Campos de volume (ambos recebem o mesmo valor)
-            'entrada_vinte': volume20C,      // Campo geral para entrada a 20°C
-            coluna20C: volume20C,           // Campo específico do produto
-            
-            // Campos de status e data
+            'entrada_vinte': volume20C,
+            coluna20C: volume20C,
             'data_carga': agora,
             'status_circuito_dest': '5',
-            
-            // Timestamp de atualização
             'updated_at': agora,
           })
           .eq('id', movimentacaoId);
@@ -2130,10 +2081,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       rethrow;
     }
   }
-
-  // ==============================================
-  // MÉTODO AUXILIAR PARA RESOLVER COLUNA 20°C
-  // ==============================================
 
   String _resolverColuna20C(String produtoId) {
     const mapaProdutoColuna20C = {
@@ -2175,6 +2122,9 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
   @override
   void dispose() {
     _focusTempCT.dispose();
+    _focusDestinoAmb.dispose();
+    _focusDestino20.dispose();
+    _focusOrigem20.dispose();
     super.dispose();
   }
 
@@ -2212,17 +2162,5 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
     } catch (e) {
       return null;
     }
-  }
-
-  String _mascaraMilharUI(String texto) {
-    final numeros = texto.replaceAll(RegExp(r'[^\d]'), '');
-    if (numeros.isEmpty) return '';
-
-    String resultado = '';
-    for (int i = numeros.length - 1, c = 0; i >= 0; i--, c++) {
-      if (c > 0 && c % 3 == 0) resultado = '.$resultado';
-      resultado = numeros[i] + resultado;
-    }
-    return resultado;
-  }
+  }  
 }

@@ -439,17 +439,15 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
       final movimentacaoId = movimentacoes.first['id']?.toString();
       if (movimentacaoId == null) return;
 
-      final certificado = await _supabase
+      // VERIFICAÇÃO DO TIPO DE MOVIMENTAÇÃO
+      if (_tipoMovimentacao == TipoMovimentacao.carregamento) {
+        // MOVIMENTO DE SAÍDA: Abre EmitirCertificadoPage
+        final certificado = await _supabase
           .from('ordens_analises')
           .select('id, analise_concluida')
           .eq('movimentacao_id', movimentacaoId)
           .maybeSingle();
 
-      if (!mounted) return;
-
-      // VERIFICAÇÃO DO TIPO DE MOVIMENTAÇÃO
-      if (_tipoMovimentacao == TipoMovimentacao.carregamento) {
-        // MOVIMENTO DE SAÍDA: Abre EmitirCertificadoPage
         final result = await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => EmitirCertificadoPage(
@@ -468,20 +466,14 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
         }
       } else {
         // MOVIMENTO DE ENTRADA: Abre EmitirCertificadoEntrada
-        final certificadoEntrada = await _supabase
-        .from('ordens_analises')
-        .select('id, analise_concluida')
-        .eq('movimentacao_id', movimentacaoId)
-        .maybeSingle();
-
+        // NÃO verifica certificado existente - sempre cria novo
         final result = await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => EmitirCertificadoEntrada(
               onVoltar: () {
                 Navigator.of(context).pop(true);
               },
-              idCertificado: certificadoEntrada?['id'], // NOVO
-              idMovimentacao: movimentacaoId, // NOVO
+              idMovimentacao: movimentacaoId, // APENAS idMovimentacao
             ),
           ),
         );

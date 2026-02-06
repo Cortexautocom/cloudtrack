@@ -71,7 +71,6 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
           id,
           numero_controle,
           criado_em,
-          status,
           tipo_operacao,
           transportadora,
           motorista,

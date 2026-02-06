@@ -685,7 +685,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       'f8e95435-471a-424c-947f-def8809053a0': 'gasolina_a',
     };
 
-    // Normalizar UUID (remover espaços, converter para minúsculas)
     final uuidNormalizado = produtoId.trim().toLowerCase();
     
     final coluna = mapaProdutoColuna[uuidNormalizado];
@@ -792,12 +791,15 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       if (_reboque1Controller.text.isNotEmpty) placas.add(_reboque1Controller.text);
       if (_reboque2Controller.text.isNotEmpty) placas.add(_reboque2Controller.text);
 
-      // Criar UMA ÚNICA LINHA com todos os dados da transferência
+      // MUDANÇA 1: Criar UMA ÚNICA LINHA com todos os dados da transferência
+      // Adicionando o campo 'saida_amb' com a quantidade
       final transferencia = {
         'ordem_id': ordemId,
         'tipo_op': 'transf',
         'produto_id': _produtoId,
         'quantidade': quantidade,
+        // MUDANÇA 2: Adicionar a quantidade em saida_amb
+        'saida_amb': quantidade,  // NOVO CAMPO
         'descricao': '$origemNome → $destinoNome',
         'placa': placas.isNotEmpty ? placas : null,
         'usuario_id': _usuarioId,
@@ -809,7 +811,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         'filial_destino_id': _destinoId,
         'updated_at': DateTime.now().toIso8601String(),
         
-        // NOVOS CAMPOS - APENAS 1 LINHA
+        // Campos específicos para transferência
         'filial_id': null,
         'tipo_mov': null,
         'tipo_mov_orig': 'saida',
@@ -831,7 +833,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       // Atribuir quantidade apenas na coluna correta do produto
       transferencia[colunaProduto] = quantidade;
 
-      // INSERIR APENAS 1 LINHA
+      // MUDANÇA 3: Inserir com o campo saida_amb
       await supabase.from('movimentacoes').insert([transferencia]);
 
       if (mounted) {
