@@ -281,7 +281,8 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             saida_amb,
             cliente,
             descricao,
-            status_circuito,
+            status_circuito_orig,
+            status_circuito_dest,
             data_mov,
             filial_id,
             empresa_id,
@@ -482,7 +483,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         if (quantidadeTotal.contains(termoBusca)) return true;
         
         // Buscar no status
-        final statusTexto = _obterStatusTexto(ordem['status_circuito']).toLowerCase();
+        final statusTexto = _obterStatusTexto(ordem, null).toLowerCase();
         if (statusTexto.contains(termoBusca)) return true;
         
         // Buscar no tipo de operação
@@ -586,7 +587,28 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     return 'N/A';
   }
 
-  String _obterStatusTexto(dynamic statusCodigo) {
+  String _obterStatusTexto(Map<String, dynamic> ordem, Map<String, dynamic>? movimentacao) {
+    // Se for fornecido uma movimentação específica, usa ela
+    // Caso contrário, pega a primeira movimentação da ordem
+    final item = movimentacao ?? (ordem['itens'] as List<Map<String, dynamic>>).firstOrNull;
+    
+    if (item == null) return 'Sem status';
+    
+    final tipoMovimentacao = _obterTipoMovimentacao(item);
+    dynamic statusCodigo;
+    
+    // Verifica se é entrada ou saída
+    if (tipoMovimentacao == 'Entrada') {
+      // Para entrada: usa status_circuito_dest
+      statusCodigo = item['status_circuito_dest'];
+    } else if (tipoMovimentacao == 'Saída') {
+      // Para saída: usa status_circuito_orig
+      statusCodigo = item['status_circuito_orig'];
+    } else {
+      // Para outros casos (N/A), tenta pegar qualquer um dos dois
+      statusCodigo = item['status_circuito_dest'] ?? item['status_circuito_orig'];
+    }
+    
     if (statusCodigo == null) return 'Sem status';
     
     final codigo = statusCodigo is int ? statusCodigo : int.tryParse(statusCodigo.toString());
@@ -867,11 +889,10 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   Widget _buildItemOrdem(Map<String, dynamic> ordem, int index) {
     final tipoOp = ordem['tipo_op']?.toString() ?? 'venda';
     final tipoOpTexto = _obterTipoOpTexto(tipoOp);
-    final statusCodigo = ordem['status_circuito'];
-    final statusTexto = _obterStatusTexto(statusCodigo);
+    final statusTexto = _obterStatusTexto(ordem, null);
     
     // ✅ Usar as novas cores da timeline
-    final statusCor = _obterCorStatusTimeline(statusCodigo);
+    final statusCor = _obterCorStatusTimeline(ordem, null);
     
     // Dados da ordem
     final placasFormatadas = _formatarPlacas(ordem['placas']);
@@ -1230,18 +1251,15 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     return '${texto.substring(0, maxLength)}...';
   }
 
-  Color _obterCorStatusTimeline(dynamic statusCodigo) {
-    if (statusCodigo == null) return Colors.grey;
+  Color _obterCorStatusTimeline(Map<String, dynamic> ordem, Map<String, dynamic>? movimentacao) {
+    final statusTexto = _obterStatusTexto(ordem, movimentacao);
     
-    final codigo = statusCodigo is int ? statusCodigo : int.tryParse(statusCodigo.toString());
-    
-    switch (codigo) {
-      case 1: return const Color.fromARGB(255, 61, 160, 206); // Programado
-      case 15: return const Color.fromARGB(255, 5, 151, 0); // Aguardando
-      case 2: return const Color(0xFFF57C00); // Check-list
-      case 3: return const Color(0xFF7B1FA2); // Em operação
-      case 4: return const Color(0xFFC2185B); // Emissão NF
-      case 5: return const Color.fromARGB(255, 42, 199, 50); // Expedido/Liberado
+    switch (statusTexto) {
+      case 'Programado': return const Color.fromARGB(255, 61, 160, 206);
+      case 'Em check-list': return const Color(0xFFF57C00);
+      case 'Em operação': return const Color(0xFF7B1FA2);
+      case 'Aguardando NF': return const Color(0xFFC2185B);
+      case 'Expedido': return const Color.fromARGB(255, 42, 199, 50);
       default: return Colors.grey;
     }
   }  
