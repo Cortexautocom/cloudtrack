@@ -162,36 +162,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     return produtos;
   }
 
-
-  // =======================
-  // MAPEAMENTO DE PRODUTOS (MESMO DA TRANSFERÊNCIA)
-  // =======================
-  String _resolverColunaProduto(String produtoId) {
-    const mapaProdutoColuna = {
-      '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 's10_a',
-      '4da89784-301f-4abe-b97e-c48729969e3d': 's500_a',
-      '58ce20cf-f252-4291-9ef6-f4821f22c29e': 'd_s10',
-      '66ca957a-5698-4a02-8c9e-987770b6a151': 'etanol',
-      '82c348c8-efa1-4d1a-953a-ee384d5780fc': 'g_comum',
-      '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 'g_aditivada',
-      'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': 'd_s500',
-      'cecab8eb-297a-4640-81ae-e88335b88d8b': 'anidro',
-      'ecd91066-e763-42e3-8a0e-d982ea6da535': 'b100',
-      'f8e95435-471a-424c-947f-def8809053a0': 'gasolina_a',
-    };
-
-    // Normalizar UUID (remover espaços, converter para minúsculas)
-    final uuidNormalizado = produtoId.trim().toLowerCase();
-    
-    final coluna = mapaProdutoColuna[uuidNormalizado];
-
-    if (coluna == null) {
-      throw Exception('Produto (UUID: $produtoId) sem coluna de movimentação configurada');
-    }
-
-    return coluna;
-  }
-
   Future<void> _salvarVenda() async {
     if (widget.filialId == null || widget.filialId!.isEmpty) {
       _mostrarErro('Filial não informada');
@@ -243,8 +213,9 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     }
 
     int totalTanques = 0;
-    int tanquesPreenchidos = 0;
+    int tanquesCompletos = 0;
     int tanquesVazios = 0;
+    int tanquesParciais = 0;
 
     for (final placaVenda in _placasVenda) {
       totalTanques += placaVenda.tanques.length;
@@ -257,25 +228,37 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
         final pagamentoPreenchido =
             tanque.pagamentoController.text.trim().isNotEmpty;
 
-        if (produtoPreenchido &&
-            clientePreenchido &&
-            pagamentoPreenchido) {
-          tanquesPreenchidos++;
+        final isCompleto = produtoPreenchido && clientePreenchido && pagamentoPreenchido;
+        final isVazio = !produtoPreenchido && !clientePreenchido && !pagamentoPreenchido;
+        final isParcial = !isCompleto && !isVazio;
+
+        if (isCompleto) {
+          tanquesCompletos++;
+        } else if (isParcial) {
+          tanquesParciais++;
         } else {
           tanquesVazios++;
         }
       }
     }
 
-    if (tanquesPreenchidos == 0) {
+    if (tanquesCompletos == 0) {
       _mostrarErro('Preencha pelo menos um tanque completo');
       return;
     }
 
-    if (tanquesVazios > 0 && tanquesPreenchidos < totalTanques) {
-      final bool? resultado =
-          await _mostrarDialogCarregamentoParcial(
-        tanquesPreenchidos,
+    // Se houver tanques parciais (algum campo preenchido mas não todos),
+    // o comportamento anterior era impedir o salvamento e forçar correção.
+    if (tanquesParciais > 0) {
+      setState(() {});
+      return;
+    }
+
+    // Se houver ao menos um tanque completo e ao menos um tanque vazio,
+    // exibir diálogo de carregamento parcial.
+    if (tanquesVazios > 0 && tanquesCompletos < totalTanques) {
+      final bool? resultado = await _mostrarDialogCarregamentoParcial(
+        tanquesCompletos,
         totalTanques,
       );
 
@@ -531,7 +514,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             continue;
           }
 
-          final colunaProduto = _resolverColunaProduto(tanque.produtoId!);
           final capacidadeMCubicos =
               double.tryParse(tanque.capacidade) ?? 0.0;
           final capacidadeLitros = capacidadeMCubicos * 1000.0;
@@ -570,7 +552,9 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             's10_a': 0,
           };
 
-          movimentacao[colunaProduto] = capacidadeLitros;
+          // Registrar a quantidade da venda em coluna padrão de saída (ambiente).
+          // Não gravar mais na coluna específica do produto.
+          movimentacao['saida_amb'] = capacidadeLitros;
 
           await supabase.from('movimentacoes').insert(movimentacao);
           tanquesProcessados++;
@@ -644,17 +628,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                     color: incompleto ? Colors.orange.shade800 : Colors.black,
                   ),
                 ),
-                if (incompleto)
-                  const SizedBox(height: 2),
-                if (incompleto)
-                  Text(
-                    'Campos obrigatórios não preenchidos',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.orange.shade700,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
               ],
             ),
           ),
@@ -667,27 +640,33 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             child: DropdownButtonFormField<String>(
               value: tanque.produtoId,
               isExpanded: true,
-              items: _produtos
-                  .map(
-                    (p) => DropdownMenuItem<String>(
-                      value: p['id'].toString(),
-                      child: Text(
-                        p['nome_dois'],
-                        style: const TextStyle(fontSize: 13),
+              items: [
+                const DropdownMenuItem<String>(
+                  value: '',
+                  child: Text('', style: TextStyle(fontSize: 13)),
+                ),
+                ..._produtos
+                    .map(
+                      (p) => DropdownMenuItem<String>(
+                        value: p['id'].toString(),
+                        child: Text(
+                          p['nome_dois'],
+                          style: const TextStyle(fontSize: 13),
+                        ),
                       ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (v) => tanque.produtoId = v,
+                    )
+                    .toList(),
+              ],
+              onChanged: (v) => setState(() => tanque.produtoId = v),
               decoration: _inputDecoration('Produto*', incompleto: incompleto && !produtoPreenchido),
             ),
           ),
           
           const SizedBox(width: 12),
           
-          // CLIENTE (250px)
+          // CLIENTE (230px)
           SizedBox(
-            width: 250,
+            width: 230,
             child: TextFormField(
               controller: tanque.clienteController,
               style: const TextStyle(fontSize: 13),
@@ -697,13 +676,35 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
           
           const SizedBox(width: 12),
           
-          // FORMA DE PAGAMENTO (200px)
+          // FORMA DE PAGAMENTO (180px)
           SizedBox(
-            width: 200,
+            width: 180,
             child: TextFormField(
               controller: tanque.pagamentoController,
               style: const TextStyle(fontSize: 13),
               decoration: _inputDecoration('Forma de pagamento*', incompleto: incompleto && !pagamentoPreenchido),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Ícone para limpar/resetar a linha do tanque
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: IconButton(
+              tooltip: 'Limpar linha',
+              icon: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                padding: const EdgeInsets.all(6),
+                child: const Icon(Icons.backspace, size: 18, color: Colors.black54),
+              ),
+              onPressed: () {
+                tanque.produtoId = null;
+                tanque.clienteController.clear();
+                tanque.pagamentoController.clear();
+                setState(() {});
+              },
             ),
           ),
         ],
@@ -1073,6 +1074,12 @@ class _TanqueVenda {
   final TextEditingController pagamentoController = TextEditingController();
 
   _TanqueVenda({required this.capacidade});
+
+  void reset() {
+    produtoId = '';
+    clienteController.clear();
+    pagamentoController.clear();
+  }
 
   void dispose() {
     clienteController.dispose();
