@@ -526,6 +526,11 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
     return 'Movimentações';
   }
 
+  // ✅ NOVO GETTER: Verificar se deve exibir linhas de estoque inicial e final
+  bool get _deveExibirEstoque {
+    return widget.tipoMov == 'todos';
+  }
+
   // ✅ NOVA PROPRIEDADE: Larguras dinâmicas (oculta coluna Produto quando filtrado)
   List<double> get _larguras {
     if (widget.produtoId == 'todos') {
@@ -718,10 +723,12 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                   child: ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    itemCount: movimentacoesParaExibir.length + 2, // +2 para estoque inicial e final (SEMPRE)
+                    itemCount: _deveExibirEstoque 
+                        ? movimentacoesParaExibir.length + 2  // +2 para estoque inicial e final
+                        : movimentacoesParaExibir.length,       // apenas movimentações
                     itemBuilder: (context, index) {
-                      // LINHA 1: ESTOQUE INICIAL (SEMPRE)
-                      if (index == 0) {
+                      // LINHA 1: ESTOQUE INICIAL (APENAS se tipoMov == 'todos')
+                      if (_deveExibirEstoque && index == 0) {
                         final quantidadeInicial = _estoqueInicial['quantidade'] as num;
                         final quantidadeFormatada = _formatarQuantidade(quantidadeInicial);
                         
@@ -744,8 +751,8 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                         );
                       }
                       
-                      // ÚLTIMA LINHA: ESTOQUE FINAL (SEMPRE)
-                      if (index == movimentacoesParaExibir.length + 1) {
+                      // ÚLTIMA LINHA: ESTOQUE FINAL (APENAS se tipoMov == 'todos')
+                      if (_deveExibirEstoque && index == movimentacoesParaExibir.length + 1) {
                         final quantidadeFinal = _estoqueFinal['quantidade'] as num;
                         final quantidadeFormatada = _formatarQuantidade(quantidadeFinal);
                         
@@ -769,7 +776,8 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                       }
                       
                       // LINHAS NORMAIS DAS MOVIMENTAÇÕES
-                      final movIndex = index - 1; // -1 porque a primeira linha é o estoque inicial
+                      // Ajustar índice dependendo se exibe estoque ou não
+                      final movIndex = _deveExibirEstoque ? index - 1 : index;
                       final m = movimentacoesParaExibir[movIndex];
                       
                       // Obter dados da movimentação
