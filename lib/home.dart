@@ -87,6 +87,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarFiltroMovimentacoes = false;
   bool _mostrarMenuAjuda = false;
   bool _mostrarTempDensMedia = false;
+  bool _mostrarCardsFilial = false;
   
   // NOVAS VARIÁVEIS PARA GESTÃO DE FROTA
   bool _mostrarVeiculos = false;
@@ -601,6 +602,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarTempDensMedia = false;
       _mostrarMenuAjuda = false;
       _mostrarSuporte = false;
+      _mostrarCardsFilial = false;
       _mostrarVeiculos = false;
       _mostrarDetalhesVeiculo = false;
       _veiculoSelecionado = null;
@@ -638,6 +640,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarCalcGerado = false;
       _mostrarTempDensMedia = false;
       _mostrarMenuAjuda = false;
+      _mostrarCardsFilial = false;
       _resetarTodasFlagsGestaoFrota();
       _filialSelecionadaNome = null;
       _dadosCalcGerado = null;
@@ -1105,6 +1108,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       return _buildAjudaPage();
     }
     
+    if (_mostrarCardsFilial && _filialParaFiltroId != null) {
+      return _buildCardsFilialPage();
+    }
+
     if (_mostrarFiltrosEstoque && _filialParaFiltroId != null) {
       return _buildFiltrosEstoquePage();
     }
@@ -1292,7 +1299,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           onVoltar: () {
             setState(() {
               _mostrarEstoquePorTanque = false;
-              _mostrarFilhosDaSessao('Estoques');
+              
+              // Se veio do fluxo de filial (cards intermediários), volta para lá
+              if (_filialParaFiltroId != null) {
+                _mostrarCardsFilial = true;
+              } else {
+                // Senão, volta para a lista principal de cards de Estoques
+                _mostrarFilhosDaSessao('Estoques');
+              }
             });
           },
         ),
@@ -1425,7 +1439,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || _mostrarEstoquePorTanque ||
                   _mostrarFiltroMovimentacoes || _mostrarTempDensMedia || _mostrarCalcGerado || 
                   _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarFiltrosEstoque ||
-                  _mostrarSuporte))
+                  _mostrarCardsFilial || _mostrarSuporte))
 
                 IconButton(
                   icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
@@ -1437,7 +1451,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || _mostrarEstoquePorTanque ||
                   _mostrarFiltroMovimentacoes || _mostrarTempDensMedia || _mostrarCalcGerado || 
                   _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarFiltrosEstoque ||
-                  _mostrarSuporte))
+                  _mostrarCardsFilial))
                 const SizedBox(width: 10),
               Text(
                 titulo,
@@ -1781,7 +1795,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             _filialParaFiltroNome = filial['label'];
             _empresaParaFiltroId = _empresaSelecionadaId;
             _empresaParaFiltroNome = _empresaSelecionadaNome;
-            _mostrarFiltrosEstoque = true;
+            _mostrarCardsFilial = true;
           });
         },
         hoverColor: _getCorPorSessao('Estoques').withOpacity(0.1),
@@ -2229,6 +2243,102 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
   
+  Widget _buildCardsFilialPage() {
+    final cardsFilial = [
+      {
+        'id': 'movimentacoes-filial',
+        'icon': Icons.swap_horiz,
+        'label': 'Movimentações',
+        'descricao': 'Consultar movimentações da filial',
+        'tipo': 'movimentacoes'
+      },
+      {
+        'id': 'estoque-tanque-filial',
+        'icon': Icons.water_drop,
+        'label': 'Estoque por tanque',
+        'descricao': 'Acompanhar estoques por tanque',
+        'tipo': 'estoque_por_tanque'
+      },
+    ];
+
+    return _buildPaginaPadronizada(
+      titulo: _filialParaFiltroNome ?? 'Filial',
+      conteudo: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Wrap(
+            spacing: 15,
+            runSpacing: 15,
+            alignment: WrapAlignment.start,
+            children: cardsFilial.map((card) {
+              return SizedBox(
+                width: 180,
+                height: 180,
+                child: Material(
+                  elevation: 2,
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  clipBehavior: Clip.hardEdge,
+                  child: InkWell(
+                    onTap: () {
+                      if (card['tipo'] == 'movimentacoes') {
+                        setState(() {
+                          _mostrarCardsFilial = false;
+                          _mostrarFiltrosEstoque = true;
+                        });
+                      } else if (card['tipo'] == 'estoque_por_tanque') {
+                        setState(() {
+                          _mostrarCardsFilial = false;
+                          _mostrarEstoquePorTanque = true;
+                        });
+                      }
+                    },
+                    hoverColor: _getCorPorSessao('Estoques').withOpacity(0.1),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.all(15),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            card['icon'] as IconData,
+                            color: _getCorPorSessao('Estoques'),
+                            size: 55,
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            card['label'] as String,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF424242),
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+      onVoltar: () {
+        setState(() {
+          _mostrarCardsFilial = false;
+          _mostrarFiliaisDaEmpresa = true;
+        });
+      },
+    );
+  }
+
   Widget _buildFiltrosEstoquePage() {
     return FiltroEstoquePage(
       key: ValueKey('filtros-$_filialParaFiltroId'),
@@ -2239,7 +2349,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       onVoltar: () {
         setState(() {
           _mostrarFiltrosEstoque = false;
-          _mostrarFiliaisDaEmpresa = true;
+          _mostrarCardsFilial = true;
         });
       },
       onConsultarEstoque: ({
