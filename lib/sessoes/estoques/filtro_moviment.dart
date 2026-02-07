@@ -22,7 +22,7 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
   // ===== FILTROS =====
   String? _filialSelecionada;
   String? _produtoSelecionado = 'todos';
-  String _tipoMov = 'todos';
+  String _tipoMov = 'saida';
   String _tipoOp = 'todos';
 
   // Datas
@@ -360,10 +360,6 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
                           style: const TextStyle(fontSize: 13, color: Colors.black),
                           onChanged: (v) => setState(() => _tipoMov = v!),
                           items: const [
-                            DropdownMenuItem(value: 'todos', child: Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 12),
-                              child: Text('Todos'),
-                            )),
                             DropdownMenuItem(value: 'entrada', child: Padding(
                               padding: EdgeInsets.symmetric(horizontal: 12),
                               child: Text('Entrada'),
@@ -608,7 +604,7 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
                     _filialSelecionada = 'todas';
                   }
                   _produtoSelecionado = 'todos';
-                  _tipoMov = 'todos';
+                  _tipoMov = 'saida';
                   _tipoOp = 'todos';
                   _modoRelatorio = 'sintetico';
                   
