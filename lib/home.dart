@@ -101,6 +101,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   
   // DADOS PARA NAVEGAÇÃO
   String? _filialSelecionadaNome;
+  String? _usuarioFilialNome;
   Map<String, dynamic>? _dadosCalcGerado;
   String? _filialSelecionadaId;
   String _contextoEscolhaFilial = '';
@@ -150,6 +151,35 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     selectedIndex = -1;
     _carregarFilialParaProgramacao();
     _carregarCardsDoBanco();
+    _carregarNomeFilialUsuario();
+  }
+
+  Future<void> _carregarNomeFilialUsuario() async {
+    try {
+      final usuario = UsuarioAtual.instance;
+      if (usuario == null) return;
+      final filialId = usuario.filialId;
+      if (filialId == null || filialId.isEmpty) {
+        setState(() => _usuarioFilialNome = null);
+        return;
+      }
+
+      final supabase = Supabase.instance.client;
+      final filialData = await supabase
+          .from('filiais')
+          .select('nome')
+          .eq('id', filialId)
+          .maybeSingle();
+
+      if (filialData != null && filialData['nome'] != null) {
+        setState(() => _usuarioFilialNome = filialData['nome'].toString());
+      } else {
+        setState(() => _usuarioFilialNome = null);
+      }
+    } catch (e) {
+      debugPrint('Erro ao carregar nome da filial do usuário: $e');
+      setState(() => _usuarioFilialNome = null);
+    }
   }
 
   // NOVO: Método para obter cor da sessão atual
@@ -661,14 +691,31 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 Padding(
                   padding: const EdgeInsets.only(right: 20),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text(
-                        usuario?.nome ?? '',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF0D47A1),
-                          fontWeight: FontWeight.w600,
-                        ),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            usuario?.nome ?? '',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF0D47A1),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _usuarioFilialNome ?? (UsuarioAtual.instance?.filialId == null || UsuarioAtual.instance!.filialId!.isEmpty ? 'Sem filial' : 'Carregando...'),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(width: 10),
                       PopupMenuButton<String>(
