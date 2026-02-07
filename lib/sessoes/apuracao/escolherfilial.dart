@@ -26,13 +26,18 @@ class EscolherFilialPage extends StatefulWidget {
 }
 
 class _EscolherFilialPageState extends State<EscolherFilialPage> {
+  static const Color _ink = Color(0xFF0E1C2F);
+  static const Color _accent = Color(0xFF1B6A6F);
+  static const Color _line = Color(0xFFE6DCCB);
+  static const Color _muted = Color(0xFF5A6B7A);
+
   bool carregando = true;
   List<Map<String, dynamic>> filiais = [];
 
   // Cor padrão caso não seja fornecida
-  Color get _corPrimaria => widget.corPrimaria ?? const Color(0xFF0D47A1);
-  Color get _corFundoItem => widget.corFundoItem ?? const Color.fromARGB(255, 246, 255, 241);
-  Color get _corHover => widget.corHover ?? const Color(0xFFE3F2FD);
+  Color get _corPrimaria => widget.corPrimaria ?? _accent;
+  Color get _corFundoItem => widget.corFundoItem ?? Colors.white;
+  Color get _corHover => widget.corHover ?? _accent.withOpacity(0.08);
 
   @override
   void initState() {
@@ -64,27 +69,60 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Cabeçalho
-        Row(
-          children: [
-            IconButton(
-              icon: Icon(Icons.arrow_back, color: _corPrimaria),
-              onPressed: widget.onVoltar,
-            ),
-            const SizedBox(width: 10),
-            Text(
-              widget.titulo,
-              style: TextStyle(
-                fontSize: 22,
-                color: _corPrimaria,
-                fontWeight: FontWeight.bold,
+        Container(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: _line, width: 1.2)),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: _ink),
+                onPressed: widget.onVoltar,
               ),
-            ),
-          ],
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.titulo,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        color: _ink,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      'Selecione a filial para continuar',
+                      style: TextStyle(fontSize: 12, color: _muted),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: _corPrimaria.withOpacity(0.7), width: 1.2),
+                ),
+                child: Text(
+                  '${filiais.length} filiais',
+                  style: const TextStyle(
+                    color: _accent,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
 
-        const SizedBox(height: 10),
-        const Divider(),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
 
         // Conteúdo
         Expanded(
@@ -98,16 +136,16 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
                   ? Center(
                       child: Text(
                         "Nenhuma filial encontrada.",
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
+                        style: const TextStyle(
+                          color: _muted,
                           fontSize: 14,
                         ),
                       ),
                     )
                   : ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       itemCount: filiais.length,
-                      separatorBuilder: (context, index) => const SizedBox(height: 8),
+                      separatorBuilder: (context, index) => const SizedBox(height: 12),
                       itemBuilder: (context, index) {
                         final filial = filiais[index];
                         return _buildFilialListItem(
@@ -127,58 +165,71 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
     required String nome,
     required String cidade,
   }) {
-    return Card(
-      elevation: 2,
-      margin: EdgeInsets.zero,
-      color: _corFundoItem,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: ListTile(
-        onTap: () => widget.onSelecionarFilial(id),
-        hoverColor: _corHover.withOpacity(0.5), // ← HOVER PERSONALIZADO
-        splashColor: _corHover, // ← COR DO CLIQUE
-        
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: _corPrimaria.withOpacity(0.1), // ← USA COR PRIMÁRIA
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            Icons.business,
-            color: _corPrimaria, // ← USA COR PRIMÁRIA
-            size: 24,
-          ),
+    return InkWell(
+      onTap: () => widget.onSelecionarFilial(id),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+        decoration: BoxDecoration(
+          color: _corFundoItem,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _line, width: 1.2),
         ),
-        
-        title: Text(
-          nome,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: _corPrimaria, // ← USA COR PRIMÁRIA
-          ),
-        ),
-        
-        subtitle: Text(
-          cidade,
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey.shade600,
-          ),
-        ),
-        
-        trailing: const Icon(
-          Icons.arrow_forward_ios,
-          size: 16,
-          color: Colors.grey,
-        ),
-        
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _corPrimaria.withOpacity(0.4), width: 1.2),
+              ),
+              child: Icon(
+                Icons.business,
+                color: _corPrimaria,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    nome,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: _ink,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    cidade,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: _muted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _corPrimaria.withOpacity(0.6), width: 1.2),
+              ),
+              child: const Icon(
+                Icons.arrow_forward,
+                size: 16,
+                color: _accent,
+              ),
+            ),
+          ],
         ),
       ),
     );

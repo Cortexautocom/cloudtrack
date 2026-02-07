@@ -18,6 +18,12 @@ class GerenciamentoTanquesPage extends StatefulWidget {
 }
 
 class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
+  static const Color _ink = Color(0xFF0E1C2F);
+  static const Color _accent = Color(0xFF1B6A6F);
+  static const Color _line = Color(0xFFE6DCCB);
+  static const Color _muted = Color(0xFF5A6B7A);
+  static const Color _warn = Color(0xFFC17D2D);
+
   List<Map<String, dynamic>> tanques = [];
   List<Map<String, dynamic>> produtos = [];
   bool _carregando = true;
@@ -354,7 +360,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
   Widget build(BuildContext context) {
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: Colors.white,
       body: Column(
         children: [
           // Cabeçalho
@@ -362,12 +368,12 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             decoration: const BoxDecoration(
-              color: Color(0xFFF8F9FA),
-              border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: _line, width: 1)),
             ),
             child: Row(children: [
               IconButton(
-                icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
+                icon: const Icon(Icons.arrow_back, color: _ink),
                 onPressed: _editando ? _cancelarEdicao : widget.onVoltar,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -383,7 +389,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                       style: const TextStyle(
                         fontSize: 19, 
                         fontWeight: FontWeight.bold, 
-                        color: Colors.black87
+                        color: _ink
                       ),
                     ),
                     if (_nomeFilial != null && !_editando)
@@ -391,7 +397,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                         'Filial: $_nomeFilial',
                         style: TextStyle(
                           fontSize: 12, 
-                          color: Colors.green.shade700, 
+                          color: _accent, 
                           fontWeight: FontWeight.w500
                         ),
                       ),
@@ -400,7 +406,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
               ),
               if (!_editando)
                 IconButton(
-                  icon: const Icon(Icons.refresh, color: Color(0xFF0D47A1)),
+                  icon: const Icon(Icons.refresh, color: _ink),
                   onPressed: _carregarDados,
                   tooltip: 'Recarregar',
                 ),
@@ -424,9 +430,9 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(color: Color(0xFF0D47A1)),
+            CircularProgressIndicator(color: _accent),
             SizedBox(height: 16),
-            Text('Carregando tanques...', style: TextStyle(fontSize: 16)),
+            Text('Carregando tanques...', style: TextStyle(fontSize: 16, color: _ink)),
           ],
         ),
       );
@@ -437,18 +443,18 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.storage, size: 64, color: Colors.grey.shade400),
+            const Icon(Icons.storage, size: 64, color: _muted),
             const SizedBox(height: 16),
             Text(
               'Nenhum tanque encontrado',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+              style: const TextStyle(fontSize: 16, color: _ink),
             ),
             const SizedBox(height: 8),
             Text(
               widget.filialSelecionadaId != null && UsuarioAtual.instance!.nivel == 3
                 ? 'Não há tanques cadastrados para esta filial'
                 : 'Não há tanques cadastrados',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+              style: const TextStyle(fontSize: 14, color: _muted),
             ),
           ],
         ),
@@ -456,64 +462,127 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
     }
 
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Card de estatísticas COMPACTO
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildEstatisticaCompacta('Total', tanques.length.toString(), Icons.storage),
-                  Container(height: 30, width: 1, color: Colors.grey.shade300),
-                  _buildEstatisticaCompacta(
-                    'Em operação', 
-                    tanques.where((t) => t['status'] == 'Em operação').length.toString(), 
-                    Icons.check_circle
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _line, width: 1.2),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: _accent.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _accent.withOpacity(0.2)),
                   ),
-                  Container(height: 30, width: 1, color: Colors.grey.shade300),
-                  _buildEstatisticaCompacta(
-                    'Suspensos', 
-                    tanques.where((t) => t['status'] == 'Operação suspensa').length.toString(), 
-                    Icons.pause_circle
+                  child: const Icon(Icons.storage, color: _accent, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'Painel de Tanques',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: _ink,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Visao geral e acesso rapido aos dados do tanque.',
+                        style: TextStyle(fontSize: 12, color: _muted),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _accent.withOpacity(0.6), width: 1.2),
+                  ),
+                  child: Text(
+                    '${tanques.length} registros',
+                    style: const TextStyle(
+                      color: _accent,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-
-          // Lista de tanques
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _line, width: 1.2),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildEstatisticaCompacta('Total', tanques.length.toString(), Icons.storage),
+                Container(height: 36, width: 1.2, color: _line),
+                _buildEstatisticaCompacta(
+                  'Em operacao',
+                  tanques.where((t) => t['status'] == 'Em operação').length.toString(),
+                  Icons.check_circle,
+                ),
+                Container(height: 36, width: 1.2, color: _line),
+                _buildEstatisticaCompacta(
+                  'Suspensos',
+                  tanques.where((t) => t['status'] == 'Operação suspensa').length.toString(),
+                  Icons.pause_circle,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
           Expanded(
-            child: ListView.builder(
+            child: ListView.separated(
               itemCount: tanques.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final tanque = tanques[index];
                 final isOperando = tanque['status'] == 'Em operação';
-                
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  elevation: 1,
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    leading: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: isOperando ? Colors.green.shade50 : Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        isOperando ? Icons.storage : Icons.pause_circle,
-                        color: isOperando ? Colors.green : Colors.orange,
-                        size: 20,
-                      ),
+                final statusColor = isOperando ? _accent : _warn;
+
+                return InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => _editarTanque(tanque),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: _line, width: 1.2),
                     ),
-                    title: Row(
+                    child: Row(
                       children: [
+                        Container(
+                          width: 6,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: statusColor,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -523,78 +592,80 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
+                                  color: _ink,
                                 ),
                               ),
-                              const SizedBox(height: 2),
+                              const SizedBox(height: 4),
                               Text(
                                 tanque['produto'],
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
+                                style: const TextStyle(
+                                  color: _muted,
                                   fontSize: 13,
                                 ),
                               ),
-                              // Mostrar filial apenas para admin quando houver múltiplas filiais
                               if (UsuarioAtual.instance!.nivel == 3 && tanque['filial'] != null)
-                                Text(
-                                  'Filial: ${tanque['filial']}',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey.shade500,
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    'Filial: ${tanque['filial']}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: _muted,
+                                    ),
                                   ),
                                 ),
                             ],
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        // Tag de Capacidade
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.blue.shade200),
-                          ),
-                          child: Text(
-                            '${tanque['capacidade']} Litros',
-                            style: TextStyle(
-                              color: Colors.blue.shade800,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: _line, width: 1.2),
+                              ),
+                              child: Text(
+                                '${tanque['capacidade']} Litros',
+                                style: const TextStyle(
+                                  color: _ink,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
-                          ),
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: statusColor, width: 1.2),
+                              ),
+                              child: Text(
+                                tanque['status'],
+                                style: TextStyle(
+                                  color: statusColor,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(width: 8),
-                        // Tag de Status
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isOperando ? Colors.green.shade50 : Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isOperando ? Colors.green.shade200 : Colors.orange.shade200,
-                            ),
-                          ),
-                          child: Text(
-                            tanque['status'],
-                            style: TextStyle(
-                              color: isOperando ? Colors.green.shade800 : Colors.orange.shade800,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Botão de edição
                         IconButton(
                           icon: const Icon(Icons.edit, size: 18),
                           onPressed: () => _editarTanque(tanque),
-                          color: const Color(0xFF0D47A1),
+                          color: _ink,
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         ),
                       ],
                     ),
-                    onTap: () => _editarTanque(tanque),
                   ),
                 );
               },
@@ -612,14 +683,14 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icone, size: 16, color: const Color(0xFF0D47A1)),
+            Icon(icone, size: 16, color: _accent),
             const SizedBox(width: 4),
             Text(
               valor,
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF0D47A1),
+                color: _ink,
               ),
             ),
           ],
@@ -627,10 +698,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
         const SizedBox(height: 2),
         Text(
           titulo,
-          style: const TextStyle(
-            fontSize: 11,
-            color: Colors.grey,
-          ),
+          style: const TextStyle(fontSize: 11, color: _muted),
         ),
       ],
     );
@@ -642,163 +710,187 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       child: Align(
         alignment: Alignment.centerLeft,
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 600),
+          constraints: const BoxConstraints(maxWidth: 760),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Card(
-                elevation: 2,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Informações do Tanque',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0D47A1),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: _line, width: 1.2),
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isWide = constraints.maxWidth >= 700;
+                    final fieldWidth = isWide
+                        ? (constraints.maxWidth - 16) / 2
+                        : constraints.maxWidth;
 
-                      // Mostrar filial atual (se aplicável)
-                      if (_nomeFilial != null)
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.green.shade200),
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: const [
+                            Icon(Icons.tune, color: _accent),
+                            SizedBox(width: 8),
+                            Text(
+                              'Editar Tanque',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: _ink,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Atualize os dados operacionais do tanque.',
+                          style: TextStyle(fontSize: 12, color: _muted),
+                        ),
+                        const SizedBox(height: 18),
+
+                        if (_nomeFilial != null)
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: _accent.withOpacity(0.6), width: 1.2),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.business, size: 16, color: _accent),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Filial: $_nomeFilial',
+                                  style: const TextStyle(
+                                    color: _accent,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.business, size: 16, color: Colors.green.shade700),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Filial: $_nomeFilial',
-                                style: TextStyle(
-                                  color: Colors.green.shade700,
-                                  fontWeight: FontWeight.w500,
+
+                        if (_nomeFilial != null) const SizedBox(height: 18),
+
+                        Wrap(
+                          spacing: 16,
+                          runSpacing: 16,
+                          children: [
+                            SizedBox(
+                              width: fieldWidth,
+                              child: TextFormField(
+                                controller: _referenciaController,
+                                readOnly: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Referência *',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.tag, color: _accent),
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      
-                      if (_nomeFilial != null) const SizedBox(height: 16),
-
-                      // Referência
-                      TextFormField(
-                        controller: _referenciaController,
-                        decoration: const InputDecoration(
-                          labelText: 'Referência *',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.tag),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Capacidade com máscara
-                      TextFormField(
-                        controller: _capacidadeController,
-                        decoration: const InputDecoration(
-                          labelText: 'Capacidade *',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.analytics),
-                          suffixText: 'Litros',
-                          hintText: '1.000',
-                        ),
-                        keyboardType: TextInputType.number,
-                        onChanged: _aplicarMascaraCapacidade,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Produto
-                      DropdownButtonFormField<String>(
-                        value: _produtoSelecionado,
-                        decoration: const InputDecoration(
-                          labelText: 'Produto *',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.local_gas_station),
-                        ),
-                        items: [
-                          const DropdownMenuItem(
-                            value: null,
-                            child: Text('Selecione um produto'),
-                          ),
-                          ...produtos.map((produto) {
-                            return DropdownMenuItem(
-                              value: produto['id']?.toString(),
-                              child: Text(produto['nome']?.toString() ?? ''),
-                            );
-                          }).toList(),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            _produtoSelecionado = value;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Status
-                      DropdownButtonFormField<String>(
-                        value: _statusSelecionado,
-                        decoration: const InputDecoration(
-                          labelText: 'Status *',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.info),
-                        ),
-                        items: _statusOptions.map((status) {
-                          return DropdownMenuItem(
-                            value: status,
-                            child: Text(status),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _statusSelecionado = value;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Botões
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: _cancelarEdicao,
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                side: const BorderSide(color: Color(0xFF0D47A1)),
-                              ),
-                              child: const Text(
-                                'Cancelar',
-                                style: TextStyle(color: Color(0xFF0D47A1)),
+                            ),
+                            SizedBox(
+                              width: fieldWidth,
+                              child: TextFormField(
+                                controller: _capacidadeController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Capacidade *',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.analytics, color: _accent),
+                                  suffixText: 'Litros',
+                                  hintText: '1.000',
+                                ),
+                                keyboardType: TextInputType.number,
+                                onChanged: _aplicarMascaraCapacidade,
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _salvarTanque,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0D47A1),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                              ),
-                              child: const Text(
-                                'Salvar',
-                                style: TextStyle(color: Colors.white),
+                            SizedBox(
+                              width: fieldWidth,
+                              child: DropdownButtonFormField<String>(
+                                value: _produtoSelecionado,
+                                decoration: const InputDecoration(
+                                  labelText: 'Produto *',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.local_gas_station, color: _accent),
+                                ),
+                                items: [
+                                  const DropdownMenuItem(
+                                    value: null,
+                                    child: Text('Selecione um produto'),
+                                  ),
+                                  ...produtos.map((produto) {
+                                    return DropdownMenuItem(
+                                      value: produto['id']?.toString(),
+                                      child: Text(produto['nome']?.toString() ?? ''),
+                                    );
+                                  }).toList(),
+                                ],
+                                onChanged: (value) {
+                                  setState(() {
+                                    _produtoSelecionado = value;
+                                  });
+                                },
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                            SizedBox(
+                              width: fieldWidth,
+                              child: DropdownButtonFormField<String>(
+                                value: _statusSelecionado,
+                                decoration: const InputDecoration(
+                                  labelText: 'Status *',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.info, color: _accent),
+                                ),
+                                items: _statusOptions.map((status) {
+                                  return DropdownMenuItem(
+                                    value: status,
+                                    child: Text(status),
+                                  );
+                                }).toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _statusSelecionado = value;
+                                  });
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: _cancelarEdicao,
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  side: const BorderSide(color: _accent, width: 1.4),
+                                  foregroundColor: _accent,
+                                ),
+                                child: const Text('Cancelar'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: _salvarTanque,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _ink,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('Salvar'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ],
