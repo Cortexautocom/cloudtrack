@@ -411,6 +411,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           .select('''
             id,
             data_mov,
+            ts_mov,
             descricao,
             entrada_amb,
             entrada_vinte,
@@ -450,7 +451,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         query = query.eq('produto_id', widget.produtoFiltro!);
       }
 
-      final dados = await query.order('data_mov', ascending: true);
+      final dados = await query.order('ts_mov', ascending: true);
 
       // Gerar lista analítica normalizada
       final List<Map<String, dynamic>> analitico = [];
