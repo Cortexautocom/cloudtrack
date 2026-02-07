@@ -2359,6 +2359,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         DateTime? mesFiltro,
         String? produtoFiltro,
         required String tipoRelatorio,
+        required bool isIntraday,
+        DateTime? dataIntraday,
       }) {
         Navigator.push(
           context,
@@ -2370,6 +2372,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               mesFiltro: mesFiltro,
               produtoFiltro: produtoFiltro,
               tipoRelatorio: tipoRelatorio,
+              isIntraday: isIntraday,
+              dataIntraday: dataIntraday,
             ),
           ),
         );

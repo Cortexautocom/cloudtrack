@@ -11,6 +11,8 @@ class EstoqueMesPage extends StatefulWidget {
   final DateTime? mesFiltro;
   final String? produtoFiltro;
   final String tipoRelatorio;
+  final bool isIntraday;
+  final DateTime? dataIntraday;
 
   const EstoqueMesPage({
     super.key,
@@ -20,6 +22,8 @@ class EstoqueMesPage extends StatefulWidget {
     this.mesFiltro,
     this.produtoFiltro,
     required this.tipoRelatorio,
+    this.isIntraday = false,
+    this.dataIntraday,
   });
 
   @override
@@ -188,6 +192,73 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
 
   Future<void> _carregarEstoqueInicial() async {
     try {
+      // Se for intraday, buscar estoque até o dia anterior
+      if (widget.isIntraday && widget.dataIntraday != null) {
+        final diaAnterior = widget.dataIntraday!.subtract(const Duration(days: 1));
+        
+        final movimentacoesAnteriores = await _supabase
+            .from('movimentacoes')
+            .select('''
+              entrada_amb,
+              entrada_vinte,
+              saida_amb,
+              saida_vinte
+            ''')
+            .or('filial_id.eq.${widget.filialId},filial_destino_id.eq.${widget.filialId},filial_origem_id.eq.${widget.filialId}')
+            .eq('empresa_id', _empresaId!)
+            .lte('data_mov', diaAnterior.toIso8601String().split('T')[0]);
+
+        if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
+          final movsProduto = await _supabase
+              .from('movimentacoes')
+              .select('''
+                entrada_amb,
+                entrada_vinte,
+                saida_amb,
+                saida_vinte
+              ''')
+              .or('filial_id.eq.${widget.filialId},filial_destino_id.eq.${widget.filialId},filial_origem_id.eq.${widget.filialId}')
+              .eq('empresa_id', _empresaId!)
+              .eq('produto_id', widget.produtoFiltro!)
+              .lte('data_mov', diaAnterior.toIso8601String().split('T')[0]);
+
+          if (movsProduto.isNotEmpty) {
+            num saldoAmb = 0;
+            num saldoVinte = 0;
+
+            for (var mov in movsProduto) {
+              saldoAmb += (mov['entrada_amb'] ?? 0) as num;
+              saldoAmb -= (mov['saida_amb'] ?? 0) as num;
+              saldoVinte += (mov['entrada_vinte'] ?? 0) as num;
+              saldoVinte -= (mov['saida_vinte'] ?? 0) as num;
+            }
+
+            _estoqueInicial = {
+              'ambiente': saldoAmb,
+              'vinte_graus': saldoVinte,
+            };
+            return;
+          }
+        }
+
+        num saldoAmb = 0;
+        num saldoVinte = 0;
+
+        for (var mov in movimentacoesAnteriores) {
+          saldoAmb += (mov['entrada_amb'] ?? 0) as num;
+          saldoAmb -= (mov['saida_amb'] ?? 0) as num;
+          saldoVinte += (mov['entrada_vinte'] ?? 0) as num;
+          saldoVinte -= (mov['saida_vinte'] ?? 0) as num;
+        }
+
+        _estoqueInicial = {
+          'ambiente': saldoAmb,
+          'vinte_graus': saldoVinte,
+        };
+        return;
+      }
+      
+      // Lógica original para modo mensal
       if (widget.mesFiltro == null) return;
       
       final ultimoDiaMesAnterior = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month, 0);
@@ -425,7 +496,13 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           .or('filial_id.eq.${widget.filialId},filial_destino_id.eq.${widget.filialId},filial_origem_id.eq.${widget.filialId}')
           .eq('empresa_id', _empresaId!);
 
-      if (widget.mesFiltro != null) {
+      // Filtro de data: Intraday ou Mensal
+      if (widget.isIntraday && widget.dataIntraday != null) {
+        // Modo Intraday: apenas a data específica
+        final dataEspecifica = widget.dataIntraday!.toIso8601String().split('T')[0];
+        query = query.eq('data_mov', dataEspecifica);
+      } else if (widget.mesFiltro != null) {
+        // Modo Mensal: intervalo do mês
         final primeiroDia = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month, 1);
         final ultimoDia = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month + 1, 0);
         
@@ -600,10 +677,20 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       return;
     }
 
-    if (widget.mesFiltro == null) {
+    if (!widget.isIntraday && widget.mesFiltro == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('É necessário selecionar um mês para exportar'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    if (widget.isIntraday && widget.dataIntraday == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('É necessário selecionar uma data para exportar'),
           backgroundColor: Colors.red,
         ),
       );
@@ -628,7 +715,9 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         'filialId': widget.filialId,
         'nomeFilial': widget.nomeFilial,
         'empresaId': widget.empresaId,
-        'mesFiltro': widget.mesFiltro!.toIso8601String(),
+        'isIntraday': widget.isIntraday,
+        'mesFiltro': widget.isIntraday ? null : widget.mesFiltro!.toIso8601String(),
+        'dataIntraday': widget.isIntraday ? widget.dataIntraday!.toIso8601String() : null,
         'produtoFiltro': widget.produtoFiltro,
         'tipoRelatorio': widget.tipoRelatorio,
         'estoqueInicial': _estoqueInicial,
@@ -658,12 +747,21 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       );
       final url = html.Url.createObjectUrlFromBlob(blob);
       
-      final mes = widget.mesFiltro!.month.toString().padLeft(2, '0');
-      final ano = widget.mesFiltro!.year.toString();
       final nomeFormatado = widget.nomeFilial
           .replaceAll(' ', '_')
           .replaceAll(RegExp(r'[^\w_]'), '');
-      final fileName = 'movimentacoes_${nomeFormatado}_${mes}_${ano}.xlsx';
+      
+      final String fileName;
+      if (widget.isIntraday && widget.dataIntraday != null) {
+        final dia = widget.dataIntraday!.day.toString().padLeft(2, '0');
+        final mes = widget.dataIntraday!.month.toString().padLeft(2, '0');
+        final ano = widget.dataIntraday!.year.toString();
+        fileName = 'movimentacoes_${nomeFormatado}_${dia}_${mes}_${ano}.xlsx';
+      } else {
+        final mes = widget.mesFiltro!.month.toString().padLeft(2, '0');
+        final ano = widget.mesFiltro!.year.toString();
+        fileName = 'movimentacoes_${nomeFormatado}_${mes}_${ano}.xlsx';
+      }
       
       html.AnchorElement(href: url)
         ..setAttribute('download', fileName)
@@ -824,7 +922,12 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   String _getSubtitleFiltros() {
     List<String> filtros = [];
     
-    if (widget.mesFiltro != null) {
+    if (widget.isIntraday && widget.dataIntraday != null) {
+      final dia = widget.dataIntraday!.day.toString().padLeft(2, '0');
+      final mes = widget.dataIntraday!.month.toString().padLeft(2, '0');
+      final ano = widget.dataIntraday!.year;
+      filtros.add('Data: $dia/$mes/$ano');
+    } else if (widget.mesFiltro != null) {
       filtros.add('Mês: ${widget.mesFiltro!.month.toString().padLeft(2, '0')}/${widget.mesFiltro!.year}');
     }
     
@@ -889,7 +992,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                     tooltip: 'Baixar relatório Excel (XLSX)',
                   ),
           
-          if (!_carregando && (widget.mesFiltro != null || widget.produtoFiltro != null))
+          if (!_carregando && (widget.isIntraday || widget.mesFiltro != null || widget.produtoFiltro != null))
             IconButton(
               icon: const Icon(Icons.filter_alt),
               tooltip: 'Alterar filtros',
@@ -954,7 +1057,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                     ? _buildSemDados()
                     : Column(
                         children: [
-                          if (widget.mesFiltro != null || widget.produtoFiltro != null)
+                          if (widget.isIntraday || widget.mesFiltro != null || widget.produtoFiltro != null)
                             _buildIndicadorFiltros(),
                           const SizedBox(height: 16),
                           Expanded(child: _buildTabelaComEstoque()),
@@ -1047,7 +1150,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           ),
           const SizedBox(height: 10),
           Text(
-            widget.mesFiltro != null || widget.produtoFiltro != null
+            widget.isIntraday || widget.mesFiltro != null || widget.produtoFiltro != null
                 ? 'Não há movimentações para os filtros aplicados.'
                 : 'Não há movimentações para esta filial.',
             style: const TextStyle(color: Colors.grey),
