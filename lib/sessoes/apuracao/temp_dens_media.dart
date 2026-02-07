@@ -142,13 +142,13 @@ class _TemperaturaDensidadeMediaPageState
             placa,
             produto_id,
             tipo_mov_orig,
-            status_circuito,
+            status_circuito_orig,
             produtos!inner(nome)
           ''')
           .eq('filial_origem_id', filialId)
           .eq('tipo_mov_orig', 'saida')
           .eq('empresa_id', empresaId)
-          .inFilter('status_circuito', ['4', '5'])
+          .inFilter('status_circuito_orig', ['4', '5'])
           .gte('data_carga', dataInicio.toIso8601String())
           .lte('data_carga', dataFim.toIso8601String())
           .order('data_carga', ascending: true)

@@ -553,7 +553,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             'data_mov': dataMov,
             'quantidade': capacidadeLitros,
             'anp': false,
-            'status_circuito': 1,
+            'status_circuito_orig': 1,
             'entrada_amb': 0,
             'entrada_vinte': 0,
             'saida_amb': 0,
@@ -593,6 +593,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
   }
 
   void _mostrarErro(String mensagem) {
+    print('ERRO: $mensagem');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(mensagem),
