@@ -285,6 +285,8 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
   bool _modoVisualizacao = false;
   bool _carregandoDadosMovimentacao = false;
   bool _salvandoCertificado = false;
+  bool _origemAmbBloqueado = false;
+  bool _origem20Bloqueado = false;
 
   final TextEditingController dataCtrl = TextEditingController();
   final TextEditingController horaCtrl = TextEditingController();
@@ -525,7 +527,24 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         }
       }
 
-      // NÃO carregar volumes - isso será calculado pelo usuário
+      // Preencher volumes de ORIGEM quando disponíveis na movimentação
+      // `saida_amb` -> `origemAmb` (ambiente)
+      // `saida_vinte` -> `origem20` (20°C)
+      if (movimentacao['saida_amb'] != null) {
+        try {
+            campos['origemAmb']!.text =
+              _aplicarMascaraMilhar(movimentacao['saida_amb'].toString());
+            _origemAmbBloqueado = true;
+        } catch (_) {}
+      }
+
+      if (movimentacao['saida_vinte'] != null) {
+        try {
+            campos['origem20']!.text =
+              _aplicarMascaraMilhar(movimentacao['saida_vinte'].toString());
+            _origem20Bloqueado = true;
+        } catch (_) {}
+      }
 
     } catch (e) {
       if (context.mounted) {
@@ -649,7 +668,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
     try {
       final fcvText = campos['fatorCorrecao']!.text;
       if (fcvText.isEmpty || fcvText == '-') {
-        print('FCV não disponível para cálculo');
+        // FCV não disponível — sem log em produção
         return;
       }
       
@@ -677,7 +696,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       _calcularDiferenca20C();
                   
     } catch (e) {
-      print('Erro ao calcular destino 20°C automático: $e');
+      // Erro ao calcular destino 20°C automático
     }
   }
 
@@ -705,7 +724,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         campos['difAmb']!.text = '';
       }
     } catch (e) {
-      print('Erro ao calcular diferença ambiente: $e');
+      // Erro ao calcular diferença ambiente
       campos['difAmb']!.text = '';
     }
   }
@@ -734,7 +753,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         campos['dif20']!.text = '';
       }
     } catch (e) {
-      print('Erro ao calcular diferença 20°C: $e');
+      // Erro ao calcular diferença 20°C
       campos['dif20']!.text = '';
     }
   }
@@ -1056,7 +1075,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                                     TextFormField(
                                       controller: campos['origemAmb'],
                                       keyboardType: TextInputType.number,
-                                      enabled: !_modoVisualizacao,
+                                      enabled: !_modoVisualizacao && !_origemAmbBloqueado,
                                       onChanged: _modoVisualizacao
                                           ? null
                                           : (value) {
@@ -1072,7 +1091,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                                               _calcularDiferencaAmbiente();
                                             },
                                       decoration: _decoration('Quantidade de origem').copyWith(
-                                        fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
+                                        fillColor: (!_modoVisualizacao && !_origemAmbBloqueado) ? Colors.white : Colors.grey[300],
                                       ),
                                     ),
 
@@ -1115,7 +1134,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                                       controller: campos['origem20'],
                                       focusNode: _modoVisualizacao ? null : _focusOrigem20,
                                       keyboardType: TextInputType.number,
-                                      enabled: !_modoVisualizacao,
+                                      enabled: !_modoVisualizacao && !_origem20Bloqueado,
                                       onChanged: _modoVisualizacao
                                           ? null
                                           : (value) {
@@ -1131,7 +1150,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                                               _calcularDiferenca20C();
                                             },
                                       decoration: _decoration('Quantidade de origem').copyWith(
-                                        fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
+                                        fillColor: (!_modoVisualizacao && !_origem20Bloqueado) ? Colors.white : Colors.grey[300],
                                       ),
                                     ),
 
@@ -2188,11 +2207,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
           })
           .eq('id', movimentacaoId);
           
-      print('✓ Movimentação $movimentacaoId atualizada com sucesso');
-      print('  - entrada_vinte: $volume20C');
-      print('  - $coluna20C: $volume20C');
-      print('  - data_carga: $agora');
-      print('  - status_circuito_dest: 5');
+      // Movimentação atualizada (registro em banco). No log de debug mantido.
     } catch (e) {
       print('✗ Erro ao atualizar movimentação: $e');
       rethrow;
@@ -2277,7 +2292,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
           .maybeSingle();
 
       if (ordemAnalise == null) {
-        print('Nenhuma ordem de análise do tipo "destino" encontrada');
+        // Nenhuma ordem de análise do tipo "destino" encontrada
         return; // Não encontrou, mantém modo criação
       }
 
@@ -2331,7 +2346,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         _modoVisualizacao = true;
       });
       
-      print('✓ Dados da ordem de análise carregados (modo visualização)');
+      // Dados da ordem de análise carregados (modo visualização)
       
     } catch (e) {
       print('Erro ao carregar dados da ordem de análise: $e');
