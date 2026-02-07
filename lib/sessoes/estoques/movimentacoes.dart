@@ -373,6 +373,54 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
         : int.tryParse(movimentacao['quantidade']?.toString() ?? '0') ?? 0;
   }
 
+  // ✅ NOVO MÉTODO: Obter quantidade em ambiente (amb) baseado no tipo de movimento
+  int _obterQuantidadeAmb(Map<String, dynamic> movimentacao) {
+    // Determinar se é entrada ou saída para a filial
+    String tipoMovimento = 'N/A';
+    if (widget.filialId != 'todas') {
+      tipoMovimento = _obterTipoMovimentoParaFilial(movimentacao, widget.filialId);
+    }
+
+    // Se for saída, usar saida_amb; se for entrada, usar entrada_amb
+    if (tipoMovimento == 'Saída') {
+      final valor = movimentacao['saida_amb'];
+      if (valor != null) {
+        return (valor is int) ? valor : int.tryParse(valor.toString()) ?? 0;
+      }
+    } else if (tipoMovimento == 'Entrada') {
+      final valor = movimentacao['entrada_amb'];
+      if (valor != null) {
+        return (valor is int) ? valor : int.tryParse(valor.toString()) ?? 0;
+      }
+    }
+
+    return 0;
+  }
+
+  // ✅ NOVO MÉTODO: Obter quantidade em 20ºC baseado no tipo de movimento
+  int _obterQuantidade20C(Map<String, dynamic> movimentacao) {
+    // Determinar se é entrada ou saída para a filial
+    String tipoMovimento = 'N/A';
+    if (widget.filialId != 'todas') {
+      tipoMovimento = _obterTipoMovimentoParaFilial(movimentacao, widget.filialId);
+    }
+
+    // Se for saída, usar saida_vinte; se for entrada, usar entrada_vinte
+    if (tipoMovimento == 'Saída') {
+      final valor = movimentacao['saida_vinte'];
+      if (valor != null) {
+        return (valor is int) ? valor : int.tryParse(valor.toString()) ?? 0;
+      }
+    } else if (tipoMovimento == 'Entrada') {
+      final valor = movimentacao['entrada_vinte'];
+      if (valor != null) {
+        return (valor is int) ? valor : int.tryParse(valor.toString()) ?? 0;
+      }
+    }
+
+    return 0;
+  }
+
   // Função para formatar quantidade para "999.999"
   String _formatarQuantidade(num quantidade) {
     if (quantidade == 0) return '0';
@@ -481,26 +529,28 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
   // ✅ NOVA PROPRIEDADE: Larguras dinâmicas (oculta coluna Produto quando filtrado)
   List<double> get _larguras {
     if (widget.produtoId == 'todos') {
-      // MOSTRA coluna Produto (7 colunas)
+      // MOSTRA coluna Produto (8 colunas)
       return [
         90.0,   // Data
         90.0,   // Operação
         130.0,  // Produto
         350.0,  // Descrição
-        90.0,   // Quantidade
+        90.0,   // Qtd (amb)
+        90.0,   // Qtd (20ºC)
         130.0,  // Origem
         130.0,  // Destino
       ];
     } else {
-      // OCULTA coluna Produto (6 colunas)
+      // OCULTA coluna Produto (7 colunas)
       return [
         90.0,   // Data
         90.0,   // Operação
         // Produto REMOVIDO ← Índice 2 não existe
         350.0,  // Descrição (antigo índice 3 vira 2)
-        90.0,   // Quantidade (antigo índice 4 vira 3)
-        130.0,  // Origem (antigo índice 5 vira 4)
-        130.0,  // Destino (antigo índice 6 vira 5)
+        90.0,   // Qtd (amb) (antigo índice 4 vira 3)
+        90.0,   // Qtd (20ºC) (antigo índice 5 vira 4)
+        130.0,  // Origem (antigo índice 6 vira 5)
+        130.0,  // Destino (antigo índice 7 vira 6)
       ];
     }
   }
@@ -527,9 +577,10 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
     
     cabecalhos.addAll([
       _th("Descrição", _larguras[indiceBase]),
-      _th("Quantidade", _larguras[indiceBase + 1]),
-      _th("Origem", _larguras[indiceBase + 2]),
-      _th("Destino", _larguras[indiceBase + 3]),
+      _th("Qtd (amb)", _larguras[indiceBase + 1]),
+      _th("Qtd (20ºC)", _larguras[indiceBase + 2]),
+      _th("Origem", _larguras[indiceBase + 3]),
+      _th("Destino", _larguras[indiceBase + 4]),
     ]);
     
     return cabecalhos;
@@ -683,7 +734,8 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                               tipoOp: '',
                               produtoNome: '',
                               descricao: 'Estoque Inicial',
-                              quantidade: quantidadeFormatada,
+                              quantidadeAmb: quantidadeFormatada,
+                              quantidade20C: '',
                               origem: '',
                               destino: '',
                               isInicial: true,
@@ -706,7 +758,8 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                               tipoOp: '',
                               produtoNome: '',
                               descricao: 'Estoque Final',
-                              quantidade: quantidadeFormatada,
+                              quantidadeAmb: quantidadeFormatada,
+                              quantidade20C: '',
                               origem: '',
                               destino: '',
                               isInicial: false,
@@ -726,8 +779,12 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                       final dataFormatada = '${dataObj.day.toString().padLeft(2, '0')}/${dataObj.month.toString().padLeft(2, '0')}';
                       
                       final produtoNome = m['produtos']?['nome']?.toString() ?? '';
-                      final quantidade = _obterQuantidadeProduto(m);
-                      final quantidadeFormatada = _formatarQuantidade(quantidade.toDouble());
+                      
+                      // ✅ NOVO: Obter quantidades em amb e 20C
+                      final quantidadeAmb = _obterQuantidadeAmb(m);
+                      final quantidade20C = _obterQuantidade20C(m);
+                      final quantidadeAmbFormatada = _formatarQuantidade(quantidadeAmb.toDouble());
+                      final quantidade20CFormatada = _formatarQuantidade(quantidade20C.toDouble());
                       
                       String tipoMovimento = 'N/A';
                       if (widget.filialId != 'todas') {
@@ -766,7 +823,8 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                             tipoOp: _formatarTipoOp(m['tipo_op']?.toString() ?? ''),
                             produtoNome: produtoNome,
                             descricao: descricaoFormatada,
-                            quantidade: quantidadeFormatada,
+                            quantidadeAmb: quantidadeAmbFormatada,
+                            quantidade20C: quantidade20CFormatada,
                             origem: origemNome,
                             destino: destinoFormatado,
                           ),
@@ -850,7 +908,8 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
     required String tipoOp,
     required String produtoNome,
     required String descricao,
-    required String quantidade,
+    required String quantidadeAmb,
+    required String quantidade20C,
     required String origem,
     required String destino,
     required bool isInicial,
@@ -871,14 +930,21 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
     celulas.addAll([
       _cell(descricao, _larguras[indiceBase], isEstoque: true, isInicial: isInicial),
       _cell(
-        quantidade,
+        quantidadeAmb,
         _larguras[indiceBase + 1],
         isEstoque: true,
         isInicial: isInicial,
         isNumber: true,
       ),
-      _cell(origem, _larguras[indiceBase + 2], isEstoque: true, isInicial: isInicial),
-      _cell(destino, _larguras[indiceBase + 3], isEstoque: true, isInicial: isInicial),
+      _cell(
+        quantidade20C,
+        _larguras[indiceBase + 2],
+        isEstoque: true,
+        isInicial: isInicial,
+        isNumber: true,
+      ),
+      _cell(origem, _larguras[indiceBase + 3], isEstoque: true, isInicial: isInicial),
+      _cell(destino, _larguras[indiceBase + 4], isEstoque: true, isInicial: isInicial),
     ]);
     
     return celulas;
@@ -890,7 +956,8 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
     required String tipoOp,
     required String produtoNome,
     required String descricao,
-    required String quantidade,
+    required String quantidadeAmb,
+    required String quantidade20C,
     required String origem,
     required String destino,
   }) {
@@ -910,12 +977,17 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
     celulas.addAll([
       _cell(descricao, _larguras[indiceBase]),
       _cell(
-        quantidade,
+        quantidadeAmb,
         _larguras[indiceBase + 1],
         isNumber: true,
       ),
-      _cell(origem, _larguras[indiceBase + 2]),
-      _cell(destino, _larguras[indiceBase + 3]),
+      _cell(
+        quantidade20C,
+        _larguras[indiceBase + 2],
+        isNumber: true,
+      ),
+      _cell(origem, _larguras[indiceBase + 3]),
+      _cell(destino, _larguras[indiceBase + 4]),
     ]);
     
     return celulas;
@@ -962,7 +1034,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
     return Container(
       width: largura,
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      alignment: isNumber ? Alignment.centerRight : Alignment.center,
+      alignment: Alignment.center,
       child: Text(
         texto.isNotEmpty ? texto : '-',
         style: TextStyle(
@@ -970,7 +1042,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
           color: corTexto,
           fontWeight: peso,
         ),
-        textAlign: isNumber ? TextAlign.right : TextAlign.center,
+        textAlign: TextAlign.center,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
