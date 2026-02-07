@@ -1922,14 +1922,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         break;
       case 'tanques': // ADICIONADO: Caso para tanques agora em Apuração
         final usuario = UsuarioAtual.instance;
-        setState(() {
-          if (usuario!.nivel == 3) {
+        if (usuario!.nivel == 3) {
+          setState(() {
             _mostrarEscolherFilial = true;
             _contextoEscolhaFilial = 'tanques';
-          } else {
+          });
+        } else {
+          // Nível 1 e 2: vai direto para tanques da filial vinculada
+          _filialSelecionadaId = usuario.filialId;
+          setState(() {
             _mostrarTanques = true;
-          }
-        });
+          });
+        }
         break;
       case 'estoque_por_tanque':
         setState(() {
