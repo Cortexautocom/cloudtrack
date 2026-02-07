@@ -349,11 +349,10 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     };
   }
 
-  // NOVA FUNÇÃO: Normalização de movimentação
+  // FUNÇÃO: Normalização de movimentação
   Map<String, dynamic> _normalizarMovimentacao(
     Map<String, dynamic> mov,
     String filialId,
-    Map<String, String> mapTiposCacl,
   ) {
     // Inicializar acumuladores
     num entradaAmb = 0;
@@ -362,76 +361,33 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     num saidaVinte = 0;
 
     final tipoOp = mov['tipo_op']?.toString() ?? '';
-    final caclId = mov['cacl_id']?.toString();
     final filialDestinoId = mov['filial_destino_id']?.toString();
     final filialOrigemId = mov['filial_origem_id']?.toString();
     final tipoMovDest = mov['tipo_mov_dest']?.toString();
     final tipoMovOrig = mov['tipo_mov_orig']?.toString();
-
-    // Função auxiliar para somar volumes
-    void _somarVolumes(Map<String, dynamic> data, bool isEntrada) {
-      // Campos ambiente
-      final volumesAmb = [
-        'g_comum', 'g_aditivada', 'd_s10', 'd_s500', 'etanol',
-        'anidro', 'b100', 'gasolina_a', 's500_a', 's10_a'
-      ];
-      
-      // Campos 20ºC
-      final volumesVinte = [
-        'g_comum_vinte', 'g_aditivada_vinte', 'd_s10_vinte', 'd_s500_vinte',
-        'etanol_vinte', 'anidro_vinte', 'b100_vinte', 'gasolina_a_vinte',
-        's500_a_vinte', 's10_a_vinte'
-      ];
-
-      num totalAmb = 0;
-      num totalVinte = 0;
-
-      for (var campo in volumesAmb) {
-        totalAmb += (data[campo] ?? 0) as num;
-      }
-
-      for (var campo in volumesVinte) {
-        totalVinte += (data[campo] ?? 0) as num;
-      }
-
-      if (isEntrada) {
-        entradaAmb += totalAmb;
-        entradaVinte += totalVinte;
-      } else {
-        saidaAmb += totalAmb;
-        saidaVinte += totalVinte;
-      }
-    }
 
     // Regras por tipo de operação
     switch (tipoOp) {
       case 'transf':
         if (filialDestinoId == filialId && tipoMovDest == 'entrada') {
           // ENTRADA por transferência
-          _somarVolumes(mov, true);
+          entradaAmb += (mov['entrada_amb'] ?? 0) as num;
+          entradaVinte += (mov['entrada_vinte'] ?? 0) as num;
         } else if (filialOrigemId == filialId && tipoMovOrig == 'saida') {
           // SAÍDA por transferência
-          _somarVolumes(mov, false);
+          saidaAmb += (mov['saida_amb'] ?? 0) as num;
+          saidaVinte += (mov['saida_vinte'] ?? 0) as num;
         }
         break;
 
       case 'venda':
-      // Para vendas, usar os campos diretos saida_amb e saida_vinte
-      saidaAmb += (mov['saida_amb'] ?? 0) as num;
-      saidaVinte += (mov['saida_vinte'] ?? 0) as num;
-
-      case 'cacl':
-        if (caclId != null) {
-          final tipoCacl = mapTiposCacl[caclId];
-          if (tipoCacl == 'movimentacao') {
-            // ENTRADA para CACL de tipo movimentacao
-            _somarVolumes(mov, true);
-          }
-        }
+        // Para vendas, usar os campos diretos saida_amb e saida_vinte
+        saidaAmb += (mov['saida_amb'] ?? 0) as num;
+        saidaVinte += (mov['saida_vinte'] ?? 0) as num;
         break;
 
       default:
-        // Outros tipos: usar campos diretos
+        // Outros tipos (CACL, etc): usar campos diretos
         entradaAmb += (mov['entrada_amb'] ?? 0) as num;
         entradaVinte += (mov['entrada_vinte'] ?? 0) as num;
         saidaAmb += (mov['saida_amb'] ?? 0) as num;
@@ -462,29 +418,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             saida_vinte,
             produto_id,
             tipo_op,
-            cacl_id,
             tipo_mov_orig,
             tipo_mov_dest,
-            g_comum,
-            g_aditivada,
-            d_s10,
-            d_s500,
-            etanol,
-            anidro,
-            b100,
-            gasolina_a,
-            s500_a,
-            s10_a,
-            g_comum_vinte,
-            g_aditivada_vinte,
-            d_s10_vinte,
-            d_s500_vinte,
-            etanol_vinte,
-            anidro_vinte,
-            b100_vinte,
-            gasolina_a_vinte,
-            s500_a_vinte,
-            s10_a_vinte,
             filial_id,
             filial_destino_id,
             filial_origem_id,
@@ -517,35 +452,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
 
       final dados = await query.order('data_mov', ascending: true);
 
-      // Pré-carregar tipos de CACL
-      final caclIds = <String>[];
-      for (var mov in dados) {
-        final tipoOp = mov['tipo_op']?.toString() ?? '';
-        final caclId = mov['cacl_id']?.toString();
-        if (tipoOp == 'cacl' && caclId != null && caclId.isNotEmpty) {
-          if (!caclIds.contains(caclId)) {
-            caclIds.add(caclId);
-          }
-        }
-      }
-
-      final Map<String, String> mapTiposCacl = {};
-      if (caclIds.isNotEmpty) {
-        final caclQuery = _supabase
-            .from('cacl')
-            .select('id, tipo')
-            .inFilter('id', caclIds);
-        
-        final caclResults = await caclQuery;
-        for (var cacl in caclResults) {
-          final id = cacl['id']?.toString();
-          final tipo = cacl['tipo']?.toString();
-          if (id != null && tipo != null) {
-            mapTiposCacl[id] = tipo;
-          }
-        }
-      }
-
       // Gerar lista analítica normalizada
       final List<Map<String, dynamic>> analitico = [];
 
@@ -557,7 +463,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         final normalizado = _normalizarMovimentacao(
           mov,
           widget.filialId,
-          mapTiposCacl,
         );
 
         final produto = mov['produtos'] as Map<String, dynamic>?;

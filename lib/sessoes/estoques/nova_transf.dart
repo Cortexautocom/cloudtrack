@@ -671,30 +671,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     return apenasNumeros;
   }  
 
-  String _resolverColunaProduto(String produtoId) {
-    const mapaProdutoColuna = {
-      '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 's10_a',
-      '4da89784-301f-4abe-b97e-c48729969e3d': 's500_a',
-      '58ce20cf-f252-4291-9ef6-f4821f22c29e': 'd_s10',
-      '66ca957a-5698-4a02-8c9e-987770b6a151': 'etanol',
-      '82c348c8-efa1-4d1a-953a-ee384d5780fc': 'g_comum',
-      '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 'g_aditivada',
-      'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': 'd_s500',
-      'cecab8eb-297a-4640-81ae-e88335b88d8b': 'anidro',
-      'ecd91066-e763-42e3-8a0e-d982ea6da535': 'b100',
-      'f8e95435-471a-424c-947f-def8809053a0': 'gasolina_a',
-    };
 
-    final uuidNormalizado = produtoId.trim().toLowerCase();
-    
-    final coluna = mapaProdutoColuna[uuidNormalizado];
-
-    if (coluna == null) {
-      throw Exception('Produto (UUID: $produtoId) sem coluna de movimentação configurada');
-    }
-
-    return coluna;
-  }
 
   Future<void> _salvar() async {
     if (_produtoId == null ||
@@ -782,17 +759,13 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         ?.toString() ??
         '';
 
-      // Coluna do produto específica (baseado no UUID)
-      final colunaProduto = _resolverColunaProduto(_produtoId!);
-
       // placas
       final placas = <String>[];
       if (_cavaloController.text.isNotEmpty) placas.add(_cavaloController.text);
       if (_reboque1Controller.text.isNotEmpty) placas.add(_reboque1Controller.text);
       if (_reboque2Controller.text.isNotEmpty) placas.add(_reboque2Controller.text);
 
-      // MUDANÇA: Criar UMA ÚNICA LINHA com todos os dados da transferência
-      // Adicionando o campo 'saida_amb' e 'entrada_amb' com a quantidade
+      // Criar registro de transferência com saida_amb e entrada_amb
       final transferencia = {
         'ordem_id': ordemId,
         'tipo_op': 'transf',
@@ -815,23 +788,9 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         'tipo_mov': null,
         'tipo_mov_orig': 'saida',
         'tipo_mov_dest': 'entrada',
-        // COLUNAS DE PRODUTO INICIALIZADAS COM 0
-        'g_comum': 0,
-        'g_aditivada': 0,
-        'd_s10': 0,
-        'd_s500': 0,
-        'etanol': 0,
-        'anidro': 0,
-        'b100': 0,
-        'gasolina_a': 0,
-        's500_a': 0,
-        's10_a': 0,
       };
 
-      // Atribuir quantidade apenas na coluna correta do produto
-      transferencia[colunaProduto] = quantidade;
-
-      // MUDANÇA 3: Inserir com o campo saida_amb
+      // Inserir registro de transferência
       await supabase.from('movimentacoes').insert([transferencia]);
 
       if (mounted) {
