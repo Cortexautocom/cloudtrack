@@ -2100,18 +2100,20 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
     // Cartões apenas para administradores (nível >= 2)
     if (usuario != null && usuario.nivel >= 2) {
-      configCards.addAll([
-        {
-          'icon': Icons.admin_panel_settings,
-          'label': 'Controle de acesso',
-          'tipo': 'controle_acesso',
-        },
-        {
-          'icon': Icons.people_alt,
-          'label': 'Usuários',
-          'tipo': 'usuarios',
-        },
-      ]);
+      configCards.add({
+        'icon': Icons.admin_panel_settings,
+        'label': 'Controle de acesso',
+        'tipo': 'controle_acesso',
+      });
+    }
+
+    // Cartão Usuários apenas para nível 3
+    if (usuario != null && usuario.nivel >= 3) {
+      configCards.add({
+        'icon': Icons.people_alt,
+        'label': 'Usuários',
+        'tipo': 'usuarios',
+      });
     }
 
     return _buildPaginaPadronizada(
