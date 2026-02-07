@@ -494,18 +494,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     final valorInt = valor.toInt();
     return _formatarNumero(valorInt);
   }
-  
-  String _obterTipoMovimentacao(Map<String, dynamic> movimentacao) {
-    final entradaAmb = movimentacao['entrada_amb'];
-    final saidaAmb = movimentacao['saida_amb'];
-    
-    if (entradaAmb != null && entradaAmb > 0) {
-      return 'Entrada';
-    } else if (saidaAmb != null && saidaAmb > 0) {
-      return 'Saída';
-    }
-    return 'N/A';
-  }
 
   // MÉTODO CORRIGIDO: Determina qual status usar baseado no tipo de operação e filial
   String _obterStatusTexto(Map<String, dynamic> ordem, Map<String, dynamic>? movimentacao) {
@@ -809,20 +797,8 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   }
 
   Color _obterCorFundoCard(Map<String, dynamic> ordem) {
-    final itens = ordem['itens'] as List<Map<String, dynamic>>;
-    if (itens.isEmpty) return Colors.white;
-    
-    final temEntrada = itens.any((item) => _obterTipoMovimentacao(item) == 'Entrada');
-    final temSaida = itens.any((item) => _obterTipoMovimentacao(item) == 'Saída');
-    
-    if (temEntrada && temSaida) {
-      return Colors.purple.shade50;
-    } else if (temEntrada) {
-      return Colors.blue.shade50;
-    } else if (temSaida) {
-      return Colors.red.shade50;
-    }
-    
+    // Cards agora sempre têm fundo branco; indicação de entrada/saída
+    // será feita por um ícone no final do card.
     return Colors.white;
   }
 
@@ -902,8 +878,36 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             child: Container(
               padding: const EdgeInsets.all(12),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  // Ícone de direção (entrada/saída) no início do card
+                  // Ícone de direção (origem/destino da filial do usuário)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Builder(builder: (context) {
+                      final usuario = UsuarioAtual.instance;
+                      final filialAtual = usuario?.nivel == 3 ? _filialFiltroId : usuario?.filialId;
+
+                      final itensLocal = ordem['itens'] as List<dynamic>;
+
+                      final ehOrigem = itensLocal.any((item) =>
+                          item['filial_origem_id']?.toString() == filialAtual);
+
+                      final ehDestino = itensLocal.any((item) =>
+                          item['filial_destino_id']?.toString() == filialAtual);
+
+                      if (ehDestino && !ehOrigem) {
+                        return Icon(Icons.arrow_circle_down, size: 30, color: Colors.green.shade700);
+                      } else if (ehOrigem && !ehDestino) {
+                        return Icon(Icons.arrow_circle_up, size: 30, color: Colors.red.shade700);
+                      } else if (ehOrigem && ehDestino) {
+                        return Icon(Icons.sync, size: 30, color: Colors.purple.shade400);
+                      }
+
+                      return Icon(Icons.remove_circle_outline, size: 26, color: Colors.grey.shade400);
+                    }),
+                  ),
+
                   Container(
                     width: tipoOpTexto == 'Transferência' ? 95 : 85,
                     margin: const EdgeInsets.only(right: 12),
@@ -1141,15 +1145,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                             ),
                           ),
                       ],
-                    ),
-                  ),
-                  
-                  const Padding(
-                    padding: EdgeInsets.only(left: 6),
-                    child: Icon(
-                      Icons.chevron_right,
-                      size: 20,
-                      color: Colors.grey,
                     ),
                   ),
                 ],

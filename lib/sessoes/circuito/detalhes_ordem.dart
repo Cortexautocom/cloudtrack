@@ -1107,6 +1107,10 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
 
     if (resultado == true) {
       await _avancarParaChecklist();
+      // Após atualizar status, abrir o dialog do checklist
+      if (mounted) {
+        await _abrirDialogoChecklist();
+      }
     }
   }
 
