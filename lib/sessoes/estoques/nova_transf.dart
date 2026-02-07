@@ -791,15 +791,15 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       if (_reboque1Controller.text.isNotEmpty) placas.add(_reboque1Controller.text);
       if (_reboque2Controller.text.isNotEmpty) placas.add(_reboque2Controller.text);
 
-      // MUDANÇA 1: Criar UMA ÚNICA LINHA com todos os dados da transferência
-      // Adicionando o campo 'saida_amb' com a quantidade
+      // MUDANÇA: Criar UMA ÚNICA LINHA com todos os dados da transferência
+      // Adicionando o campo 'saida_amb' e 'entrada_amb' com a quantidade
       final transferencia = {
         'ordem_id': ordemId,
         'tipo_op': 'transf',
         'produto_id': _produtoId,
         'quantidade': quantidade,
-        // MUDANÇA 2: Adicionar a quantidade em saida_amb
-        'saida_amb': quantidade,  // NOVO CAMPO
+        'saida_amb': quantidade,  // Quantidade ambiente para saída
+        'entrada_amb': quantidade, // Quantidade ambiente para entrada
         'descricao': '$origemNome → $destinoNome',
         'placa': placas.isNotEmpty ? placas : null,
         'usuario_id': _usuarioId,
@@ -810,13 +810,11 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         'filial_origem_id': _origemId,
         'filial_destino_id': _destinoId,
         'updated_at': DateTime.now().toIso8601String(),
-        
         // Campos específicos para transferência
         'filial_id': null,
         'tipo_mov': null,
         'tipo_mov_orig': 'saida',
         'tipo_mov_dest': 'entrada',
-        
         // COLUNAS DE PRODUTO INICIALIZADAS COM 0
         'g_comum': 0,
         'g_aditivada': 0,
@@ -829,7 +827,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         's500_a': 0,
         's10_a': 0,
       };
-      
+
       // Atribuir quantidade apenas na coluna correta do produto
       transferencia[colunaProduto] = quantidade;
 
