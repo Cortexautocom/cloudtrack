@@ -39,6 +39,24 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
   // Mapa para armazenar cores por ordem_id (cores fixas)
   Map<String, Color> _coresOrdens = {};
   
+  // Mapa de UUID de produto -> coluna (grupo, índice)
+  // Grupo 0: G. Comum, G. Aditivada, D. S10, D. S500, Etanol
+  // Grupo 1: B100, G. A, S500 A, S10 A, Anidro
+  static const Map<String, Map<String, dynamic>> _mapaProdutosColuna = {
+    // Grupo 0 (Combustíveis derivados do petróleo)
+    '82c348c8-efa1-4d1a-953a-ee384d5780fc': {'grupo': 0, 'coluna': 0}, // G. Comum
+    '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': {'grupo': 0, 'coluna': 1}, // G. Aditivada
+    '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': {'grupo': 0, 'coluna': 2}, // Diesel A-S10 -> D. S10
+    '58ce20cf-f252-4291-9ef6-f4821f22c29e': {'grupo': 0, 'coluna': 2}, // Diesel S10-B -> D. S10
+    '4da89784-30f1-4abe-b97e-c48729969e3d': {'grupo': 0, 'coluna': 3}, // Diesel A-S500 -> D. S500
+    'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': {'grupo': 0, 'coluna': 3}, // Diesel S500-B -> D. S500
+    'cecab8eb-297a-4640-8fae-e88335b88d8b': {'grupo': 0, 'coluna': 4}, // Anidro
+    
+    // Grupo 1 (Biocombustíveis)
+    'ecd91066-e763-42e3-8a0e-d982ea6da535': {'grupo': 1, 'coluna': 0}, // B100
+    'f8e95435-471a-424c-947f-def8809053a0': {'grupo': 1, 'coluna': 1}, // Gasolina A -> G. A
+  };
+  
   // Paleta fixa de 20 cores distintas para as ordens
   static const List<Color> _paletaCoresOrdens = [
     Color(0xFFE53935), // Vermelho vibrante
@@ -242,39 +260,19 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
         return true;
       }
 
-      // Verifica quantidades para o grupo atual
-      if (grupoAtual == 0) {
-        // Grupo 1: G. Comum, G. Aditivada, D. S10, D. S500, Etanol
-        return _verificarQuantidades(t, query, [
-          'g_comum', 'g_aditivada', 'd_s10', 'd_s500', 'etanol'
-        ]);
-      } else {
-        // Grupo 2: B100, G. A, S500 A, S10 A, Anidro
-        return _verificarQuantidades(t, query, [
-          'b100', 'gasolina_a', 's500_a', 's10_a', 'anidro'
-        ]);
+      // Verifica quantidade em saida_amb
+      final quantidadeFormatada = _formatarQuantidadeParaBusca(t['saida_amb']?.toString() ?? '');
+      if (quantidadeFormatada.contains(query)) {
+        return true;
       }
-    }).toList();
-  }
+      
+      final apenasNumeros = (t['saida_amb']?.toString() ?? '').replaceAll(RegExp(r'[^\d]'), '');
+      if (apenasNumeros.contains(query)) {
+        return true;
+      }
 
-  bool _verificarQuantidades(Map<String, dynamic> item, String query, List<String> campos) {
-    for (final campo in campos) {
-      final valor = item[campo]?.toString() ?? '';
-      if (valor.isNotEmpty) {
-        // Tenta verificar como número formatado (ex: 1.000)
-        final quantidadeFormatada = _formatarQuantidadeParaBusca(valor);
-        if (quantidadeFormatada.contains(query)) {
-          return true;
-        }
-        
-        // Tenta verificar como número puro (ex: 1000)
-        final apenasNumeros = valor.replaceAll(RegExp(r'[^\d]'), '');
-        if (apenasNumeros.contains(query)) {
-          return true;
-        }
-      }
-    }
-    return false;
+      return false;
+    }).toList();
   }
 
   String _formatarQuantidadeParaBusca(String quantidade) {
@@ -299,15 +297,18 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
 
   List<Map<String, dynamic>> _obterDadosFiltrados(int grupo) {
     return movimentacoes.where((l) {
-      if (grupo == 0) {
-        // Grupo 1: G. Comum, G. Aditivada, D. S10, D. S500, Etanol
-        return ['g_comum', 'g_aditivada', 'd_s10', 'd_s500', 'etanol']
-            .any((k) => (double.tryParse(l[k]?.toString() ?? '0') ?? 0) > 0);
-      } else {
-        // Grupo 2: B100, G. A, S500 A, S10 A, Anidro
-        return ['b100', 'gasolina_a', 's500_a', 's10_a', 'anidro']
-            .any((k) => (double.tryParse(l[k]?.toString() ?? '0') ?? 0) > 0);
-      }
+      // Verifica se há quantidade em saida_amb
+      final qtd = double.tryParse(l['saida_amb']?.toString() ?? '0') ?? 0;
+      if (qtd <= 0) return false;
+      
+      // Verifica se o produto_id existe no mapa e pertence ao grupo
+      final produtoId = l['produto_id']?.toString();
+      if (produtoId == null) return false;
+      
+      final produtoInfo = _mapaProdutosColuna[produtoId];
+      if (produtoInfo == null) return false;
+      
+      return produtoInfo['grupo'] == grupo;
     }).toList();
   }  
 
@@ -851,6 +852,11 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     final ordemId = t['ordem_id'];
     final corCliente = _obterCorParaOrdem(ordemId);
 
+    // Obter informações do produto
+    final produtoId = t['produto_id']?.toString();
+    final produtoInfo = produtoId != null ? _mapaProdutosColuna[produtoId] : null;
+    final quantidadeSaidaAmb = _formatarQuantidade(t["saida_amb"]?.toString() ?? "0");
+
     // Adicionado o menu como primeiro item
     final celulasFixas = [
       _buildMenuButton(context, t), // Menu de 3 pontos
@@ -862,25 +868,21 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
       _cell(prazo, 100),
     ];
 
-    if (grupoAtual == 0) {
-      return [
-        ...celulasFixas,
-        _cell(_formatarQuantidade(t["g_comum"].toString()), 90, isNumber: true),
-        _cell(_formatarQuantidade(t["g_aditivada"].toString()), 90, isNumber: true),
-        _cell(_formatarQuantidade(t["d_s10"].toString()), 90, isNumber: true),
-        _cell(_formatarQuantidade(t["d_s500"].toString()), 90, isNumber: true),
-        _cell(_formatarQuantidade(t["etanol"].toString()), 90, isNumber: true),
-      ];
-    } else {
-      return [
-        ...celulasFixas,
-        _cell(_formatarQuantidade(t["b100"].toString()), 90, isNumber: true),
-        _cell(_formatarQuantidade(t["gasolina_a"].toString()), 90, isNumber: true),
-        _cell(_formatarQuantidade(t["s500_a"].toString()), 90, isNumber: true),
-        _cell(_formatarQuantidade(t["s10_a"].toString()), 90, isNumber: true),
-        _cell(_formatarQuantidade(t["anidro"].toString()), 90, isNumber: true),
-      ];
+    // Criar lista de colunas de quantidade (5 para cada grupo)
+    final List<Widget> colunasQuantidade = [];
+    final numColunas = 5;
+    
+    for (int i = 0; i < numColunas; i++) {
+      if (produtoInfo != null && produtoInfo['coluna'] == i) {
+        // Esta é a coluna correta para este produto
+        colunasQuantidade.add(_cell(quantidadeSaidaAmb, 90, isNumber: true));
+      } else {
+        // Coluna vazia
+        colunasQuantidade.add(_cell("", 90, isNumber: true));
+      }
     }
+
+    return [...celulasFixas, ...colunasQuantidade];
   }
 
   Widget _cell(String texto, double largura, {bool isNumber = false}) {
