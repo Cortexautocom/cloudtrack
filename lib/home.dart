@@ -217,7 +217,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         final cardId = card['id'].toString();
         final sessaoPai = card['sessao_pai']?.toString() ?? 'Geral';
         
-        if (usuario.nivel >= 3 || usuario.podeAcessarCard(cardId)) {
+        // Cards que devem ser sempre incluídos (sem filtro de permissão)
+        final cardsObrigatorios = ['estoque_por_tanque'];
+        final tipo = card['tipo']?.toString() ?? '';
+        
+        if (usuario.nivel >= 3 || usuario.podeAcessarCard(cardId) || cardsObrigatorios.contains(tipo)) {
           todosCards.add({
             'id': cardId,
             'label': card['nome'],
@@ -234,7 +238,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       final Map<String, List<Map<String, dynamic>>> cardsOrganizados = {};
       
       for (var card in todosCards) {
-        final sessaoPai = card['sessao_pai'];
+        var sessaoPai = card['sessao_pai'];
+        
+        // Reatribuir Estoque por tanque para Apuração
+        if (card['tipo']?.toString() == 'estoque_por_tanque') {
+          sessaoPai = 'Apuração';
+        }
+        
         cardsOrganizados.putIfAbsent(sessaoPai, () => []);
         cardsOrganizados[sessaoPai]!.add(card);
       }
@@ -260,12 +270,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       {'id': 'fallback-tabelas', 'icon': Icons.table_chart, 'label': 'Tabelas de Conversão', 'descricao': 'Tabelas de conversão de densidade e temperatura', 'tipo': 'tabelas_conversao', 'sessao_pai': 'Apuração'},
       {'id': 'fallback-temp', 'icon': Icons.thermostat, 'label': 'Temperatura e Densidade média', 'descricao': 'Cálculo de temperatura e densidade média', 'tipo': 'temp_dens_media', 'sessao_pai': 'Apuração'},
       {'id': 'fallback-tanques', 'icon': Icons.oil_barrel, 'label': 'Tanques', 'descricao': 'Gerenciamento de tanques', 'tipo': 'tanques', 'sessao_pai': 'Apuração'}, // MOVIDO PARA APURAÇÃO
+      {'id': 'fallback-estoque-tanque', 'icon': Icons.water_drop, 'label': 'Estoque por tanque', 'descricao': 'Acompanhar estoques por tanque', 'tipo': 'estoque_por_tanque', 'sessao_pai': 'Apuração'},
     ];
 
     _filhosPorSessao['Estoques'] = [
       {'id': 'fallback-geral', 'icon': Icons.hub, 'label': 'Estoque Geral', 'descricao': 'Visão consolidada dos estoques da base', 'tipo': 'estoque_geral', 'sessao_pai': 'Estoques'},
       {'id': 'fallback-empresa', 'icon': Icons.business, 'label': 'Estoque por empresa', 'descricao': 'Estoques separados por empresa', 'tipo': 'estoque_por_empresa', 'sessao_pai': 'Estoques'},
-      {'id': 'fallback-tanque', 'icon': Icons.water_drop, 'label': 'Estoque por tanque', 'descricao': 'Acompanhar estoques por tanque', 'tipo': 'estoque_por_tanque', 'sessao_pai': 'Estoques'},
       {'id': 'fallback-mov', 'icon': Icons.swap_horiz, 'label': 'Movimentações', 'descricao': 'Acompanhar entradas e saídas em geral', 'tipo': 'movimentacoes', 'sessao_pai': 'Estoques'},
       {'id': 'fallback-transf', 'icon': Icons.compare_arrows, 'label': 'Transferências', 'descricao': 'Gerenciar transferências entre filiais', 'tipo': 'transferencias', 'sessao_pai': 'Estoques'},
     ];
@@ -1921,6 +1931,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           }
         });
         break;
+      case 'estoque_por_tanque':
+        setState(() {
+          _mostrarEstoquePorTanque = true;
+        });
+        break;
     }
   }
 
@@ -2252,13 +2267,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'descricao': 'Consultar movimentações da filial',
         'tipo': 'movimentacoes'
       },
-      {
-        'id': 'estoque-tanque-filial',
-        'icon': Icons.water_drop,
-        'label': 'Estoque por tanque',
-        'descricao': 'Acompanhar estoques por tanque',
-        'tipo': 'estoque_por_tanque'
-      },
     ];
 
     return _buildPaginaPadronizada(
@@ -2285,11 +2293,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         setState(() {
                           _mostrarCardsFilial = false;
                           _mostrarFiltrosEstoque = true;
-                        });
-                      } else if (card['tipo'] == 'estoque_por_tanque') {
-                        setState(() {
-                          _mostrarCardsFilial = false;
-                          _mostrarEstoquePorTanque = true;
                         });
                       }
                     },

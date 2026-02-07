@@ -386,9 +386,9 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: _intraday ? Colors.grey.shade100 : Colors.white,
+                          color: Colors.white,
                           border: Border.all(
-                            color: _intraday ? Colors.grey.shade300 : Colors.grey.shade400,
+                            color: Colors.grey.shade400,
                             width: 1,
                           ),
                           borderRadius: BorderRadius.circular(4),
@@ -404,7 +404,7 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
                                     : 'Selecione o mês'),
                               style: TextStyle(
                                 fontSize: 13,
-                                color: _intraday ? Colors.grey.shade600 : Colors.black,
+                                color: Colors.black,
                               ),
                             ),
                             Icon(

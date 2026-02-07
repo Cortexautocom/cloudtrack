@@ -416,9 +416,9 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         break;
 
       case 'venda':
-        // Sempre SAÍDA para vendas
-        _somarVolumes(mov, false);
-        break;
+      // Para vendas, usar os campos diretos saida_amb e saida_vinte
+      saidaAmb += (mov['saida_amb'] ?? 0) as num;
+      saidaVinte += (mov['saida_vinte'] ?? 0) as num;
 
       case 'cacl':
         if (caclId != null) {

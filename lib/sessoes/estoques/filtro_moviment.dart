@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
-import 'movimentacoes.dart';
+import 'movimentacoes(inativo).dart';
 
 class FiltroMovimentacoesPage extends StatefulWidget {
   final VoidCallback onVoltar;
