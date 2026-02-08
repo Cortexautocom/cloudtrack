@@ -153,10 +153,12 @@ class _PerfilPageState extends State<PerfilPage> {
                       height: 45,
                       child: ElevatedButton(
                         onPressed: () {
+                          final isReadOnly = (usuario?.nivel ?? 0) != 3;
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (_) => EditarPerfilPage()),
+                              builder: (_) => EditarPerfilPage(readOnly: isReadOnly),
+                            ),
                           ).then((_) => _carregarPerfil());
                         },
                         style: ElevatedButton.styleFrom(
@@ -165,8 +167,10 @@ class _PerfilPageState extends State<PerfilPage> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        child: const Text("Editar perfil",
-                            style: TextStyle(color: Colors.white)),
+                        child: Text(
+                          (usuario?.nivel ?? 0) != 3 ? "Visualizar dados" : "Editar perfil",
+                          style: const TextStyle(color: Colors.white),
+                        ),
                       ),
                     ),
 
@@ -228,6 +232,10 @@ class _PerfilPageState extends State<PerfilPage> {
 // ---------------------------------------------------------------------------
 
 class EditarPerfilPage extends StatefulWidget {
+  final bool readOnly;
+
+  const EditarPerfilPage({super.key, this.readOnly = false});
+
   @override
   State<EditarPerfilPage> createState() => _EditarPerfilPageState();
 }
@@ -310,21 +318,25 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
         'id_filial': filialSelecionada,
       }).eq('id', usuario.id);
 
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Perfil atualizado com sucesso!"),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Perfil atualizado com sucesso!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
       debugPrint("Erro ao salvar: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Erro ao salvar alterações."),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Erro ao salvar alterações."),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -332,12 +344,13 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Editar perfil",
-            style: TextStyle(color: Color(0xFF0D47A1))),
+        title: Text(
+          widget.readOnly ? "Visualizar perfil" : "Editar perfil",
+          style: const TextStyle(color: Color(0xFF0D47A1)),
+        ),
         backgroundColor: Colors.white,
         elevation: 1,
-        iconTheme:
-            const IconThemeData(color: Color(0xFF0D47A1)),
+        iconTheme: const IconThemeData(color: Color(0xFF0D47A1)),
       ),
 
       body: carregando
@@ -358,42 +371,13 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
                     )
                   ],
                 ),
-
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 15),
-                      child: TextField(
-                        controller: nome,
-                        enabled: false, // 🚫 Campo bloqueado
-                        decoration: InputDecoration(
-                          labelText: "Nome completo",
-                          filled: true,
-                          fillColor: const Color.fromARGB(255, 245, 245, 245),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 15),
-                      child: TextField(
-                        controller: email,
-                        enabled: false, // 🚫 Campo bloqueado
-                        decoration: InputDecoration(
-                          labelText: "Email",
-                          filled: true,
-                          fillColor: const Color.fromARGB(255, 245, 245, 245),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ),
-                    _campo("Celular", celular),
-                    _campo("Função", funcao),
+                    _campoTexto("Nome completo", nome, true),
+                    _campoTexto("Email", email, true),
+                    _campoTexto("Celular", celular, widget.readOnly),
+                    _campoTexto("Função", funcao, widget.readOnly),
 
                     const SizedBox(height: 10),
                     _dropFiliais(),
@@ -414,28 +398,30 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
-                            child: const Text("Cancelar",
-                                style: TextStyle(color: Colors.grey)),
-                          ),
-                        ),
-
-                        const SizedBox(width: 20),
-
-                        SizedBox(
-                          width: 180,
-                          height: 45,
-                          child: ElevatedButton(
-                            onPressed: salvar,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF2E7D32),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
+                            child: Text(
+                              widget.readOnly ? "Voltar" : "Cancelar",
+                              style: const TextStyle(color: Colors.grey),
                             ),
-                            child: const Text("Salvar alterações",
-                                style: TextStyle(color: Colors.white)),
                           ),
                         ),
+                        if (!widget.readOnly) ...[
+                          const SizedBox(width: 20),
+                          SizedBox(
+                            width: 180,
+                            height: 45,
+                            child: ElevatedButton(
+                              onPressed: salvar,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF2E7D32),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: const Text("Salvar alterações",
+                                  style: TextStyle(color: Colors.white)),
+                            ),
+                          ),
+                        ]
                       ],
                     )
                   ],
@@ -445,13 +431,16 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
     );
   }
 
-  Widget _campo(String label, TextEditingController controller) {
+  Widget _campoTexto(String label, TextEditingController controller, bool bloqueado) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),
       child: TextField(
         controller: controller,
+        enabled: !bloqueado,
         decoration: InputDecoration(
           labelText: label,
+          filled: bloqueado,
+          fillColor: bloqueado ? const Color.fromARGB(255, 245, 245, 245) : null,
           border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8)),
         ),
@@ -461,9 +450,11 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
 
   Widget _dropFiliais() {
     return DropdownButtonFormField<String>(
-      value: filialSelecionada,
+      initialValue: filialSelecionada,
       decoration: InputDecoration(
         labelText: "Filial",
+        filled: widget.readOnly,
+        fillColor: widget.readOnly ? const Color.fromARGB(255, 245, 245, 245) : null,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
         ),
@@ -474,7 +465,7 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
           child: Text(f['nome'].toString()),
         );
       }).toList(),
-      onChanged: (v) => setState(() => filialSelecionada = v),
+      onChanged: widget.readOnly ? null : (v) => setState(() => filialSelecionada = v),
     );
   }
 }
