@@ -2194,13 +2194,11 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       final supabase = Supabase.instance.client;
       final agora = DateTime.now().toUtc().toIso8601String();
       
-      final coluna20C = _resolverColuna20C(produtoId);
-      
+      // Usa apenas as 4 colunas padrão: entrada_amb, entrada_vinte, saida_amb, saida_vinte
       await supabase
           .from('movimentacoes')
           .update({
             'entrada_vinte': volume20C,
-            coluna20C: volume20C,
             'data_carga': agora,
             'status_circuito_dest': '5',
             'updated_at': agora,
@@ -2214,29 +2212,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
     }
   }
 
-  String _resolverColuna20C(String produtoId) {
-    const mapaProdutoColuna20C = {
-      '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 's10_a_vinte',
-      '4da89784-301f-4abe-b97e-c48729969e3d': 's500_a_vinte',
-      '58ce20cf-f252-4291-9ef6-f4821f22c29e': 'd_s10_vinte',
-      '66ca957a-5698-4a02-8c9e-987770b6a151': 'etanol_vinte',
-      '82c348c8-efa1-4d1a-953a-ee384d5780fc': 'g_comum_vinte',
-      '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 'g_aditivada_vinte',
-      'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': 'd_s500_vinte',
-      'cecab8eb-297a-4640-81ae-e88335b88d8b': 'anidro_vinte',
-      'ecd91066-e763-42e3-8a0e-d982ea6da535': 'b100_vinte',
-      'f8e95435-471a-424c-947f-def8809053a0': 'gasolina_a_vinte',
-    };
-    
-    final uuidNormalizado = produtoId.trim().toLowerCase();
-    final coluna = mapaProdutoColuna20C[uuidNormalizado];
-    
-    if (coluna == null) {
-      throw Exception('Produto (UUID: $produtoId) sem coluna 20°C configurada');
-    }
-    
-    return coluna;
-  }
+
   
   Future<String> _resolverProdutoId(String nomeProduto) async {
     final r = await Supabase.instance.client
