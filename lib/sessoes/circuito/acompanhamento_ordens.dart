@@ -32,19 +32,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   bool _mostrarDetalhes = false;
   Map<String, dynamic>? _ordemSelecionada;
 
-  static const Map<String, String> produtoColunaMap = {
-    '82c348c8-efa1-4d1a-953a-ee384d5780fc': 'g_comum',
-    '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 'g_aditivada',
-    'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': 'd_s500',
-    '58ce20cf-f252-4291-9ef6-f4821f22c29e': 'd_s10',
-    '66ca957a-5698-4a02-8c9e-987770b6a151': 'etanol',
-    'cecab8eb-297a-4640-81ae-e88335b88d8b': 'anidro',
-    'ecd91066-e763-42e3-8a0e-d982ea6da535': 'b100',
-    'f8e95435-471a-424c-947f-def8809053a0': 'gasolina_a',
-    '4da89784-301f-4abe-b97e-c48729969e3d': 's500_a',
-    '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 's10_a',
-  };  
-
   Color _obterCorProduto(String nomeProduto) {
     final Map<String, Color> mapeamentoExato = {
       'G. Comum': const Color(0xFFFF6B35),
@@ -109,17 +96,18 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       final produto = mov['produtos'];
       if (produto == null) continue;
 
-      final produtoId = produto['id']?.toString().toLowerCase();
       final nome = produto['nome_dois']?.toString();
-      if (produtoId == null || nome == null) continue;
+      if (nome == null) continue;
 
-      final coluna = produtoColunaMap[produtoId];
-      if (coluna == null) continue;
+      final entradaAmb = (mov['entrada_amb'] ?? 0) as num;
+      final entradaVinte = (mov['entrada_vinte'] ?? 0) as num;
+      final saidaAmb = (mov['saida_amb'] ?? 0) as num;
+      final saidaVinte = (mov['saida_vinte'] ?? 0) as num;
 
-      final valor = mov[coluna];
-      if (valor == null || valor <= 0) continue;
+      final totalMov = entradaAmb + entradaVinte + saidaAmb + saidaVinte;
+      if (totalMov <= 0) continue;
 
-      resultado[nome] = (resultado[nome] ?? 0) + (valor as num).toDouble();
+      resultado[nome] = (resultado[nome] ?? 0) + totalMov.toDouble();
     }
 
     return resultado;
@@ -212,7 +200,9 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             id,
             placa,
             entrada_amb,
+            entrada_vinte,
             saida_amb,
+            saida_vinte,
             cliente,
             descricao,
             status_circuito_orig,
@@ -223,16 +213,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             tipo_op,
             filial_origem_id,
             filial_destino_id,
-            g_comum,
-            g_aditivada,
-            d_s10,
-            d_s500,
-            etanol,
-            anidro,
-            b100,
-            gasolina_a,
-            s500_a,
-            s10_a,
             produtos!produto_id(id, nome_dois),
             filiais!estoques_filial_id_fkey(id, nome),
             filial_origem:filiais!movimentacoes_filial_origem_id_fkey(id, nome),

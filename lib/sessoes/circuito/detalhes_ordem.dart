@@ -365,19 +365,12 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
             cliente,
             forma_pagamento,
             entrada_amb,
+            entrada_vinte,
             saida_amb,
+            saida_vinte,
             data_mov,
             tipo_op,
-            g_comum,
-            g_aditivada,
-            d_s10,
-            d_s500,
-            etanol,
-            anidro,
-            b100,
-            gasolina_a,
-            s500_a,
-            s10_a,
+            descricao,
             produtos!produto_id(id, nome_dois)
           ''')
           .eq('ordem_id', widget.ordem['ordem_id'])
@@ -1232,67 +1225,27 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     }
   }
     
-  // Agrupar produtos por tipo considerando tipo_op
+  // Agrupar produtos por tipo considerando as 4 colunas padrão
   Map<String, double> _agruparProdutosParaCarregar() {
     final Map<String, double> produtos = {};
     
-    for (var mov in _movimentacoes) {
-      final tipoOp = mov['tipo_op']?.toString().toLowerCase();
+    for (var mov in _movimentacoes) {      
       final produtoNome = mov['produtos']?['nome_dois']?.toString() ?? 'desconhecido';
       
-      double quantidade = 0;
+      // Somar as 4 colunas padrão
+      final entradaAmb = (mov['entrada_amb'] ?? 0) as num;
+      final entradaVinte = (mov['entrada_vinte'] ?? 0) as num;
+      final saidaAmb = (mov['saida_amb'] ?? 0) as num;
+      final saidaVinte = (mov['saida_vinte'] ?? 0) as num;
       
-      if (tipoOp == 'venda' || tipoOp == 'transf') {
-        // Usar colunas específicas de produto
-        final produtoId = mov['produtos']?['id']?.toString();
-        if (produtoId != null) {
-          final colunaProduto = _resolverColunaProduto(produtoId);
-          if (colunaProduto != null) {
-            final qtd = mov[colunaProduto];
-            if (qtd != null && qtd > 0) {
-              quantidade = (qtd as num).toDouble();
-            }
-          }
-        }
-      } else if (tipoOp == 'cacl' || tipoOp == 'emprestimo' || tipoOp == null) {
-        // Para descarregamento, usar entrada_amb
-        if (_tipoMovimentacao == TipoMovimentacao.descarregamento) {
-          final entrada = mov['entrada_amb'];
-          if (entrada != null && entrada > 0) {
-            quantidade = (entrada as num).toDouble();
-          }
-        } else {
-          // Para carregamento, usar saida_amb
-          final saida = mov['saida_amb'];
-          if (saida != null && saida > 0) {
-            quantidade = (saida as num).toDouble();
-          }
-        }
-      }
+      final totalMov = entradaAmb + entradaVinte + saidaAmb + saidaVinte;
       
-      if (quantidade > 0) {
-        produtos[produtoNome] = (produtos[produtoNome] ?? 0) + quantidade;
+      if (totalMov > 0) {
+        produtos[produtoNome] = (produtos[produtoNome] ?? 0) + totalMov.toDouble();
       }
     }
     
     return produtos;
-  }
-
-  String? _resolverColunaProduto(String produtoId) {
-    final Map<String, String> mapaProdutoColuna = {
-      '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 's10_a',
-      '4da89784-301f-4abe-b97e-c48729969e3d': 's500_a',
-      '58ce20cf-f252-4291-9ef6-f4821f22c29e': 'd_s10',
-      '66ca957a-5698-4a02-8c9e-987770b6a151': 'etanol',
-      '82c348c8-efa1-4d1a-953a-ee384d5780fc': 'g_comum',
-      '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 'g_aditivada',
-      'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': 'd_s500',
-      'cecab8eb-297a-4640-81ae-e88335b88d8b': 'anidro',
-      'ecd91066-e763-42e3-8a0e-d982ea6da535': 'b100',
-      'f8e95435-471a-424c-947f-def8809053a0': 'gasolina_a',
-    };
-    
-    return mapaProdutoColuna[produtoId.toLowerCase()];
   } 
 
   Future<void> _finalizarCargaExpedicao() async {

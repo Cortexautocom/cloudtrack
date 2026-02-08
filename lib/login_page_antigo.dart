@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+/*import 'package:flutter/material.dart';
 import 'home.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'configuracoes/cadastro_novo_usuario.dart';
@@ -348,3 +348,4 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 }
+*/
