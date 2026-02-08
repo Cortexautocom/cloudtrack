@@ -536,25 +536,12 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             'quantidade': capacidadeLitros,
             'anp': false,
             'status_circuito_orig': 1,
+            // Usa apenas as 4 colunas padrão: entrada_amb, entrada_vinte, saida_amb, saida_vinte
             'entrada_amb': 0,
             'entrada_vinte': 0,
-            'saida_amb': 0,
+            'saida_amb': capacidadeLitros, // Registra a venda em saída ambiente
             'saida_vinte': 0,
-            'g_comum': 0,
-            'g_aditivada': 0,
-            'd_s10': 0,
-            'd_s500': 0,
-            'etanol': 0,
-            'anidro': 0,
-            'b100': 0,
-            'gasolina_a': 0,
-            's500_a': 0,
-            's10_a': 0,
           };
-
-          // Registrar a quantidade da venda em coluna padrão de saída (ambiente).
-          // Não gravar mais na coluna específica do produto.
-          movimentacao['saida_amb'] = capacidadeLitros;
 
           await supabase.from('movimentacoes').insert(movimentacao);
           tanquesProcessados++;

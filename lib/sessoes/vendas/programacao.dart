@@ -50,7 +50,8 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     '58ce20cf-f252-4291-9ef6-f4821f22c29e': {'grupo': 0, 'coluna': 2}, // Diesel S10-B -> D. S10
     '4da89784-30f1-4abe-b97e-c48729969e3d': {'grupo': 0, 'coluna': 3}, // Diesel A-S500 -> D. S500
     'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': {'grupo': 0, 'coluna': 3}, // Diesel S500-B -> D. S500
-    'cecab8eb-297a-4640-8fae-e88335b88d8b': {'grupo': 0, 'coluna': 4}, // Anidro
+    '66ca957a-5698-4a02-8c9e-987770b6a151': {'grupo': 0, 'coluna': 4}, // Hidratado -> Etanol
+    'cecab8eb-297a-4640-8fae-e88335b88d8b': {'grupo': 0, 'coluna': 4}, // Anidro -> Etanol
     
     // Grupo 1 (Biocombustíveis)
     'ecd91066-e763-42e3-8a0e-d982ea6da535': {'grupo': 1, 'coluna': 0}, // B100
