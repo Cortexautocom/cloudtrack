@@ -1028,7 +1028,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                               final temMaisInfo = informacoesDoProduto.length > 1;
                               
                               return Container(
-                                constraints: const BoxConstraints(maxWidth: 180),
+                                constraints: const BoxConstraints(maxWidth: 260),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
