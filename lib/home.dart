@@ -27,7 +27,6 @@ import 'sessoes/apuracao/listar_ordens.dart';
 import 'sessoes/apuracao/temp_dens_media.dart';
 import 'home_cards.dart';
 import 'sessoes/ajuda/arquiteto.dart';
-import 'sessoes/estoques/filtro_moviment.dart';
 import 'sessoes/ajuda/suporte.dart';
 
 class HomePage extends StatefulWidget {
@@ -84,7 +83,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarEstoquePorEmpresa = false;
   bool _mostrarFiliaisDaEmpresa = false;
   bool _mostrarEstoquePorTanque = false;
-  bool _mostrarFiltroMovimentacoes = false;
   bool _mostrarMenuAjuda = false;
   bool _mostrarTempDensMedia = false;
   bool _mostrarCardsFilial = false;
@@ -548,7 +546,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarEstoquePorEmpresa = false;
       _mostrarFiliaisDaEmpresa = false;
       _mostrarEstoquePorTanque = false;
-      _mostrarFiltroMovimentacoes = false;
       _mostrarTempDensMedia = false;
       _mostrarMenuAjuda = false;
       _mostrarSuporte = false;
@@ -585,7 +582,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       return;
     }
 
-    final filhos = _filhosPorSessao[nomeSessao] ?? [];
+    var filhos = _filhosPorSessao[nomeSessao] ?? [];
+    
+    // NOVO: Filtrar cards de Estoques para usuários nível 1-2
+    if (nomeSessao == 'Estoques') {
+      final usuario = UsuarioAtual.instance;
+      if (usuario != null && usuario.nivel < 3) {
+        // Remover card "estoque_por_empresa" para usuários de nível 1-2
+        filhos = filhos.where((card) => card['tipo'] != 'estoque_por_empresa').toList();
+      }
+    }
     
     if (filhos.isEmpty) {
       _mostrarSemPermissao();
@@ -1338,17 +1344,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       );
     }
 
-    if (_mostrarFiltroMovimentacoes) {
-      return FiltroMovimentacoesPage(
-        onVoltar: () {
-          setState(() {
-            _mostrarFiltroMovimentacoes = false;
-            _mostrarFilhosDaSessao('Estoques');
-          });
-        },
-      );
-    }
-
     if (_mostrarTempDensMedia) {
       return TemperaturaDensidadeMediaPage(
         onVoltar: () {
@@ -1449,7 +1444,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               if (mostrarVoltar && (_mostrarDownloads || showConversaoList || _mostrarListarCacls || _mostrarOrdensAnalise || 
                   _mostrarHistorico || _mostrarEscolherFilial || _mostrarMedicaoTanques || _mostrarTanques || 
                   _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || _mostrarEstoquePorTanque ||
-                  _mostrarFiltroMovimentacoes || _mostrarTempDensMedia || _mostrarCalcGerado || 
+                  _mostrarTempDensMedia || _mostrarCalcGerado || 
                   _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarFiltrosEstoque ||
                   _mostrarCardsFilial || _mostrarSuporte))
 
@@ -1461,7 +1456,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               if (mostrarVoltar && (_mostrarDownloads || showConversaoList || _mostrarListarCacls || _mostrarOrdensAnalise || 
                   _mostrarHistorico || _mostrarEscolherFilial || _mostrarMedicaoTanques || _mostrarTanques || 
                   _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || _mostrarEstoquePorTanque ||
-                  _mostrarFiltroMovimentacoes || _mostrarTempDensMedia || _mostrarCalcGerado || 
+                  _mostrarTempDensMedia || _mostrarCalcGerado || 
                   _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarFiltrosEstoque ||
                   _mostrarCardsFilial))
                 const SizedBox(width: 10),
@@ -1952,6 +1947,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   void _navegarParaCardEstoques(String tipo) {
+    final usuario = UsuarioAtual.instance;
+    
     switch (tipo) {
       case 'estoque_geral':
         Navigator.push(
@@ -1973,10 +1970,20 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         });
         break;
       case 'movimentacoes':
-        setState(() {
-          _mostrarFiltroMovimentacoes = true;
-        });
+        // NOVO: Todos os usuários (nível 1-2 e 3) devem ter filial vinculada
+        if (usuario == null || usuario.filialId == null || usuario.filialId!.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Usuário sem filial vinculada'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            ),
+          );
+          return;
+        }
+        
         break;
+        
       case 'transferencias':
         Navigator.push(
           context,

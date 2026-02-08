@@ -1,3 +1,4 @@
+/*
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
@@ -90,11 +91,8 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
       _carregarProdutos(),
     ]);
 
-    if (usuario.nivel < 3) {
-      _filialSelecionada = usuario.filialId;
-    } else {
-      _filialSelecionada = 'todas';
-    }
+    // NOVO: Todos os usuários (nível 1-2 e 3) devem ter filial vinculada
+    _filialSelecionada = usuario.filialId;
 
     setState(() => _carregando = false);
   }
@@ -112,14 +110,8 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
 
     final lista = List<Map<String, dynamic>>.from(dados);
 
-    if (usuario.nivel == 3) {
-      _filiais = [
-        {'id': 'todas', 'nome_dois': 'Todas', 'nome': 'Todas'},
-        ...lista,
-      ];
-    } else {
-      _filiais = lista;
-    }
+    // NOVO: Todos os usuários veem apenas sua filial vinculada (sem opção 'Todas')
+    _filiais = lista;
   }
 
   Future<void> _carregarProdutos() async {
@@ -254,7 +246,7 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
                     const SizedBox(height: 4),
                     Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Colors.grey.shade100, // NOVO: Fundo cinza desabilitado
                         border: Border.all(color: Colors.grey.shade400, width: 1),
                         borderRadius: BorderRadius.circular(4),
                       ),
@@ -264,9 +256,8 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
                           isExpanded: true,
                           icon: const Icon(Icons.arrow_drop_down, size: 20),
                           style: const TextStyle(fontSize: 13, color: Colors.black),
-                          onChanged: usuario.nivel == 3
-                              ? (v) => setState(() => _filialSelecionada = v)
-                              : null,
+                          // NOVO: Dropdown desabilitado para todos (filial fixa e imutável)
+                          onChanged: null,
                           items: _filiais.map((filial) {
                             return DropdownMenuItem<String>(
                               value: filial['id']?.toString(),
@@ -710,3 +701,4 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
     );
   }
 }
+*/
