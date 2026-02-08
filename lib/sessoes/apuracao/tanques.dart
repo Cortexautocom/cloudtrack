@@ -462,7 +462,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+      padding: const EdgeInsets.fromLTRB(60, 18, 60, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -555,6 +555,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
           const SizedBox(height: 14),
           Expanded(
             child: ListView.separated(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
               itemCount: tanques.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
@@ -562,111 +563,10 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                 final isOperando = tanque['status'] == 'Em operação';
                 final statusColor = isOperando ? _accent : _warn;
 
-                return InkWell(
-                  borderRadius: BorderRadius.circular(14),
+                return _TanqueCard(
+                  tanque: tanque,
+                  statusColor: statusColor,
                   onTap: () => _editarTanque(tanque),
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: _line, width: 1.2),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 6,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            color: statusColor,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                tanque['referencia'],
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: _ink,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                tanque['produto'],
-                                style: const TextStyle(
-                                  color: _muted,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              if (UsuarioAtual.instance!.nivel == 3 && tanque['filial'] != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Text(
-                                    'Filial: ${tanque['filial']}',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: _muted,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: _line, width: 1.2),
-                              ),
-                              child: Text(
-                                '${tanque['capacidade']} Litros',
-                                style: const TextStyle(
-                                  color: _ink,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: statusColor, width: 1.2),
-                              ),
-                              child: Text(
-                                tanque['status'],
-                                style: TextStyle(
-                                  color: statusColor,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.edit, size: 18),
-                          onPressed: () => _editarTanque(tanque),
-                          color: _ink,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                      ],
-                    ),
-                  ),
                 );
               },
             ),
@@ -894,6 +794,150 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TanqueCard extends StatefulWidget {
+  final Map<String, dynamic> tanque;
+  final Color statusColor;
+  final VoidCallback onTap;
+
+  const _TanqueCard({
+    required this.tanque,
+    required this.statusColor,
+    required this.onTap,
+  });
+
+  @override
+  State<_TanqueCard> createState() => _TanqueCardState();
+}
+
+class _TanqueCardState extends State<_TanqueCard> {
+  static const Color _ink = Color(0xFF0E1C2F);
+  static const Color _muted = Color(0xFF5A6B7A);
+  static const Color _line = Color(0xFFE6DCCB);
+  
+  bool _isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: AnimatedScale(
+        scale: _isHovering ? 1.01 : 1.0,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+        child: Material(
+          color: _isHovering ? const Color(0xFFF5F5F5) : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: _line, width: 1.2),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: widget.onTap,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 6,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: widget.statusColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.tanque['referencia'],
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: _ink,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.tanque['produto'],
+                          style: const TextStyle(
+                            color: _muted,
+                            fontSize: 13,
+                          ),
+                        ),
+                        if (UsuarioAtual.instance!.nivel == 3 && widget.tanque['filial'] != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              'Filial: ${widget.tanque['filial']}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: _muted,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: _line, width: 1.2),
+                        ),
+                        child: Text(
+                          '${widget.tanque['capacidade']} Litros',
+                          style: const TextStyle(
+                            color: _ink,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: widget.statusColor, width: 1.2),
+                        ),
+                        child: Text(
+                          widget.tanque['status'],
+                          style: TextStyle(
+                            color: widget.statusColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.edit, size: 18),
+                    onPressed: widget.onTap,
+                    color: _ink,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

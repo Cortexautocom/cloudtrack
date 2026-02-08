@@ -37,7 +37,6 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
   // Cor padrão caso não seja fornecida
   Color get _corPrimaria => widget.corPrimaria ?? _accent;
   Color get _corFundoItem => widget.corFundoItem ?? Colors.white;
-  Color get _corHover => widget.corHover ?? _accent.withOpacity(0.08);
 
   @override
   void initState() {
@@ -165,71 +164,133 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
     required String nome,
     required String cidade,
   }) {
-    return InkWell(
+    return _FilialCard(
+      id: id,
+      nome: nome,
+      cidade: cidade,
+      corPrimaria: _corPrimaria,
+      corFundoItem: _corFundoItem,
       onTap: () => widget.onSelecionarFilial(id),
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
-        decoration: BoxDecoration(
-          color: _corFundoItem,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _line, width: 1.2),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _corPrimaria.withOpacity(0.4), width: 1.2),
-              ),
-              child: Icon(
-                Icons.business,
-                color: _corPrimaria,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+}
+
+class _FilialCard extends StatefulWidget {
+  final String id;
+  final String nome;
+  final String cidade;
+  final Color corPrimaria;
+  final Color corFundoItem;
+  final VoidCallback onTap;
+
+  const _FilialCard({
+    required this.id,
+    required this.nome,
+    required this.cidade,
+    required this.corPrimaria,
+    required this.corFundoItem,
+    required this.onTap,
+  });
+
+  @override
+  State<_FilialCard> createState() => _FilialCardState();
+}
+
+class _FilialCardState extends State<_FilialCard> {
+  static const Color _ink = Color(0xFF0E1C2F);
+  static const Color _accent = Color(0xFF1B6A6F);
+  static const Color _line = Color(0xFFE6DCCB);
+  static const Color _muted = Color(0xFF5A6B7A);
+
+  bool _isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: AnimatedScale(
+        scale: _isHovering ? 1.01 : 1.0,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+        child: Material(
+          color: _isHovering ? const Color(0xFFF5F5F5) : widget.corFundoItem,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: _line, width: 1.2),
+          ),
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+              child: Row(
                 children: [
-                  Text(
-                    nome,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: _ink,
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: widget.corPrimaria.withOpacity(0.4),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.business,
+                      color: widget.corPrimaria,
+                      size: 22,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    cidade,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: _muted,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.nome,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: _ink,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.cidade,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: _muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: widget.corPrimaria.withOpacity(0.6),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.arrow_forward,
+                      size: 16,
+                      color: _accent,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _corPrimaria.withOpacity(0.6), width: 1.2),
-              ),
-              child: const Icon(
-                Icons.arrow_forward,
-                size: 16,
-                color: _accent,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
