@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:js_interop';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'widgets/hover_scale.dart';
 import 'sessoes/apuracao/tabelas_de_conversao/tabelasdeconversao.dart';
 import 'configuracoes/controle_acesso_usuarios.dart';
 import 'login_page.dart';
@@ -1049,58 +1050,60 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             spacing: 15,
             runSpacing: 15,
             children: [
-              Material(
-                elevation: 2,
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                clipBehavior: Clip.hardEdge,
-                child: InkWell(
-                  onTap: () {
-                    setState(() {
-                      _mostrarDownloads = true;
-                    });
-                  },
-                  hoverColor: const Color(0xFFE8F5E9),
-                  child: Container(
-                    width: 150,
-                    height: 150,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.download,
-                          color: _getCorPorSessao('Relatórios'),
-                          size: 50,
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Downloads',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF0D47A1),
-                            fontWeight: FontWeight.w600,
+              HoverScale(
+                child: Material(
+                  elevation: 2,
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  clipBehavior: Clip.hardEdge,
+                  child: InkWell(
+                    onTap: () {
+                      setState(() {
+                        _mostrarDownloads = true;
+                      });
+                    },
+                    hoverColor: const Color(0xFFE8F5E9),
+                    child: Container(
+                      width: 150,
+                      height: 150,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.download,
+                            color: _getCorPorSessao('Relatórios'),
+                            size: 50,
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 4),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Text(
-                            'Baixar relatórios e dados',
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Downloads',
                             style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey,
+                              fontSize: 14,
+                              color: Color(0xFF0D47A1),
+                              fontWeight: FontWeight.w600,
                             ),
                             textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 4),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: Text(
+                              'Baixar relatórios e dados',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1685,47 +1688,49 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
     final corSessao = _getCorSessaoAtual();
 
-    return Material(
-      elevation: 2,
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      clipBehavior: Clip.hardEdge,
-      child: InkWell(
-        onTap: () => _navegarParaCardFilho(card),
-        hoverColor: corSessao.withOpacity(0.1),
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.all(15),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                card['icon'],
-                color: corSessao,
-                size: 55,
-              ),
-              const SizedBox(height: 10),
-              ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxHeight: 40,
+    return HoverScale(
+      child: Material(
+        elevation: 2,
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.hardEdge,
+        child: InkWell(
+          onTap: () => _navegarParaCardFilho(card),
+          hoverColor: corSessao.withOpacity(0.1),
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.all(15),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  card['icon'],
+                  color: corSessao,
+                  size: 55,
                 ),
-                child: Text(
-                  card['label'] ?? '',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: const Color(0xFF0D47A1),
-                    fontWeight: FontWeight.w600,
+                const SizedBox(height: 10),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxHeight: 40,
                   ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  child: Text(
+                    card['label'] ?? '',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: const Color(0xFF0D47A1),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-              // A DESCRIÇÃO FOI REMOVIDA COMPLETAMENTE AQUI
-            ],
+                // A DESCRIÇÃO FOI REMOVIDA COMPLETAMENTE AQUI
+              ],
+            ),
           ),
         ),
       ),
@@ -1733,58 +1738,60 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildCardEmpresa(Map<String, dynamic> empresa) {
-    return Material(
-      elevation: 2,
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      clipBehavior: Clip.hardEdge,
-      child: InkWell(
-        onTap: () async {
-          final empresaId = empresa['id'];
-          setState(() {
-            _empresaSelecionadaId = empresaId;
-            _empresaSelecionadaNome = empresa['label'];
-          });
-          
-          await _carregarFiliaisDaEmpresa(_empresaSelecionadaId!);
-          
-          setState(() {
-            _mostrarEstoquePorEmpresa = false;
-            _mostrarFiliaisDaEmpresa = true;
-          });
-        },
-        hoverColor: _getCorPorSessao('Estoques').withOpacity(0.1),
-        child: Container(
-          padding: const EdgeInsets.all(15),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                empresa['icon'],
-                color: _getCorPorSessao('Estoques'),
-                size: 55,
-              ),
-              const SizedBox(height: 10),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 40),
-                child: Text(
-                  empresa['label'],
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF0D47A1),
-                    fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+    return HoverScale(
+      child: Material(
+        elevation: 2,
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.hardEdge,
+        child: InkWell(
+          onTap: () async {
+            final empresaId = empresa['id'];
+            setState(() {
+              _empresaSelecionadaId = empresaId;
+              _empresaSelecionadaNome = empresa['label'];
+            });
+            
+            await _carregarFiliaisDaEmpresa(_empresaSelecionadaId!);
+            
+            setState(() {
+              _mostrarEstoquePorEmpresa = false;
+              _mostrarFiliaisDaEmpresa = true;
+            });
+          },
+          hoverColor: _getCorPorSessao('Estoques').withOpacity(0.1),
+          child: Container(
+            padding: const EdgeInsets.all(15),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  empresa['icon'],
+                  color: _getCorPorSessao('Estoques'),
+                  size: 55,
                 ),
-              ),
-              // REMOVER A DESCRIÇÃO (CNPJ) AQUI TAMBÉM
-            ],
+                const SizedBox(height: 10),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 40),
+                  child: Text(
+                    empresa['label'],
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF0D47A1),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                // REMOVER A DESCRIÇÃO (CNPJ) AQUI TAMBÉM
+              ],
+            ),
           ),
         ),
       ),
@@ -1792,53 +1799,55 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildCardFilial(Map<String, dynamic> filial) {
-    return Material(
-      elevation: 3, // AUMENTADO DE 2 PARA 3
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      clipBehavior: Clip.hardEdge,
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            _mostrarFiliaisDaEmpresa = false;
-            _filialParaFiltroId = filial['id'];
-            _filialParaFiltroNome = filial['label'];
-            _empresaParaFiltroId = _empresaSelecionadaId;
-            _empresaParaFiltroNome = _empresaSelecionadaNome;
-            _mostrarCardsFilial = true;
-          });
-        },
-        hoverColor: _getCorPorSessao('Estoques').withOpacity(0.1),
-        child: Container(
-          padding: const EdgeInsets.all(18), // AUMENTADO DE 15 PARA 18
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300, width: 1.5), // AUMENTADO DE 1 PARA 1.5
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                filial['icon'],
-                color: _getCorPorSessao('Estoques'),
-                size: 60, // AUMENTADO DE 55 PARA 60
-              ),
-              const SizedBox(height: 12), // AUMENTADO DE 10 PARA 12
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 50), // AUMENTADO DE 40 PARA 50
-                child: Text(
-                  filial['label'],
-                  style: const TextStyle(
-                    fontSize: 14.5, // AUMENTADO DE 13 PARA 14.5
-                    color: Color(0xFF0D47A1),
-                    fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+    return HoverScale(
+      child: Material(
+        elevation: 3, // AUMENTADO DE 2 PARA 3
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.hardEdge,
+        child: InkWell(
+          onTap: () {
+            setState(() {
+              _mostrarFiliaisDaEmpresa = false;
+              _filialParaFiltroId = filial['id'];
+              _filialParaFiltroNome = filial['label'];
+              _empresaParaFiltroId = _empresaSelecionadaId;
+              _empresaParaFiltroNome = _empresaSelecionadaNome;
+              _mostrarCardsFilial = true;
+            });
+          },
+          hoverColor: _getCorPorSessao('Estoques').withOpacity(0.1),
+          child: Container(
+            padding: const EdgeInsets.all(18), // AUMENTADO DE 15 PARA 18
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300, width: 1.5), // AUMENTADO DE 1 PARA 1.5
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  filial['icon'],
+                  color: _getCorPorSessao('Estoques'),
+                  size: 60, // AUMENTADO DE 55 PARA 60
                 ),
-              ),
-            ],
+                const SizedBox(height: 12), // AUMENTADO DE 10 PARA 12
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 50), // AUMENTADO DE 40 PARA 50
+                  child: Text(
+                    filial['label'],
+                    style: const TextStyle(
+                      fontSize: 14.5, // AUMENTADO DE 13 PARA 14.5
+                      color: Color(0xFF0D47A1),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -2129,56 +2138,58 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         childAspectRatio: 1.1,
         padding: const EdgeInsets.only(bottom: 20),
         children: configCards.map((c) {
-          return Material(
-            color: Colors.white,
-            elevation: 1,
-            borderRadius: BorderRadius.circular(10),
-            clipBehavior: Clip.hardEdge,
-            child: InkWell(
-              onTap: () {
-                switch (c['tipo']) {
-                  case 'atualizar_app':
-                    if (atualizarApp != null) {
-                      atualizarApp!.callAsFunction();
-                    } else {
-                      debugPrint('❌ atualizarApp não está disponível no JS');
-                    }
-                    break;
-                  case 'controle_acesso':
-                    setState(() => showControleAcesso = true);
-                    break;
-                  case 'usuarios':
-                    setState(() => showUsuarios = true);
-                    break;
-                }
-              },
-              hoverColor: _getCorPorSessao('Configurações').withOpacity(0.1),
-              child: Container(
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      c['icon'],
-                      color: _getCorPorSessao('Configurações'),
-                      size: 55,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      c['label'],
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF0D47A1),
-                        fontWeight: FontWeight.w600,
+          return HoverScale(
+            child: Material(
+              color: Colors.white,
+              elevation: 1,
+              borderRadius: BorderRadius.circular(10),
+              clipBehavior: Clip.hardEdge,
+              child: InkWell(
+                onTap: () {
+                  switch (c['tipo']) {
+                    case 'atualizar_app':
+                      if (atualizarApp != null) {
+                        atualizarApp!.callAsFunction();
+                      } else {
+                        debugPrint('❌ atualizarApp não está disponível no JS');
+                      }
+                      break;
+                    case 'controle_acesso':
+                      setState(() => showControleAcesso = true);
+                      break;
+                    case 'usuarios':
+                      setState(() => showUsuarios = true);
+                      break;
+                  }
+                },
+                hoverColor: _getCorPorSessao('Configurações').withOpacity(0.1),
+                child: Container(
+                  padding: const EdgeInsets.all(15),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        c['icon'],
+                        color: _getCorPorSessao('Configurações'),
+                        size: 55,
                       ),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                      const SizedBox(height: 10),
+                      Text(
+                        c['label'],
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF0D47A1),
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -2288,48 +2299,50 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               return SizedBox(
                 width: 180,
                 height: 180,
-                child: Material(
-                  elevation: 2,
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  clipBehavior: Clip.hardEdge,
-                  child: InkWell(
-                    onTap: () {
-                      if (card['tipo'] == 'movimentacoes') {
-                        setState(() {
-                          _mostrarCardsFilial = false;
-                          _mostrarFiltrosEstoque = true;
-                        });
-                      }
-                    },
-                    hoverColor: _getCorPorSessao('Estoques').withOpacity(0.1),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.all(15),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            card['icon'] as IconData,
-                            color: _getCorPorSessao('Estoques'),
-                            size: 55,
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            card['label'] as String,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF424242),
+                child: HoverScale(
+                  child: Material(
+                    elevation: 2,
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    clipBehavior: Clip.hardEdge,
+                    child: InkWell(
+                      onTap: () {
+                        if (card['tipo'] == 'movimentacoes') {
+                          setState(() {
+                            _mostrarCardsFilial = false;
+                            _mostrarFiltrosEstoque = true;
+                          });
+                        }
+                      },
+                      hoverColor: _getCorPorSessao('Estoques').withOpacity(0.1),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.all(15),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              card['icon'] as IconData,
+                              color: _getCorPorSessao('Estoques'),
+                              size: 55,
                             ),
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                            const SizedBox(height: 10),
+                            Text(
+                              card['label'] as String,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF424242),
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'widgets/hover_scale.dart';
 
 class HomeCards extends StatelessWidget {
   final String menuSelecionado;
@@ -91,54 +92,56 @@ class HomeCards extends StatelessWidget {
   }
 
   Widget _buildCardItem(Map<String, dynamic> card, BuildContext context) {
-    return Material(
-      elevation: 2,
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      clipBehavior: Clip.hardEdge,
-      child: InkWell(
-        onTap: () => _handleCardTap(context, card['tipo']),
-        hoverColor: const Color(0xFFE8F5E9),
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                card['icone'] as IconData,
-                color: card['cor'] as Color,
-                size: 50,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                card['titulo'],
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF0D47A1),
-                  fontWeight: FontWeight.w600,
+    return HoverScale(
+      child: Material(
+        elevation: 2,
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.hardEdge,
+        child: InkWell(
+          onTap: () => _handleCardTap(context, card['tipo']),
+          hoverColor: const Color(0xFFE8F5E9),
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  card['icone'] as IconData,
+                  color: card['cor'] as Color,
+                  size: 50,
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  card['descricao'],
+                const SizedBox(height: 8),
+                Text(
+                  card['titulo'],
                   style: const TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey,
+                    fontSize: 14,
+                    color: Color(0xFF0D47A1),
+                    fontWeight: FontWeight.w600,
                   ),
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+                const SizedBox(height: 4),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    card['descricao'],
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
