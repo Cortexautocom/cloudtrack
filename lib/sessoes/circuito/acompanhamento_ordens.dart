@@ -88,26 +88,35 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
 
   Map<String, double> agruparProdutosDaOrdem(List<Map<String, dynamic>> itens) {
     final Map<String, double> resultado = {};
+    final filialAtualId = _filialAtualId;
 
     for (final mov in itens) {
-      final tipoOp = mov['tipo_op']?.toString().toLowerCase();
-      if (tipoOp != 'venda' && tipoOp != 'transf') continue;
-
       final produto = mov['produtos'];
       if (produto == null) continue;
 
       final nome = produto['nome_dois']?.toString();
       if (nome == null) continue;
 
+      final filialDestinoId = mov['filial_destino_id']?.toString();
+      final filialOrigemId = mov['filial_origem_id']?.toString();
+      final filialId = mov['filial_id']?.toString();
+
       final entradaAmb = (mov['entrada_amb'] ?? 0) as num;
-      final entradaVinte = (mov['entrada_vinte'] ?? 0) as num;
       final saidaAmb = (mov['saida_amb'] ?? 0) as num;
-      final saidaVinte = (mov['saida_vinte'] ?? 0) as num;
 
-      final totalMov = entradaAmb + entradaVinte + saidaAmb + saidaVinte;
-      if (totalMov <= 0) continue;
+      num quantidade = 0;
+      if (filialAtualId.isNotEmpty && filialDestinoId == filialAtualId) {
+        quantidade = entradaAmb;
+      } else if (filialAtualId.isNotEmpty &&
+          (filialOrigemId == filialAtualId || filialId == filialAtualId)) {
+        quantidade = saidaAmb;
+      } else {
+        quantidade = saidaAmb > 0 ? saidaAmb : entradaAmb;
+      }
 
-      resultado[nome] = (resultado[nome] ?? 0) + totalMov.toDouble();
+      if (quantidade <= 0) continue;
+
+      resultado[nome] = (resultado[nome] ?? 0) + quantidade.toDouble();
     }
 
     return resultado;
