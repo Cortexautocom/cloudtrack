@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'widgets/hover_scale.dart';
 
 class HomeCards extends StatelessWidget {
   final String menuSelecionado;
@@ -92,7 +91,7 @@ class HomeCards extends StatelessWidget {
   }
 
   Widget _buildCardItem(Map<String, dynamic> card, BuildContext context) {
-    return HoverScale(
+    return _HoverScale(
       child: Material(
         elevation: 2,
         color: Colors.white,
@@ -151,5 +150,33 @@ class HomeCards extends StatelessWidget {
   // Novo método para lidar com o tap dos cards
   void _handleCardTap(BuildContext context, String tipo) {
     onCardSelecionado(context, tipo);
+  }
+}
+
+/// Widget privado para efeito de crescimento ao passar o mouse
+class _HoverScale extends StatefulWidget {
+  final Widget child;
+
+  const _HoverScale({required this.child});
+
+  @override
+  State<_HoverScale> createState() => _HoverScaleState();
+}
+
+class _HoverScaleState extends State<_HoverScale> {
+  bool _isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: AnimatedScale(
+        scale: _isHovering ? 1.05 : 1.0,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+        child: widget.child,
+      ),
+    );
   }
 }

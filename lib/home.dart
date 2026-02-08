@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:js_interop';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'widgets/hover_scale.dart';
 import 'sessoes/apuracao/tabelas_de_conversao/tabelasdeconversao.dart';
 import 'configuracoes/controle_acesso_usuarios.dart';
 import 'login_page.dart';
@@ -1050,7 +1049,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             spacing: 15,
             runSpacing: 15,
             children: [
-              HoverScale(
+              _HoverScale(
                 child: Material(
                   elevation: 2,
                   color: Colors.white,
@@ -1688,7 +1687,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
     final corSessao = _getCorSessaoAtual();
 
-    return HoverScale(
+    return _HoverScale(
       child: Material(
         elevation: 2,
         color: Colors.white,
@@ -1738,7 +1737,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildCardEmpresa(Map<String, dynamic> empresa) {
-    return HoverScale(
+    return _HoverScale(
       child: Material(
         elevation: 2,
         color: Colors.white,
@@ -1799,7 +1798,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildCardFilial(Map<String, dynamic> filial) {
-    return HoverScale(
+    return _HoverScale(
       child: Material(
         elevation: 3, // AUMENTADO DE 2 PARA 3
         color: Colors.white,
@@ -2138,7 +2137,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         childAspectRatio: 1.1,
         padding: const EdgeInsets.only(bottom: 20),
         children: configCards.map((c) {
-          return HoverScale(
+          return _HoverScale(
             child: Material(
               color: Colors.white,
               elevation: 1,
@@ -2299,7 +2298,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               return SizedBox(
                 width: 180,
                 height: 180,
-                child: HoverScale(
+                child: _HoverScale(
                   child: Material(
                     elevation: 2,
                     color: Colors.white,
@@ -2416,4 +2415,32 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     return quebras[nomeOriginal] ?? nomeOriginal;
   }
 
+}
+
+/// Widget privado para efeito de crescimento ao passar o mouse
+class _HoverScale extends StatefulWidget {
+  final Widget child;
+
+  const _HoverScale({required this.child});
+
+  @override
+  State<_HoverScale> createState() => _HoverScaleState();
+}
+
+class _HoverScaleState extends State<_HoverScale> {
+  bool _isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: AnimatedScale(
+        scale: _isHovering ? 1.05 : 1.0,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+        child: widget.child,
+      ),
+    );
+  }
 }
