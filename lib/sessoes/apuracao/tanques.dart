@@ -6,11 +6,13 @@ import '../../login_page.dart';
 class GerenciamentoTanquesPage extends StatefulWidget {
   final VoidCallback onVoltar;
   final String? filialSelecionadaId; // ← NOVO PARÂMETRO
+  final Function(String filialId)? onAbrirCACL; // ← CALLBACK PARA ABRIR CACL
 
   const GerenciamentoTanquesPage({
     super.key, 
     required this.onVoltar,
     this.filialSelecionadaId, // ← NOVO PARÂMETRO
+    this.onAbrirCACL, // ← CALLBACK PARA ABRIR CACL
   });
 
   @override
@@ -28,7 +30,10 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
   List<Map<String, dynamic>> produtos = [];
   bool _carregando = true;
   bool _editando = false;
+  bool _mostrandoCardsAcoes = false; // ← NOVO: MOSTRA CARDS DE AÇÕES
+  bool _mostrandoCACL = false; // ← NOVO: MOSTRA CACL
   Map<String, dynamic>? _tanqueEditando;
+  Map<String, dynamic>? _tanqueSelecionadoParaAcoes; // ← NOVO: TANQUE PARA CARDS DE AÇÕES
   String? _nomeFilial; // ← PARA MOSTRAR O NOME DA FILIAL
 
   final List<String> _statusOptions = ['Em operação', 'Operação suspensa'];
@@ -216,7 +221,42 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       _capacidadeController.clear();
       _produtoSelecionado = null;
       _statusSelecionado = null;
+      // Volta para os cards de ações
+      _mostrandoCardsAcoes = true;
     });
+  }
+
+  void _mostrarCardsAcoesDoTanque(Map<String, dynamic> tanque) {
+    setState(() {
+      _mostrandoCardsAcoes = true;
+      _tanqueSelecionadoParaAcoes = tanque;
+    });
+  }
+
+  void _abrirCACL() {
+    final filialId = widget.filialSelecionadaId ?? UsuarioAtual.instance!.filialId ?? '';
+    // Esconde os cards antes de chamar o callback
+    setState(() {
+      _mostrandoCardsAcoes = false;
+      _mostrandoCACL = true;
+    });
+    widget.onAbrirCACL?.call(filialId);
+  }
+
+  void _voltarDoCACL() {
+    setState(() {
+      _mostrandoCACL = false;
+      _mostrandoCardsAcoes = true;
+    });
+  }
+
+  void _abrirEdicaoTanque() {
+    if (_tanqueSelecionadoParaAcoes != null) {
+      _editarTanque(_tanqueSelecionadoParaAcoes!);
+      setState(() {
+        _mostrandoCardsAcoes = false;
+      });
+    }
   }
 
   // Função para aplicar máscara no campo capacidade
@@ -374,7 +414,13 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
             child: Row(children: [
               IconButton(
                 icon: const Icon(Icons.arrow_back, color: _ink),
-                onPressed: _editando ? _cancelarEdicao : widget.onVoltar,
+                onPressed: _editando 
+                    ? _cancelarEdicao 
+                    : (_mostrandoCardsAcoes 
+                        ? () => setState(() => _mostrandoCardsAcoes = false) 
+                        : (_mostrandoCACL
+                            ? _voltarDoCACL
+                            : widget.onVoltar)),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
@@ -385,14 +431,18 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      _editando ? 'Editar Tanque' : 'Gerenciamento de Tanques',
+                      _editando 
+                          ? 'Editar Tanque' 
+                          : (_mostrandoCardsAcoes 
+                              ? 'Ações do Tanque' 
+                              : (_mostrandoCACL ? 'CACL' : 'Gerenciamento de Tanques')),
                       style: const TextStyle(
                         fontSize: 19, 
                         fontWeight: FontWeight.bold, 
                         color: _ink
                       ),
                     ),
-                    if (_nomeFilial != null && !_editando)
+                    if (_nomeFilial != null && !_editando && !_mostrandoCardsAcoes && !_mostrandoCACL)
                       Text(
                         'Filial: $_nomeFilial',
                         style: TextStyle(
@@ -404,7 +454,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                   ],
                 ),
               ),
-              if (!_editando)
+              if (!_editando && !_mostrandoCardsAcoes && !_mostrandoCACL)
                 IconButton(
                   icon: const Icon(Icons.refresh, color: _ink),
                   onPressed: _carregarDados,
@@ -417,7 +467,9 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
           Expanded(
             child: _editando 
                 ? _buildFormularioEdicao()
-                : _buildListaTanques(),
+                : (_mostrandoCACL 
+                    ? _buildPaginaCACL()
+                    : (_mostrandoCardsAcoes ? _buildCardsAcoesDoTanque() : _buildListaTanques())),
           ),
         ],
       ),
@@ -566,7 +618,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                 return _TanqueCard(
                   tanque: tanque,
                   statusColor: statusColor,
-                  onTap: () => _editarTanque(tanque),
+                  onTap: () => _mostrarCardsAcoesDoTanque(tanque),
                 );
               },
             ),
@@ -796,6 +848,163 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildCardsAcoesDoTanque() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(60, 18, 60, 16),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_tanqueSelecionadoParaAcoes != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _line, width: 1.2),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: _accent.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _accent.withOpacity(0.2)),
+                      ),
+                      child: const Icon(Icons.storage, color: _accent, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _tanqueSelecionadoParaAcoes!['referencia'] ?? 'Tanque',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: _ink,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _tanqueSelecionadoParaAcoes!['produto'] ?? 'Produto',
+                            style: const TextStyle(fontSize: 12, color: _muted),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  // Card CACL
+                  Expanded(
+                    child: _buildCardAcao(
+                      icon: Icons.analytics,
+                      titulo: 'CACL',
+                      descricao: 'Emitir CACL',
+                      onTap: _abrirCACL,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  // Card Editar Tanque
+                  Expanded(
+                    child: _buildCardAcao(
+                      icon: Icons.edit,
+                      titulo: 'Editar Tanque',
+                      descricao: 'Atualizar dados do tanque',
+                      onTap: _abrirEdicaoTanque,
+                    ),
+                  ),
+                ],
+              ),
+            ]
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardAcao({
+    required IconData icon,
+    required String titulo,
+    required String descricao,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      elevation: 2,
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.hardEdge,
+      child: InkWell(
+        onTap: onTap,
+        hoverColor: _accent.withOpacity(0.1),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            border: Border.all(color: _line, width: 1.2),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: _accent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _accent.withOpacity(0.3), width: 1.5),
+                ),
+                child: Icon(icon, color: _accent, size: 32),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                titulo,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: _ink,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                descricao,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: _muted,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaginaCACL() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: const [
+          CircularProgressIndicator(color: _accent),
+          SizedBox(height: 20),
+          Text(
+            'Carregando CACL...',
+            style: TextStyle(fontSize: 16, color: _ink),
+          ),
+        ],
       ),
     );
   }

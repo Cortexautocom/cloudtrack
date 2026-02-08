@@ -86,6 +86,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarMenuAjuda = false;
   bool _mostrarTempDensMedia = false;
   bool _mostrarCardsFilial = false;
+  bool _voltarParaTanquesApoCACL = false; // ← RASTREIA SE VEIO DE TANQUES
   
   // NOVAS VARIÁVEIS PARA GESTÃO DE FROTA
   bool _mostrarVeiculos = false;
@@ -549,6 +550,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarTempDensMedia = false;
       _mostrarMenuAjuda = false;
       _mostrarSuporte = false;
+      _voltarParaTanquesApoCACL = false; // ← RESET DA FLAG
       _resetarTodasFlagsGestaoFrota();
       _mostrarFilhosSessao = false;
       _sessaoAtual = null;
@@ -1167,11 +1169,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             _mostrarListarCacls = false;
             _filialSelecionadaNome = null;
 
-            if (usuario!.nivel == 3) {
-              _mostrarEscolherFilial = true;
-              _contextoEscolhaFilial = 'cacl';
+            // Se veio de tanques (via cards de ações), volta para tanques
+            if (_voltarParaTanquesApoCACL) {
+              _voltarParaTanquesApoCACL = false;
+              _mostrarTanques = true;
             } else {
-              _mostrarFilhosDaSessao('Apuração');
+              // Caso contrário, volta para Apuração normalmente
+              if (usuario!.nivel == 3) {
+                _mostrarEscolherFilial = true;
+                _contextoEscolhaFilial = 'cacl';
+              } else {
+                _mostrarFilhosDaSessao('Apuração');
+              }
             }
           });
         },
@@ -1298,6 +1307,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           });
         },
         filialSelecionadaId: _filialSelecionadaId,
+        onAbrirCACL: (filialId) {
+          setState(() {
+            _voltarParaTanquesApoCACL = true; // ← RASTREIA QUE VEIO DE TANQUES
+            _mostrarTanques = false;
+            _filialSelecionadaId = filialId;
+            _mostrarListarCacls = true;
+          });
+        },
       );
     }
 
