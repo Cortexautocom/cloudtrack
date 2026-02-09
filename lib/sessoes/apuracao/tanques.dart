@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
 import 'emitir_cacl.dart';
+import 'cacl_historico.dart';
 //import 'escolherfilial.dart';
 
 class GerenciamentoTanquesPage extends StatefulWidget {
@@ -35,6 +36,9 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
   Map<String, dynamic>? _tanqueEditando;
   Map<String, dynamic>? _tanqueSelecionadoParaAcoes; // ← NOVO: TANQUE PARA CARDS DE AÇÕES
   String? _nomeFilial; // ← PARA MOSTRAR O NOME DA FILIAL
+  bool _carregandoCacls = false;
+  List<Map<String, dynamic>> _caclesTanque = [];
+  int? _hoverCaclIndex;
 
   final List<String> _statusOptions = ['Em operação', 'Operação suspensa'];
   
@@ -248,6 +252,153 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       _mostrandoCardsAcoes = true;
       _tanqueSelecionadoParaAcoes = tanque;
     });
+    final tanqueId = tanque['id']?.toString();
+    if (tanqueId != null && tanqueId.isNotEmpty) {
+      _carregarCaclsDoTanque(tanqueId);
+    }
+  }
+
+  Future<void> _carregarCaclsDoTanque(String tanqueId) async {
+    setState(() {
+      _carregandoCacls = true;
+    });
+
+    try {
+      final supabase = Supabase.instance.client;
+
+      final response = await supabase
+          .from('cacl')
+          .select('''
+            id,
+            data,
+            produto,
+            tanque_id,
+            status,
+            solicita_canc,
+            horario_inicial,
+            horario_final,
+            tanques:tanque_id (referencia)
+          ''')
+          .eq('tanque_id', tanqueId)
+          .order('data', ascending: false)
+          .order('created_at', ascending: false);
+
+      if (mounted) {
+        setState(() {
+          _caclesTanque = List<Map<String, dynamic>>.from(response);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar CACLs: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _carregandoCacls = false;
+        });
+      }
+    }
+  }
+
+  String _formatarData(dynamic data) {
+    if (data == null) return '-';
+    try {
+      final d = DateTime.parse(data.toString());
+      return '${d.day.toString().padLeft(2, '0')}/'
+          '${d.month.toString().padLeft(2, '0')}/'
+          '${d.year}';
+    } catch (_) {
+      return data.toString();
+    }
+  }
+
+  String _formatarHorario(dynamic horarioInicial, dynamic horarioFinal) {
+    if (horarioInicial != null && horarioFinal != null) {
+      return '$horarioInicial - $horarioFinal';
+    } else if (horarioInicial != null) {
+      return 'Início: $horarioInicial';
+    } else if (horarioFinal != null) {
+      return 'Fim: $horarioFinal';
+    }
+    return 'Sem horário';
+  }
+
+  Color _getStatusColor(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'emitido':
+        return Colors.green;
+      case 'pendente':
+      case 'aguardando':
+        return Colors.orange;
+      case 'cancelado':
+        return const Color.fromARGB(255, 192, 43, 43);
+      default:
+        return const Color.fromARGB(255, 128, 128, 128);
+    }
+  }
+
+  Color _getCardColor(String? status, bool? solicitaCanc) {
+    if (status?.toLowerCase() == 'cancelado') {
+      return Colors.grey.shade50;
+    }
+
+    if (solicitaCanc == true) {
+      return Colors.red.shade50;
+    }
+
+    switch (status?.toLowerCase()) {
+      case 'emitido':
+        return Colors.green.shade50;
+      case 'pendente':
+      case 'aguardando':
+        return Colors.orange.shade50;
+      case 'cancelado':
+        return Colors.grey.shade50;
+      default:
+        return Colors.grey.shade50;
+    }
+  }
+
+  Color _getBorderColor(String? status, bool? solicitaCanc) {
+    if (status?.toLowerCase() == 'cancelado') {
+      return Colors.grey.shade300;
+    }
+
+    if (solicitaCanc == true) {
+      return Colors.red.shade300;
+    }
+
+    switch (status?.toLowerCase()) {
+      case 'emitido':
+        return Colors.green.shade300;
+      case 'pendente':
+      case 'aguardando':
+        return Colors.orange.shade300;
+      case 'cancelado':
+        return Colors.grey.shade300;
+      default:
+        return Colors.grey.shade300;
+    }
+  }
+
+  String _getStatusText(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'emitido':
+        return 'Emitido';
+      case 'pendente':
+      case 'aguardando':
+        return 'Pendente';
+      case 'cancelado':
+        return 'Cancelado';
+      default:
+        return 'Sem status';
+    }
   }
 
   void _abrirCACL() {
@@ -877,6 +1028,301 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                   ),
                 ],
               ),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _line, width: 1.2),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.receipt_long_outlined, size: 18, color: _accent),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'CACLs emitidos do tanque',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: _ink,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.refresh, size: 18, color: _accent),
+                      onPressed: _tanqueSelecionadoParaAcoes?['id'] == null
+                          ? null
+                          : () {
+                              final tanqueId =
+                                  _tanqueSelecionadoParaAcoes?['id']?.toString();
+                              if (tanqueId != null && tanqueId.isNotEmpty) {
+                                _carregarCaclsDoTanque(tanqueId);
+                              }
+                            },
+                      tooltip: 'Recarregar CACLs',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (_carregandoCacls)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: CircularProgressIndicator(color: _accent),
+                  ),
+                )
+              else if (_caclesTanque.isEmpty)
+                Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.receipt_long_outlined, size: 52, color: _muted),
+                      SizedBox(height: 10),
+                      Text(
+                        'Nenhum CACL encontrado para este tanque',
+                        style: TextStyle(fontSize: 14, color: _muted),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _caclesTanque.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final cacl = _caclesTanque[index];
+                    final status = cacl['status']?.toString();
+                    final solicitaCanc = cacl['solicita_canc'] as bool?;
+                    final isCancelado = status?.toLowerCase() == 'cancelado';
+                    final statusColor = _getStatusColor(status);
+                    final cardColor = _getCardColor(status, solicitaCanc);
+                    final borderColor = _getBorderColor(status, solicitaCanc);
+                    final statusText = _getStatusText(status);
+                    final tanqueRef = cacl['tanques']?['referencia']?.toString() ?? '-';
+                    final produto = cacl['produto'] ?? 'Produto não informado';
+                    final data = _formatarData(cacl['data']);
+                    final horario = _formatarHorario(
+                      cacl['horario_inicial'],
+                      cacl['horario_final'],
+                    );
+
+                    return MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      onEnter: (_) {
+                        setState(() => _hoverCaclIndex = index);
+                      },
+                      onExit: (_) {
+                        setState(() => _hoverCaclIndex = null);
+                      },
+                      child: GestureDetector(
+                        onTap: () async {
+                          final nivelUsuario = UsuarioAtual.instance?.nivel ?? 0;
+                          if (nivelUsuario == 2 && isCancelado) {
+                            return;
+                          }
+
+                          final caclId = cacl['id'].toString();
+
+                          if (!context.mounted) return;
+
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => CaclHistoricoPage(
+                                caclId: caclId,
+                                onVoltar: () {
+                                  Navigator.pop(context);
+                                },
+                              ),
+                            ),
+                          );
+
+                          final tanqueId =
+                              _tanqueSelecionadoParaAcoes?['id']?.toString();
+                          if (tanqueId != null && tanqueId.isNotEmpty) {
+                            _carregarCaclsDoTanque(tanqueId);
+                          }
+                        },
+                        child: Opacity(
+                          opacity: isCancelado ? 0.85 : 1.0,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            curve: Curves.easeOut,
+                            transform: _hoverCaclIndex == index
+                                ? (Matrix4.identity()..scale(1.01))
+                                : Matrix4.identity(),
+                            decoration: BoxDecoration(
+                              color: _hoverCaclIndex == index
+                                  ? cardColor.withOpacity(0.85)
+                                  : cardColor,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: borderColor,
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(
+                                    _hoverCaclIndex == index ? 0.15 : 0.05,
+                                  ),
+                                  blurRadius: _hoverCaclIndex == index ? 12 : 4,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    width: 4,
+                                    height: 60,
+                                    decoration: BoxDecoration(
+                                      color: statusColor,
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.storage,
+                                              size: 16,
+                                              color: Colors.black54,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'Tanque $tanqueRef',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                                color: isCancelado
+                                                    ? Colors.grey
+                                                    : Colors.black87,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.local_gas_station,
+                                              size: 14,
+                                              color: isCancelado
+                                                  ? Colors.grey
+                                                  : Colors.black54,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: Text(
+                                                produto,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: isCancelado
+                                                      ? Colors.grey
+                                                      : Colors.black87,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.calendar_today,
+                                              size: 14,
+                                              color: isCancelado
+                                                  ? Colors.grey
+                                                  : Colors.black54,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              data,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: isCancelado
+                                                    ? Colors.grey
+                                                    : Colors.black54,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 16),
+                                            Icon(
+                                              Icons.access_time,
+                                              size: 14,
+                                              color: isCancelado
+                                                  ? Colors.grey
+                                                  : Colors.black54,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: Text(
+                                                horario,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: isCancelado
+                                                      ? Colors.grey
+                                                      : Colors.black54,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: statusColor.withOpacity(0.15),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          statusText,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: statusColor,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
             ]
           ],
         ),
