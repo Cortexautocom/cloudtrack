@@ -1094,13 +1094,6 @@ class _TanqueCardState extends State<_TanqueCard> {
                     ],
                   ),
                   const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.edit, size: 18),
-                    onPressed: widget.onTap,
-                    color: _ink,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
                 ],
               ),
             ),
