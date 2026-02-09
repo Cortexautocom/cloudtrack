@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
+import 'emitir_cacl.dart';
 //import 'escolherfilial.dart';
 
 class GerenciamentoTanquesPage extends StatefulWidget {
@@ -31,7 +32,6 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
   bool _carregando = true;
   bool _editando = false;
   bool _mostrandoCardsAcoes = false; // ← NOVO: MOSTRA CARDS DE AÇÕES
-  bool _mostrandoCACL = false; // ← NOVO: MOSTRA CACL
   Map<String, dynamic>? _tanqueEditando;
   Map<String, dynamic>? _tanqueSelecionadoParaAcoes; // ← NOVO: TANQUE PARA CARDS DE AÇÕES
   String? _nomeFilial; // ← PARA MOSTRAR O NOME DA FILIAL
@@ -251,20 +251,15 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
   }
 
   void _abrirCACL() {
-    final filialId = widget.filialSelecionadaId ?? UsuarioAtual.instance!.filialId ?? '';
-    // Esconde os cards antes de chamar o callback
-    setState(() {
-      _mostrandoCardsAcoes = false;
-      _mostrandoCACL = true;
-    });
-    widget.onAbrirCACL?.call(filialId);
-  }
-
-  void _voltarDoCACL() {
-    setState(() {
-      _mostrandoCACL = false;
-      _mostrandoCardsAcoes = true;
-    });
+    final filialId = widget.filialSelecionadaId ?? UsuarioAtual.instance!.filialId;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => MedicaoTanquesPage(
+          onVoltar: () => Navigator.pop(context),
+          filialSelecionadaId: filialId,
+        ),
+      ),
+    );
   }
 
   void _abrirEdicaoTanque() {
@@ -435,9 +430,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                     ? _cancelarEdicao 
                     : (_mostrandoCardsAcoes 
                         ? () => setState(() => _mostrandoCardsAcoes = false) 
-                        : (_mostrandoCACL
-                            ? _voltarDoCACL
-                            : widget.onVoltar)),
+                    : widget.onVoltar),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
@@ -452,14 +445,14 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                           ? 'Editar Tanque' 
                           : (_mostrandoCardsAcoes 
                               ? 'Ações do Tanque' 
-                              : (_mostrandoCACL ? 'CACL' : 'Gerenciamento de Tanques')),
+                              : 'Gerenciamento de Tanques'),
                       style: const TextStyle(
                         fontSize: 19, 
                         fontWeight: FontWeight.bold, 
                         color: _ink
                       ),
                     ),
-                    if (_nomeFilial != null && !_editando && !_mostrandoCardsAcoes && !_mostrandoCACL)
+                    if (_nomeFilial != null && !_editando && !_mostrandoCardsAcoes)
                       Text(
                         'Filial: $_nomeFilial',
                         style: TextStyle(
@@ -471,7 +464,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                   ],
                 ),
               ),
-              if (!_editando && !_mostrandoCardsAcoes && !_mostrandoCACL)
+              if (!_editando && !_mostrandoCardsAcoes)
                 IconButton(
                   icon: const Icon(Icons.refresh, color: _ink),
                   onPressed: _carregarDados,
@@ -484,9 +477,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
           Expanded(
             child: _editando 
                 ? _buildFormularioEdicao()
-                : (_mostrandoCACL 
-                    ? _buildPaginaCACL()
-                    : (_mostrandoCardsAcoes ? _buildCardsAcoesDoTanque() : _buildListaTanques())),
+                : (_mostrandoCardsAcoes ? _buildCardsAcoesDoTanque() : _buildListaTanques()),
           ),
         ],
       ),
@@ -950,21 +941,6 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
     );
   }
 
-  Widget _buildPaginaCACL() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
-          CircularProgressIndicator(color: _accent),
-          SizedBox(height: 20),
-          Text(
-            'Carregando CACL...',
-            style: TextStyle(fontSize: 16, color: _ink),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _TanqueCard extends StatefulWidget {
