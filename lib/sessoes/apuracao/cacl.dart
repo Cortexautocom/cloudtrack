@@ -566,65 +566,76 @@ class _CalcPageState extends State<CalcPage> {
   Future<double> _buscarVolumeReal(String? cm, String? mm) async {
     final supabase = Supabase.instance.client;
 
-    if (cm == null || cm.isEmpty) return 0;
+    if (cm == null || cm.isEmpty) {
+      return 0;
+    }
 
     final intCm = int.tryParse(cm) ?? 0;
     final intMm = int.tryParse(mm ?? '0') ?? 0;
 
     final String? filialId = widget.dadosFormulario['filial_id']?.toString();
-    String? nomeTabela;
-
-    // 1. Definição restrita das tabelas
-    if (filialId == '9d476aa0-11fe-4470-8881-2699cb528690') {
-      nomeTabela = 'arqueacao_jequie';
-    } else if (filialId == 'bcc92c8e-bd40-4d26-acb0-87acdd2ce2b7') {
-      nomeTabela = 'arqueacao_janauba';
+    String nomeTabela;
+    
+    if (filialId != null) {
+      switch (filialId) {
+        case '9d476aa0-11fe-4470-8881-2699cb528690':
+          nomeTabela = 'arqueacao_jequie';
+          break;
+        case 'bcc92c8e-bd40-4d26-acb0-87acdd2ce2b7':
+          nomeTabela = 'arqueacao_base_teste';
+          break;
+        default:
+          nomeTabela = 'arqueacao_base_teste';
+      }
+    } else {
+      nomeTabela = 'arqueacao_base_teste';
     }
 
-    // 2. Validação de existência da tabela
-    if (nomeTabela == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Sem tabela de arqueação cadastrada")),
-      );
-      return 0;
-    }
-
-    // Lógica de identificação do tanque (mantida)
     final String tanqueRef = widget.dadosFormulario['tanque']?.toString() ?? '';
     String numeroTanque = '01';
+    
     if (tanqueRef.isNotEmpty) {
       final numeros = tanqueRef.replaceAll(RegExp(r'[^0-9]'), '');
-      if (numeros.isNotEmpty) numeroTanque = numeros.padLeft(2, '0');
+      if (numeros.isNotEmpty) {
+        numeroTanque = numeros.padLeft(2, '0');
+      }
     }
 
     final colunaCm = 'tq_${numeroTanque}_cm';
     final colunaMm = 'tq_${numeroTanque}_mm';
 
     try {
-      // Busca CM
       final resultadoCm = await supabase
           .from(nomeTabela)
           .select(colunaCm)
           .eq('altura_cm_mm', intCm)
           .maybeSingle();
 
-      if (resultadoCm == null || resultadoCm[colunaCm] == null) return 0;
+      if (resultadoCm == null || resultadoCm[colunaCm] == null) {
+        return 0;
+      }
 
       final volumeCm = _converterVolumeLitros(resultadoCm[colunaCm]);
-      if (intMm == 0) return volumeCm;
 
-      // Busca MM
+      if (intMm == 0) {
+        return volumeCm;
+      }
+
       final resultadoMm = await supabase
           .from(nomeTabela)
           .select(colunaMm)
           .eq('altura_cm_mm', intMm)
           .maybeSingle();
 
-      final volumeMm = (resultadoMm != null && resultadoMm[colunaMm] != null)
-          ? _converterVolumeLitros(resultadoMm[colunaMm])
-          : 0.0;
+      if (resultadoMm == null || resultadoMm[colunaMm] == null) {
+        return volumeCm;
+      }
 
-      return double.parse((volumeCm + volumeMm).toStringAsFixed(3));
+      final volumeMm = _converterVolumeLitros(resultadoMm[colunaMm]);
+      final volumeTotal = volumeCm + volumeMm;
+      
+      return double.parse(volumeTotal.toStringAsFixed(3));
+      
     } catch (e) {
       return 0;
     }
@@ -937,27 +948,12 @@ class _CalcPageState extends State<CalcPage> {
       if (filialId == null || filialId.isEmpty) return;
       if (tanqueId == null || tanqueId.isEmpty) return;
       
-      // 🔍 CONSTANTE DE MAPEAMENTO DE PRODUTOS (conforme sua tabela)
-      const Map<String, String> mapaProdutoColuna = {
-        '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 's10_a',
-        '4da89784-301f-4abe-b97e-c48729969e3d': 's500_a',
-        '58ce20cf-f252-4291-9ef6-f4821f22c29e': 'd_s10',
-        '66ca957a-5698-4a02-8c9e-987770b6a151': 'etanol',
-        '82c348c8-efa1-4d1a-953a-ee384d5780fc': 'g_comum',
-        '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 'g_aditivada',
-        'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': 'd_s500',
-        'cecab8eb-297a-4640-81ae-e88335b88d8b': 'anidro',
-        'ecd91066-e763-42e3-8a0e-d982ea6da535': 'b100',
-        'f8e95435-471a-424c-947f-def8809053a0': 'gasolina_a',
-      };
-      
-      // 🔍 BUSCAR INFORMAÇÕES DO TANQUE
       String? produtoId;
       
       try {
         final tanqueData = await supabase
             .from('tanques')
-            .select('id_produto')
+            .select('id_produto, referencia')
             .eq('id', tanqueId)
             .maybeSingle();
         
@@ -965,21 +961,9 @@ class _CalcPageState extends State<CalcPage> {
           produtoId = tanqueData['id_produto']?.toString();
         }
       } catch (e) {
-        print('⚠️ Erro ao buscar dados do tanque: $e');
         return;
       }
       
-      // ❌ VERIFICAR SE PRODUTO ID ESTÁ MAPEADO
-      if (produtoId == null || !mapaProdutoColuna.containsKey(produtoId)) {
-        print('⚠️ Produto não mapeado ou não encontrado: $produtoId');
-        return;
-      }
-      
-      // 🏷️ OBTER NOMES DAS COLUNAS DO PRODUTO
-      final nomeColunaAmbiente = mapaProdutoColuna[produtoId]!;
-      final nomeColunaVinte = '${mapaProdutoColuna[produtoId]!}_vinte';
-      
-      // 📅 FORMATAR DATA
       String dataMov = dadosCacl['data']?.toString() ?? '';
       String dataFormatada = '';
       
@@ -992,15 +976,23 @@ class _CalcPageState extends State<CalcPage> {
       
       final descricao = 'CACL $numeroControle, $dataFormatada';
       
-      // 📊 OBTER VOLUMES DO CACL
       final entradaSaidaAmbiente = dadosCacl['entrada_saida_ambiente'] ?? 0;
       final entradaSaida20 = dadosCacl['entrada_saida_20'] ?? 0;
       
-      // 🎯 CONSTRUIR DADOS PARA MOVIMENTAÇÃO
+      final entradaAmb = entradaSaidaAmbiente > 0 ? entradaSaidaAmbiente.round() : 0;
+      final saidaAmb = entradaSaidaAmbiente < 0 ? entradaSaidaAmbiente.abs().round() : 0;
+      
+      final entradaVinte = entradaSaida20 > 0 ? entradaSaida20.round() : 0;
+      final saidaVinte = entradaSaida20 < 0 ? entradaSaida20.abs().round() : 0;
+      
       final dadosMovimentacao = <String, dynamic>{
         'filial_id': filialId,
         'data_mov': dataMov,
         'descricao': descricao,
+        'entrada_amb': entradaAmb,
+        'entrada_vinte': entradaVinte,
+        'saida_amb': saidaAmb,
+        'saida_vinte': saidaVinte,
         'empresa_id': usuario.empresaId,
         'produto_id': produtoId,
         'cacl_id': caclId,
@@ -1009,25 +1001,44 @@ class _CalcPageState extends State<CalcPage> {
         'tipo_mov': null,
         'filial_origem_id': filialId,
         'observacoes': null,
-        'tipo_op': 'cacl',
         'updated_at': DateTime.now().toIso8601String(),
-        
-        // 🔄 COLUNAS ESPECÍFICAS DO PRODUTO
-        nomeColunaAmbiente: entradaSaidaAmbiente,      // Valor AMBIENTE
-        nomeColunaVinte: entradaSaida20,               // Valor 20ºC
       };
       
-      // 💾 SALVAR NO BANCO
+      String produtoNome = dadosCacl['produto']?.toString().toLowerCase() ?? '';
+      Map<String, dynamic> camposProduto = {};
+      
+      if (produtoNome.contains('gasolina') && produtoNome.contains('comum')) {
+        camposProduto['g_comum'] = entradaVinte;
+      } else if (produtoNome.contains('gasolina') && produtoNome.contains('aditivada')) {
+        camposProduto['g_aditivada'] = entradaVinte;
+      } else if (produtoNome.contains('diesel') && produtoNome.contains('s10')) {
+        camposProduto['d_s10'] = entradaVinte;
+      } else if (produtoNome.contains('diesel') && produtoNome.contains('s500')) {
+        camposProduto['d_s500'] = entradaVinte;
+      } else if (produtoNome.contains('etanol')) {
+        camposProduto['etanol'] = entradaVinte;
+      } else if (produtoNome.contains('anidro')) {
+        camposProduto['anidro'] = entradaVinte;
+      } else if (produtoNome.contains('b100')) {
+        camposProduto['b100'] = entradaVinte;
+      } else if (produtoNome.contains('gasolina') && produtoNome.contains('a')) {
+        camposProduto['gasolina_a'] = entradaVinte;
+      } else if (produtoNome.contains('s500') && produtoNome.contains('a')) {
+        camposProduto['s500_a'] = entradaVinte;
+      } else if (produtoNome.contains('s10') && produtoNome.contains('a')) {
+        camposProduto['s10_a'] = entradaVinte;
+      }
+      
+      dadosMovimentacao.addAll(camposProduto);
+      dadosMovimentacao.removeWhere((key, value) => value == null);
+      
       await supabase
           .from('movimentacoes')
           .insert(dadosMovimentacao)
           .select('id')
           .single();
       
-      print('✅ Movimentação salva para produto $produtoId ($nomeColunaAmbiente, $nomeColunaVinte)');
-      
     } catch (e) {
-      print('❌ Erro ao salvar movimentação CACL: $e');
       // Silencioso - não interrompe o fluxo principal
     }
   }
@@ -1617,7 +1628,7 @@ class _CalcPageState extends State<CalcPage> {
     required double entradaSaidaAmbiente,
     required double entradaSaida20,
   }) {
-    // Função para formatar no padrão "999.999 L" sem sinal positivo
+    // Função para formatar no padrão "999.999 L"
     String fmt(double v) {
       if (v.isNaN) return "-";
       
@@ -1645,36 +1656,6 @@ class _CalcPageState extends State<CalcPage> {
       }
       
       // Se número for menor que 1000, não adiciona ponto
-      final sinal = isNegativo ? '-' : '';
-      return '$sinal$inteiroFormatado L';
-    }
-
-    // Função para formatar no padrão "999.999 L" com sinal positivo
-    String fmtComSinal(double v) {
-      if (v.isNaN) return "-";
-
-      final volumeInteiro = v.round();
-      final isNegativo = volumeInteiro < 0;
-      String inteiroFormatado = volumeInteiro.abs().toString();
-
-      if (inteiroFormatado.length > 3) {
-        final buffer = StringBuffer();
-        int contador = 0;
-
-        for (int i = inteiroFormatado.length - 1; i >= 0; i--) {
-          buffer.write(inteiroFormatado[i]);
-          contador++;
-
-          if (contador == 3 && i > 0) {
-            buffer.write('.');
-            contador = 0;
-          }
-        }
-
-        final chars = buffer.toString().split('').reversed.toList();
-        inteiroFormatado = chars.join('');
-      }
-
       final sinal = isNegativo ? '-' : (v > 0 ? '+' : '');
       return '$sinal$inteiroFormatado L';
     }
@@ -1742,7 +1723,7 @@ class _CalcPageState extends State<CalcPage> {
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
-              child: Text(fmtComSinal(entradaSaidaAmbiente),
+              child: Text(fmt(entradaSaidaAmbiente),
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10)),
             ),
@@ -1770,7 +1751,7 @@ class _CalcPageState extends State<CalcPage> {
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
-              child: Text(fmtComSinal(entradaSaida20),
+              child: Text(fmt(entradaSaida20),
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10)),
             ),
