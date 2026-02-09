@@ -937,16 +937,26 @@ class _CalcPageState extends State<CalcPage> {
       final supabase = Supabase.instance.client;
       final usuario = UsuarioAtual.instance;
       
-      if (usuario == null) return;
+      if (usuario == null) {
+        return;
+      }
       
       final tipoCACL = dadosCacl['tipo']?.toString();
       final filialId = dadosCacl['filial_id']?.toString();
       final tanqueId = dadosCacl['tanque_id']?.toString();
       
-      if (tipoCACL != 'movimentacao') return;
-      if (numeroControle == null || numeroControle.isEmpty) return;
-      if (filialId == null || filialId.isEmpty) return;
-      if (tanqueId == null || tanqueId.isEmpty) return;
+      if (tipoCACL != 'movimentacao') {
+        return;
+      }
+      if (numeroControle == null || numeroControle.isEmpty) {
+        return;
+      }
+      if (filialId == null || filialId.isEmpty) {
+        return;
+      }
+      if (tanqueId == null || tanqueId.isEmpty) {
+        return;
+      }
       
       String? produtoId;
       
@@ -978,21 +988,28 @@ class _CalcPageState extends State<CalcPage> {
       
       final entradaSaidaAmbiente = dadosCacl['entrada_saida_ambiente'] ?? 0;
       final entradaSaida20 = dadosCacl['entrada_saida_20'] ?? 0;
-      
-      final entradaAmb = entradaSaidaAmbiente > 0 ? entradaSaidaAmbiente.round() : 0;
-      final saidaAmb = entradaSaidaAmbiente < 0 ? entradaSaidaAmbiente.abs().round() : 0;
-      
-      final entradaVinte = entradaSaida20 > 0 ? entradaSaida20.round() : 0;
-      final saidaVinte = entradaSaida20 < 0 ? entradaSaida20.abs().round() : 0;
+
+        final double entradaAmb = entradaSaidaAmbiente is num
+          ? entradaSaidaAmbiente.toDouble()
+          : double.tryParse(entradaSaidaAmbiente.toString()) ?? 0.0;
+        final double entradaVinte = entradaSaida20 is num
+          ? entradaSaida20.toDouble()
+          : double.tryParse(entradaSaida20.toString()) ?? 0.0;
+
+        final double entradaAmbPositiva = entradaAmb >= 0 ? entradaAmb : 0.0;
+        final double saidaAmbPositiva = entradaAmb < 0 ? entradaAmb.abs() : 0.0;
+        final double entradaVintePositiva = entradaVinte >= 0 ? entradaVinte : 0.0;
+        final double saidaVintePositiva = entradaVinte < 0 ? entradaVinte.abs() : 0.0;
+
       
       final dadosMovimentacao = <String, dynamic>{
         'filial_id': filialId,
         'data_mov': dataMov,
         'descricao': descricao,
-        'entrada_amb': entradaAmb,
-        'entrada_vinte': entradaVinte,
-        'saida_amb': saidaAmb,
-        'saida_vinte': saidaVinte,
+        'entrada_amb': entradaAmbPositiva,
+        'entrada_vinte': entradaVintePositiva,
+        'saida_amb': saidaAmbPositiva,
+        'saida_vinte': saidaVintePositiva,
         'empresa_id': usuario.empresaId,
         'produto_id': produtoId,
         'cacl_id': caclId,
@@ -1003,34 +1020,6 @@ class _CalcPageState extends State<CalcPage> {
         'observacoes': null,
         'updated_at': DateTime.now().toIso8601String(),
       };
-      
-      String produtoNome = dadosCacl['produto']?.toString().toLowerCase() ?? '';
-      Map<String, dynamic> camposProduto = {};
-      
-      if (produtoNome.contains('gasolina') && produtoNome.contains('comum')) {
-        camposProduto['g_comum'] = entradaVinte;
-      } else if (produtoNome.contains('gasolina') && produtoNome.contains('aditivada')) {
-        camposProduto['g_aditivada'] = entradaVinte;
-      } else if (produtoNome.contains('diesel') && produtoNome.contains('s10')) {
-        camposProduto['d_s10'] = entradaVinte;
-      } else if (produtoNome.contains('diesel') && produtoNome.contains('s500')) {
-        camposProduto['d_s500'] = entradaVinte;
-      } else if (produtoNome.contains('etanol')) {
-        camposProduto['etanol'] = entradaVinte;
-      } else if (produtoNome.contains('anidro')) {
-        camposProduto['anidro'] = entradaVinte;
-      } else if (produtoNome.contains('b100')) {
-        camposProduto['b100'] = entradaVinte;
-      } else if (produtoNome.contains('gasolina') && produtoNome.contains('a')) {
-        camposProduto['gasolina_a'] = entradaVinte;
-      } else if (produtoNome.contains('s500') && produtoNome.contains('a')) {
-        camposProduto['s500_a'] = entradaVinte;
-      } else if (produtoNome.contains('s10') && produtoNome.contains('a')) {
-        camposProduto['s10_a'] = entradaVinte;
-      }
-      
-      dadosMovimentacao.addAll(camposProduto);
-      dadosMovimentacao.removeWhere((key, value) => value == null);
       
       await supabase
           .from('movimentacoes')
@@ -2093,6 +2082,53 @@ class _CalcPageState extends State<CalcPage> {
       final String colunaExata = 'v_$codigoBase';
       final String prefixo = 'v_${codigoBase.substring(0, 4)}';
 
+      int? _codigoFcvAlvo() {
+        final cod = colunaExata.replaceFirst('v_', '');
+        return int.tryParse(cod);
+      }
+
+      Map<String, dynamic>? _valorMaisProximo(Map<String, dynamic> linha) {
+        final alvo = _codigoFcvAlvo();
+        if (alvo == null) return null;
+
+        int? melhorDelta;
+        String? melhorColuna;
+        dynamic melhorValor;
+
+        for (final entry in linha.entries) {
+          final key = entry.key;
+          if (!key.startsWith('v_')) continue;
+
+          final codStr = key.substring(2);
+          final cod = int.tryParse(codStr);
+          if (cod == null) continue;
+
+          final valor = entry.value;
+          if (valor == null) continue;
+          if (valor is String) {
+            final limpo = valor.trim();
+            if (limpo.isEmpty || limpo == '-' || limpo.toLowerCase() == 'null') {
+              continue;
+            }
+          }
+
+          final delta = (cod - alvo).abs();
+          if (melhorDelta == null || delta < melhorDelta) {
+            melhorDelta = delta;
+            melhorColuna = key;
+            melhorValor = valor;
+          }
+        }
+
+        if (melhorColuna == null || melhorValor == null) return null;
+        return {
+          'coluna': melhorColuna,
+          'valor': melhorValor,
+        };
+      }
+
+      bool colunaInexistente = false;
+
       try {
         final r1 = await supabase
             .from(nomeView)
@@ -2105,6 +2141,27 @@ class _CalcPageState extends State<CalcPage> {
         }
       } catch (e) {
         // Falha esperada se a coluna não existir
+        final msg = e.toString().toLowerCase();
+        if (msg.contains('does not exist') || msg.contains('42703')) {
+          colunaInexistente = true;
+        }
+      }
+
+      if (colunaInexistente) {
+        final linha = await supabase
+            .from(nomeView)
+            .select('*')
+            .eq('temperatura_obs', temperaturaFormatada)
+            .limit(1)
+            .maybeSingle();
+
+        if (linha != null) {
+          final escolha = _valorMaisProximo(linha);
+          if (escolha != null) {
+            final valor = escolha['valor'];
+            return _formatarResultadoFCV(valor.toString());
+          }
+        }
       }
 
       final linha = await supabase
