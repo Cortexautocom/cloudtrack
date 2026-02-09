@@ -21,6 +21,7 @@ Future<void> main() async {
     anonKey: supabaseAnonKey,
     authOptions: const FlutterAuthClientOptions(
       authFlowType: AuthFlowType.pkce,
+      autoRefreshToken: true,
     ),
   );
 
