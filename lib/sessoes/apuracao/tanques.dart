@@ -252,11 +252,13 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
 
   void _abrirCACL() {
     final filialId = widget.filialSelecionadaId ?? UsuarioAtual.instance!.filialId;
+    final tanqueId = _tanqueSelecionadoParaAcoes?['id']?.toString();
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => MedicaoTanquesPage(
           onVoltar: () => Navigator.pop(context),
           filialSelecionadaId: filialId,
+          tanqueSelecionadoId: tanqueId,
         ),
       ),
     );

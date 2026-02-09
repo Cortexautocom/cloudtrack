@@ -1617,7 +1617,7 @@ class _CalcPageState extends State<CalcPage> {
     required double entradaSaidaAmbiente,
     required double entradaSaida20,
   }) {
-    // Função para formatar no padrão "999.999 L"
+    // Função para formatar no padrão "999.999 L" sem sinal positivo
     String fmt(double v) {
       if (v.isNaN) return "-";
       
@@ -1645,6 +1645,36 @@ class _CalcPageState extends State<CalcPage> {
       }
       
       // Se número for menor que 1000, não adiciona ponto
+      final sinal = isNegativo ? '-' : '';
+      return '$sinal$inteiroFormatado L';
+    }
+
+    // Função para formatar no padrão "999.999 L" com sinal positivo
+    String fmtComSinal(double v) {
+      if (v.isNaN) return "-";
+
+      final volumeInteiro = v.round();
+      final isNegativo = volumeInteiro < 0;
+      String inteiroFormatado = volumeInteiro.abs().toString();
+
+      if (inteiroFormatado.length > 3) {
+        final buffer = StringBuffer();
+        int contador = 0;
+
+        for (int i = inteiroFormatado.length - 1; i >= 0; i--) {
+          buffer.write(inteiroFormatado[i]);
+          contador++;
+
+          if (contador == 3 && i > 0) {
+            buffer.write('.');
+            contador = 0;
+          }
+        }
+
+        final chars = buffer.toString().split('').reversed.toList();
+        inteiroFormatado = chars.join('');
+      }
+
       final sinal = isNegativo ? '-' : (v > 0 ? '+' : '');
       return '$sinal$inteiroFormatado L';
     }
@@ -1712,7 +1742,7 @@ class _CalcPageState extends State<CalcPage> {
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
-              child: Text(fmt(entradaSaidaAmbiente),
+              child: Text(fmtComSinal(entradaSaidaAmbiente),
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10)),
             ),
@@ -1740,7 +1770,7 @@ class _CalcPageState extends State<CalcPage> {
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
-              child: Text(fmt(entradaSaida20),
+              child: Text(fmtComSinal(entradaSaida20),
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10)),
             ),
