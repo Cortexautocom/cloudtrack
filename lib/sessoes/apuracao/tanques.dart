@@ -50,6 +50,14 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
     _carregarDados();
   }
 
+  int _extrairNumeroTanque(String referencia) {
+    final match = RegExp(r'TQ[^0-9]*([0-9]+)', caseSensitive: false).firstMatch(referencia);
+    if (match == null) {
+      return 0;
+    }
+    return int.tryParse(match.group(1) ?? '') ?? 0;
+  }
+
   Future<void> _carregarDados() async {
     try {
       final supabase = Supabase.instance.client;
@@ -173,6 +181,15 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
           'filial': nomeFilial,
         });
       }
+
+      tanquesFormatados.sort((a, b) {
+        final numA = _extrairNumeroTanque(a['referencia']?.toString() ?? '');
+        final numB = _extrairNumeroTanque(b['referencia']?.toString() ?? '');
+        if (numA != numB) {
+          return numA.compareTo(numB);
+        }
+        return (a['referencia']?.toString() ?? '').compareTo(b['referencia']?.toString() ?? '');
+      });
 
       setState(() {
         tanques = tanquesFormatados;
@@ -518,66 +535,6 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _line, width: 1.2),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: _accent.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _accent.withOpacity(0.2)),
-                  ),
-                  child: const Icon(Icons.storage, color: _accent, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        'Painel de Tanques',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: _ink,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Visao geral e acesso rapido aos dados do tanque.',
-                        style: TextStyle(fontSize: 12, color: _muted),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _accent.withOpacity(0.6), width: 1.2),
-                  ),
-                  child: Text(
-                    '${tanques.length} registros',
-                    style: const TextStyle(
-                      color: _accent,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
