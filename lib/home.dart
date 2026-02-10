@@ -13,7 +13,7 @@ import 'sessoes/apuracao/tanques.dart';
 import 'sessoes/apuracao/escolherfilial.dart';
 import 'sessoes/vendas/programacao.dart'; 
 import 'sessoes/estoques/estoque_geral.dart';
-import 'sessoes/estoques/estoque_tanque.dart';
+import 'sessoes/apuracao/estoque_tanque.dart';
 import 'sessoes/apuracao/historico_cacl.dart';
 import 'sessoes/apuracao/listar_cacls.dart';
 import 'sessoes/estoques/estoque_downloads.dart';
@@ -87,6 +87,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarTempDensMedia = false;
   bool _mostrarCardsFilial = false;
   bool _voltarParaTanquesApoCACL = false; // ← RASTREIA SE VEIO DE TANQUES
+  bool _estoquePorTanqueVemDaApuracao = false; // ← RASTREIA ORIGEM DO ESTOQUE POR TANQUE
   
   // NOVAS VARIÁVEIS PARA GESTÃO DE FROTA
   bool _mostrarVeiculos = false;
@@ -1334,12 +1335,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           onVoltar: () {
             setState(() {
               _mostrarEstoquePorTanque = false;
-              
-              // Se veio do fluxo de filial (cards intermediários), volta para lá
-              if (_filialParaFiltroId != null) {
+              if (_estoquePorTanqueVemDaApuracao) {
+                _estoquePorTanqueVemDaApuracao = false;
+                _mostrarFilhosDaSessao('Apuração');
+              } else if (_filialParaFiltroId != null) {
+                // Se veio do fluxo de filial (cards intermediarios), volta para la
                 _mostrarCardsFilial = true;
               } else {
-                // Senão, volta para a lista principal de cards de Estoques
+                // Senao, volta para a lista principal de cards de Estoques
                 _mostrarFilhosDaSessao('Estoques');
               }
             });
@@ -1957,6 +1960,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         break;
       case 'estoque_por_tanque':
         setState(() {
+          _estoquePorTanqueVemDaApuracao = true;
           _mostrarEstoquePorTanque = true;
         });
         break;
@@ -1983,6 +1987,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         break;
       case 'estoque_por_tanque':
         setState(() {
+          _estoquePorTanqueVemDaApuracao = false;
           _mostrarEstoquePorTanque = true;
         });
         break;
