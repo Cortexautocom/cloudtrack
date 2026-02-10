@@ -414,18 +414,26 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
     }
   }
 
-  void _abrirCACL() {
+  Future<void> _abrirCACL() async {
     final filialId = widget.filialSelecionadaId ?? UsuarioAtual.instance!.filialId;
     final tanqueId = _tanqueSelecionadoParaAcoes?['id']?.toString();
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => MedicaoTanquesPage(
           onVoltar: () => Navigator.pop(context),
           filialSelecionadaId: filialId,
           tanqueSelecionadoId: tanqueId,
+          onFinalizarCACL: () {
+            // Callback chamado quando CACL é emitido
+          },
         ),
       ),
     );
+    
+    // Recarrega a lista de CACLs do tanque quando volta
+    if (tanqueId != null && tanqueId.isNotEmpty) {
+      await _carregarCaclsDoTanque(tanqueId);
+    }
   }
 
   void _abrirEdicaoTanque() {
