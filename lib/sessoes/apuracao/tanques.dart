@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
 import 'emitir_cacl.dart';
@@ -45,6 +46,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
   // Controladores para o formulário de edição
   final TextEditingController _referenciaController = TextEditingController();
   final TextEditingController _capacidadeController = TextEditingController();
+  final TextEditingController _lastroController = TextEditingController();
   String? _produtoSelecionado;
   String? _statusSelecionado;
 
@@ -121,6 +123,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
               id,
               referencia,
               capacidade,
+              lastro,
               status,
               id_produto,
               id_filial,
@@ -150,6 +153,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
               id,
               referencia,
               capacidade,
+              lastro,
               status,
               id_produto,
               produtos (nome)
@@ -179,6 +183,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
           'referencia': tanque['referencia']?.toString() ?? 'SEM REFERÊNCIA',
           'produto': tanque['produtos']?['nome']?.toString() ?? 'PRODUTO NÃO INFORMADO',
           'capacidade': tanque['capacidade']?.toString() ?? '0',
+          'lastro': tanque['lastro']?.toString(),
           'status': tanque['status']?.toString() ?? 'Em operação',
           'id_produto': tanque['id_produto'],
           // Adicionar nome da filial se for admin
@@ -231,6 +236,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       
       _produtoSelecionado = tanque['id_produto']?.toString();
       _statusSelecionado = tanque['status'];
+      _lastroController.text = _formatarMilhar(tanque['lastro']);
     });
   }
 
@@ -240,6 +246,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       _tanqueEditando = null;
       _referenciaController.clear();
       _capacidadeController.clear();
+      _lastroController.clear();
       _produtoSelecionado = null;
       _statusSelecionado = null;
       // Volta para os cards de ações
@@ -417,7 +424,12 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
 
   void _abrirEdicaoTanque() {
     if (_tanqueSelecionadoParaAcoes != null) {
-      _editarTanque(_tanqueSelecionadoParaAcoes!);
+      final tanqueId = _tanqueSelecionadoParaAcoes?['id'];
+      final tanqueAtualizado = tanques.firstWhere(
+        (t) => t['id'] == tanqueId,
+        orElse: () => _tanqueSelecionadoParaAcoes!,
+      );
+      _editarTanque(tanqueAtualizado);
       setState(() {
         _mostrandoCardsAcoes = false;
       });
@@ -465,10 +477,30 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
     }
   }
 
+  void _aplicarMascaraLastro(String valor) {
+    final digitsOnly = valor.replaceAll(RegExp(r'[^\d]'), '');
+    if (digitsOnly.isEmpty) {
+      _lastroController.clear();
+      return;
+    }
+
+    final novoTexto = _formatarMilhar(digitsOnly);
+    if (_lastroController.text != novoTexto) {
+      _lastroController.text = novoTexto;
+      _lastroController.selection = TextSelection.fromPosition(
+        TextPosition(offset: novoTexto.length),
+      );
+    }
+  }
+
   Future<void> _salvarTanque() async {
     // Validação do valor mínimo
     final capacidadeTexto = _capacidadeController.text.trim();
     final valorNumerico = int.tryParse(capacidadeTexto.replaceAll('.', '')) ?? 0;
+    final lastroTexto = _lastroController.text.trim();
+    final lastroValor = lastroTexto.isEmpty
+      ? null
+      : int.tryParse(lastroTexto.replaceAll('.', ''));
     
     if (valorNumerico < 1000) {
       if (mounted) {
@@ -511,6 +543,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       final Map<String, dynamic> dadosAtualizados = {
         'referencia': _referenciaController.text.trim(),
         'capacidade': capacidadeTexto,
+        'lastro': lastroValor,
         'status': _statusSelecionado,
         'id_produto': _produtoSelecionado,
         'id_filial': idFilial, // ← Sempre definir a filial
@@ -558,16 +591,31 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
   void dispose() {
     _referenciaController.dispose();
     _capacidadeController.dispose();
+    _lastroController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Column(
-        children: [
+    return Shortcuts(
+      shortcuts: {
+        LogicalKeySet(LogicalKeyboardKey.escape): const _UnfocusIntent(),
+      },
+      child: Actions(
+        actions: {
+          _UnfocusIntent: CallbackAction<_UnfocusIntent>(
+            onInvoke: (intent) {
+              FocusManager.instance.primaryFocus?.unfocus();
+              return null;
+            },
+          ),
+        },
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(
+            backgroundColor: Colors.white,
+            body: Column(
+              children: [
           // Cabeçalho
           Container(
             width: double.infinity,
@@ -632,7 +680,10 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                 ? _buildFormularioEdicao()
                 : (_mostrandoCardsAcoes ? _buildCardsAcoesDoTanque() : _buildListaTanques()),
           ),
-        ],
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -863,6 +914,21 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                             ),
                             SizedBox(
                               width: fieldWidth,
+                              child: TextFormField(
+                                controller: _lastroController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Lastro',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.opacity, color: _accent),
+                                  suffixText: 'Litros',
+                                  hintText: '999.999',
+                                ),
+                                keyboardType: TextInputType.number,
+                                onChanged: _aplicarMascaraLastro,
+                              ),
+                            ),
+                            SizedBox(
+                              width: fieldWidth,
                               child: DropdownButtonFormField<String>(
                                 value: _produtoSelecionado,
                                 decoration: const InputDecoration(
@@ -1014,6 +1080,16 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                       titulo: 'CACL',
                       descricao: 'Emitir CACL',
                       onTap: _abrirCACL,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  // Card Estoque Tanque
+                  Expanded(
+                    child: _buildCardAcao(
+                      icon: Icons.inventory_2,
+                      titulo: 'Estoque tanque',
+                      descricao: 'Consultar estoque do tanque',
+                      onTap: () {},
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -1464,6 +1540,18 @@ class _TanqueCardState extends State<_TanqueCard> {
                             fontSize: 13,
                           ),
                         ),
+                        if (widget.tanque['lastro'] != null &&
+                            widget.tanque['lastro'].toString().trim().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              'Lastro: ${_formatarMilhar(widget.tanque['lastro'])} L',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: _muted,
+                              ),
+                            ),
+                          ),
                         if (UsuarioAtual.instance!.nivel == 3 && widget.tanque['filial'] != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
@@ -1526,4 +1614,25 @@ class _TanqueCardState extends State<_TanqueCard> {
       ),
     );
   }
+}
+
+class _UnfocusIntent extends Intent {
+  const _UnfocusIntent();
+}
+
+String _formatarMilhar(dynamic valor) {
+  if (valor == null) return '';
+  final digitsOnly = valor.toString().replaceAll(RegExp(r'[^\d]'), '');
+  if (digitsOnly.isEmpty) return '';
+
+  final buffer = StringBuffer();
+  for (int i = 0; i < digitsOnly.length; i++) {
+    final reverseIndex = digitsOnly.length - i;
+    buffer.write(digitsOnly[i]);
+    if (reverseIndex > 1 && reverseIndex % 3 == 1) {
+      buffer.write('.');
+    }
+  }
+
+  return buffer.toString();
 }
