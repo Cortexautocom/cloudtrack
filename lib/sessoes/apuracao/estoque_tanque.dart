@@ -2,13 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
 
-// =============================================================
-//            PÁGINA DE ESTOQUE DO TANQUE (INTRADAY)
-//   Replica visual/estilo da Programação Mês (tabela, cabeçalho,
-//   cores, scroll horizontal/vertical, linhas de estoque inicial
-//   e final, ordenação básica)
-// =============================================================
-
 class EstoqueTanquePage extends StatefulWidget {
   final String tanqueId;
   final String referenciaTanque;
@@ -41,8 +34,8 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   List<Map<String, dynamic>> _movs = [];
   List<Map<String, dynamic>> _movsOrdenadas = [];
 
-  Map<String, num> _estoqueInicial = {'amb': 0, 'vinte': 0};
-  Map<String, num> _estoqueFinal = {'amb': 0, 'vinte': 0};
+  Map<String, num?> _estoqueInicial = {'amb': null, 'vinte': null};
+  Map<String, num?> _estoqueFinal = {'amb': null, 'vinte': null};
 
   final ScrollController _vertical = ScrollController();
   final ScrollController _hHeader = ScrollController();
@@ -97,26 +90,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
 
     try {
       final dataStr = widget.data.toIso8601String().split('T')[0];
-      final diaAnterior = widget.data.subtract(const Duration(days: 1))
-          .toIso8601String()
-          .split('T')[0];
-
-      final anteriores = await _supabase
-          .from('movimentacoes')
-          .select('entrada_amb, entrada_vinte, saida_amb, saida_vinte')
-          .eq('tanque_id', widget.tanqueId)
-          .eq('filial_id', widget.filialId)
-          .lte('data_mov', diaAnterior);
-
-      num ambIni = 0, vinIni = 0;
-      for (final m in anteriores) {
-        ambIni += (m['entrada_amb'] ?? 0) as num;
-        ambIni -= (m['saida_amb'] ?? 0) as num;
-        vinIni += (m['entrada_vinte'] ?? 0) as num;
-        vinIni -= (m['saida_vinte'] ?? 0) as num;
-      }
-
-      _estoqueInicial = {'amb': ambIni, 'vinte': vinIni};
 
       final dados = await _supabase
           .from('movimentacoes')
@@ -128,34 +101,51 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             entrada_amb,
             entrada_vinte,
             saida_amb,
-            saida_vinte
+            saida_vinte,
+            tq_orig,
+            tq_dest
           ''')
-          .eq('tanque_id', widget.tanqueId)
-          .eq('filial_id', widget.filialId)
+          .or('tq_orig.eq.${widget.tanqueId},tq_dest.eq.${widget.tanqueId}')
           .eq('data_mov', dataStr)
           .order('ts_mov', ascending: true);
 
-      num saldoAmb = ambIni;
-      num saldoVinte = vinIni;
+      num saldoAmb = 0;
+      num saldoVinte = 0;
 
       final List<Map<String, dynamic>> lista = [];
+
       for (final m in dados) {
         final ea = (m['entrada_amb'] ?? 0) as num;
         final ev = (m['entrada_vinte'] ?? 0) as num;
         final sa = (m['saida_amb'] ?? 0) as num;
         final sv = (m['saida_vinte'] ?? 0) as num;
 
-        saldoAmb += ea - sa;
-        saldoVinte += ev - sv;
+        num entradaAmb = 0;
+        num entradaVinte = 0;
+        num saidaAmb = 0;
+        num saidaVinte = 0;
+
+        if (m['tq_dest'] == widget.tanqueId) {
+          entradaAmb = ea;
+          entradaVinte = ev;
+        }
+
+        if (m['tq_orig'] == widget.tanqueId) {
+          saidaAmb = sa;
+          saidaVinte = sv;
+        }
+
+        saldoAmb += entradaAmb - saidaAmb;
+        saldoVinte += entradaVinte - saidaVinte;
 
         lista.add({
           'id': m['id'],
           'data_mov': m['data_mov'],
           'descricao': m['descricao'] ?? '',
-          'entrada_amb': ea,
-          'entrada_vinte': ev,
-          'saida_amb': sa,
-          'saida_vinte': sv,
+          'entrada_amb': entradaAmb,
+          'entrada_vinte': entradaVinte,
+          'saida_amb': saidaAmb,
+          'saida_vinte': saidaVinte,
           'saldo_amb': saldoAmb,
           'saldo_vinte': saldoVinte,
         });
@@ -165,8 +155,8 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       _ordenar('data_mov', true);
 
       _estoqueFinal = {
-        'amb': _movsOrdenadas.isEmpty ? ambIni : _movsOrdenadas.last['saldo_amb'],
-        'vinte': _movsOrdenadas.isEmpty ? vinIni : _movsOrdenadas.last['saldo_vinte'],
+        'amb': _movsOrdenadas.isEmpty ? null : _movsOrdenadas.last['saldo_amb'],
+        'vinte': _movsOrdenadas.isEmpty ? null : _movsOrdenadas.last['saldo_vinte'],
       };
 
       setState(() => _carregando = false);
@@ -232,7 +222,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   Color _bgSaida() => Colors.red.shade50.withOpacity(0.3);
 
   String _fmtNum(num? v) {
-    if (v == null) return '0';
+    if (v == null) return '-';
     final s = v.abs().toStringAsFixed(0);
     final b = StringBuffer();
     for (int i = 0; i < s.length; i++) {
@@ -376,16 +366,16 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
               if (i == 0) {
                 return _linhaResumo(
                   'Estoque Inicial',
-                  _estoqueInicial['amb']!,
-                  _estoqueInicial['vinte']!,
+                  _estoqueInicial['amb'],
+                  _estoqueInicial['vinte'],
                   cor: Colors.blue,
                 );
               }
               if (i == _movsOrdenadas.length + 1) {
                 return _linhaResumo(
                   'Estoque Final',
-                  _estoqueFinal['amb']!,
-                  _estoqueFinal['vinte']!,
+                  _estoqueFinal['amb'],
+                  _estoqueFinal['vinte'],
                   cor: Colors.grey.shade700,
                 );
               }
@@ -402,8 +392,8 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
                     _cell(_fmtNum(e['entrada_vinte']), _wNum, bg: _bgEntrada()),
                     _cell(_fmtNum(e['saida_amb']), _wNum, bg: _bgSaida()),
                     _cell(_fmtNum(e['saida_vinte']), _wNum, bg: _bgSaida()),
-                    _cell(_fmtNum(e['saldo_amb']), _wNum, cor: (e['saldo_amb'] as num) < 0 ? Colors.red : null),
-                    _cell(_fmtNum(e['saldo_vinte']), _wNum, cor: (e['saldo_vinte'] as num) < 0 ? Colors.red : null),
+                    _cell(_fmtNum(e['saldo_amb']), _wNum, cor: (e['saldo_amb'] ?? 0) < 0 ? Colors.red : null),
+                    _cell(_fmtNum(e['saldo_vinte']), _wNum, cor: (e['saldo_vinte'] ?? 0) < 0 ? Colors.red : null),
                   ],
                 ),
               );
@@ -414,7 +404,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     );
   }
 
-  Widget _linhaResumo(String label, num amb, num vinte, {Color? cor}) {
+  Widget _linhaResumo(String label, num? amb, num? vinte, {Color? cor}) {
     return Container(
       height: _hRow,
       color: Colors.blue.shade50,
@@ -422,10 +412,10 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         children: [
           _cell('', _wData),
           _cell(label, _wDesc, cor: cor, fw: FontWeight.bold),
-          _cell('0', _wNum),
-          _cell('0', _wNum),
-          _cell('0', _wNum),
-          _cell('0', _wNum),
+          _cell('-', _wNum),
+          _cell('-', _wNum),
+          _cell('-', _wNum),
+          _cell('-', _wNum),
           _cell(_fmtNum(amb), _wNum, cor: cor, fw: FontWeight.bold),
           _cell(_fmtNum(vinte), _wNum, cor: cor, fw: FontWeight.bold),
         ],
