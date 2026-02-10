@@ -594,11 +594,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     if (nomeSessao == 'Estoques') {
       final usuario = UsuarioAtual.instance;
       if (usuario != null) {
-        if (usuario.nivel < 3) {
-          // Nível 1-2: Remove "estoque_por_empresa" e mantém "movimentacoes"
+        if (usuario.nivel <= 1) {
+          // Nível 1: Remove "estoque_por_empresa" e mantém "movimentacoes"
           filhos = filhos.where((card) => card['tipo'] != 'estoque_por_empresa').toList();
-        } else if (usuario.nivel >= 3) {
-          // Nível 3: Remove "movimentacoes" e mantém "estoque_por_empresa"
+        } else {
+          // Nível 2-3: Remove "movimentacoes" e mantém "estoque_por_empresa"
           filhos = filhos.where((card) => card['tipo'] != 'movimentacoes').toList();
         }
       }
