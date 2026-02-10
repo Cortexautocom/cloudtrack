@@ -1169,28 +1169,38 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
     }
   }
     
-  // Agrupar produtos por tipo considerando as 4 colunas padrão
+  // Agrupar produtos por tipo usando apenas volume ambiente (sem duplicar colunas)
   Map<String, double> _agruparProdutosParaCarregar() {
     final Map<String, double> produtos = {};
-    
-    for (var mov in _movimentacoes) {      
+    final filialAtualId = widget.filialAtualId;
+
+    for (var mov in _movimentacoes) {
       final produtoNome = mov['produtos']?['nome_dois']?.toString() ?? 'desconhecido';
-      
-      // Somar as 4 colunas padrão
+
+      final filialDestinoId = mov['filial_destino_id']?.toString();
+      final filialOrigemId = mov['filial_origem_id']?.toString();
+      final filialId = mov['filial_id']?.toString();
+
       final entradaAmb = (mov['entrada_amb'] ?? 0) as num;
-      final entradaVinte = (mov['entrada_vinte'] ?? 0) as num;
       final saidaAmb = (mov['saida_amb'] ?? 0) as num;
-      final saidaVinte = (mov['saida_vinte'] ?? 0) as num;
-      
-      final totalMov = entradaAmb + entradaVinte + saidaAmb + saidaVinte;
-      
-      if (totalMov > 0) {
-        produtos[produtoNome] = (produtos[produtoNome] ?? 0) + totalMov.toDouble();
+
+      num quantidade = 0;
+      if (filialAtualId.isNotEmpty && filialDestinoId == filialAtualId) {
+        quantidade = entradaAmb;
+      } else if (filialAtualId.isNotEmpty &&
+          (filialOrigemId == filialAtualId || filialId == filialAtualId)) {
+        quantidade = saidaAmb;
+      } else {
+        quantidade = saidaAmb > 0 ? saidaAmb : entradaAmb;
       }
+
+      if (quantidade <= 0) continue;
+
+      produtos[produtoNome] = (produtos[produtoNome] ?? 0) + quantidade.toDouble();
     }
-    
+
     return produtos;
-  } 
+  }
 
   Future<void> _finalizarCargaExpedicao() async {
     final ordemId = widget.ordem['ordem_id'];
