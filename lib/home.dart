@@ -219,16 +219,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         
         // Cards que devem ser sempre incluídos (sem filtro de permissão)
         final cardsObrigatorios = ['estoque_por_tanque'];
-        final tipo = card['tipo']?.toString() ?? '';
+        final tipoRaw = card['tipo']?.toString() ?? '';
+        final tipo = tipoRaw == 'movimentaces' ? 'movimentacoes' : tipoRaw;
         
         if (usuario.nivel >= 3 || usuario.podeAcessarCard(cardId) || cardsObrigatorios.contains(tipo)) {
           todosCards.add({
             'id': cardId,
             'label': card['nome'],
-            'tipo': card['tipo'],
+            'tipo': tipo,
             'sessao_pai': sessaoPai,
-            'icon': _definirIconePorTipo(card['tipo']),
-            'descricao': _definirDescricaoPorTipo(card['tipo']),
+            'icon': _definirIconePorTipo(tipo),
+            'descricao': _definirDescricaoPorTipo(tipo),
           });
         }
       }
@@ -309,6 +310,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       'estoque_por_empresa': Icons.business,
       'estoque_por_tanque': Icons.water_drop,
       'movimentacoes': Icons.swap_horiz,
+      'movimentaces': Icons.swap_horiz,
       'transferencias': Icons.compare_arrows,
       'acompanhar_ordem': Icons.directions_car,
       'visao_geral_circuito': Icons.dashboard,
@@ -334,6 +336,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       'estoque_por_empresa': 'Estoques separados por empresa',
       'estoque_por_tanque': 'Acompanhar estoques por tanque',
       'movimentacoes': 'Acompanhar entradas e saídas em geral',
+      'movimentaces': 'Acompanhar entradas e saídas em geral',
       'transferencias': 'Gerenciar transferências entre filiais',
       'acompanhar_ordem': 'Acompanhar situação da ordem',
       'visao_geral_circuito': 'Panorama completo dos circuitos',
@@ -587,12 +590,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
     var filhos = _filhosPorSessao[nomeSessao] ?? [];
     
-    // NOVO: Filtrar cards de Estoques para usuários nível 1-2
+    // ATUALIZADO: Filtrar cards de Estoques por nível
     if (nomeSessao == 'Estoques') {
       final usuario = UsuarioAtual.instance;
-      if (usuario != null && usuario.nivel < 3) {
-        // Remover card "estoque_por_empresa" para usuários de nível 1-2
-        filhos = filhos.where((card) => card['tipo'] != 'estoque_por_empresa').toList();
+      if (usuario != null) {
+        if (usuario.nivel < 3) {
+          // Nível 1-2: Remove "estoque_por_empresa" e mantém "movimentacoes"
+          filhos = filhos.where((card) => card['tipo'] != 'estoque_por_empresa').toList();
+        } else if (usuario.nivel >= 3) {
+          // Nível 3: Remove "movimentacoes" e mantém "estoque_por_empresa"
+          filhos = filhos.where((card) => card['tipo'] != 'movimentacoes').toList();
+        }
       }
     }
     
@@ -1992,6 +2000,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         });
         break;
       case 'movimentacoes':
+      case 'movimentaces':
         // NOVO: Todos os usuários (nível 1-2 e 3) devem ter filial vinculada
         if (usuario == null || usuario.filialId == null || usuario.filialId!.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -2003,7 +2012,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           );
           return;
         }
-        
+
+        setState(() {
+          _filialParaFiltroId = usuario.filialId;
+          _filialParaFiltroNome = _usuarioFilialNome ?? 'Sua Filial';
+          _empresaParaFiltroId = null;
+          _empresaParaFiltroNome = null;
+          _mostrarFiltrosEstoque = true;
+          _mostrarCardsFilial = false;
+          _mostrarFiliaisDaEmpresa = false;
+        });
         break;
         
       case 'transferencias':
@@ -2336,9 +2354,20 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     child: InkWell(
                       onTap: () {
                         if (card['tipo'] == 'movimentacoes') {
+                          if (_filialParaFiltroId == null || _filialParaFiltroId!.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Filial nao informada para movimentacoes.'),
+                                backgroundColor: Colors.red,
+                                duration: Duration(seconds: 3),
+                              ),
+                            );
+                            return;
+                          }
+
                           setState(() {
-                            _mostrarCardsFilial = false;
                             _mostrarFiltrosEstoque = true;
+                            _mostrarCardsFilial = false;
                           });
                         }
                       },
@@ -2399,7 +2428,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       onVoltar: () {
         setState(() {
           _mostrarFiltrosEstoque = false;
-          _mostrarCardsFilial = true;
+          _mostrarCardsFilial = _empresaParaFiltroId != null;
         });
       },
       onConsultarEstoque: ({

@@ -136,7 +136,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     try {
       if (widget.empresaId == null) {
         final filialData = await _supabase
-            .from('filiales')
+            .from('filiais')
             .select('empresa_id')
             .eq('id', widget.filialId)
             .single();
