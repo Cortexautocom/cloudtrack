@@ -1242,25 +1242,27 @@ class _CalcPageState extends State<CalcPage> {
 
                   const SizedBox(height: 25),
 
-                  // COMPARAÇÃO DE RESULTADOS
-                  _subtitulo("COMPARAÇÃO DE RESULTADOS"),
-                  const SizedBox(height: 8),
+                  // COMPARAÇÃO DE RESULTADOS - OCULTO SE APENAS 1ª MEDIÇÃO
+                  if (_dadosFinaisEstaoCompletos()) ...[
+                    _subtitulo("COMPARAÇÃO DE RESULTADOS"),
+                    const SizedBox(height: 8),
 
-                  _tabelaComparacaoResultados(
-                    volumeAmbienteInicial: volumeInicial,
-                    volumeAmbienteFinal: volumeFinal,
-                    volume20Inicial: _extrairNumero(medicoes['volume20Inicial']?.toString()),
-                    volume20Final: _extrairNumero(medicoes['volume20Final']?.toString()),
-                    entradaSaidaAmbiente: volumeFinal - volumeInicial,
-                    entradaSaida20: _extrairNumero(medicoes['volume20Final']?.toString()) - 
-                                    _extrairNumero(medicoes['volume20Inicial']?.toString()),
-                  ),
+                    _tabelaComparacaoResultados(
+                      volumeAmbienteInicial: volumeInicial,
+                      volumeAmbienteFinal: volumeFinal,
+                      volume20Inicial: _extrairNumero(medicoes['volume20Inicial']?.toString()),
+                      volume20Final: _extrairNumero(medicoes['volume20Final']?.toString()),
+                      entradaSaidaAmbiente: volumeFinal - volumeInicial,
+                      entradaSaida20: _extrairNumero(medicoes['volume20Final']?.toString()) - 
+                                      _extrairNumero(medicoes['volume20Inicial']?.toString()),
+                    ),
 
-                  // BLOCO FATURADO
-                  const SizedBox(height: 20),
-                  _blocoFaturado(
-                    medicoes: medicoes,
-                  ),                 
+                    // BLOCO FATURADO
+                    const SizedBox(height: 20),
+                    _blocoFaturado(
+                      medicoes: medicoes,
+                    ),
+                  ],                 
 
                   // RODAPÉ
                   Container(

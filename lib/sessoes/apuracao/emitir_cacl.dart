@@ -204,6 +204,21 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
             }
           });
         }
+
+        // Listeners para os campos da segunda medição (posições 9-17) para detectar início do preenchimento
+        for (int j = 9; j <= 17; j++) {
+          _focusNodes[i][j].addListener(() {
+            if (!_focusNodes[i][j].hasFocus && mounted) {
+              _verificarCamposObrigatorios();
+            }
+          });
+
+          _controllers[i][j].addListener(() {
+            if (mounted) {
+              _verificarCamposObrigatorios();
+            }
+          });
+        }
       }
 
       _verificarCamposObrigatorios();
@@ -755,7 +770,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                     Padding(
                                       padding: const EdgeInsets.only(top: 8),
                                       child: Text(
-                                        'Preencha todos os campos obrigatórios e selecione um tipo de CACL',
+                                        'Preencha os campos obrigatórios (*) da 1ª medição e selecione um tipo de CACL',
                                         style: TextStyle(
                                           fontSize: 10,
                                           color: Colors.orange[700],
@@ -1392,11 +1407,22 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       final camposPreenchidos = camposObrigatorios.every((controller) => 
           controller.text.trim().isNotEmpty);
       
+      // Verifica se algum campo da segunda medição foi iniciado (posições 9-16, excluindo faturado e observações)
+      final camposSegundaMedicao = _controllers[_tanqueSelecionadoIndex].sublist(9, 17);
+      final segundaMedicaoIniciada = camposSegundaMedicao.any((controller) => 
+          controller.text.trim().isNotEmpty);
+      
+      // Se segunda medição foi iniciada, exige o campo "Faturado" (posição 17)
+      bool faturadoValido = true;
+      if (segundaMedicaoIniciada) {
+        faturadoValido = _controllers[_tanqueSelecionadoIndex][17].text.trim().isNotEmpty;
+      }
+      
       // Verifica se pelo menos uma checkbox está marcada
       final checkboxMarcada = _caclVerificacao || _caclMovimentacao;
       
-      // Botão só habilita se ambos forem verdadeiros
-      final botaoPodeHabilitar = camposPreenchidos && checkboxMarcada;
+      // Botão habilita se: campos obrigatórios preenchidos + faturado válido (se segunda medição iniciada) + checkbox marcada
+      final botaoPodeHabilitar = camposPreenchidos && faturadoValido && checkboxMarcada;
       
       if (mounted) {
         setState(() => _botaoHabilitado = botaoPodeHabilitar);
