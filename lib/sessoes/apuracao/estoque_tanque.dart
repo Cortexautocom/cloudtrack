@@ -1,627 +1,460 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../login_page.dart';
 
-/// ===============================
-/// MODELO DE DADOS DO TANQUE
-/// ===============================
-class DadosTanque {
-  final String id;
-  final String nome;
-  final double capacidadeTotal;
-  final List<DetalheTanque> detalhes;
+// =============================================================
+//            PÁGINA DE ESTOQUE DO TANQUE (INTRADAY)
+//   Replica visual/estilo da Programação Mês (tabela, cabeçalho,
+//   cores, scroll horizontal/vertical, linhas de estoque inicial
+//   e final, ordenação básica)
+// =============================================================
 
-  DadosTanque({
-    required this.id,
-    required this.nome,
-    required this.capacidadeTotal,
-    required this.detalhes,
-  });
-
-  double get estoqueAtual {
-    double total = 0;
-    for (var detalhe in detalhes) {
-      total += detalhe.litros;
-    }
-    return total.clamp(0, capacidadeTotal);
-  }
-  
-  double get percentualPreenchimento =>
-      (estoqueAtual / capacidadeTotal * 100).clamp(0, 100);
-}
-
-class DetalheTanque {
-  final String produto;
-  final double litros;
-  final String data;
-  final String tipo; // 'entrada' ou 'saida'
-
-  DetalheTanque({
-    required this.produto,
-    required this.litros,
-    required this.data,
-    required this.tipo,
-  });
-}
-
-/// ===============================
-/// PÁGINA PRINCIPAL - ESTOQUE POR TANQUE
-/// ===============================
-class EstoquePorTanquePage extends StatefulWidget {
+class EstoqueTanquePage extends StatefulWidget {
+  final String tanqueId;
+  final String referenciaTanque;
+  final String filialId;
+  final String nomeFilial;
+  final DateTime data;
   final VoidCallback? onVoltar;
-  
-  const EstoquePorTanquePage({
+
+  const EstoqueTanquePage({
     super.key,
+    required this.tanqueId,
+    required this.referenciaTanque,
+    required this.filialId,
+    required this.nomeFilial,
+    required this.data,
     this.onVoltar,
   });
 
   @override
-  State<EstoquePorTanquePage> createState() => _EstoquePorTanquePageState();
+  State<EstoqueTanquePage> createState() => _EstoqueTanquePageState();
 }
 
-class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
-  late List<DadosTanque> tanques;
-  int tanqueSelecionadoIndex = 0;
+class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
+  final SupabaseClient _supabase = Supabase.instance.client;
+
+  bool _carregando = true;
+  bool _erro = false;
+  String _mensagemErro = '';
+
+  List<Map<String, dynamic>> _movs = [];
+  List<Map<String, dynamic>> _movsOrdenadas = [];
+
+  Map<String, num> _estoqueInicial = {'amb': 0, 'vinte': 0};
+  Map<String, num> _estoqueFinal = {'amb': 0, 'vinte': 0};
+
+  final ScrollController _vertical = ScrollController();
+  final ScrollController _hHeader = ScrollController();
+  final ScrollController _hBody = ScrollController();
+
+  static const double _hCab = 40;
+  static const double _hRow = 40;
+  static const double _hFoot = 32;
+
+  static const double _wData = 120;
+  static const double _wDesc = 260;
+  static const double _wNum = 130;
+
+  double get _wTable => _wData + _wDesc + (_wNum * 6);
+
+  String _coluna = 'data_mov';
+  bool _asc = true;
 
   @override
   void initState() {
     super.initState();
-    _carregarDadosTanques();
+    _syncScroll();
+    _carregar();
   }
 
-  void _carregarDadosTanques() {
-    // Dados de exemplo - em produção, buscar do banco de dados
-    tanques = [
-      DadosTanque(
-        id: 'tanque_001',
-        nome: 'Tanque 1 - Diesel',
-        capacidadeTotal: 50000,
-        detalhes: [
-          DetalheTanque(
-            produto: 'Diesel S10',
-            litros: 42500,
-            data: '06/02/2025 14:30',
-            tipo: 'entrada',
-          ),
-          DetalheTanque(
-            produto: 'Saída para frota',
-            litros: -5000,
-            data: '05/02/2025 10:15',
-            tipo: 'saida',
-          ),
-        ],
-      ),
-      DadosTanque(
-        id: 'tanque_002',
-        nome: 'Tanque 2 - Gasolina',
-        capacidadeTotal: 30000,
-        detalhes: [
-          DetalheTanque(
-            produto: 'Gasolina Premium',
-            litros: 28750,
-            data: '06/02/2025 12:00',
-            tipo: 'entrada',
-          ),
-          DetalheTanque(
-            produto: 'Saída para distribuição',
-            litros: -1250,
-            data: '04/02/2025 16:45',
-            tipo: 'saida',
-          ),
-        ],
-      ),
-      DadosTanque(
-        id: 'tanque_003',
-        nome: 'Tanque 3 - Arla 32',
-        capacidadeTotal: 20000,
-        detalhes: [
-          DetalheTanque(
-            produto: 'Arla 32',
-            litros: 15200,
-            data: '01/02/2025 09:30',
-            tipo: 'entrada',
-          ),
-          DetalheTanque(
-            produto: 'Saída para manutenção',
-            litros: -4800,
-            data: '03/02/2025 14:20',
-            tipo: 'saida',
-          ),
-        ],
-      ),
-      DadosTanque(
-        id: 'tanque_004',
-        nome: 'Tanque 4 - Querosene',
-        capacidadeTotal: 25000,
-        detalhes: [
-          DetalheTanque(
-            produto: 'Querosene',
-            litros: 22100,
-            data: '06/02/2025 08:45',
-            tipo: 'entrada',
-          ),
-          DetalheTanque(
-            produto: 'Saída para clientes',
-            litros: -2900,
-            data: '05/02/2025 13:30',
-            tipo: 'saida',
-          ),
-        ],
-      ),
-    ];
+  void _syncScroll() {
+    _hHeader.addListener(() {
+      if (_hBody.hasClients && _hBody.offset != _hHeader.offset) {
+        _hBody.jumpTo(_hHeader.offset);
+      }
+    });
+    _hBody.addListener(() {
+      if (_hHeader.hasClients && _hHeader.offset != _hBody.offset) {
+        _hHeader.jumpTo(_hBody.offset);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _vertical.dispose();
+    _hHeader.dispose();
+    _hBody.dispose();
+    super.dispose();
+  }
+
+  Future<void> _carregar() async {
+    setState(() {
+      _carregando = true;
+      _erro = false;
+    });
+
+    try {
+      final dataStr = widget.data.toIso8601String().split('T')[0];
+      final diaAnterior = widget.data.subtract(const Duration(days: 1))
+          .toIso8601String()
+          .split('T')[0];
+
+      final anteriores = await _supabase
+          .from('movimentacoes')
+          .select('entrada_amb, entrada_vinte, saida_amb, saida_vinte')
+          .eq('tanque_id', widget.tanqueId)
+          .eq('filial_id', widget.filialId)
+          .lte('data_mov', diaAnterior);
+
+      num ambIni = 0, vinIni = 0;
+      for (final m in anteriores) {
+        ambIni += (m['entrada_amb'] ?? 0) as num;
+        ambIni -= (m['saida_amb'] ?? 0) as num;
+        vinIni += (m['entrada_vinte'] ?? 0) as num;
+        vinIni -= (m['saida_vinte'] ?? 0) as num;
+      }
+
+      _estoqueInicial = {'amb': ambIni, 'vinte': vinIni};
+
+      final dados = await _supabase
+          .from('movimentacoes')
+          .select('''
+            id,
+            data_mov,
+            ts_mov,
+            descricao,
+            entrada_amb,
+            entrada_vinte,
+            saida_amb,
+            saida_vinte
+          ''')
+          .eq('tanque_id', widget.tanqueId)
+          .eq('filial_id', widget.filialId)
+          .eq('data_mov', dataStr)
+          .order('ts_mov', ascending: true);
+
+      num saldoAmb = ambIni;
+      num saldoVinte = vinIni;
+
+      final List<Map<String, dynamic>> lista = [];
+      for (final m in dados) {
+        final ea = (m['entrada_amb'] ?? 0) as num;
+        final ev = (m['entrada_vinte'] ?? 0) as num;
+        final sa = (m['saida_amb'] ?? 0) as num;
+        final sv = (m['saida_vinte'] ?? 0) as num;
+
+        saldoAmb += ea - sa;
+        saldoVinte += ev - sv;
+
+        lista.add({
+          'id': m['id'],
+          'data_mov': m['data_mov'],
+          'descricao': m['descricao'] ?? '',
+          'entrada_amb': ea,
+          'entrada_vinte': ev,
+          'saida_amb': sa,
+          'saida_vinte': sv,
+          'saldo_amb': saldoAmb,
+          'saldo_vinte': saldoVinte,
+        });
+      }
+
+      _movs = lista;
+      _ordenar('data_mov', true);
+
+      _estoqueFinal = {
+        'amb': _movsOrdenadas.isEmpty ? ambIni : _movsOrdenadas.last['saldo_amb'],
+        'vinte': _movsOrdenadas.isEmpty ? vinIni : _movsOrdenadas.last['saldo_vinte'],
+      };
+
+      setState(() => _carregando = false);
+    } catch (e) {
+      setState(() {
+        _carregando = false;
+        _erro = true;
+        _mensagemErro = e.toString();
+      });
+    }
+  }
+
+  void _ordenar(String col, bool asc) {
+    final ord = List<Map<String, dynamic>>.from(_movs);
+    ord.sort((a, b) {
+      dynamic va, vb;
+      switch (col) {
+        case 'data_mov':
+          va = DateTime.parse(a['data_mov']);
+          vb = DateTime.parse(b['data_mov']);
+          break;
+        case 'descricao':
+          va = (a['descricao'] ?? '').toString().toLowerCase();
+          vb = (b['descricao'] ?? '').toString().toLowerCase();
+          break;
+        case 'entrada_amb':
+        case 'entrada_vinte':
+        case 'saida_amb':
+        case 'saida_vinte':
+        case 'saldo_amb':
+        case 'saldo_vinte':
+          va = a[col] ?? 0;
+          vb = b[col] ?? 0;
+          break;
+        default:
+          return 0;
+      }
+      if (va is DateTime && vb is DateTime) {
+        return asc ? va.compareTo(vb) : vb.compareTo(va);
+      }
+      if (va is num && vb is num) {
+        return asc ? va.compareTo(vb) : vb.compareTo(va);
+      }
+      if (va is String && vb is String) {
+        return asc ? va.compareTo(vb) : vb.compareTo(va);
+      }
+      return 0;
+    });
+
+    setState(() {
+      _movsOrdenadas = ord;
+      _coluna = col;
+      _asc = asc;
+    });
+  }
+
+  void _onSort(String col) {
+    final asc = _coluna == col ? !_asc : true;
+    _ordenar(col, asc);
+  }
+
+  Color _bgEntrada() => Colors.green.shade50.withOpacity(0.3);
+  Color _bgSaida() => Colors.red.shade50.withOpacity(0.3);
+
+  String _fmtNum(num? v) {
+    if (v == null) return '0';
+    final s = v.abs().toStringAsFixed(0);
+    final b = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      final r = s.length - i;
+      b.write(s[i]);
+      if (r > 1 && r % 3 == 1) b.write('.');
+    }
+    return v < 0 ? '-${b.toString()}' : b.toString();
+  }
+
+  String _fmtData(String s) {
+    final d = DateTime.parse(s);
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
+        elevation: 1,
         backgroundColor: Colors.white,
-        elevation: 2,
-        title: const Text(
-          'Estoque por Tanque',
-          style: TextStyle(
-            color: Color(0xFF0D47A1),
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+        foregroundColor: const Color(0xFF0D47A1),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Estoque do Tanque – ${widget.referenciaTanque}'),
+            Text(
+              '${widget.nomeFilial} | ${_fmtData(widget.data.toIso8601String())}',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+            ),
+          ],
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
-          onPressed: () {
-            if (widget.onVoltar != null) {
-              widget.onVoltar!();
-            } else {
-              Navigator.pop(context);
-            }
-          },
+          icon: const Icon(Icons.arrow_back),
+          onPressed: widget.onVoltar ?? () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.sort),
+            onPressed: () => _onSort('data_mov'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _carregar,
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: _carregando
+            ? const Center(child: CircularProgressIndicator())
+            : _erro
+                ? Center(child: Text(_mensagemErro))
+                : _movsOrdenadas.isEmpty
+                    ? const Center(child: Text('Sem movimentações no dia'))
+                    : _buildTabela(),
+      ),
+    );
+  }
+
+  Widget _buildTabela() {
+    return Scrollbar(
+      controller: _vertical,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _vertical,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Column(
+            children: [
+              _cabecalho(),
+              _corpo(),
+              _rodape(),
+            ],
+          ),
         ),
       ),
-      body: Column(
-        children: [
-          // Menu de navegação superior com os tanques
-          _construirMenuTanques(),
-          // Conteúdo principal com detalhes do tanque selecionado
-          Expanded(
-            child: _construirDetalheTanque(),
-          ),
-        ],
-      ),
     );
   }
 
-  /// ===============================
-  /// MENU SUPERIOR DE NAVEGAÇÃO
-  /// ===============================
-  Widget _construirMenuTanques() {
-    return Container(
-      color: Colors.white,
-      child: Column(
-        children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+  Widget _cabecalho() {
+    return Scrollbar(
+      controller: _hHeader,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _hHeader,
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: _wTable,
+          child: Container(
+            height: _hCab,
+            color: const Color(0xFF0D47A1),
             child: Row(
-              children: List.generate(tanques.length, (index) {
-                final tanque = tanques[index];
-                final isSelected = tanqueSelecionadoIndex == index;
-
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() => tanqueSelecionadoIndex = index);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? const Color(0xFF0D47A1)
-                            : Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isSelected
-                              ? const Color(0xFF0D47A1)
-                              : Colors.grey[300]!,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            tanque.nome.split(' - ').first,
-                            style: TextStyle(
-                              color: isSelected ? Colors.white : Colors.black87,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          if (tanque.nome.contains(' - '))
-                            Text(
-                              tanque.nome.split(' - ').last,
-                              style: TextStyle(
-                                color: isSelected ? Colors.white70 : Colors.grey,
-                                fontSize: 10,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ),
-          Container(
-            height: 1,
-            color: Colors.grey[200],
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// ===============================
-  /// DETALHE DO TANQUE SELECIONADO
-  /// ===============================
-  Widget _construirDetalheTanque() {
-    final tanque = tanques[tanqueSelecionadoIndex];
-    final percentual = tanque.percentualPreenchimento;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Card com informações principais
-          _construirCardInformacoesAlterar(tanque, percentual),
-          const SizedBox(height: 20),
-
-          // Indicador de nível com barra de progresso
-          _construirIndicadorNivel(tanque, percentual),
-          const SizedBox(height: 20),
-
-          // Tabela com histórico/detalhes
-          _construirTabelaDetalhes(tanque),
-        ],
-      ),
-    );
-  }
-
-  /// ===============================
-  /// CARD COM INFORMAÇÕES PRINCIPAIS
-  /// ===============================
-  Widget _construirCardInformacoesAlterar(DadosTanque tanque, double percentual) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                tanque.nome,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0D47A1),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  _construirInfoMini(
-                    'Estoque Atual',
-                    '${tanque.estoqueAtual.toStringAsFixed(0)} L',
-                    Colors.blue,
-                  ),
-                  const SizedBox(width: 20),
-                  _construirInfoMini(
-                    'Capacidade',
-                    '${tanque.capacidadeTotal.toStringAsFixed(0)} L',
-                    Colors.orange,
-                  ),
-                  const SizedBox(width: 20),
-                  _construirInfoMini(
-                    'Espaço Livre',
-                    '${(tanque.capacidadeTotal - tanque.estoqueAtual).toStringAsFixed(0)} L',
-                    Colors.green,
-                  ),
-                ],
-              ),
-            ],
-          ),
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _getCor(percentual).withOpacity(0.1),
-              border: Border.all(
-                color: _getCor(percentual),
-                width: 3,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                '${percentual.toStringAsFixed(1)}%',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: _getCor(percentual),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// ===============================
-  /// INDICADOR DE NÍVEL COM BARRA
-  /// ===============================
-  Widget _construirIndicadorNivel(DadosTanque tanque, double percentual) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Nível do Tanque',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: percentual / 100,
-              minHeight: 30,
-              backgroundColor: Colors.grey[200],
-              valueColor: AlwaysStoppedAnimation<Color>(
-                _getCor(percentual),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '0 L',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600] ?? Colors.grey,
-                ),
-              ),
-              Text(
-                '${percentual.toStringAsFixed(1)}% Preenchido',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF0D47A1),
-                ),
-              ),
-              Text(
-                '${tanque.capacidadeTotal.toStringAsFixed(0)} L',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600] ?? Colors.grey,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// ===============================
-  /// TABELA COM DETALHES
-  /// ===============================
-  Widget _construirTabelaDetalhes(DadosTanque tanque) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Cabeçalho da tabela
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0D47A1),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-            ),
-            child: const Row(
               children: [
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    'Produto / Descrição',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'Volume (L)',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                    textAlign: TextAlign.right,
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'Data/Hora',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                    textAlign: TextAlign.right,
-                  ),
-                ),
-                SizedBox(width: 40),
+                _th('Data', _wData, () => _onSort('data_mov')),
+                _th('Descrição', _wDesc, () => _onSort('descricao')),
+                _th('Entrada (Amb)', _wNum, () => _onSort('entrada_amb')),
+                _th('Entrada (20ºC)', _wNum, () => _onSort('entrada_vinte')),
+                _th('Saída (Amb)', _wNum, () => _onSort('saida_amb')),
+                _th('Saída (20ºC)', _wNum, () => _onSort('saida_vinte')),
+                _th('Saldo (Amb)', _wNum, () => _onSort('saldo_amb')),
+                _th('Saldo (20ºC)', _wNum, () => _onSort('saldo_vinte')),
               ],
             ),
           ),
-          // Linhas da tabela
-          ...List.generate(tanque.detalhes.length, (index) {
-            final detalhe = tanque.detalhes[index];
-            final isAlternado = index.isEven;
-            final isEntrada = detalhe.tipo == 'entrada';
+        ),
+      ),
+    );
+  }
 
-            return Container(
-              color: isAlternado ? Colors.grey[50] : Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          detalhe.produto,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          isEntrada ? 'Entrada' : 'Saída',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: isEntrada ? Colors.green : Colors.red,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      '${isEntrada ? '+' : ''} ${detalhe.litros.toStringAsFixed(0)}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: isEntrada ? Colors.green : Colors.red,
-                      ),
-                      textAlign: TextAlign.right,
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      detalhe.data,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey[700],
-                      ),
-                      textAlign: TextAlign.right,
-                    ),
-                  ),
-                  Container(
-                    width: 40,
-                    alignment: Alignment.center,
-                    child: Icon(
-                      isEntrada ? Icons.arrow_downward : Icons.arrow_upward,
-                      color: isEntrada ? Colors.green : Colors.red,
-                      size: 18,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
+  Widget _th(String t, double w, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: w,
+        alignment: Alignment.center,
+        child: Text(t, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+      ),
+    );
+  }
+
+  Widget _corpo() {
+    return Scrollbar(
+      controller: _hBody,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _hBody,
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: _wTable,
+          child: ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _movsOrdenadas.length + 2,
+            itemBuilder: (context, i) {
+              if (i == 0) {
+                return _linhaResumo(
+                  'Estoque Inicial',
+                  _estoqueInicial['amb']!,
+                  _estoqueInicial['vinte']!,
+                  cor: Colors.blue,
+                );
+              }
+              if (i == _movsOrdenadas.length + 1) {
+                return _linhaResumo(
+                  'Estoque Final',
+                  _estoqueFinal['amb']!,
+                  _estoqueFinal['vinte']!,
+                  cor: Colors.grey.shade700,
+                );
+              }
+
+              final e = _movsOrdenadas[i - 1];
+              return Container(
+                height: _hRow,
+                color: (i - 1) % 2 == 0 ? Colors.grey.shade50 : Colors.white,
+                child: Row(
+                  children: [
+                    _cell(_fmtData(e['data_mov']), _wData),
+                    _cell(e['descricao'] ?? '-', _wDesc),
+                    _cell(_fmtNum(e['entrada_amb']), _wNum, bg: _bgEntrada()),
+                    _cell(_fmtNum(e['entrada_vinte']), _wNum, bg: _bgEntrada()),
+                    _cell(_fmtNum(e['saida_amb']), _wNum, bg: _bgSaida()),
+                    _cell(_fmtNum(e['saida_vinte']), _wNum, bg: _bgSaida()),
+                    _cell(_fmtNum(e['saldo_amb']), _wNum, cor: (e['saldo_amb'] as num) < 0 ? Colors.red : null),
+                    _cell(_fmtNum(e['saldo_vinte']), _wNum, cor: (e['saldo_vinte'] as num) < 0 ? Colors.red : null),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _linhaResumo(String label, num amb, num vinte, {Color? cor}) {
+    return Container(
+      height: _hRow,
+      color: Colors.blue.shade50,
+      child: Row(
+        children: [
+          _cell('', _wData),
+          _cell(label, _wDesc, cor: cor, fw: FontWeight.bold),
+          _cell('0', _wNum),
+          _cell('0', _wNum),
+          _cell('0', _wNum),
+          _cell('0', _wNum),
+          _cell(_fmtNum(amb), _wNum, cor: cor, fw: FontWeight.bold),
+          _cell(_fmtNum(vinte), _wNum, cor: cor, fw: FontWeight.bold),
         ],
       ),
     );
   }
 
-  /// ===============================
-  /// WIDGETS AUXILIARES
-  /// ===============================
-  Widget _construirInfoMini(String label, String valor, Color cor) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey[600],
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          valor,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: cor,
-          ),
-        ),
-      ],
+  Widget _cell(String t, double w, {Color? bg, Color? cor, FontWeight? fw}) {
+    return Container(
+      width: w,
+      alignment: Alignment.center,
+      color: bg,
+      child: Text(
+        t.isEmpty ? '-' : t,
+        style: TextStyle(fontSize: 12, color: cor ?? Colors.grey.shade700, fontWeight: fw),
+      ),
     );
   }
 
-  Color _getCor(double percentual) {
-    if (percentual >= 80) return Colors.green;
-    if (percentual >= 50) return Colors.orange;
-    return Colors.red;
+  Widget _rodape() {
+    return Container(
+      height: _hFoot,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      alignment: Alignment.centerLeft,
+      color: Colors.grey.shade100,
+      child: Text(
+        '${_movsOrdenadas.length} movimentação(ões)',
+        style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+      ),
+    );
   }
 }

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
 import 'emitir_cacl.dart';
 import 'cacl_historico.dart';
+import 'estoque_tanque.dart';
 //import 'escolherfilial.dart';
 
 class GerenciamentoTanquesPage extends StatefulWidget {
@@ -40,6 +41,11 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
   bool _carregandoCacls = false;
   List<Map<String, dynamic>> _caclesTanque = [];
   int? _hoverCaclIndex;
+  bool _mostrandoEstoqueTanque = false;
+  String? _estoqueTanqueId;
+  String? _estoqueTanqueReferencia;
+  String? _estoqueFilialId;
+  String? _estoqueNomeFilial;
 
   final List<String> _statusOptions = ['Em operação', 'Operação suspensa'];
   
@@ -436,6 +442,33 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
     }
   }
 
+  void _abrirEstoqueTanque() {
+    final usuario = UsuarioAtual.instance;
+    final tanqueId = _tanqueSelecionadoParaAcoes?['id']?.toString();
+    final referencia = _tanqueSelecionadoParaAcoes?['referencia']?.toString();
+
+    if (usuario == null || tanqueId == null || tanqueId.isEmpty) {
+      return;
+    }
+
+    final filialId = widget.filialSelecionadaId ?? usuario.filialId;
+    if (filialId == null || filialId.isEmpty) {
+      return;
+    }
+
+    final nomeFilial = _tanqueSelecionadoParaAcoes?['filial']?.toString() ??
+        _nomeFilial ??
+        '';
+
+    setState(() {
+      _estoqueTanqueId = tanqueId;
+      _estoqueTanqueReferencia = referencia ?? 'Tanque';
+      _estoqueFilialId = filialId;
+      _estoqueNomeFilial = nomeFilial;
+      _mostrandoEstoqueTanque = true;
+    });
+  }
+
   // Função para aplicar máscara no campo capacidade
   void _aplicarMascaraCapacidade(String valor) {
     // Se o texto já está formatado corretamente, não faz nada
@@ -597,6 +630,20 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_mostrandoEstoqueTanque) {
+      return EstoqueTanquePage(
+        tanqueId: _estoqueTanqueId ?? '',
+        referenciaTanque: _estoqueTanqueReferencia ?? 'Tanque',
+        filialId: _estoqueFilialId ?? '',
+        nomeFilial: _estoqueNomeFilial ?? '',
+        data: DateTime.now(),
+        onVoltar: () {
+          setState(() {
+            _mostrandoEstoqueTanque = false;
+          });
+        },
+      );
+    }
     return Shortcuts(
       shortcuts: {
         LogicalKeySet(LogicalKeyboardKey.escape): const _UnfocusIntent(),
@@ -653,15 +700,6 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                         color: _ink
                       ),
                     ),
-                    if (_nomeFilial != null && !_editando && !_mostrandoCardsAcoes)
-                      Text(
-                        'Filial: $_nomeFilial',
-                        style: TextStyle(
-                          fontSize: 12, 
-                          color: _accent, 
-                          fontWeight: FontWeight.w500
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -1089,7 +1127,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                       icon: Icons.inventory_2,
                       titulo: 'Estoque tanque',
                       descricao: 'Consultar estoque do tanque',
-                      onTap: () {},
+                      onTap: _abrirEstoqueTanque,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -1546,17 +1584,6 @@ class _TanqueCardState extends State<_TanqueCard> {
                             padding: const EdgeInsets.only(top: 4),
                             child: Text(
                               'Lastro: ${_formatarMilhar(widget.tanque['lastro'])} L',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: _muted,
-                              ),
-                            ),
-                          ),
-                        if (UsuarioAtual.instance!.nivel == 3 && widget.tanque['filial'] != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              'Filial: ${widget.tanque['filial']}',
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: _muted,
