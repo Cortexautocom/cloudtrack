@@ -86,8 +86,9 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     return Colors.grey.shade600;
   }
 
-  Map<String, double> agruparProdutosDaOrdem(List<Map<String, dynamic>> itens) {
-    final Map<String, double> resultado = {};
+  Map<String, Map<String, double>> agruparProdutosDaOrdem(
+      List<Map<String, dynamic>> itens) {
+    final Map<String, Map<String, double>> resultado = {};
     final filialAtualId = _filialAtualId;
 
     for (final mov in itens) {
@@ -116,7 +117,31 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
 
       if (quantidade <= 0) continue;
 
-      resultado[nome] = (resultado[nome] ?? 0) + quantidade.toDouble();
+      final tipoOp = (mov['tipo_op']?.toString() ?? 'venda').toLowerCase();
+      String informacao;
+      if (tipoOp == 'transf') {
+        informacao = (mov['descricao'] as String?)?.trim() ?? '';
+        if (informacao.isEmpty) {
+          final origem = mov['filial_origem'] as Map<String, dynamic>?;
+          final destino = mov['filial_destino'] as Map<String, dynamic>?;
+          if (origem != null && destino != null) {
+            final origemNome = origem['nome']?.toString() ?? 'Origem';
+            final destinoNome = destino['nome']?.toString() ?? 'Destino';
+            informacao = '$origemNome → $destinoNome';
+          } else {
+            informacao = 'Transferência';
+          }
+        }
+      } else {
+        informacao = (mov['cliente'] as String?)?.trim() ?? '';
+        if (informacao.isEmpty) {
+          informacao = 'N/I';
+        }
+      }
+
+      resultado.putIfAbsent(nome, () => {});
+      resultado[nome]![informacao] =
+          (resultado[nome]![informacao] ?? 0) + quantidade.toDouble();
     }
 
     return resultado;
@@ -306,6 +331,10 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         }
         
         final produtosAgrupados = agruparProdutosDaOrdem(movimentacoesOrdem);
+        final quantidadeTotal = produtosAgrupados.values.fold<double>(
+          0,
+          (sum, infos) => sum + infos.values.fold<double>(0, (s, v) => s + v),
+        );
 
         final ordemResumo = {
           'ordem_id': ordemId,
@@ -316,7 +345,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
           'filial_origem_id': primeiraMov['filial_origem_id'],
           'filial_destino_id': primeiraMov['filial_destino_id'],
           'placas': placasSet.toList(),
-          'quantidade_total': produtosAgrupados.values.fold<double>(0, (sum, value) => sum + value),
+          'quantidade_total': quantidadeTotal,
           'produtos_agrupados': produtosAgrupados,
           'itens': movimentacoesOrdem,
         };
@@ -401,7 +430,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         final tipoOpTexto = _obterTipoOpTexto(ordem['tipo_op']?.toString() ?? '').toLowerCase();
         if (tipoOpTexto.contains(termoBusca)) return true;
         
-        final produtos = ordem['produtos_agrupados'] as Map<String, double>;
+        final produtos = ordem['produtos_agrupados'] as Map<String, Map<String, double>>;
         if (produtos.keys.any((nome) => nome.toLowerCase().contains(termoBusca))) {
           return true;
         }
@@ -801,44 +830,8 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     final placasFormatadas = _formatarPlacas(ordem['placas']);
     final dataMov = _formatarData(ordem['data_mov']?.toString());
     
-    final produtosAgrupados = ordem['produtos_agrupados'] as Map<String, double>;
-
-    final Map<String, List<String>> informacoesPorProduto = {};
-    final itens = ordem['itens'] as List<Map<String, dynamic>>;
-    
-    for (final item in itens) {
-      final produto = item['produtos'];
-      if (produto == null) continue;
-      
-      final nomeProduto = produto['nome_dois']?.toString();
-      if (nomeProduto == null || nomeProduto.isEmpty) continue;
-      
-      if (!informacoesPorProduto.containsKey(nomeProduto)) {
-        informacoesPorProduto[nomeProduto] = [];
-      }
-      
-      String informacao;
-      if (tipoOp == 'transf') {
-        informacao = (item['descricao'] as String?)?.trim() ?? '';
-        if (informacao.isEmpty) {
-          final origem = item['filial_origem'] as Map<String, dynamic>?;
-          final destino = item['filial_destino'] as Map<String, dynamic>?;
-          if (origem != null && destino != null) {
-            final origemNome = origem['nome']?.toString() ?? 'Origem';
-            final destinoNome = destino['nome']?.toString() ?? 'Destino';
-            informacao = '$origemNome → $destinoNome';
-          } else {
-            informacao = 'Transferência';
-          }
-        }
-      } else {
-        informacao = (item['cliente'] as String?)?.trim() ?? '';
-      }
-      
-      if (informacao.isNotEmpty && !informacoesPorProduto[nomeProduto]!.contains(informacao)) {
-        informacoesPorProduto[nomeProduto]!.add(informacao);
-      }
-    }
+    final produtosAgrupados =
+        ordem['produtos_agrupados'] as Map<String, Map<String, double>>;
 
     final corFundoCard = _obterCorFundoCard(ordem);
 
@@ -1016,97 +1009,87 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                           Wrap(
                             spacing: 10,
                             runSpacing: 6,
-                            children: produtosAgrupados.entries.map((produtoEntry) {
+                            children: produtosAgrupados.entries
+                                .expand((produtoEntry) {
                               final nomeProduto = produtoEntry.key;
-                              final quantidade = produtoEntry.value;
                               final cor = _obterCorProduto(nomeProduto);
-                              
-                              final informacoesDoProduto = informacoesPorProduto[nomeProduto] ?? [];
-                              final textoInfo = informacoesDoProduto.isNotEmpty
-                                  ? informacoesDoProduto.first
-                                  : (tipoOp == 'transf' ? 'Sem descrição' : 'N/I');
-                              final temMaisInfo = informacoesDoProduto.length > 1;
-                              
-                              return Container(
-                                constraints: const BoxConstraints(maxWidth: 260),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 7,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: cor,
-                                        borderRadius: const BorderRadius.only(
-                                          topLeft: Radius.circular(4),
-                                          bottomLeft: Radius.circular(4),
+
+                              return produtoEntry.value.entries.map((infoEntry) {
+                                final textoInfo = infoEntry.key;
+                                final quantidade = infoEntry.value;
+
+                                return Container(
+                                  constraints: const BoxConstraints(maxWidth: 260),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 7,
+                                          vertical: 3,
                                         ),
-                                      ),
-                                      child: Text(
-                                        _formatarNumeroDouble(quantidade),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ),
-                                    
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: cor.withOpacity(0.08),
-                                        borderRadius: const BorderRadius.only(
-                                          topRight: Radius.circular(4),
-                                          bottomRight: Radius.circular(4),
-                                        ),
-                                        border: Border.all(
-                                          color: cor.withOpacity(0.15),
-                                          width: 0.8,
-                                        ),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            _abreviarTexto(nomeProduto, 15),
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w600,
-                                              color: cor,
-                                            ),
+                                        decoration: BoxDecoration(
+                                          color: cor,
+                                          borderRadius: const BorderRadius.only(
+                                            topLeft: Radius.circular(4),
+                                            bottomLeft: Radius.circular(4),
                                           ),
-                                          
-                                          Text(
-                                            _abreviarTexto(textoInfo, 20),
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              color: Colors.grey.shade700,
-                                              fontStyle: FontStyle.italic,
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
+                                        ),
+                                        child: Text(
+                                          _formatarNumeroDouble(quantidade),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11,
                                           ),
-                                          
-                                          if (temMaisInfo)
+                                        ),
+                                      ),
+
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: cor.withOpacity(0.08),
+                                          borderRadius: const BorderRadius.only(
+                                            topRight: Radius.circular(4),
+                                            bottomRight: Radius.circular(4),
+                                          ),
+                                          border: Border.all(
+                                            color: cor.withOpacity(0.15),
+                                            width: 0.8,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
                                             Text(
-                                              '+${informacoesDoProduto.length - 1}',
+                                              _abreviarTexto(nomeProduto, 15),
                                               style: TextStyle(
-                                                fontSize: 9,
-                                                color: Colors.grey.shade600,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: cor,
                                               ),
                                             ),
-                                        ],
+
+                                            Text(
+                                              _abreviarTexto(textoInfo, 20),
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.grey.shade700,
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              );
+                                    ],
+                                  ),
+                                );
+                              }).toList();
                             }).toList(),
                           ),
                         
