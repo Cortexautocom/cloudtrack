@@ -31,7 +31,8 @@ class DetalhesOrdemView extends StatefulWidget {
   State<DetalhesOrdemView> createState() => _DetalhesOrdemViewState();
 }
 
-class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
+class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
+    with SingleTickerProviderStateMixin {
   final SupabaseClient _supabase = Supabase.instance.client;
 
   bool _carregando = true;
@@ -41,6 +42,9 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
   List<Map<String, dynamic>> _movimentacoes = [];
   late EtapaCircuito _etapaAtual;
   TipoMovimentacao _tipoMovimentacao = TipoMovimentacao.carregamento;
+
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseAnimation;
 
   // Adicionado: Variável para armazenar o número de controle da ordem
   String? _numeroControleOrdem;
@@ -198,6 +202,14 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
   @override
   void initState() {
     super.initState();
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    )..repeat(reverse: true);
+    _pulseAnimation = Tween<double>(begin: 0.9, end: 1.1).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
     
     // 1. Determinar tipo de movimentação PRIMEIRO
     _tipoMovimentacao = _determinarTipoMovimentacao();
@@ -207,6 +219,12 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
     _carregarNumeroControleOrdem();
     _carregarMovimentacoes();
     _inicializarHistorico();
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
   }
 
   // NOVO MÉTODO: Obter o campo de status correto baseado no tipo
@@ -513,14 +531,6 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
       }
     } catch (e) {
       print('Erro ao abrir certificado: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
 
@@ -740,12 +750,6 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
                               _nr26Selecionado;
                           
                           if (!todosSelecionados) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Todos os itens devem ser verificados!'),
-                                backgroundColor: Colors.orange.shade700,
-                              ),
-                            );
                             return;
                           }
                           
@@ -878,36 +882,12 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
           'hora': '${agora.hour.toString().padLeft(2, '0')}:${agora.minute.toString().padLeft(2, '0')}',
           'descricao': descricaoChecklist
         });
-
-        // Mostrar mensagem de sucesso
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                _tipoMovimentacao == TipoMovimentacao.carregamento
-                    ? 'Check-list concluído! Status atualizado para "Em operação" (carregamento).'
-                    : 'Check-list concluído! Status atualizado para "Em operação" (descarregamento).',
-              ),
-              backgroundColor: Colors.green.shade600,
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
       }
     } catch (e) {
       print('Erro ao atualizar checklist: $e');
       setState(() {
         _atualizandoChecklist = false;
       });
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao atualizar status: $e'),
-            backgroundColor: Colors.red.shade600,
-          ),
-        );
-      }
     }
   }
 
@@ -1142,27 +1122,9 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
           'hora': '${agora.hour.toString().padLeft(2, '0')}:${agora.minute.toString().padLeft(2, '0')}',
           'descricao': 'Veículo pronto para check-list de segurança'
         });
-
-        // Mostrar mensagem de sucesso
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Status atualizado para "Check-list" (2)'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
       }
     } catch (e) {
       print('Erro ao atualizar status para check-list: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao atualizar status: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
 
@@ -1201,27 +1163,9 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
           'hora': '${agora.hour.toString().padLeft(2, '0')}:${agora.minute.toString().padLeft(2, '0')}',
           'descricao': 'Veículo presente confirmado. Aguardando check-list.'
         });
-
-        // Mostrar mensagem de sucesso
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Status atualizado para "Aguardando check-list"'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
       }
     } catch (e) {
       print('Erro ao atualizar status para aguardando: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao atualizar status: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
     
@@ -1273,16 +1217,6 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
         widget.ordem['status_circuito_dest'] = 4;
       }
     });
-    
-    // Mostrar mensagem de sucesso
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Status atualizado para "Emissão NF"'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    }
   }
 
   String _formatarPlacas(dynamic placasData) {
@@ -1868,6 +1802,35 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
       tooltip = 'Finalizar emissão NF';
     }
 
+    final Widget iconCore = Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isCompleta ? etapa.cor : Colors.grey.shade300,
+        border: Border.all(
+          color: podeClicar ? etapa.cor.withOpacity(0.3) : Colors.transparent,
+          width: podeClicar ? 2 : 0,
+        ),
+        boxShadow: podeClicar
+            ? [
+                BoxShadow(
+                  color: etapa.cor.withOpacity(0.2),
+                  blurRadius: 4,
+                  spreadRadius: 1,
+                ),
+              ]
+            : null,
+      ),
+      child: Center(
+        child: Icon(
+          etapa.icon,
+          color: Colors.white,
+          size: 16,
+        ),
+      ),
+    );
+
     return SizedBox(
       width: 50,
       height: 50,
@@ -1900,35 +1863,12 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView> {
               hoverColor: podeClicar ? etapa.cor.withOpacity(0.05) : null,
               child: Tooltip(
                 message: tooltip,
-                child: Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isCompleta ? etapa.cor : Colors.grey.shade300,
-                    border: Border.all(
-                      color:
-                          podeClicar ? etapa.cor.withOpacity(0.3) : Colors.transparent,
-                      width: podeClicar ? 2 : 0,
-                    ),
-                    boxShadow: podeClicar
-                        ? [
-                            BoxShadow(
-                              color: etapa.cor.withOpacity(0.2),
-                              blurRadius: 4,
-                              spreadRadius: 1,
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Center(
-                    child: Icon(
-                      etapa.icon,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                  ),
-                ),
+                child: isAtual
+                    ? ScaleTransition(
+                        scale: _pulseAnimation,
+                        child: iconCore,
+                      )
+                    : iconCore,
               ),
             ),
           ),

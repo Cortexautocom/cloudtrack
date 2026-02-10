@@ -34,7 +34,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   List<Map<String, dynamic>> _movs = [];
   List<Map<String, dynamic>> _movsOrdenadas = [];
 
-  Map<String, num?> _estoqueInicial = {'amb': null, 'vinte': null};
+  final Map<String, num?> _estoqueInicial = {'amb': null, 'vinte': null};
   Map<String, num?> _estoqueFinal = {'amb': null, 'vinte': null};
 
   final ScrollController _vertical = ScrollController();
