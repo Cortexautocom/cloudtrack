@@ -80,33 +80,13 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
           produto_nome
         ''')
         .eq('filial_id', _filialSelecionada!)
+        .gte('criado_em', hojeStr)
         .order('criado_em', ascending: false);
 
-    final filtrados = dados.where((o) {
-      final status = (o['status'] ?? '').toString().toLowerCase();
-      final criado = o['criado_em']?.toString().substring(0, 10) ?? '';
-      return status == 'pendente' || criado == hojeStr;
-    }).toList();
-
     setState(() {
-      _ordens = List<Map<String, dynamic>>.from(filtrados);
+      _ordens = List<Map<String, dynamic>>.from(dados);
       _carregando = false;
     });
-  }
-
-  Color _statusColor(String s) {
-    switch (s.toLowerCase()) {
-      case 'pendente':
-        return Colors.orange;
-      case 'aprovada':
-        return Colors.green;
-      case 'concluida':
-        return Colors.blue;
-      case 'rejeitada':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
   }
 
   String _formatarData(String? d) {
@@ -291,8 +271,7 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final o = lista[index];
-                        final status = o['status'] ?? '';
-                        final cor = _statusColor(status);
+                        final cor = const Color(0xFF0D47A1);
 
                         return MouseRegion(
                           onEnter: (_) => setState(() => _hoverIndex = index),
@@ -342,18 +321,6 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
                                       ],
                                     ),
                                   ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: cor.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      status.toString().toUpperCase(),
-                                      style: TextStyle(color: cor, fontSize: 11),
-                                    ),
-                                  )
                                 ],
                               ),
                             ),
@@ -379,7 +346,6 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
           id,
           numero_controle,
           criado_em,
-          status,
           tipo_operacao,
           transportadora,
           motorista,
@@ -389,16 +355,11 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
           produto_nome,
           filial_id
         ''')
+        .gte('criado_em', hojeStr)
         .order('criado_em', ascending: false);
 
-    final filtrados = dados.where((o) {
-      final status = (o['status'] ?? '').toString().toLowerCase();
-      final criado = o['criado_em']?.toString().substring(0, 10) ?? '';
-      return status == 'pendente' || criado == hojeStr;
-    }).toList();
-
     setState(() {
-      _ordens = List<Map<String, dynamic>>.from(filtrados);
+      _ordens = List<Map<String, dynamic>>.from(dados);
       _carregando = false;
     });
   }
