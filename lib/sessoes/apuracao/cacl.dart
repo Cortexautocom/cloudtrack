@@ -1262,11 +1262,17 @@ class _CalcPageState extends State<CalcPage> {
                     ),
 
                     // BLOCO FATURADO
-                    const SizedBox(height: 20),
-                    _blocoFaturado(
-                      medicoes: medicoes,
-                    ),
+                    if (!(widget.dadosFormulario['cacl_verificacao'] ?? false)) ...[
+                      const SizedBox(height: 20),
+                      _blocoFaturado(
+                        medicoes: medicoes,
+                      ),
+                    ],
                   ],                 
+
+                  if (_dadosFinaisEstaoCompletos() &&
+                      (widget.dadosFormulario['cacl_verificacao'] ?? false))
+                    const SizedBox(height: 20),
 
                   // RODAPÉ
                   Container(
@@ -3067,5 +3073,5 @@ class _CalcPageState extends State<CalcPage> {
     } catch (e) {
       // Silencioso
     }
-  }  
+  }
 }
