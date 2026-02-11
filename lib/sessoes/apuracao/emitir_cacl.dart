@@ -1030,6 +1030,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                         '',
                         width: 100,
                         focusNode: f[8],
+                        readOnly: _caclVerificacao,
                         nextFocus: f[9], // Agora vai para observações
                       )
                     : _buildGhostField(width: 100),
@@ -1315,7 +1316,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
   }
 
   Widget _buildFaturadoField(String label, TextEditingController ctrl, String hint, 
-      {double width = 100, FocusNode? focusNode, FocusNode? nextFocus}) {
+      {double width = 100, FocusNode? focusNode, FocusNode? nextFocus, bool readOnly = false}) {
     return Column(
       children: [
         Text(
@@ -1333,12 +1334,17 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           child: TextFormField(
             controller: ctrl,
             focusNode: focusNode,
+            readOnly: readOnly,
             textInputAction: nextFocus != null ? TextInputAction.next : TextInputAction.done,
             onFieldSubmitted: (_) => nextFocus?.requestFocus(),
             textAlign: TextAlign.center,
             keyboardType: TextInputType.number,
-            style: const TextStyle(fontSize: 12),
+            style: TextStyle(
+              fontSize: 12,
+              color: readOnly ? Colors.grey : Colors.black,
+            ),
             onChanged: (value) {
+              if (readOnly) return;
               final cursorPosition = ctrl.selection.baseOffset;
               final maskedValue = _aplicarMascaraFaturado(value);
               
@@ -1361,8 +1367,12 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(5),
-                borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.5),
+                borderSide: BorderSide(
+                  color: readOnly ? Colors.grey : const Color(0xFF0D47A1),
+                  width: readOnly ? 1.0 : 1.5,
+                ),
               ),
+              enabled: !readOnly,
             ),
           ),
         ),
@@ -1407,22 +1417,20 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       final camposPreenchidos = camposObrigatorios.every((controller) => 
           controller.text.trim().isNotEmpty);
       
-      // Verifica se algum campo da segunda medição foi iniciado (posições 9-16, excluindo faturado e observações)
-      final camposSegundaMedicao = _controllers[_tanqueSelecionadoIndex].sublist(9, 17);
-      final segundaMedicaoIniciada = camposSegundaMedicao.any((controller) => 
-          controller.text.trim().isNotEmpty);
-      
-      // Se segunda medição foi iniciada, exige o campo "Faturado" (posição 17)
-      bool faturadoValido = true;
-      if (segundaMedicaoIniciada) {
-        faturadoValido = _controllers[_tanqueSelecionadoIndex][17].text.trim().isNotEmpty;
-      }
-      
       // Verifica se pelo menos uma checkbox está marcada
       final checkboxMarcada = _caclVerificacao || _caclMovimentacao;
+
+        // Para CACL movimentacao, exige faturado valido (> 0)
+        bool faturadoValido = true;
+        if (_caclMovimentacao) {
+        final faturadoTexto =
+          _controllers[_tanqueSelecionadoIndex][17].text.trim();
+        faturadoValido = _parseFaturado(faturadoTexto) > 0;
+        }
       
-      // Botão habilita se: campos obrigatórios preenchidos + faturado válido (se segunda medição iniciada) + checkbox marcada
-      final botaoPodeHabilitar = camposPreenchidos && faturadoValido && checkboxMarcada;
+        // Botão habilita se: campos obrigatórios preenchidos + checkbox marcada + faturado valido (movimentacao)
+        final botaoPodeHabilitar =
+          camposPreenchidos && checkboxMarcada && faturadoValido;
       
       if (mounted) {
         setState(() => _botaoHabilitado = botaoPodeHabilitar);
@@ -1433,6 +1441,13 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         setState(() => _botaoHabilitado = false);
       }
     }
+  }
+
+  int _parseFaturado(String valor) {
+    if (valor.isEmpty) return 0;
+    final somenteNumeros = valor.replaceAll(RegExp(r'[^0-9]'), '');
+    if (somenteNumeros.isEmpty) return 0;
+    return int.tryParse(somenteNumeros) ?? 0;
   }
 
   Map<String, int> get _caclsPorTanque => _calcularCaclsPorTanque();

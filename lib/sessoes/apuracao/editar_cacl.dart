@@ -240,7 +240,12 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
     if (horarioSql == null || horarioSql.isEmpty) return '';
     
     try {
-      // Converter "HH:MM:SS" para "HH:MM h"
+      // Aceita timestamp (ISO) ou "HH:MM:SS"
+      if (horarioSql.contains('T')) {
+        final dt = DateTime.parse(horarioSql);
+        return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')} h';
+      }
+
       if (horarioSql.contains(':')) {
         final partes = horarioSql.split(':');
         if (partes.length >= 2) {
@@ -249,6 +254,7 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
           return '${horas.toString().padLeft(2, '0')}:${minutos.toString().padLeft(2, '0')} h';
         }
       }
+
       return horarioSql;
     } catch (_) {
       return horarioSql;

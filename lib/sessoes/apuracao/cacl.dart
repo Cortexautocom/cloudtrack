@@ -335,7 +335,11 @@ class _CalcPageState extends State<CalcPage> {
     if (timeString == null || timeString.isEmpty) return '-';
     
     try {
-      // Formato esperado: "HH:MM:SS"
+      if (timeString.contains('T')) {
+        final dt = DateTime.parse(timeString);
+        return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')} h';
+      }
+
       final partes = timeString.split(':');
       if (partes.length >= 2) {
         final horas = partes[0];
@@ -1592,6 +1596,15 @@ class _CalcPageState extends State<CalcPage> {
     if (horario == null || horario.isEmpty) return '--:-- h';
     
     String horarioLimpo = horario.trim();
+
+    if (horarioLimpo.contains('T')) {
+      try {
+        final dt = DateTime.parse(horarioLimpo);
+        return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')} h';
+      } catch (_) {
+        // Continua para os fallbacks
+      }
+    }
     
     if (horarioLimpo.toLowerCase().endsWith('h')) {
       return horarioLimpo;
@@ -2908,18 +2921,47 @@ class _CalcPageState extends State<CalcPage> {
 
   String? _formatarHorarioParaTime(String? horario) {
     if (horario == null || horario.isEmpty || horario == '-') return null;
-    String limpo = horario.trim().replaceAll('h', '').replaceAll('H', '');
-    if (limpo.contains(':')) {
-      final partes = limpo.split(':');
-      if (partes.length == 2) {
-        final horas = int.tryParse(partes[0]) ?? 0;
-        final minutos = int.tryParse(partes[1]) ?? 0;
-        if (horas >= 0 && horas < 24 && minutos >= 0 && minutos < 60) {
-          return '${horas.toString().padLeft(2, '0')}:${minutos.toString().padLeft(2, '0')}:00';
-        }
+
+    final horarioLimpo = horario.trim();
+    if (horarioLimpo.contains('T')) {
+      try {
+        return DateTime.parse(horarioLimpo).toIso8601String();
+      } catch (_) {
+        return null;
       }
     }
-    return null;
+
+    final match = RegExp(r'(\d{1,2}):(\d{2})').firstMatch(horarioLimpo);
+    if (match == null) return null;
+
+    final horas = int.tryParse(match.group(1) ?? '') ?? -1;
+    final minutos = int.tryParse(match.group(2) ?? '') ?? -1;
+    if (horas < 0 || horas > 23 || minutos < 0 || minutos > 59) return null;
+
+    final dataDisplay = widget.dadosFormulario['data']?.toString() ?? '';
+    DateTime baseDate;
+    if (dataDisplay.contains('/')) {
+      final partes = dataDisplay.split('/');
+      if (partes.length == 3) {
+        final dia = int.tryParse(partes[0]) ?? DateTime.now().day;
+        final mes = int.tryParse(partes[1]) ?? DateTime.now().month;
+        final ano = int.tryParse(partes[2]) ?? DateTime.now().year;
+        baseDate = DateTime(ano, mes, dia, horas, minutos);
+      } else {
+        baseDate = DateTime.now();
+      }
+    } else if (dataDisplay.contains('-')) {
+      try {
+        final data = DateTime.parse(dataDisplay);
+        baseDate = DateTime(data.year, data.month, data.day, horas, minutos);
+      } catch (_) {
+        baseDate = DateTime.now();
+      }
+    } else {
+      baseDate = DateTime.now();
+    }
+
+    return baseDate.toIso8601String();
   }
 
   double? _extrairNumeroFormatado(String? valor) {
