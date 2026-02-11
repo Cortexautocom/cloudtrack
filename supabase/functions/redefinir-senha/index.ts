@@ -73,33 +73,33 @@ serve(async (req: Request): Promise<Response> => {
     const html = `
       <h2>🔑 Sua senha foi redefinida</h2>
       <p>Olá,</p>
-      <p>Sua senha do <strong>CloudTrack</strong> foi redefinida pelo administrador.</p>
+      <p>Sua senha do <strong>PowerTank</strong> foi redefinida pelo administrador.</p>
       <p>Nova senha temporária:</p>
       <p style="font-size:18px;"><b>${novaSenha}</b></p>
       <p>Você deverá alterá-la assim que acessar o sistema.</p>
 
       <p style="margin: 24px 0;">
-        <a href="https://cloudtrack-app.web.app/"
+        <a href="https://powertankapp.com.br/"
            style="background-color:#0A4B78;
                   color:#fff;
                   padding:12px 20px;
                   border-radius:8px;
                   text-decoration:none;
                   font-weight:bold;">
-          Acessar o CloudTrack
+          Acessar o PowerTank
         </a>
       </p>
 
       <hr>
       <p style="font-size:12px;color:#888;">
-        © 2025 CloudTrack • Powered by AwaySoftwares LLC
+        'PowerTank Terminais 2026, All rights reserved.',
       </p>
     `;
 
     const resendPayload = {
-      from: "CloudTrack Suporte <suporte@cortexac.com.br>",
+      from: "PowerTank Suporte <suporte@powertankapp.com.br>",
       to: [email],
-      subject: "🔐 Sua senha foi redefinida - CloudTrack",
+      subject: "🔐 Sua senha foi redefinida - PowerTank",
       html,
     };
 

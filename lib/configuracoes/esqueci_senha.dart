@@ -274,7 +274,7 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    "© 2025 CloudTrack, LLC. All rights reserved.",
+                    'PowerTank Terminais 2026, All rights reserved.',
                     style: TextStyle(
                       color: Colors.grey.shade400,
                       fontSize: 13,
@@ -284,7 +284,7 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    "AwaySoftwares Solution - 505 North Angier Avenue, Atlanta, GA 30308, EUA.",
+                    '© Norton Tecnology - 550 California St, W-325, San Francisco, CA - EUA.',
                     style: TextStyle(
                       color: Colors.grey.shade400,
                       fontSize: 13,

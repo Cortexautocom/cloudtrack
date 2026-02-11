@@ -57,7 +57,7 @@ serve(async (req: Request): Promise<Response> => {
 
     // 4️⃣ Enviar email aos admins
     const resendPayload = {
-      from: "CloudTrack Suporte <suporte@cortexac.com.br>",
+      from: "PowerTank Suporte <suporte@powertankapp.com.br>",
       to: listaEmails,
       subject: "🔔 Solicitação de redefinição de senha",
       html: `
@@ -65,18 +65,18 @@ serve(async (req: Request): Promise<Response> => {
         <p>O usuário <strong>${usuario.nome}</strong> pediu redefinição de senha.</p>
         <p>E-mail: <b>${usuario.email}</b></p>
         <p style="margin: 24px 0;">
-          <a href="https://cloudtrack-app.web.app/"
+          <a href="https://powertankapp.com.br/"
             style="background-color:#0A4B78;
             color:#fff;
             padding:12px 20px;
             border-radius:8px;
             text-decoration:none;
             font-weight:bold;">
-            Acessar o CloudTrack
+            Acessar o PowerTank
           </a>
         </p>
         <hr>
-        <small>© 2025 CloudTrack • Powered by AwaySoftwares LLC</small>
+        <small>'PowerTank Terminais 2026, All rights reserved.',</small>
       `,
     };
 

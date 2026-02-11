@@ -171,7 +171,7 @@ class _EscolherSenhaPageState extends State<EscolherSenhaPage> {
                   Text(
                     _senhaDefinida
                         ? 'Senha definida com sucesso! Redirecionando...'
-                        : 'Crie uma nova senha para sua conta CloudTrack',
+                        : 'Crie uma nova senha para sua conta PowerTank',
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 14, color: Colors.grey),
                   ),
@@ -272,7 +272,7 @@ class _EscolherSenhaPageState extends State<EscolherSenhaPage> {
               child: Column(
                 children: [
                   Text(
-                    "© 2025 CloudTrack, LLC. All rights reserved.",
+                    'PowerTank Terminais 2026, All rights reserved.',
                     style: TextStyle(
                       color: Colors.grey.shade400,
                       fontSize: 13,
@@ -280,7 +280,7 @@ class _EscolherSenhaPageState extends State<EscolherSenhaPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    "AwaySoftwares Solution - 505 North Angier Avenue, Atlanta, GA 30308, EUA.",
+                    '© Norton Tecnology - 550 California St, W-325, San Francisco, CA - EUA.',
                     style: TextStyle(
                       color: Colors.grey.shade400,
                       fontSize: 13,

@@ -149,7 +149,7 @@ serve(async (req: Request): Promise<Response> => {
     console.log("📧 Enviando e-mail via Resend...");
 
     const html = `
-      <h2>Bem-vindo(a) ao CloudTrack!</h2>
+      <h2>Bem-vindo(a) ao PowerTank!</h2>
       <p>Olá ${nome},</p>
       <p>Sua conta foi aprovada com sucesso e já está ativa!</p>
       <p>Use os dados abaixo para acessar o sistema:</p>
@@ -158,15 +158,15 @@ serve(async (req: Request): Promise<Response> => {
       <p>Você será solicitado a alterar essa senha no primeiro login.</p>
 
       <p style="margin: 30px 0;">
-        <a href="https://cloudtrack-app.web.app/"
+        <a href="https://powertankapp.com.br/"
            style="background-color:#0A4B78; color:#fff; padding:14px 28px; border-radius:8px; text-decoration:none; font-weight:bold;">
-          Acessar o CloudTrack
+          Acessar o PowerTank
         </a>
       </p>
 
       <hr>
       <p style="font-size:12px; color:#888;">
-        © 2025 CloudTrack • Powered by AwaySoftwares LLC
+        'PowerTank Terminais 2026, All rights reserved.',
       </p>
     `;
 
@@ -177,9 +177,9 @@ serve(async (req: Request): Promise<Response> => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "CloudTrack Suporte <suporte@cortexac.com.br>",
+        from: "PowerTank Suporte <suporte@powertankapp.com.br>",
         to: [email],
-        subject: "Acesso liberado - CloudTrack",
+        subject: "Acesso liberado - PowerTank",
         html,
       }),
     });
