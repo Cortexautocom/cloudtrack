@@ -36,6 +36,9 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
   bool _hoverGrupo1 = false;
   bool _hoverGrupo2 = false;
   
+  // Filtro de data específica (por ts_mov) - sempre definida, inicializa com data atual
+  DateTime _dataFiltro = DateTime.now();
+  
   // Mapa para armazenar cores por ordem_id (cores fixas)
   Map<String, Color> _coresOrdens = {};
   
@@ -124,6 +127,13 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
       if (widget.filialId != null && widget.filialId!.isNotEmpty) {
         query = query.eq("filial_id", widget.filialId!);
       }
+
+      // Filtro por data específica (ts_mov)
+      final dataInicio = DateTime(_dataFiltro.year, _dataFiltro.month, _dataFiltro.day, 0, 0, 0);
+      final dataFim = DateTime(_dataFiltro.year, _dataFiltro.month, _dataFiltro.day, 23, 59, 59);
+      query = query
+          .gte('ts_mov', dataInicio.toUtc().toIso8601String())
+          .lte('ts_mov', dataFim.toUtc().toIso8601String());
 
       final response = await query.order('ts_mov', ascending: true);
 
@@ -450,12 +460,22 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
         Container(
           height: 40,
           color: Colors.grey.shade100,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildGrupoButton("Grupo 1", 0),
-              const SizedBox(width: 16),
-              _buildGrupoButton("Grupo 2", 1),
+              // Botões de grupo centralizados
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildGrupoButton("Grupo 1", 0),
+                    const SizedBox(width: 16),
+                    _buildGrupoButton("Grupo 2", 1),
+                  ],
+                ),
+              ),
+              // Campo de data alinhado à direita
+              _buildCampoDataFiltro(),
             ],
           ),
         ),
@@ -648,6 +668,72 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
               constraints: const BoxConstraints(minWidth: 36),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCampoDataFiltro() {
+    final String textoData = '${_dataFiltro.day.toString().padLeft(2, '0')}/${_dataFiltro.month.toString().padLeft(2, '0')}/${_dataFiltro.year}';
+    
+    return InkWell(
+      onTap: () async {
+        final dataSelecionada = await showDatePicker(
+          context: context,
+          initialDate: _dataFiltro,
+              firstDate: DateTime(2020, 1, 1),
+              lastDate: DateTime.now().add(const Duration(days: 365)),
+              helpText: 'Filtrar por data',
+              cancelText: 'Cancelar',
+              confirmText: 'Confirmar',
+              builder: (context, child) {
+                return Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: const ColorScheme.light(
+                      primary: Color(0xFF0D47A1),
+                      onPrimary: Colors.white,
+                      surface: Colors.white,
+                      onSurface: Colors.black,
+                    ),
+                  ),
+                  child: child!,
+                );
+              },
+            );
+            
+        if (dataSelecionada != null) {
+          setState(() {
+            _dataFiltro = dataSelecionada;
+          });
+          carregar();
+        }
+      },
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFF0D47A1).withOpacity(0.5)),
+          borderRadius: BorderRadius.circular(4),
+          color: Colors.white,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.calendar_today,
+              size: 14,
+              color: Color(0xFF0D47A1),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              textoData,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF0D47A1),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
