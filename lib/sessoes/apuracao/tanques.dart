@@ -5,6 +5,7 @@ import '../../login_page.dart';
 import 'emitir_cacl.dart';
 import 'cacl_historico.dart';
 import 'estoque_tanque.dart';
+import 'editar_cacl.dart';
 //import 'escolherfilial.dart';
 
 class GerenciamentoTanquesPage extends StatefulWidget {
@@ -1250,20 +1251,36 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                           }
 
                           final caclId = cacl['id'].toString();
+                          final isPendente = status?.toLowerCase() == 'pendente';
+                          final isAguardando = status?.toLowerCase() == 'aguardando';
 
                           if (!context.mounted) return;
 
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => CaclHistoricoPage(
-                                caclId: caclId,
-                                onVoltar: () {
-                                  Navigator.pop(context);
-                                },
+                          if (isPendente || isAguardando) {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => EditarCaclPage(
+                                  caclId: caclId,
+                                  onVoltar: () {
+                                    Navigator.pop(context);
+                                  },
+                                ),
                               ),
-                            ),
-                          );
+                            );
+                          } else {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => CaclHistoricoPage(
+                                  caclId: caclId,
+                                  onVoltar: () {
+                                    Navigator.pop(context);
+                                  },
+                                ),
+                              ),
+                            );
+                          }
 
                           final tanqueId =
                               _tanqueSelecionadoParaAcoes?['id']?.toString();

@@ -793,15 +793,7 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
                                           children: [
                                             Checkbox(
                                               value: _caclVerificacao,
-                                              onChanged: (value) {
-                                                setState(() {
-                                                  _caclVerificacao = value ?? false;
-                                                  if (_caclVerificacao) {
-                                                    _caclMovimentacao = false;
-                                                  }
-                                                });
-                                                _verificarCamposObrigatorios();
-                                              },
+                                              onChanged: null,
                                               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                               visualDensity: VisualDensity.compact,
                                             ),
@@ -818,15 +810,7 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
                                         children: [
                                           Checkbox(
                                             value: _caclMovimentacao,
-                                            onChanged: (value) {
-                                              setState(() {
-                                                _caclMovimentacao = value ?? false;
-                                                if (_caclMovimentacao) {
-                                                  _caclVerificacao = false;
-                                                }
-                                              });
-                                              _verificarCamposObrigatorios();
-                                            },
+                                            onChanged: null,
                                             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                             visualDensity: VisualDensity.compact,
                                           ),
@@ -1074,7 +1058,7 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
                       'Faturado', 
                       c[8], // Índice 8 para faturado
                       '', 
-                      readonly: readonly,
+                      readonly: readonly || _caclVerificacao,
                       width: 100, 
                       focusNode: f[8], 
                       nextFocus: f.length > 9 ? f[9] : null,
