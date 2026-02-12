@@ -33,7 +33,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   List<Map<String, dynamic>> _movs = [];
   List<Map<String, dynamic>> _movsOrdenadas = [];
 
-  final Map<String, num?> _estoqueInicial = {'amb': 0, 'vinte': 0};
+  Map<String, num?> _estoqueInicial = {'amb': 0, 'vinte': 0};
   Map<String, num?> _estoqueFinal = {'amb': null, 'vinte': null};
 
   final ScrollController _vertical = ScrollController();
@@ -81,6 +81,34 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     super.dispose();
   }
 
+  Future<void> _carregarEstoqueInicialDoCacl() async {
+    try {
+      final dataAtualStr = widget.data.toIso8601String().split('T')[0];
+      
+      // Busca o CACL mais recente anterior ao dia atual para este tanque e filial
+      final response = await _supabase
+          .from('cacl')
+          .select('volume_20_inicial, horario_inicial')
+          .eq('tanque_id', widget.tanqueId)
+          .eq('filial_id', widget.filialId)
+          .lt('horario_inicial', '$dataAtualStr 00:00:00')
+          .order('horario_inicial', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (response != null && response['volume_20_inicial'] != null) {
+        final volume20Inicial = response['volume_20_inicial'];
+        _estoqueInicial = {
+          'amb': _estoqueInicial['amb'],
+          'vinte': (volume20Inicial is num) ? volume20Inicial : num.tryParse(volume20Inicial.toString()) ?? 0,
+        };
+      }
+    } catch (e) {
+      // Se falhar, mantém o valor padrão 0
+      debugPrint('Erro ao carregar estoque inicial do CACL: $e');
+    }
+  }
+
   Future<void> _carregar() async {
     setState(() {
       _carregando = true;
@@ -88,6 +116,9 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     });
 
     try {
+      // Primeiro, carrega o estoque inicial do CACL mais recente anterior ao dia
+      await _carregarEstoqueInicialDoCacl();
+      
       final dataStr = widget.data.toIso8601String().split('T')[0];
 
       final dados = await _supabase
@@ -109,8 +140,9 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           .lte('ts_mov', '$dataStr 23:59:59')
           .order('ts_mov', ascending: true);
 
-      num saldoAmb = 0;
-      num saldoVinte = 0;
+      // Inicia os saldos com o estoque inicial
+      num saldoAmb = _estoqueInicial['amb'] ?? 0;
+      num saldoVinte = _estoqueInicial['vinte'] ?? 0;
 
       final List<Map<String, dynamic>> lista = [];
 
