@@ -80,15 +80,14 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     _hBody.dispose();
     super.dispose();
   }
-
+  
   Future<void> _carregarEstoqueInicialDoCacl() async {
     try {
       final dataAtualStr = widget.data.toIso8601String().split('T')[0];
       
-      // Busca o CACL mais recente anterior ao dia atual para este tanque e filial
       final response = await _supabase
           .from('cacl')
-          .select('volume_20_inicial, horario_inicial')
+          .select('volume_produto_inicial, volume_20_inicial, horario_inicial')
           .eq('tanque_id', widget.tanqueId)
           .eq('filial_id', widget.filialId)
           .lt('horario_inicial', '$dataAtualStr 00:00:00')
@@ -96,18 +95,17 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           .limit(1)
           .maybeSingle();
 
-      if (response != null && response['volume_20_inicial'] != null) {
-        final volume20Inicial = response['volume_20_inicial'];
+      if (response != null) {
         _estoqueInicial = {
-          'amb': _estoqueInicial['amb'],
-          'vinte': (volume20Inicial is num) ? volume20Inicial : num.tryParse(volume20Inicial.toString()) ?? 0,
+          // Agora SEMPRE são num! Código original funciona perfeitamente
+          'amb': response['volume_produto_inicial'] ?? 0,
+          'vinte': response['volume_20_inicial'] ?? 0,
         };
       }
     } catch (e) {
-      // Se falhar, mantém o valor padrão 0
       debugPrint('Erro ao carregar estoque inicial do CACL: $e');
     }
-  }
+  }  
 
   Future<void> _carregar() async {
     setState(() {
@@ -292,8 +290,66 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
                 ? Center(child: Text(_mensagemErro))
                 : _movsOrdenadas.isEmpty
                     ? const Center(child: Text('Sem movimentações no dia'))
-                    : _buildTabela(),
+                    : _buildConteudo(),
       ),
+    );
+  }
+
+  Widget _buildConteudo() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(child: _buildTabela()),
+        _buildBlocoResumo(),
+      ],
+    );
+  }
+
+  Widget _buildBlocoResumo() {
+    return Container(
+      width: _wTable,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(10),
+          bottomRight: Radius.circular(10),
+        ),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildCampoResumo('Estoque final calculado:', 0),
+          _buildCampoResumo('Medição final (CACL):', 0),          
+          _buildCampoResumo('Sobra/perda:', 0),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCampoResumo(String label, num valor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _fmtNum(valor),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0D47A1),
+          ),
+        ),
+      ],
     );
   }
 
