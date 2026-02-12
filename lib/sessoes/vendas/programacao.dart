@@ -44,21 +44,21 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
   
   // Mapa de UUID de produto -> coluna (grupo, índice)
   // Grupo 0: G. Comum, G. Aditivada, D. S10, D. S500, Etanol
-  // Grupo 1: B100, G. A, S500 A, S10 A, Anidro
+  // Grupo 1: G. A, S500 A, S10 A, Anidro, B100
   static const Map<String, Map<String, dynamic>> _mapaProdutosColuna = {
-    // Grupo 0 (Combustíveis derivados do petróleo)
-    '82c348c8-efa1-4d1a-953a-ee384d5780fc': {'grupo': 0, 'coluna': 0}, // G. Comum
-    '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': {'grupo': 0, 'coluna': 1}, // G. Aditivada
-    '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': {'grupo': 0, 'coluna': 2}, // Diesel A-S10 -> D. S10
-    '58ce20cf-f252-4291-9ef6-f4821f22c29e': {'grupo': 0, 'coluna': 2}, // Diesel S10-B -> D. S10
-    '4da89784-30f1-4abe-b97e-c48729969e3d': {'grupo': 0, 'coluna': 3}, // Diesel A-S500 -> D. S500
-    'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': {'grupo': 0, 'coluna': 3}, // Diesel S500-B -> D. S500
-    '66ca957a-5698-4a02-8c9e-987770b6a151': {'grupo': 0, 'coluna': 4}, // Hidratado -> Etanol
-    'cecab8eb-297a-4640-8fae-e88335b88d8b': {'grupo': 0, 'coluna': 4}, // Anidro -> Etanol
-    
-    // Grupo 1 (Biocombustíveis)
-    'ecd91066-e763-42e3-8a0e-d982ea6da535': {'grupo': 1, 'coluna': 0}, // B100
-    'f8e95435-471a-424c-947f-def8809053a0': {'grupo': 1, 'coluna': 1}, // Gasolina A -> G. A
+    // Grupo 0 (Combustíveis principais)
+    '82c348c8-efa1-4d1a-953a-ee384d5780fc': {'grupo': 0, 'coluna': 0}, // Gasolina Comum
+    '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': {'grupo': 0, 'coluna': 1}, // Gasolina Aditivada
+    '58ce20cf-f252-4291-9ef6-f4821f22c29e': {'grupo': 0, 'coluna': 2}, // Diesel S10-B
+    'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': {'grupo': 0, 'coluna': 3}, // Diesel S500-B
+    '66ca957a-5698-4a02-8c9e-987770b6a151': {'grupo': 0, 'coluna': 4}, // Hidratado
+
+    // Grupo 1 (Especiais / mistura)
+    'f8e95435-471a-424c-947f-def8809053a0': {'grupo': 1, 'coluna': 0}, // Gasolina A
+    '4da89784-301f-4abe-b97e-c48729969e3d': {'grupo': 1, 'coluna': 1}, // Diesel A-S500
+    '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': {'grupo': 1, 'coluna': 2}, // Diesel A-S10
+    'cecab8eb-297a-4640-81ae-e88335b88d8b': {'grupo': 1, 'coluna': 3}, // Anidro
+    'ecd91066-e763-42e3-8a0e-d982ea6da535': {'grupo': 1, 'coluna': 4}, // B100
   };
   
   // Paleta fixa de 20 cores distintas para as ordens
@@ -868,7 +868,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
       // Grupo 1: 5 colunas (G. Comum, G. Aditivada, D. S10, D. S500, Etanol)
       return larguraFixa + (90 * 5);
     } else {
-      // Grupo 2: 5 colunas (B100, G. A, S500 A, S10 A, Anidro)
+      // Grupo 2: 5 colunas (G. A, S500 A, S10 A, Anidro, B100)
       return larguraFixa + (90 * 5);
     }
   }
@@ -897,11 +897,11 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     } else {
       return [
         ...colunasFixas,
-        _th("B100", 90),
         _th("G. A", 90),
         _th("S500 A", 90),
         _th("S10 A", 90),
         _th("Anidro", 90),
+        _th("B100", 90),
       ];
     }
   }
