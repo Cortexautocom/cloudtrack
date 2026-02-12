@@ -83,10 +83,9 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
           .select('''
             *,
             filiais (nome),
-            tanques (
+            tanques ( 
               referencia,
               capacidade,
-              numero,
               produtos (nome)
             )
           ''')
@@ -118,7 +117,6 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
               .select('''
                 referencia,
                 capacidade,
-                numero,
                 produtos (nome)
               ''')
               .eq('id', tanqueId)
@@ -749,28 +747,34 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
                               children: [
                                 // 1ª MEDIÇÃO (SOMENTE LEITURA)
                                 Expanded(
-                                  child: _buildSection(
-                                    '1ª Medição',
-                                    'Inicial',
-                                    Colors.blue[50]!,
-                                    Colors.blue,
-                                    _controllers.sublist(0, 10),
-                                    _focusNodes.sublist(0, 10),
-                                    true, // readonly
+                                  child: FocusTraversalGroup(
+                                    descendantsAreFocusable: false,
+                                    child: _buildSection(
+                                      '1ª Medição',
+                                      'Inicial',
+                                      Colors.blue[50]!,
+                                      Colors.blue,
+                                      _controllers.sublist(0, 10),
+                                      _focusNodes.sublist(0, 10),
+                                      true, // readonly
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 16),
                                 
                                 // 2ª MEDIÇÃO (EDITÁVEL)
                                 Expanded(
-                                  child: _buildSection(
-                                    '2ª Medição',
-                                    'Final',
-                                    Colors.green[50]!,
-                                    Colors.green,
-                                    _controllers.sublist(10, 19),
-                                    _focusNodes.sublist(10, 19),
-                                    false, // editável
+                                  child: FocusTraversalGroup(
+                                    policy: OrderedTraversalPolicy(),
+                                    child: _buildSection(
+                                      '2ª Medição',
+                                      'Final',
+                                      Colors.green[50]!,
+                                      Colors.green,
+                                      _controllers.sublist(10, 19),
+                                      _focusNodes.sublist(10, 19),
+                                      false, // editável
+                                    ),
                                   ),
                                 ),
                               ],
@@ -905,6 +909,9 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
   ) {
     final bool ehSegundaMedicao = periodo.contains('2ª');
     
+    // Ordem dos campos para TAB navigation (só usado na 2ª medição)
+    // 0=Horário, 1=cm, 2=mm, 3=TempTanque, 4=Densidade, 5=TempAmostra, 6=ÁguaCm, 7=ÁguaMm, 8=Faturado
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -967,6 +974,7 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
                 focusNode: f[0], 
                 nextFocus: f[1],
                 tipo: 'horario',
+                ordem: ehSegundaMedicao ? 0 : null,
               ),
               _buildField(
                 'cm', 
@@ -978,6 +986,7 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
                 focusNode: f[1], 
                 nextFocus: f[2],
                 tipo: 'numero',
+                ordem: ehSegundaMedicao ? 1 : null,
               ),
               _buildField(
                 'mm', 
@@ -989,6 +998,7 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
                 focusNode: f[2], 
                 nextFocus: f[3],
                 tipo: 'numero',
+                ordem: ehSegundaMedicao ? 2 : null,
               ),
             ],
           ),
@@ -1007,6 +1017,7 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
                 focusNode: f[3], 
                 nextFocus: f[4],
                 tipo: 'temperatura',
+                ordem: ehSegundaMedicao ? 3 : null,
               ),
               _buildField(
                 'Densidade Obs.', 
@@ -1017,6 +1028,7 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
                 focusNode: f[4], 
                 nextFocus: f[5],
                 tipo: 'densidade',
+                ordem: ehSegundaMedicao ? 4 : null,
               ),
               _buildField(
                 'Temp. Amostra', 
@@ -1027,6 +1039,7 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
                 focusNode: f[5], 
                 nextFocus: f[6],
                 tipo: 'temperatura',
+                ordem: ehSegundaMedicao ? 5 : null,
               ),
             ],
           ),
@@ -1046,6 +1059,7 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
                 focusNode: f[6], 
                 nextFocus: f[7],
                 tipo: 'numero',
+                ordem: ehSegundaMedicao ? 6 : null,
               ),
               _buildField(
                 'Água mm', 
@@ -1057,6 +1071,7 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
                 focusNode: f[7], 
                 nextFocus: f[8],
                 tipo: 'numero',
+                ordem: ehSegundaMedicao ? 7 : null,
               ),
               // Faturado apenas na segunda medição
               ehSegundaMedicao 
@@ -1069,6 +1084,7 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
                       focusNode: f[8], 
                       nextFocus: f.length > 9 ? f[9] : null,
                       tipo: 'faturado',
+                      ordem: 8,
                     )
                   : _buildGhostField(width: 100),
             ],
@@ -1144,6 +1160,7 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
     FocusNode? focusNode,
     FocusNode? nextFocus,
     required String tipo,
+    int? ordem,
   }) {
     int? maxLengthFinal;
     switch (tipo) {
@@ -1164,7 +1181,7 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
         break;
     }
     
-    return Column(
+    final fieldWidget = Column(
       children: [
         Text(
           label,
@@ -1250,6 +1267,16 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
         ),
       ],
     );
+    
+    // Wrap in FocusTraversalOrder for proper TAB navigation order
+    if (ordem != null) {
+      return FocusTraversalOrder(
+        order: NumericFocusOrder(ordem.toDouble()),
+        child: fieldWidget,
+      );
+    }
+    
+    return fieldWidget;
   }
   
   Widget _buildGhostField({double width = 100}) {

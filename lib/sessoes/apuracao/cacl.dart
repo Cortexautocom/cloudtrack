@@ -187,7 +187,6 @@ class _CalcPageState extends State<CalcPage> {
             if (resultado['densidade_20_inicial'] != null) {
               medicoesAtualizadas['densidade20Inicial'] =
                   resultado['densidade_20_inicial']?.toString();
-              print('🔄 DEBUG: Carregando densidade20Inicial do banco: ${resultado['densidade_20_inicial']}');
             }
             if (resultado['fator_correcao_inicial'] != null) {
               medicoesAtualizadas['fatorCorrecaoInicial'] =
@@ -233,7 +232,6 @@ class _CalcPageState extends State<CalcPage> {
             if (resultado['densidade_20_final'] != null) {
               medicoesAtualizadas['densidade20Final'] =
                   resultado['densidade_20_final']?.toString();
-              print('🔄 DEBUG: Carregando densidade20Final do banco: ${resultado['densidade_20_final']}');
             }
             if (resultado['fator_correcao_final'] != null) {
               medicoesAtualizadas['fatorCorrecaoFinal'] =
@@ -374,9 +372,7 @@ class _CalcPageState extends State<CalcPage> {
   }  
 
   Future<void> _calcularVolumesIniciais() async {
-    print('🔵 DEBUG: Iniciando _calcularVolumesIniciais');
     final medicoes = widget.dadosFormulario['medicoes'];
-    print('🔵 DEBUG: Medições disponíveis: ${medicoes.keys.toList()}');
     
     final alturaAguaInicial = medicoes['alturaAguaInicial'];
     final alturaAguaFinal = medicoes['alturaAguaFinal'];
@@ -457,7 +453,6 @@ class _CalcPageState extends State<CalcPage> {
     widget.dadosFormulario['medicoes']['volumeTotalFinal'] = volumeTotalFinalFormatado;
 
     final produtoNome = widget.dadosFormulario['produto']?.toString() ?? '';
-    print('🔵 DEBUG: Produto nome: $produtoNome');
       
     if (medicoes['tempAmostraInicial'] != null && 
         medicoes['tempAmostraInicial'].toString().isNotEmpty &&
@@ -467,21 +462,14 @@ class _CalcPageState extends State<CalcPage> {
         medicoes['densidadeInicial'].toString() != '-' &&
         produtoNome.isNotEmpty) {
       
-      print('🟢 DEBUG: Buscando densidade20Inicial - Temp: ${medicoes['tempAmostraInicial']}, Densidade: ${medicoes['densidadeInicial']}, Produto: $produtoNome');
       final densidade20Inicial = await _buscarDensidade20C(
         temperaturaAmostra: medicoes['tempAmostraInicial'].toString(),
         densidadeObservada: medicoes['densidadeInicial'].toString(),
         produtoNome: produtoNome,
       );
       
-      print('🟢 DEBUG: Resultado densidade20Inicial: $densidade20Inicial');
       widget.dadosFormulario['medicoes']['densidade20Inicial'] = densidade20Inicial;
-      print('🟢 DEBUG: densidade20Inicial salvo em dadosFormulario: ${widget.dadosFormulario['medicoes']['densidade20Inicial']}');
     } else {
-      print('🔴 DEBUG: Condições NÃO atendidas para densidade20Inicial');
-      print('🔴 DEBUG: tempAmostraInicial: ${medicoes['tempAmostraInicial']}');
-      print('🔴 DEBUG: densidadeInicial: ${medicoes['densidadeInicial']}');
-      print('🔴 DEBUG: produtoNome: $produtoNome');
       widget.dadosFormulario['medicoes']['densidade20Inicial'] = '-';
     }
 
@@ -493,21 +481,14 @@ class _CalcPageState extends State<CalcPage> {
         medicoes['densidadeFinal'].toString() != '-' &&
         produtoNome.isNotEmpty) {
       
-      print('🟢 DEBUG: Buscando densidade20Final - Temp: ${medicoes['tempAmostraFinal']}, Densidade: ${medicoes['densidadeFinal']}, Produto: $produtoNome');
       final densidade20Final = await _buscarDensidade20C(
         temperaturaAmostra: medicoes['tempAmostraFinal'].toString(),
         densidadeObservada: medicoes['densidadeFinal'].toString(),
         produtoNome: produtoNome,
       );
       
-      print('🟢 DEBUG: Resultado densidade20Final: $densidade20Final');
       widget.dadosFormulario['medicoes']['densidade20Final'] = densidade20Final;
-      print('🟢 DEBUG: densidade20Final salvo em dadosFormulario: ${widget.dadosFormulario['medicoes']['densidade20Final']}');
     } else {
-      print('🔴 DEBUG: Condições NÃO atendidas para densidade20Final');
-      print('🔴 DEBUG: tempAmostraFinal: ${medicoes['tempAmostraFinal']}');
-      print('🔴 DEBUG: densidadeFinal: ${medicoes['densidadeFinal']}');
-      print('🔴 DEBUG: produtoNome: $produtoNome');
       widget.dadosFormulario['medicoes']['densidade20Final'] = '-';
     }
 
@@ -582,9 +563,6 @@ class _CalcPageState extends State<CalcPage> {
     }
 
     await _calcularMassa();
-    
-    print('🔵 DEBUG: Final de _calcularVolumesIniciais - densidade20Inicial: ${widget.dadosFormulario['medicoes']['densidade20Inicial']}');
-    print('🔵 DEBUG: Final de _calcularVolumesIniciais - densidade20Final: ${widget.dadosFormulario['medicoes']['densidade20Final']}');
     
     setState(() {});
   }

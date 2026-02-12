@@ -210,9 +210,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
         volume_produto_final,
         volume_total_liquido_inicial,
         volume_total_liquido_final,
-        tanques!inner(
-          referencia
-        ),
+        tanques:tanque_id (referencia),
         entrada_saida_20,
         faturado_final,
         diferenca_faturado,
