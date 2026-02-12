@@ -89,11 +89,10 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               referencia,
               capacidade,
               id_produto,
-              numero,
               produtos (nome)
             ''')
             .eq('id_filial', widget.filialSelecionadaId!)
-            .order('numero', ascending: true);
+            .order('referencia', ascending: true);
       } else {
         final idFilial = usuario.filialId;
 
@@ -109,11 +108,10 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               referencia,
               capacidade,
               id_produto,
-              numero,
               produtos (nome)
             ''')
             .eq('id_filial', idFilial)
-            .order('numero', ascending: true);
+            .order('referencia', ascending: true);
       }
 
       final tanquesResponse = await query;
