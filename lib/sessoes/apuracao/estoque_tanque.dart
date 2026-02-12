@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-//import '../../login_page.dart';
 
 class EstoqueTanquePage extends StatefulWidget {
   final String tanqueId;
@@ -34,7 +33,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   List<Map<String, dynamic>> _movs = [];
   List<Map<String, dynamic>> _movsOrdenadas = [];
 
-  final Map<String, num?> _estoqueInicial = {'amb': null, 'vinte': null};
+  final Map<String, num?> _estoqueInicial = {'amb': 0, 'vinte': 0};
   Map<String, num?> _estoqueFinal = {'amb': null, 'vinte': null};
 
   final ScrollController _vertical = ScrollController();
@@ -51,7 +50,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
 
   double get _wTable => _wData + _wDesc + (_wNum * 6);
 
-  String _coluna = 'data_mov';
+  String _coluna = 'ts_mov';
   bool _asc = true;
 
   @override
@@ -92,21 +91,22 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       final dataStr = widget.data.toIso8601String().split('T')[0];
 
       final dados = await _supabase
-          .from('movimentacoes')
+          .from('movimentacoes_tanque')
           .select('''
             id,
-            data_mov,
             ts_mov,
-            descricao,
-            entrada_amb,
-            entrada_vinte,
-            saida_amb,
-            saida_vinte,
-            tq_orig,
-            tq_dest
+            quantidade,
+            produto_id,
+            movimentacao_id,
+            movimentacoes (
+              id,
+              data_mov,
+              descricao
+            )
           ''')
-          .or('tq_orig.eq.${widget.tanqueId},tq_dest.eq.${widget.tanqueId}')
-          .eq('data_mov', dataStr)
+          .eq('tanque_id', widget.tanqueId)
+          .gte('ts_mov', '$dataStr 00:00:00')
+          .lte('ts_mov', '$dataStr 23:59:59')
           .order('ts_mov', ascending: true);
 
       num saldoAmb = 0;
@@ -115,44 +115,27 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       final List<Map<String, dynamic>> lista = [];
 
       for (final m in dados) {
-        final ea = (m['entrada_amb'] ?? 0) as num;
-        final ev = (m['entrada_vinte'] ?? 0) as num;
-        final sa = (m['saida_amb'] ?? 0) as num;
-        final sv = (m['saida_vinte'] ?? 0) as num;
+        final num qtd = (m['quantidade'] ?? 0) as num;
+        final String descricao = m['movimentacoes']?['descricao'] ?? '';
 
-        num entradaAmb = 0;
-        num entradaVinte = 0;
-        num saidaAmb = 0;
-        num saidaVinte = 0;
-
-        if (m['tq_dest'] == widget.tanqueId) {
-          entradaAmb = ea;
-          entradaVinte = ev;
-        }
-
-        if (m['tq_orig'] == widget.tanqueId) {
-          saidaAmb = sa;
-          saidaVinte = sv;
-        }
-
-        saldoAmb += entradaAmb - saidaAmb;
-        saldoVinte += entradaVinte - saidaVinte;
+        saldoAmb -= qtd;
+        saldoVinte -= qtd;
 
         lista.add({
           'id': m['id'],
-          'data_mov': m['data_mov'],
-          'descricao': m['descricao'] ?? '',
-          'entrada_amb': entradaAmb,
-          'entrada_vinte': entradaVinte,
-          'saida_amb': saidaAmb,
-          'saida_vinte': saidaVinte,
+          'data_mov': m['movimentacoes']?['data_mov'] ?? dataStr,
+          'descricao': descricao,
+          'entrada_amb': 0,
+          'entrada_vinte': 0,
+          'saida_amb': qtd,
+          'saida_vinte': qtd,
           'saldo_amb': saldoAmb,
           'saldo_vinte': saldoVinte,
         });
       }
 
       _movs = lista;
-      _ordenar('data_mov', true);
+      _ordenar('ts_mov', true);
 
       _estoqueFinal = {
         'amb': _movsOrdenadas.isEmpty ? null : _movsOrdenadas.last['saldo_amb'],
@@ -174,7 +157,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     ord.sort((a, b) {
       dynamic va, vb;
       switch (col) {
-        case 'data_mov':
+        case 'ts_mov':
           va = DateTime.parse(a['data_mov']);
           vb = DateTime.parse(b['data_mov']);
           break;
@@ -182,8 +165,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           va = (a['descricao'] ?? '').toString().toLowerCase();
           vb = (b['descricao'] ?? '').toString().toLowerCase();
           break;
-        case 'entrada_amb':
-        case 'entrada_vinte':
         case 'saida_amb':
         case 'saida_vinte':
         case 'saldo_amb':
@@ -263,7 +244,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.sort),
-            onPressed: () => _onSort('data_mov'),
+            onPressed: () => _onSort('ts_mov'),
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -322,7 +303,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             color: const Color(0xFF0D47A1),
             child: Row(
               children: [
-                _th('Data', _wData, () => _onSort('data_mov')),
+                _th('Data', _wData, () => _onSort('ts_mov')),
                 _th('Descrição', _wDesc, () => _onSort('descricao')),
                 _th('Entrada (Amb)', _wNum, () => _onSort('entrada_amb')),
                 _th('Entrada (20ºC)', _wNum, () => _onSort('entrada_vinte')),
