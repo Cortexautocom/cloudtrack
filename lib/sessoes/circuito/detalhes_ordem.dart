@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../apuracao/certificado_apuracao_saida.dart';
-import '../apuracao/certificado_apuracao_entrada.dart';
+import '../operacao/certificado_apuracao_saida.dart';
+import '../operacao/certificado_apuracao_entrada.dart';
 
 enum EtapaCircuito {
   programado,
