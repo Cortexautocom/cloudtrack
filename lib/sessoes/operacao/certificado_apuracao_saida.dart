@@ -421,14 +421,13 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
           }
         }
 
+        // Preenche volume ambiente diretamente de saida_amb
+        if (movimentacao['saida_amb'] != null) {
+          campos['volumeCarregadoAmb']!.text =
+              _mascaraMilharUI(movimentacao['saida_amb'].toString());
+        }
+
         if (produtoSelecionado != null) {
-          final volumeAmb =
-              _obterVolumeAmbientePorProduto(
-                  movimentacao, produtoSelecionado!);
-          if (volumeAmb != null) {
-            campos['volumeCarregadoAmb']!.text =
-                _mascaraMilharUI(volumeAmb.toString());
-          }
 
           final volume20C =
               _obterVolume20CPorProduto(
@@ -453,53 +452,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         _carregandoDadosMovimentacao = false;
       });
     }
-  }
-
-  int? _obterVolumeAmbientePorProduto(Map<String, dynamic> movimentacao, String produtoNome) {
-    final produtoLower = produtoNome.toLowerCase();
-    
-    final mapaColunas = {
-      'gasolina': {
-        'comum': 'g_comum',
-        'aditivada': 'g_aditivada',
-        'outras': 'gasolina_a',
-      },
-      'diesel': {
-        's10': 'd_s10',
-        's500': 'd_s500',
-        's500_a': 's500_a',
-        's10_a': 's10_a',
-      },
-      'etanol': {
-        'hidratado': 'etanol',
-        'anidro': 'anidro',
-      },
-      'b100': {
-        'b100': 'b100',
-      }
-    };
-
-    for (final tipoProduto in mapaColunas.keys) {
-      if (produtoLower.contains(tipoProduto)) {
-        for (final variante in mapaColunas[tipoProduto]!.keys) {
-          if (produtoLower.contains(variante)) {
-            final coluna = mapaColunas[tipoProduto]![variante];
-            if (movimentacao[coluna] != null) {
-              return int.tryParse(movimentacao[coluna].toString());
-            }
-          }
-        }
-        
-        if (mapaColunas[tipoProduto]!.containsKey('outras')) {
-          final coluna = mapaColunas[tipoProduto]!['outras'];
-          if (movimentacao[coluna] != null) {
-            return int.tryParse(movimentacao[coluna].toString());
-          }
-        }
-      }
-    }
-    
-    return null;
   }
 
   int? _obterVolume20CPorProduto(Map<String, dynamic> movimentacao, String produtoNome) {
@@ -1067,44 +1019,18 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                     TextFormField(
                                       controller: campos['volumeCarregadoAmb'],
                                       keyboardType: TextInputType.number,
-                                      enabled: !_modoVisualizacao,
-                                      onChanged: _modoVisualizacao
-                                          ? null
-                                          : (value) {
-                                              final ctrl = campos['volumeCarregadoAmb']!;
-                                              final masked = _mascaraMilharUI(value);
-
-                                              if (masked != value) {
-                                                ctrl.value = TextEditingValue(
-                                                  text: masked,
-                                                  selection: TextSelection.collapsed(offset: masked.length),
-                                                );
-                                              }
-                                            },
+                                      enabled: false,
                                       decoration: _decoration('Volume carregado (ambiente)').copyWith(
-                                        fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
+                                        fillColor: Colors.grey[100],
                                       ),
                                     ),
 
                                     TextFormField(
                                       controller: campos['volumeApurado20C'],
                                       keyboardType: TextInputType.number,
-                                      enabled: !_modoVisualizacao,
-                                      onChanged: _modoVisualizacao
-                                          ? null
-                                          : (value) {
-                                              final ctrl = campos['volumeApurado20C']!;
-                                              final masked = _mascaraMilharUI(value);
-
-                                              if (masked != value) {
-                                                ctrl.value = TextEditingValue(
-                                                  text: masked,
-                                                  selection: TextSelection.collapsed(offset: masked.length),
-                                                );
-                                              }
-                                            },
+                                      enabled: false,
                                       decoration: _decoration('Volume apurado a 20 ºC').copyWith(
-                                        fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
+                                        fillColor: Colors.grey[100],
                                       ),
                                     ),
                                   ]),
