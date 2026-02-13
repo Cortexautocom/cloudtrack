@@ -130,7 +130,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             movimentacoes (
               id,
               data_mov,
-              descricao
+              cliente
             )
           ''')
           .eq('tanque_id', widget.tanqueId)
@@ -146,7 +146,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
 
       for (final m in dados) {
         final num qtd = (m['quantidade'] ?? 0) as num;
-        final String descricao = m['movimentacoes']?['descricao'] ?? '';
+        final String descricao = m['movimentacoes']?['cliente'] ?? '';
 
         saldoAmb -= qtd;
         saldoVinte -= qtd;
