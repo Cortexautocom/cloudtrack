@@ -46,7 +46,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   final List<String> menuItems = [
     'Início',
     'Estoques',
-    'Apuração',
+    'Operação',
     'Circuito',
     'Vendas',
     'Gestão de Frota',
@@ -132,7 +132,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   // NOVO: Mapa de cores por sessão
   final Map<String, Color> _coresSessoes = {
     'Estoques': const Color(0xFFFF9800), // Laranja
-    'Apuração': const Color(0xFF2196F3), // Azul
+    'Operação': const Color(0xFF2196F3), // Azul
     'Circuito': const Color(0xFF9C27B0), // Roxo
     'Vendas': const Color(0xFF4CAF50),   // Verde
     'Gestão de Frota': const Color(0xFFF44336), // Vermelho
@@ -241,9 +241,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       for (var card in todosCards) {
         var sessaoPai = card['sessao_pai'];
         
-        // Reatribuir Estoque por tanque para Apuração
+        // Reatribuir Estoque por tanque para Operação
         if (card['tipo']?.toString() == 'estoque_por_tanque') {
-          sessaoPai = 'Apuração';
+          sessaoPai = 'Operação';
         }
         
         cardsOrganizados.putIfAbsent(sessaoPai, () => []);
@@ -264,14 +264,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   void _inicializarFilhosPorSessaoFallback() {
-    _filhosPorSessao['Apuração'] = [
-      {'id': 'fallback-cacl', 'icon': Icons.analytics, 'label': 'CACL', 'descricao': 'Emitir CACL', 'tipo': 'cacl', 'sessao_pai': 'Apuração'},
-      {'id': 'fallback-ordens', 'icon': Icons.assignment, 'label': 'Ordens / Análises', 'descricao': 'Geração e gestão de ordens', 'tipo': 'ordens_analise', 'sessao_pai': 'Apuração'},
-      {'id': 'fallback-historico', 'icon': Icons.history, 'label': 'Histórico de CACLs', 'descricao': 'Consultar histórico de CACLs emitidos', 'tipo': 'historico_cacl', 'sessao_pai': 'Apuração'},
-      {'id': 'fallback-tabelas', 'icon': Icons.table_chart, 'label': 'Tabelas de Conversão', 'descricao': 'Tabelas de conversão de densidade e temperatura', 'tipo': 'tabelas_conversao', 'sessao_pai': 'Apuração'},
-      {'id': 'fallback-temp', 'icon': Icons.thermostat, 'label': 'Temperatura e Densidade média', 'descricao': 'Cálculo de temperatura e densidade média', 'tipo': 'temp_dens_media', 'sessao_pai': 'Apuração'},
-      {'id': 'fallback-tanques', 'icon': Icons.oil_barrel, 'label': 'Tanques', 'descricao': 'Gerenciamento de tanques', 'tipo': 'tanques', 'sessao_pai': 'Apuração'}, // MOVIDO PARA APURAÇÃO
-      {'id': 'fallback-estoque-tanque', 'icon': Icons.water_drop, 'label': 'Estoque por tanque', 'descricao': 'Acompanhar estoques por tanque', 'tipo': 'estoque_por_tanque', 'sessao_pai': 'Apuração'},
+    _filhosPorSessao['Operação'] = [
+      {'id': 'fallback-cacl', 'icon': Icons.analytics, 'label': 'CACL', 'descricao': 'Emitir CACL', 'tipo': 'cacl', 'sessao_pai': 'Operação'},
+      {'id': 'fallback-ordens', 'icon': Icons.assignment, 'label': 'Ordens / Análises', 'descricao': 'Geração e gestão de ordens', 'tipo': 'ordens_analise', 'sessao_pai': 'Operação'},
+      {'id': 'fallback-historico', 'icon': Icons.history, 'label': 'Histórico de CACLs', 'descricao': 'Consultar histórico de CACLs emitidos', 'tipo': 'historico_cacl', 'sessao_pai': 'Operação'},
+      {'id': 'fallback-tabelas', 'icon': Icons.table_chart, 'label': 'Tabelas de Conversão', 'descricao': 'Tabelas de conversão de densidade e temperatura', 'tipo': 'tabelas_conversao', 'sessao_pai': 'Operação'},
+      {'id': 'fallback-temp', 'icon': Icons.thermostat, 'label': 'Temperatura e Densidade média', 'descricao': 'Cálculo de temperatura e densidade média', 'tipo': 'temp_dens_media', 'sessao_pai': 'Operação'},
+      {'id': 'fallback-tanques', 'icon': Icons.oil_barrel, 'label': 'Tanques', 'descricao': 'Gerenciamento de tanques', 'tipo': 'tanques', 'sessao_pai': 'Operação'},
+      {'id': 'fallback-estoque-tanque', 'icon': Icons.water_drop, 'label': 'Estoque por tanque', 'descricao': 'Acompanhar estoques por tanque', 'tipo': 'estoque_por_tanque', 'sessao_pai': 'Operação'},
     ];
 
     _filhosPorSessao['Estoques'] = [
@@ -969,7 +969,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         return _buildAreaIndisponivelPage();
 
       case 'Estoques':
-      case 'Apuração':
+      case 'Operação':
       case 'Circuito':
       case 'Vendas':
       case 'Gestão de Frota':
@@ -1164,7 +1164,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       return TabelasDeConversao(
         key: const ValueKey('tabelas'),
         onVoltar: () {
-          _mostrarFilhosDaSessao('Apuração');
+          _mostrarFilhosDaSessao('Operação');
         },
       );
     }
@@ -1183,12 +1183,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               _voltarParaTanquesApoCACL = false;
               _mostrarTanques = true;
             } else {
-              // Caso contrário, volta para Apuração normalmente
+              // Caso contrário, volta para Operação normalmente
               if (usuario!.nivel == 3) {
                 _mostrarEscolherFilial = true;
                 _contextoEscolhaFilial = 'cacl';
               } else {
-                _mostrarFilhosDaSessao('Apuração');
+                _mostrarFilhosDaSessao('Operação');
               }
             }
           });
@@ -1211,7 +1211,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         child: ListarOrdensAnalisesPage(
           key: const ValueKey('listar-ordens-analise'),
           onVoltar: () {
-            _mostrarFilhosDaSessao('Apuração');
+            _mostrarFilhosDaSessao('Operação');
           },
         ),
       );
@@ -1221,7 +1221,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       return HistoricoCaclPage(
         key: const ValueKey('historico-cacl'),
         onVoltar: () {
-          _mostrarFilhosDaSessao('Apuração');
+          _mostrarFilhosDaSessao('Operação');
         },
       );
     }
@@ -1233,7 +1233,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           setState(() {
             _mostrarEscolherFilial = false;
             _contextoEscolhaFilial = '';
-            _mostrarFilhosDaSessao('Apuração');
+            _mostrarFilhosDaSessao('Operação');
           });
         },
         onSelecionarFilial: (idFilial) async {
@@ -1292,7 +1292,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           setState(() {
             _mostrarMedicaoTanques = false;
             _mostrarListarCacls = false;
-            _mostrarFilhosDaSessao('Apuração');
+            _mostrarFilhosDaSessao('Operação');
           });
         },
       );
@@ -1311,7 +1311,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               _mostrarEscolherFilial = true;
               _contextoEscolhaFilial = 'tanques';
             } else {
-              _mostrarFilhosDaSessao('Apuração'); // ALTERADO: Agora volta para Apuração
+              _mostrarFilhosDaSessao('Operação'); // ALTERADO: Agora volta para Operação
             }
           });
         },
@@ -1345,7 +1345,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               _mostrarEstoquePorTanque = false;
               if (_estoquePorTanqueVemDaApuracao) {
                 _estoquePorTanqueVemDaApuracao = false;
-                _mostrarFilhosDaSessao('Apuração');
+                _mostrarFilhosDaSessao('Operação');
               } else if (_filialParaFiltroId != null) {
                 // Se veio do fluxo de filial (cards intermediarios), volta para la
                 _mostrarCardsFilial = true;
@@ -1377,7 +1377,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         onVoltar: () {
           setState(() {
             _mostrarTempDensMedia = false;
-            _mostrarFilhosDaSessao('Apuração');
+            _mostrarFilhosDaSessao('Operação');
           });
         },
       );
@@ -1894,7 +1894,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
 
     switch (sessaoPai) {
-      case 'Apuração':
+      case 'Operação':
         _navegarParaCardApuracao(tipo, usuario);
         break;
       case 'Estoques':
@@ -1951,7 +1951,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _mostrarTempDensMedia = true;
         });
         break;
-      case 'tanques': // ADICIONADO: Caso para tanques agora em Apuração
+      case 'tanques': // ADICIONADO: Caso para tanques agora em Operação
         final usuario = UsuarioAtual.instance;
         if (usuario!.nivel == 3) {
           setState(() {
@@ -2252,7 +2252,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         return Icons.home;
       case 'Estoques':
         return Icons.leaderboard;
-      case 'Apuração':
+      case 'Operação':
         return Icons.analytics;
       case 'Circuito':
         return Icons.route;
