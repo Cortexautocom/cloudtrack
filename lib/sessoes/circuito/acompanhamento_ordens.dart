@@ -1,7 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
 import 'detalhes_ordem.dart';
+
+// Formatador de máscara para data dd/mm/aaaa
+class DataInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = newValue.text;
+    
+    // Remove tudo que não é número
+    final digitsOnly = text.replaceAll(RegExp(r'[^0-9]'), '');
+    
+    // Limita a 8 dígitos (ddmmaaaa)
+    final limitedDigits = digitsOnly.length > 8 
+        ? digitsOnly.substring(0, 8) 
+        : digitsOnly;
+    
+    // Formata com barras
+    String formatted = '';
+    for (int i = 0; i < limitedDigits.length; i++) {
+      if (i == 2 || i == 4) {
+        formatted += '/';
+      }
+      formatted += limitedDigits[i];
+    }
+    
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
 
 class AcompanhamentoOrdensPage extends StatefulWidget {
   final VoidCallback onVoltar;
@@ -28,6 +62,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   final TextEditingController _filtroGeralController = TextEditingController();
   final TextEditingController _dataFiltroController = TextEditingController();
   String? _filialFiltroId;
+  String? _tipoFiltro;
 
   bool _mostrarDetalhes = false;
   Map<String, dynamic>? _ordemSelecionada;
@@ -164,6 +199,12 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   @override
   void initState() {
     super.initState();
+    
+    // Define valores iniciais dos filtros
+    _tipoFiltro = 'saida';
+    final hoje = DateTime.now();
+    _dataFiltroController.text = '${hoje.day.toString().padLeft(2, '0')}/${hoje.month.toString().padLeft(2, '0')}/${hoje.year}';
+    
     _carregarDados();
     _filtroGeralController.addListener(_aplicarFiltros);
     _dataFiltroController.addListener(_aplicarFiltros);
@@ -401,6 +442,30 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       }).toList();
     }
 
+    // Filtro por tipo (Entrada/Saída)
+    if (_tipoFiltro != null) {
+      final usuario = UsuarioAtual.instance;
+      final filialAtual = usuario?.nivel == 3 ? _filialFiltroId : usuario?.filialId;
+      
+      resultado = resultado.where((ordem) {
+        final itens = ordem['itens'] as List<dynamic>;
+        
+        final ehOrigem = itens.any((item) =>
+            item['filial_origem_id']?.toString() == filialAtual);
+        final ehDestino = itens.any((item) =>
+            item['filial_destino_id']?.toString() == filialAtual);
+        
+        if (_tipoFiltro == 'entrada') {
+          // Entrada: filial é destino mas não origem
+          return ehDestino && !ehOrigem;
+        } else if (_tipoFiltro == 'saida') {
+          // Saída: filial é origem mas não destino
+          return ehOrigem && !ehDestino;
+        }
+        return true;
+      }).toList();
+    }
+
     if (dataFiltro.isNotEmpty) {
       resultado = resultado.where((ordem) {
         final dataMov = ordem['data_mov']?.toString() ?? '';
@@ -627,14 +692,27 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     final usuario = UsuarioAtual.instance;
     final mostraFiltroFilial = usuario?.nivel == 3;
 
-    return Card(
-      elevation: 2,
+    return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            if (mostraFiltroFilial) ...[
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: const Color(0xFF0D47A1),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0D47A1).withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          if (mostraFiltroFilial) ...[
               Expanded(
                 flex: 2,
                 child: DropdownButtonFormField<String>(
@@ -679,17 +757,86 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
               flex: 2,
               child: TextField(
                 controller: _dataFiltroController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [DataInputFormatter()],
                 decoration: InputDecoration(
-                  labelText: 'Data (DD/MM)',
+                  labelText: 'Data',
+                  hintText: 'dd/mm/aaaa',
+                  hintStyle: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontSize: 13,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
                   ),
-                  prefixIcon: const Icon(Icons.calendar_today, size: 20),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.5),
+                  ),
+                  prefixIcon: const Icon(Icons.calendar_today, size: 20, color: Color(0xFF0D47A1)),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 16,
                   ),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
                 ),
+              ),
+            ),
+            
+            const SizedBox(width: 12),
+            
+            Expanded(
+              flex: 2,
+              child: DropdownButtonFormField<String>(
+                value: _tipoFiltro,
+                decoration: InputDecoration(
+                  labelText: 'Tipo',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.5),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 16,
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                ),
+                dropdownColor: Colors.white,
+                items: const [
+                  DropdownMenuItem(
+                    value: null,
+                    child: Text('Todos'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'entrada',
+                    child: Text('Entrada'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'saida',
+                    child: Text('Saída'),
+                  ),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _tipoFiltro = value;
+                  });
+                  _aplicarFiltros();
+                },
               ),
             ),
             
@@ -703,18 +850,28 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                   labelText: 'Buscar (placa, cliente, status...)',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
                   ),
-                  prefixIcon: const Icon(Icons.search),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.5),
+                  ),
+                  prefixIcon: const Icon(Icons.search, color: Color(0xFF0D47A1)),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 16,
                   ),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
                 ),
               ),
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -1186,7 +1343,9 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF0D47A1),
         title: Text(
-          _mostrarDetalhes ? 'Detalhes da Ordem' : 'Acompanhamento de Ordens',
+          _mostrarDetalhes 
+              ? 'Detalhes da Ordem' 
+              : 'Acompanhamento de Ordens - ${_filiais.firstWhere((f) => f['id'].toString() == _filialFiltroId, orElse: () => {'nome': ''})['nome'] ?? ''}',
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         leading: IconButton(
