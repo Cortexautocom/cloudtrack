@@ -202,6 +202,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     
     // Define valores iniciais dos filtros
     _tipoFiltro = 'saida';
+    _filialFiltroId = UsuarioAtual.instance?.filialId;
     final hoje = DateTime.now();
     _dataFiltroController.text = '${hoje.day.toString().padLeft(2, '0')}/${hoje.month.toString().padLeft(2, '0')}/${hoje.year}';
     

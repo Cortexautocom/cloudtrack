@@ -427,15 +427,10 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
               _mascaraMilharUI(movimentacao['saida_amb'].toString());
         }
 
-        if (produtoSelecionado != null) {
-
-          final volume20C =
-              _obterVolume20CPorProduto(
-                  movimentacao, produtoSelecionado!);
-          if (volume20C != null) {
-            campos['volumeApurado20C']!.text =
-                _mascaraMilharUI(volume20C.toString());
-          }
+        // Preenche volume 20°C diretamente de saida_vinte
+        if (movimentacao['saida_vinte'] != null) {
+          campos['volumeApurado20C']!.text =
+              _mascaraMilharUI(movimentacao['saida_vinte'].toString());
         }
       }
     } catch (e) {
@@ -452,41 +447,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         _carregandoDadosMovimentacao = false;
       });
     }
-  }
-
-  int? _obterVolume20CPorProduto(Map<String, dynamic> movimentacao, String produtoNome) {
-    final produtoLower = produtoNome.toLowerCase();
-    
-    final mapaColunas20C = {
-      'g_comum_vinte': ['gasolina', 'comum'],
-      'g_aditivada_vinte': ['gasolina', 'aditivada'],
-      'gasolina_a_vinte': ['gasolina'],
-      'd_s10_vinte': ['diesel', 's10'],
-      'd_s500_vinte': ['diesel', 's500'],
-      's500_a_vinte': ['diesel', 's500'],
-      's10_a_vinte': ['diesel', 's10'],
-      'etanol_vinte': ['etanol', 'hidratado'],
-      'anidro_vinte': ['etanol', 'anidro'],
-      'b100_vinte': ['b100'],
-    };
-
-    for (final coluna in mapaColunas20C.keys) {
-      final keywords = mapaColunas20C[coluna]!;
-      bool matches = true;
-      
-      for (final keyword in keywords) {
-        if (!produtoLower.contains(keyword)) {
-          matches = false;
-          break;
-        }
-      }
-      
-      if (matches && movimentacao[coluna] != null) {
-        return int.tryParse(movimentacao[coluna].toString());
-      }
-    }
-    
-    return null;
   }
 
   Future<void> _carregarDadosCertificado(String idCertificado) async {
@@ -2076,12 +2036,8 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
 
         await _atualizarMovimentacaoSomente20C(
           movimentacaoId: widget.idMovimentacao!,
-          produtoId: produtoId,
           volume20C: volume20C,
         );
-        
-        // Atualizar data_carga e status_circuito
-        await _atualizarDataCargaEStatusCircuito(movimentacaoId: widget.idMovimentacao!);
       }
 
       if (!mounted) return;
@@ -2119,47 +2075,28 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     }
   }
 
-  // NOVO MÉTODO: Atualizar data_carga e status_circuito
-  Future<void> _atualizarDataCargaEStatusCircuito({required String movimentacaoId}) async {
+  // Atualiza movimentação usando apenas as 4 colunas padrão: saida_amb, saida_vinte, entrada_amb, entrada_vinte
+  Future<void> _atualizarMovimentacaoSomente20C({
+    required String movimentacaoId,
+    required int volume20C,
+  }) async {
     try {
       final supabase = Supabase.instance.client;
-      
-      // Obtém a data/hora atual no formato UTC
       final agora = DateTime.now().toUtc().toIso8601String();
       
       await supabase
           .from('movimentacoes')
           .update({
-            'data_carga': agora, // TIMESTAMPTZ com data/hora atual
-            'status_circuito_orig': '4', // ou outro status apropriado
-            'updated_at': DateTime.now().toIso8601String(),
+            'saida_vinte': volume20C,
+            'data_carga': agora,
+            'status_circuito_orig': '4',
+            'updated_at': agora,
           })
           .eq('id', movimentacaoId);
-          
-      print('✓ data_carga e status_circuito atualizados na movimentação $movimentacaoId');
     } catch (e) {
-      print('Erro ao atualizar data_carga e status_circuito: $e');
-      // Não lançar erro aqui para não interromper o fluxo principal
+      print('✗ Erro ao atualizar movimentação: $e');
+      rethrow;
     }
-  }
-
-  Future<void> _atualizarMovimentacaoSomente20C({
-    required String movimentacaoId,
-    required String produtoId,
-    required int volume20C,
-  }) async {
-    final supabase = Supabase.instance.client;
-
-    final coluna20C = _resolverColuna20C(produtoId);
-
-    await supabase
-        .from('movimentacoes')
-        .update({
-          coluna20C: volume20C,
-          'saida_vinte': volume20C,
-          'updated_at': DateTime.now().toIso8601String(),
-        })
-        .eq('id', movimentacaoId);
   }
   
   // ================= AUXILIAR =================
@@ -2174,30 +2111,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       throw Exception('Produto não encontrado: $nomeProduto');
     }
     return r['id'].toString();
-  }
-  
-  String _resolverColuna20C(String produtoId) {
-    const mapaProdutoColuna20C = {
-      '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 's10_a_vinte',
-      '4da89784-301f-4abe-b97e-c48729969e3d': 's500_a_vinte',
-      '58ce20cf-f252-4291-9ef6-f4821f22c29e': 'd_s10_vinte',
-      '66ca957a-5698-4a02-8c9e-987770b6a151': 'etanol_vinte',
-      '82c348c8-efa1-4d1a-953a-ee384d5780fc': 'g_comum_vinte',
-      '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 'g_aditivada_vinte',
-      'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': 'd_s500_vinte',
-      'cecab8eb-297a-4640-81ae-e88335b88d8b': 'anidro_vinte',
-      'ecd91066-e763-42e3-8a0e-d982ea6da535': 'b100_vinte',
-      'f8e95435-471a-424c-947f-def8809053a0': 'gasolina_a_vinte',
-    };
-    
-    final uuidNormalizado = produtoId.trim().toLowerCase();
-    final coluna = mapaProdutoColuna20C[uuidNormalizado];
-    
-    if (coluna == null) {
-      throw Exception('Produto (UUID: $produtoId) sem coluna 20°C configurada');
-    }
-    
-    return coluna;
   }
   
   @override
