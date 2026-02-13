@@ -128,22 +128,26 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
         query = query.eq("filial_id", widget.filialId!);
       }
 
-      // Filtro por data específica (ts_mov)
-      final dataInicio = DateTime(_dataFiltro.year, _dataFiltro.month, _dataFiltro.day, 0, 0, 0);
-      final dataFim = DateTime(_dataFiltro.year, _dataFiltro.month, _dataFiltro.day, 23, 59, 59);
+      // ============================================================
+      // FILTRO DE DATA CORRETO - SEM UTC, SEM CONVERSÕES
+      // ============================================================
+      final dataFormatada = _dataFiltro.toIso8601String().split('T')[0];
+      
+      final dataInicio = '$dataFormatada 00:00:00';
+      final dataFim = '$dataFormatada 23:59:59';
+      
       query = query
-          .gte('ts_mov', dataInicio.toUtc().toIso8601String())
-          .lte('ts_mov', dataFim.toUtc().toIso8601String());
+          .gte('ts_mov', dataInicio)
+          .lte('ts_mov', dataFim);
 
       final response = await query.order('ts_mov', ascending: true);
 
       setState(() {
         movimentacoes = List<Map<String, dynamic>>.from(response);
-        _gerarCoresParaOrdens(); // Gera cores fixas para cada ordem
+        _gerarCoresParaOrdens();
       });
-    } catch (e, stack) {
-      debugPrint('Erro ao carregar movimentações: $e');
-      debugPrint(stack.toString());
+      
+    } catch (e) {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -184,8 +188,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
       final indiceCor = i % _paletaCoresOrdens.length;
       _coresOrdens[ordemId] = _paletaCoresOrdens[indiceCor];
     }
-    
-    debugPrint('Cores geradas para ${listaOrdens.length} ordens distintas');
   }
 
   // Obter cor FIXA para uma ordem específica
@@ -680,31 +682,36 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
         final dataSelecionada = await showDatePicker(
           context: context,
           initialDate: _dataFiltro,
-              firstDate: DateTime(2020, 1, 1),
-              lastDate: DateTime.now().add(const Duration(days: 365)),
-              helpText: 'Filtrar por data',
-              cancelText: 'Cancelar',
-              confirmText: 'Confirmar',
-              builder: (context, child) {
-                return Theme(
-                  data: Theme.of(context).copyWith(
-                    colorScheme: const ColorScheme.light(
-                      primary: Color(0xFF0D47A1),
-                      onPrimary: Colors.white,
-                      surface: Colors.white,
-                      onSurface: Colors.black,
-                    ),
-                  ),
-                  child: child!,
-                );
-              },
+          firstDate: DateTime(2020, 1, 1),
+          lastDate: DateTime.now().add(const Duration(days: 365)),
+          helpText: 'Filtrar por data',
+          cancelText: 'Cancelar',
+          confirmText: 'Confirmar',
+          builder: (context, child) {
+            return Theme(
+              data: Theme.of(context).copyWith(
+                colorScheme: const ColorScheme.light(
+                  primary: Color(0xFF0D47A1),
+                  onPrimary: Colors.white,
+                  surface: Colors.white,
+                  onSurface: Colors.black,
+                ),
+              ),
+              child: child!,
             );
-            
+          },
+        );
+        
         if (dataSelecionada != null) {
           setState(() {
-            _dataFiltro = dataSelecionada;
+            // Manter a data SELECIONADA, sem UTC, sem conversões
+            _dataFiltro = DateTime(
+              dataSelecionada.year,
+              dataSelecionada.month,
+              dataSelecionada.day,
+            );
           });
-          carregar();
+          carregar(); // Recarrega com a nova data
         }
       },
       borderRadius: BorderRadius.circular(4),
@@ -826,6 +833,11 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
             _editarOrdem(item);
           }
         },
+        tooltip: 'Opções',
+        offset: const Offset(0, 40),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
@@ -838,17 +850,11 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
             color: Colors.grey,
           ),
         ),
-        tooltip: 'Opções',
-        offset: const Offset(0, 40),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
       ),
     );
   }
 
   void _editarOrdem(Map<String, dynamic> item) {
-    print('Editar ordem para: ${item['id']}');
     // Aqui você pode abrir um diálogo ou navegar para outra tela
     // para editar a ordem da venda
     
