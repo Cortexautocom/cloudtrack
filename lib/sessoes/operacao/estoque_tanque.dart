@@ -81,29 +81,29 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     super.dispose();
   }
   
-  Future<void> _carregarEstoqueInicialDoCacl() async {
+  Future<void> _carregarEstoqueInicialDoDiario() async {
     try {
-      final dataAtualStr = widget.data.toIso8601String().split('T')[0];
-      
+      // Busca o ÚLTIMO registro do tanque (o mais recente, independente da data)
       final response = await _supabase
-          .from('cacl')
-          .select('volume_produto_inicial, volume_20_inicial, horario_inicial')
+          .from('saldo_tanque_diario')
+          .select('saldo')
           .eq('tanque_id', widget.tanqueId)
-          .eq('filial_id', widget.filialId)
-          .lt('horario_inicial', '$dataAtualStr 00:00:00')
-          .order('horario_inicial', ascending: false)
-          .limit(1)
+          .order('data_mov', ascending: false) // Ordena do mais recente para o mais antigo
+          .limit(1) // Pega apenas o primeiro (mais recente)
           .maybeSingle();
 
       if (response != null) {
         _estoqueInicial = {
-          // Agora SEMPRE são num! Código original funciona perfeitamente
-          'amb': response['volume_produto_inicial'] ?? 0,
-          'vinte': response['volume_20_inicial'] ?? 0,
+          'amb': response['saldo'] ?? 0,
+          'vinte': response['saldo'] ?? 0, // Mesmo valor para ambos os saldos
         };
+      } else {
+        // Se não encontrar nenhum registro, usa 0
+        _estoqueInicial = {'amb': 0, 'vinte': 0};
       }
     } catch (e) {
-      debugPrint('Erro ao carregar estoque inicial do CACL: $e');
+      debugPrint('Erro ao carregar estoque inicial do saldo_tanque_diario: $e');
+      _estoqueInicial = {'amb': 0, 'vinte': 0};
     }
   }  
 
@@ -114,12 +114,11 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     });
 
     try {
-      // Primeiro, carrega o estoque inicial do CACL mais recente anterior ao dia
-      await _carregarEstoqueInicialDoCacl();
+      // Carrega o estoque inicial do saldo_tanque_diario mais recente anterior ao dia
+      await _carregarEstoqueInicialDoDiario();
       
       final dataStr = widget.data.toIso8601String().split('T')[0];
 
-      // ALTERAÇÃO: ts_mov substituído por data_mov
       final dados = await _supabase
           .from('movimentacoes_tanque')
           .select('''
@@ -307,6 +306,8 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   }
 
   Widget _buildBlocoResumo() {
+    final estoqueFinalCalculado = _estoqueFinal['amb'] ?? 0;
+    
     return Container(
       width: _wTable,
       padding: const EdgeInsets.all(16),
@@ -321,8 +322,8 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildCampoResumo('Estoque final calculado:', 0),
-          _buildCampoResumo('Medição final (CACL):', 0),          
+          _buildCampoResumo('Estoque final calculado:', estoqueFinalCalculado),
+          _buildCampoResumo('Medição de fechamento (CACL):', 0),          
           _buildCampoResumo('Sobra/perda:', 0),
         ],
       ),
