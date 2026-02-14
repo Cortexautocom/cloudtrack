@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'emitir_cacl.dart';
 
 class EstoqueTanquePage extends StatefulWidget {
   final String tanqueId;
@@ -114,7 +115,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     });
 
     try {
-      // Carrega o estoque inicial do saldo_tanque_diario mais recente anterior ao dia
+      // Carrega o estoque inicial do saldo_tanque_diario mais recente
       await _carregarEstoqueInicialDoDiario();
       
       final dataStr = widget.data.toIso8601String().split('T')[0];
@@ -229,6 +230,18 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     _ordenar(col, asc);
   }
 
+  void _navegarParaCACL() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => MedicaoTanquesPage(
+          onVoltar: () => Navigator.pop(context),
+          filialSelecionadaId: widget.filialId,
+          tanqueSelecionadoId: widget.tanqueId,
+        ),
+      ),
+    );
+  }
+
   Color _bgEntrada() => Colors.green.shade50.withOpacity(0.3);
   Color _bgSaida() => Colors.red.shade50.withOpacity(0.3);
 
@@ -323,7 +336,41 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildCampoResumo('Estoque final calculado:', estoqueFinalCalculado),
-          _buildCampoResumo('Medição de fechamento (CACL):', 0),          
+          
+          // BOTÃO GRANDE "FECHAR TANQUE" no lugar da medição de fechamento
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: SizedBox(
+              width: 220, // Largura fixa de 100px
+              child: ElevatedButton(
+                onPressed: _navegarParaCACL,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0D47A1),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  elevation: 3,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.inventory, size: 20),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'FECHAR TANQUE',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),          
           _buildCampoResumo('Sobra/perda:', 0),
         ],
       ),
