@@ -9,6 +9,7 @@ class MedicaoTanquesPage extends StatefulWidget {
   final String? tanqueSelecionadoId;
   final VoidCallback? onFinalizarCACL;
   final List<Map<String, dynamic>>? caclesHoje;
+  final bool caclBloqueadoComoVerificacao;
 
   const MedicaoTanquesPage({
     super.key,
@@ -17,6 +18,7 @@ class MedicaoTanquesPage extends StatefulWidget {
     this.tanqueSelecionadoId,
     this.onFinalizarCACL,
     this.caclesHoje,
+    this.caclBloqueadoComoVerificacao = false,
   });
 
   @override
@@ -43,6 +45,11 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
   @override
   void initState() {
     super.initState();
+    // Se foi aberto via botão "Fechar Tanque", já vem como verificação
+    if (widget.caclBloqueadoComoVerificacao) {
+      _caclVerificacao = true;
+      _caclMovimentacao = false;
+    }
     _carregarTanques();
   }
 
@@ -675,7 +682,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                           children: [
                                             Checkbox(
                                               value: _caclVerificacao,
-                                              onChanged: (value) {
+                                              onChanged: widget.caclBloqueadoComoVerificacao ? null : (value) {
                                                 setState(() {
                                                   _caclVerificacao = value ?? false;
                                                   // Se marcar verificação, desmarca movimentação
@@ -688,9 +695,13 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                               visualDensity: VisualDensity.compact,
                                             ),
-                                            const Text(
+                                            Text(
                                               'CACL verificação',
-                                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w500,
+                                                color: widget.caclBloqueadoComoVerificacao ? Colors.grey : Colors.black,
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -701,7 +712,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                         children: [
                                           Checkbox(
                                             value: _caclMovimentacao,
-                                            onChanged: (value) {
+                                            onChanged: widget.caclBloqueadoComoVerificacao ? null : (value) {
                                               setState(() {
                                                 _caclMovimentacao = value ?? false;
                                                 // Se marcar movimentação, desmarca verificação
@@ -714,9 +725,13 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                                             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                             visualDensity: VisualDensity.compact,
                                           ),
-                                          const Text(
+                                          Text(
                                             'CACL movimentação',
-                                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                              color: widget.caclBloqueadoComoVerificacao ? Colors.grey : Colors.black,
+                                            ),
                                           ),
                                         ],
                                       ),

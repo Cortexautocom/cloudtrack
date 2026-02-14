@@ -36,6 +36,8 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
 
   Map<String, num?> _estoqueInicial = {'amb': 0, 'vinte': 0};
   Map<String, num?> _estoqueFinal = {'amb': null, 'vinte': null};
+  Map<String, num?> _estoqueCACL = {'amb': null, 'vinte': null};
+  bool _possuiCACL = false;
 
   final ScrollController _vertical = ScrollController();
   final ScrollController _hHeader = ScrollController();
@@ -84,29 +86,61 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   
   Future<void> _carregarEstoqueInicialDoDiario() async {
     try {
-      // Busca o ÚLTIMO registro do tanque (o mais recente, independente da data)
+      final dataAnterior = widget.data.subtract(const Duration(days: 1));
+      final dataAnteriorStr = dataAnterior.toIso8601String().split('T')[0];
+      final inicioDoDiaAnterior = '$dataAnteriorStr 00:00:00';
+      final fimDoDiaAnterior = '$dataAnteriorStr 23:59:59';
+      
       final response = await _supabase
           .from('saldo_tanque_diario')
           .select('saldo')
           .eq('tanque_id', widget.tanqueId)
-          .order('data_mov', ascending: false) // Ordena do mais recente para o mais antigo
-          .limit(1) // Pega apenas o primeiro (mais recente)
+          .gte('data_mov', inicioDoDiaAnterior)
+          .lte('data_mov', fimDoDiaAnterior)
           .maybeSingle();
 
       if (response != null) {
         _estoqueInicial = {
           'amb': response['saldo'] ?? 0,
-          'vinte': response['saldo'] ?? 0, // Mesmo valor para ambos os saldos
+          'vinte': response['saldo'] ?? 0,
         };
       } else {
-        // Se não encontrar nenhum registro, usa 0
         _estoqueInicial = {'amb': 0, 'vinte': 0};
       }
     } catch (e) {
-      debugPrint('Erro ao carregar estoque inicial do saldo_tanque_diario: $e');
       _estoqueInicial = {'amb': 0, 'vinte': 0};
     }
-  }  
+  }
+
+  Future<void> _verificarCACLExistente() async {
+    try {
+      final dataStr = widget.data.toIso8601String().split('T')[0];
+      final inicioDoDia = '$dataStr 00:00:00';
+      final fimDoDia = '$dataStr 23:59:59';
+      
+      final response = await _supabase
+          .from('saldo_tanque_diario')
+          .select('saldo')
+          .eq('tanque_id', widget.tanqueId)
+          .gte('data_mov', inicioDoDia)
+          .lte('data_mov', fimDoDia)
+          .maybeSingle();
+
+      if (response != null) {
+        _possuiCACL = true;
+        _estoqueCACL = {
+          'amb': response['saldo'] ?? 0,
+          'vinte': response['saldo'] ?? 0,
+        };
+      } else {
+        _possuiCACL = false;
+        _estoqueCACL = {'amb': null, 'vinte': null};
+      }
+    } catch (e) {
+      _possuiCACL = false;
+      _estoqueCACL = {'amb': null, 'vinte': null};
+    }
+  }
 
   Future<void> _carregar() async {
     setState(() {
@@ -115,8 +149,8 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     });
 
     try {
-      // Carrega o estoque inicial do saldo_tanque_diario mais recente
       await _carregarEstoqueInicialDoDiario();
+      await _verificarCACLExistente();
       
       final dataStr = widget.data.toIso8601String().split('T')[0];
 
@@ -139,7 +173,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           .lte('data_mov', '$dataStr 23:59:59')
           .order('data_mov', ascending: true);
 
-      // Inicia os saldos com o estoque inicial
       num saldoAmb = _estoqueInicial['amb'] ?? 0;
       num saldoVinte = _estoqueInicial['vinte'] ?? 0;
 
@@ -237,6 +270,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           onVoltar: () => Navigator.pop(context),
           filialSelecionadaId: widget.filialId,
           tanqueSelecionadoId: widget.tanqueId,
+          caclBloqueadoComoVerificacao: true,
         ),
       ),
     );
@@ -319,7 +353,12 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   }
 
   Widget _buildBlocoResumo() {
-    final estoqueFinalCalculado = _estoqueFinal['amb'] ?? 0;
+    final estoqueFinalCalculado = _estoqueFinal['vinte'] ?? 0;
+    final estoqueCACL = _estoqueCACL['vinte'];
+    
+    final sobraPerda = _possuiCACL && estoqueCACL != null 
+        ? estoqueCACL - estoqueFinalCalculado 
+        : 0;
     
     return Container(
       width: _wTable,
@@ -335,49 +374,53 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildCampoResumo('Estoque final calculado:', estoqueFinalCalculado),
+          _buildCampoResumo('Estoque final calculado (20ºC):', estoqueFinalCalculado),
           
-          // BOTÃO GRANDE "FECHAR TANQUE" no lugar da medição de fechamento
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: SizedBox(
-              width: 220, // Largura fixa de 100px
-              child: ElevatedButton(
-                onPressed: _navegarParaCACL,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0D47A1),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  elevation: 3,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.inventory, size: 20),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'FECHAR TANQUE',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
+          if (_possuiCACL && estoqueCACL != null)
+            _buildCampoResumo('Saldo do CACL (20ºC):', estoqueCACL, cor: const Color(0xFF2E7D32))
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: SizedBox(
+                width: 220,
+                child: ElevatedButton(
+                  onPressed: _navegarParaCACL,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0D47A1),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                  ],
+                    elevation: 3,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.inventory, size: 20),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'FECHAR TANQUE',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),          
-          _buildCampoResumo('Sobra/perda:', 0),
+          
+          _buildCampoResumo('Sobra/perda (20ºC):', sobraPerda, 
+              cor: sobraPerda < 0 ? Colors.red : const Color(0xFF0D47A1)),
         ],
       ),
     );
   }
 
-  Widget _buildCampoResumo(String label, num valor) {
+  Widget _buildCampoResumo(String label, num valor, {Color? cor}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -392,10 +435,10 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         const SizedBox(height: 4),
         Text(
           _fmtNum(valor),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF0D47A1),
+            color: cor ?? const Color(0xFF0D47A1),
           ),
         ),
       ],
