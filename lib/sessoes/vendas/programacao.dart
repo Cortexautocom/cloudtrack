@@ -36,53 +36,29 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
   bool _hoverGrupo1 = false;
   bool _hoverGrupo2 = false;
   
-  // Filtro de data específica (por ts_mov) - sempre definida, inicializa com data atual
   DateTime _dataFiltro = DateTime.now();
   
-  // Mapa para armazenar cores por ordem_id (cores fixas)
   Map<String, Color> _coresOrdens = {};
   
-  // Mapa de UUID de produto -> coluna (grupo, índice)
-  // Grupo 0: G. Comum, G. Aditivada, D. S10, D. S500, Etanol
-  // Grupo 1: G. A, S500 A, S10 A, Anidro, B100
   static const Map<String, Map<String, dynamic>> _mapaProdutosColuna = {
-    // Grupo 0 (Combustíveis principais)
-    '82c348c8-efa1-4d1a-953a-ee384d5780fc': {'grupo': 0, 'coluna': 0}, // Gasolina Comum
-    '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': {'grupo': 0, 'coluna': 1}, // Gasolina Aditivada
-    '58ce20cf-f252-4291-9ef6-f4821f22c29e': {'grupo': 0, 'coluna': 2}, // Diesel S10-B
-    'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': {'grupo': 0, 'coluna': 3}, // Diesel S500-B
-    '66ca957a-5698-4a02-8c9e-987770b6a151': {'grupo': 0, 'coluna': 4}, // Hidratado
-
-    // Grupo 1 (Especiais / mistura)
-    'f8e95435-471a-424c-947f-def8809053a0': {'grupo': 1, 'coluna': 0}, // Gasolina A
-    '4da89784-301f-4abe-b97e-c48729969e3d': {'grupo': 1, 'coluna': 1}, // Diesel A-S500
-    '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': {'grupo': 1, 'coluna': 2}, // Diesel A-S10
-    'cecab8eb-297a-4640-81ae-e88335b88d8b': {'grupo': 1, 'coluna': 3}, // Anidro
-    'ecd91066-e763-42e3-8a0e-d982ea6da535': {'grupo': 1, 'coluna': 4}, // B100
+    '82c348c8-efa1-4d1a-953a-ee384d5780fc': {'grupo': 0, 'coluna': 0},
+    '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': {'grupo': 0, 'coluna': 1},
+    '58ce20cf-f252-4291-9ef6-f4821f22c29e': {'grupo': 0, 'coluna': 2},
+    'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': {'grupo': 0, 'coluna': 3},
+    '66ca957a-5698-4a02-8c9e-987770b6a151': {'grupo': 0, 'coluna': 4},
+    'f8e95435-471a-424c-947f-def8809053a0': {'grupo': 1, 'coluna': 0},
+    '4da89784-301f-4abe-b97e-c48729969e3d': {'grupo': 1, 'coluna': 1},
+    '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': {'grupo': 1, 'coluna': 2},
+    'cecab8eb-297a-4640-81ae-e88335b88d8b': {'grupo': 1, 'coluna': 3},
+    'ecd91066-e763-42e3-8a0e-d982ea6da535': {'grupo': 1, 'coluna': 4},
   };
   
-  // Paleta fixa de 20 cores distintas para as ordens
   static const List<Color> _paletaCoresOrdens = [
-    Color(0xFFE53935), // Vermelho vibrante
-    Color(0xFF1E88E5), // Azul
-    Color(0xFF43A047), // Verde
-    Color(0xFFFB8C00), // Laranja
-    Color(0xFF8E24AA), // Roxo
-    Color(0xFF0097A7), // Ciano
-    Color(0xFFF4511E), // Laranja escuro
-    Color(0xFF3949AB), // Azul índigo
-    Color(0xFF7CB342), // Verde claro
-    Color(0xFFD81B60), // Rosa
-    Color(0xFF5D4037), // Marrom
-    Color(0xFF546E7A), // Azul cinza
-    Color(0xFFC2185B), // Rosa escuro
-    Color(0xFF00897B), // Verde água
-    Color(0xFF5E35B1), // Roxo profundo
-    Color(0xFF00ACC1), // Ciano claro
-    Color(0xFFF57C00), // Laranja médio
-    Color(0xFF303F9F), // Azul escuro
-    Color(0xFF689F38), // Verde oliva
-    Color(0xFFAD1457), // Magenta
+    Color(0xFFE53935), Color(0xFF1E88E5), Color(0xFF43A047), Color(0xFFFB8C00),
+    Color(0xFF8E24AA), Color(0xFF0097A7), Color(0xFFF4511E), Color(0xFF3949AB),
+    Color(0xFF7CB342), Color(0xFFD81B60), Color(0xFF5D4037), Color(0xFF546E7A),
+    Color(0xFFC2185B), Color(0xFF00897B), Color(0xFF5E35B1), Color(0xFF00ACC1),
+    Color(0xFFF57C00), Color(0xFF303F9F), Color(0xFF689F38), Color(0xFFAD1457),
   ];
 
   @override
@@ -128,9 +104,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
         query = query.eq("filial_id", widget.filialId!);
       }
 
-      // ============================================================
-      // FILTRO DE DATA CORRETO - SEM UTC, SEM CONVERSÕES
-      // ============================================================
       final dataFormatada = _dataFiltro.toIso8601String().split('T')[0];
       
       final dataInicio = '$dataFormatada 00:00:00';
@@ -148,7 +121,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
       });
       
     } catch (e) {
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -164,11 +136,9 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     }
   }
 
-  // Gerar cores FIXAS para cada ordem_id
   void _gerarCoresParaOrdens() {
     _coresOrdens.clear();
     
-    // Coletar todos os ordem_ids únicos
     final ordemIdsSet = <String>{};
     for (var mov in movimentacoes) {
       final ordemId = mov['ordem_id']?.toString();
@@ -177,20 +147,15 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
       }
     }
     
-    // Converter para lista e ORDENAR para garantir consistência
     final listaOrdens = ordemIdsSet.toList()..sort();
     
-    // Atribuir cores de forma FIXA baseada na posição ordenada
     for (var i = 0; i < listaOrdens.length; i++) {
       final ordemId = listaOrdens[i];
-      // Usar índice modular para garantir cor consistente
-      // Mesma ordem sempre pega a mesma cor da paleta
       final indiceCor = i % _paletaCoresOrdens.length;
       _coresOrdens[ordemId] = _paletaCoresOrdens[indiceCor];
     }
   }
 
-  // Obter cor FIXA para uma ordem específica
   Color? _obterCorParaOrdem(dynamic ordemId) {
     if (ordemId == null || ordemId.toString().isEmpty) {
       return null;
@@ -198,25 +163,20 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     
     final idStr = ordemId.toString();
     
-    // Se já temos a cor cacheada, retorna
     if (_coresOrdens.containsKey(idStr)) {
       return _coresOrdens[idStr];
     }
     
-    // Se não tem (pode acontecer com filtros dinâmicos),
-    // gera uma cor baseada no hash do ordem_id para consistência
     final hash = idStr.hashCode;
     final indiceCor = hash.abs() % _paletaCoresOrdens.length;
     final cor = _paletaCoresOrdens[indiceCor];
     
-    // Cache para próximas vezes
     _coresOrdens[idStr] = cor;
     
     return cor;
   }
 
   void _mostrarDialogNovaVenda() async {
-    // Verificar se filialId está definido
     if (widget.filialId == null || widget.filialId!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -263,7 +223,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     if (query.isEmpty) return _obterDadosFiltrados(grupoAtual);
 
     return _obterDadosFiltrados(grupoAtual).where((t) {
-      // Verifica campos de texto existentes
       if ((t['cliente']?.toString().toLowerCase() ?? '').contains(query) ||
           (t['placa']?.toString().toLowerCase() ?? '').contains(query) ||
           (t['forma_pagamento']?.toString().toLowerCase() ?? '').contains(query) ||
@@ -273,7 +232,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
         return true;
       }
 
-      // Verifica quantidade em saida_amb
       final quantidadeFormatada = _formatarQuantidadeParaBusca(t['saida_amb']?.toString() ?? '');
       if (quantidadeFormatada.contains(query)) {
         return true;
@@ -310,11 +268,9 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
 
   List<Map<String, dynamic>> _obterDadosFiltrados(int grupo) {
     return movimentacoes.where((l) {
-      // Verifica se há quantidade em saida_amb
       final qtd = double.tryParse(l['saida_amb']?.toString() ?? '0') ?? 0;
       if (qtd <= 0) return false;
       
-      // Verifica se o produto_id existe no mapa e pertence ao grupo
       final produtoId = l['produto_id']?.toString();
       if (produtoId == null) return false;
       
@@ -355,6 +311,438 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     }
   }
 
+  // ============================================================
+  //          FUNÇÃO DE EDIÇÃO DE ORDEM (CORRIGIDA)
+  // ============================================================
+  Future<void> _editarOrdem(Map<String, dynamic> movimentacao) async {
+    // Verificar status_circuito_orig
+    final statusOrig = int.tryParse(movimentacao['status_circuito_orig']?.toString() ?? '1') ?? 1;
+    
+    if (statusOrig > 2) {
+      await _mostrarDialogBloqueioEdicao();
+      return;
+    }
+
+    // Verificar se tem ordem_id
+    final ordemId = movimentacao['ordem_id']?.toString();
+    if (ordemId == null || ordemId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Esta movimentação não possui uma ordem associada.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Buscar detalhes completos da movimentação (opcional, já temos)
+    // Mas precisamos garantir que temos todos os campos necessários
+
+    // Abrir diálogo de edição
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => NovaVendaDialog(
+        onSalvar: (sucesso, mensagem) {
+          if (sucesso && mensagem != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(mensagem),
+                backgroundColor: Colors.green,
+              ),
+            );
+            carregar(); // Recarregar a lista
+          } else if (mensagem != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(mensagem),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        },
+        filialId: widget.filialId!,
+        filialNome: widget.filialNome,
+        // Passar dados da movimentação para edição
+        movimentacaoParaEdicao: movimentacao,
+        ordemId: ordemId,
+      ),
+    );
+
+    if (result == true) {
+      await carregar();
+    }
+  }
+
+  // ============================================================
+  //          DIÁLOGO DE BLOQUEIO PARA EDIÇÃO/EXCLUSÃO
+  // ============================================================
+  Future<void> _mostrarDialogBloqueioEdicao() async {
+    return showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: Color(0xFF0D47A1), width: 1),
+        ),
+        child: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0D47A1),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.block_flipped, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Operação não permitida',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Content
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Text(
+                  'A etapa do circuito não permite alteração da ordem. '
+                  'Entre em contato com o supervisor da operação para reverter a etapa, '
+                  'se ainda for possível.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade800,
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              
+              // Footer
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(9)),
+                  border: Border(
+                    top: BorderSide(color: Colors.grey.shade300, width: 1),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 150,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0D47A1),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        child: const Text(
+                          'Entendi',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _mostrarDialogBloqueioExclusao() async {
+    return showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: Color(0xFF0D47A1), width: 1),
+        ),
+        child: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0D47A1),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.block_flipped, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Operação não permitida',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Content
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Text(
+                  'A etapa do circuito não permite exclusão da ordem. '
+                  'Entre em contato com o supervisor da operação para reverter a etapa, '
+                  'se ainda for possível.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade800,
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              
+              // Footer
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(9)),
+                  border: Border(
+                    top: BorderSide(color: Colors.grey.shade300, width: 1),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 150,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0D47A1),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        child: const Text(
+                          'Entendi',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  //          FUNÇÃO DE EXCLUSÃO DE ORDEM
+  // ============================================================
+  Future<void> _excluirOrdem(Map<String, dynamic> movimentacao) async {
+    // Verificar status_circuito_orig
+    final statusOrig = int.tryParse(movimentacao['status_circuito_orig']?.toString() ?? '1') ?? 1;
+    
+    if (statusOrig > 2) {
+      await _mostrarDialogBloqueioExclusao();
+      return;
+    }
+
+    final ordemId = movimentacao['ordem_id']?.toString();
+    
+    if (ordemId == null || ordemId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Esta movimentação não possui uma ordem associada.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Confirmar exclusão
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: Color(0xFF0D47A1), width: 1),
+        ),
+        child: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0D47A1),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Confirmar exclusão',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Content
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: RichText(
+                  textAlign: TextAlign.center,
+                  text: const TextSpan(
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.4,
+                      color: Colors.black,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: 'Tem certeza que quer excluir a programação?\n',
+                      ),
+                      TextSpan(
+                        text: 'Atenção: a exclusão ocorrerá para todas os clientes do veículo. Esta ação é irreversível.',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              // Footer
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(9)),
+                  border: Border(
+                    top: BorderSide(color: Colors.grey.shade300, width: 1),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 120,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          side: BorderSide(color: Colors.grey.shade400),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        child: const Text(
+                          'Voltar',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 120,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        child: const Text(
+                          'Sim, excluir',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (confirmado != true) return;
+
+    try {
+      final supabase = Supabase.instance.client;
+      
+      await supabase
+          .from('ordens')
+          .delete()
+          .eq('id', ordemId);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Programação excluída com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        await carregar();
+      }
+
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao excluir programação: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     String tituloAppBar = "Programação de Vendas";
@@ -368,13 +756,12 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
       appBar: null,
       body: Column(
         children: [
-          // AppBar personalizada FIXA
           Container(
             height: kToolbarHeight + MediaQuery.of(context).padding.top,
             padding: EdgeInsets.only(
               top: MediaQuery.of(context).padding.top,
-              left: 16, // Adiciona padding à esquerda
-              right: 16, // Adiciona padding à direita
+              left: 16,
+              right: 16,
             ),
             color: Colors.white,
             child: Row(
@@ -383,11 +770,10 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
                   icon: const Icon(Icons.arrow_back, color: Colors.black),
                   onPressed: widget.onVoltar,
                 ),
-                const SizedBox(width: 8), // Espaço entre botão e título
-                // Título alinhado à esquerda
+                const SizedBox(width: 8),
                 Expanded(
                   child: Align(
-                    alignment: Alignment.centerLeft, // Alinha à esquerda
+                    alignment: Alignment.centerLeft,
                     child: Text(
                       tituloAppBar,
                       style: const TextStyle(
@@ -395,14 +781,13 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
                         fontWeight: FontWeight.w600,
                         color: Colors.black,
                       ),
-                      overflow: TextOverflow.ellipsis, // Trunca texto longo
-                      maxLines: 1, // Mantém em uma linha
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 ),
-                // Campo de busca e botão de atualizar
                 Container(
-                  width: 250, // Reduzido para dar mais espaço
+                  width: 250,
                   margin: const EdgeInsets.only(right: 12),
                   child: _buildSearchField(),
                 ),
@@ -414,12 +799,10 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
               ],
             ),
           ),
-          // Linha divisória opcional
           Container(
             height: 1,
             color: Colors.grey.shade300,
           ),
-          // Resto do conteúdo
           Expanded(
             child: carregando
                 ? const Center(child: CircularProgressIndicator())
@@ -444,10 +827,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
   Widget _buildBodyContent() {
     return Column(
       children: [
-        // Painel fixo com controles e cabeçalho da tabela
         _buildFixedPanel(),
-        
-        // Corpo rolável da tabela
         Expanded(
           child: _buildScrollableTable(),
         ),
@@ -458,31 +838,27 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
   Widget _buildFixedPanel() {
     return Column(
       children: [
-        // Menu de navegação de grupos - FIXO
         Container(
           height: 40,
           color: Colors.grey.shade100,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
-              // Botões de grupo centralizados
               Expanded(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildGrupoButton("Grupo 1", 0),
+                    _buildGrupoButton("Grupo 1 (Compostos)", 0),
                     const SizedBox(width: 16),
-                    _buildGrupoButton("Grupo 2", 1),
+                    _buildGrupoButton("Grupo 2 (Puros)", 1),
                   ],
                 ),
               ),
-              // Campo de data alinhado à direita
               _buildCampoDataFiltro(),
             ],
           ),
         ),
         
-        // Contador de registros - FIXO
         Container(
           height: 32,
           color: Colors.grey.shade50,
@@ -498,7 +874,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
           ),
         ),
         
-        // Cabeçalho da tabela - FIXO
         if (_movimentacoesFiltradas.isNotEmpty)
           _buildFixedHeader(),
       ],
@@ -554,7 +929,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
                         final statusTexto = _obterTextoStatus(statusCircuito);
                         final corStatus = _obterCorStatus(statusCircuito);
                         
-                        // Verificar se há valores nos produtos do grupo atual
                         bool temProduto = false;
                         String codigo = "";
                         String uf = "";
@@ -704,14 +1078,13 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
         
         if (dataSelecionada != null) {
           setState(() {
-            // Manter a data SELECIONADA, sem UTC, sem conversões
             _dataFiltro = DateTime(
               dataSelecionada.year,
               dataSelecionada.month,
               dataSelecionada.day,
             );
           });
-          carregar(); // Recarrega com a nova data
+          carregar();
         }
       },
       borderRadius: BorderRadius.circular(4),
@@ -811,6 +1184,9 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     );
   }
 
+  // ============================================================
+  //          MENU DE TRÊS PONTOS COM OPÇÕES
+  // ============================================================
   Widget _buildMenuButton(BuildContext context, Map<String, dynamic> item) {
     return Container(
       width: 50,
@@ -827,10 +1203,25 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
               ],
             ),
           ),
+          const PopupMenuItem<String>(
+            value: 'excluir',
+            child: Row(
+              children: [
+                Icon(Icons.delete, size: 18, color: Colors.red),
+                SizedBox(width: 8),
+                Text(
+                  'Excluir programação',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ],
+            ),
+          ),
         ],
         onSelected: (String value) {
           if (value == 'editar_ordem') {
             _editarOrdem(item);
+          } else if (value == 'excluir') {
+            _excluirOrdem(item);
           }
         },
         tooltip: 'Opções',
@@ -854,35 +1245,19 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     );
   }
 
-  void _editarOrdem(Map<String, dynamic> item) {
-    // Aqui você pode abrir um diálogo ou navegar para outra tela
-    // para editar a ordem da venda
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Editar ordem: ${item['id']}'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
   double _obterLarguraTabela() {
-    // Adicionado 50px para a coluna do menu
     double larguraFixa = 50 + 120 + 100 + 220 + 80 + 60 + 100;
     
     if (grupoAtual == 0) {
-      // Grupo 1: 5 colunas (G. Comum, G. Aditivada, D. S10, D. S500, Etanol)
       return larguraFixa + (90 * 5);
     } else {
-      // Grupo 2: 5 colunas (G. A, S500 A, S10 A, Anidro, B100)
       return larguraFixa + (90 * 5);
     }
   }
 
   List<Widget> _obterColunasCabecalho() {
-    // Adicionada coluna vazia para o menu
     final colunasFixas = [
-      _th("", 50), // Coluna para o menu
+      _th("", 50),
       _th("Placa", 120),
       _th("Status", 100),
       _th("Cliente", 220),
@@ -941,36 +1316,30 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
         ? placas.first.toString() 
         : placas?.toString() ?? "";
 
-    // Obter a cor FIXA para esta ordem
     final ordemId = t['ordem_id'];
     final corCliente = _obterCorParaOrdem(ordemId);
 
-    // Obter informações do produto
     final produtoId = t['produto_id']?.toString();
     final produtoInfo = produtoId != null ? _mapaProdutosColuna[produtoId] : null;
     final quantidadeSaidaAmb = _formatarQuantidade(t["saida_amb"]?.toString() ?? "0");
 
-    // Adicionado o menu como primeiro item
     final celulasFixas = [
-      _buildMenuButton(context, t), // Menu de 3 pontos
+      _buildMenuButton(context, t),
       _cell(placaText, 120),
       _statusCell(statusTexto, corStatus),
-      _cellCliente(t["cliente"]?.toString() ?? "", 220, corCliente), // Célula do cliente com cor FIXA
+      _cellCliente(t["cliente"]?.toString() ?? "", 220, corCliente),
       _cell(codigo, 80),
       _cell(uf, 60),
       _cell(prazo, 100),
     ];
 
-    // Criar lista de colunas de quantidade (5 para cada grupo)
     final List<Widget> colunasQuantidade = [];
     final numColunas = 5;
     
     for (int i = 0; i < numColunas; i++) {
       if (produtoInfo != null && produtoInfo['coluna'] == i) {
-        // Esta é a coluna correta para este produto
         colunasQuantidade.add(_cell(quantidadeSaidaAmb, 90, isNumber: true));
       } else {
-        // Coluna vazia
         colunasQuantidade.add(_cell("", 90, isNumber: true));
       }
     }
@@ -997,7 +1366,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     );
   }
 
-  // Função específica para célula do cliente com cor FIXA
   Widget _cellCliente(String texto, double largura, Color? cor) {
     return Container(
       width: largura,
@@ -1007,8 +1375,8 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
         texto.isNotEmpty ? texto : '-',
         style: TextStyle(
           fontSize: 12,
-          color: cor ?? Colors.grey.shade700, // Usa cor FIXA da ordem
-          fontWeight: FontWeight.w600, // Deixa o nome do cliente em negrito
+          color: cor ?? Colors.grey.shade700,
+          fontWeight: FontWeight.w600,
         ),
         textAlign: TextAlign.center,
         maxLines: 1,
@@ -1062,187 +1430,5 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     } catch (e) {
       return quantidade;
     }
-  }
-}
-
-// ==============================================================
-//          COMPONENTE: CÉLULA EDITÁVEL (DUPO CLIQUE)
-// ==============================================================
-
-class EditableCell extends StatefulWidget {
-  final String valorInicial;
-  final Function(String) onSubmit;
-  final double largura;
-  final bool numero;
-
-  const EditableCell({
-    super.key,
-    required this.valorInicial,
-    required this.onSubmit,
-    this.largura = 100,
-    this.numero = false,
-  });
-
-  @override
-  State<EditableCell> createState() => _EditableCellState();
-}
-
-class _EditableCellState extends State<EditableCell> {
-  bool editando = false;
-  late TextEditingController controller;
-
-  @override
-  void initState() {
-    controller = TextEditingController(text: widget.valorInicial);
-    super.initState();
-  }
-
-  String _formatarValorParaExibicao(String valor) {
-    if (widget.numero && valor.isNotEmpty) {
-      String apenasNumeros = valor.replaceAll(RegExp(r'\D'), '');
-      
-      if (apenasNumeros.isEmpty) return "";
-      
-      try {
-        int valorNumerico = int.parse(apenasNumeros);
-        if (valorNumerico == 0) return "";
-        
-        String valorString = valorNumerico.toString();
-        if (valorString.length > 3) {
-          return "${valorString.substring(0, valorString.length - 3)}.${valorString.substring(valorString.length - 3)}";
-        }
-        return valorString;
-      } catch (e) {
-        return valor;
-      }
-    }
-    return valor;
-  }
-
-  String _prepararParaSalvar(String valor) {
-    if (widget.numero) {
-      String semFormatacao = valor.replaceAll(RegExp(r'\D'), '');
-      if (semFormatacao.isEmpty) return "0";
-      
-      try {
-        int valorNumerico = int.parse(semFormatacao);
-        return valorNumerico.toString();
-      } catch (e) {
-        return "0";
-      }
-    } else {
-      return valor.trim();
-    }
-  }
-
-  String _aplicarMascaraNumerica(String valor) {
-    if (!widget.numero) return valor;
-    
-    String apenasNumeros = valor.replaceAll(RegExp(r'\D'), '');
-    
-    if (apenasNumeros.isEmpty) return "";
-    
-    try {
-      int valorNumerico = int.tryParse(apenasNumeros) ?? 0;
-      if (valorNumerico == 0) return "";
-      
-      String valorString = valorNumerico.toString();
-      
-      if (valorString.length > 3) {
-        return "${valorString.substring(0, valorString.length - 3)}.${valorString.substring(valorString.length - 3)}";
-      }
-      return valorString;
-    } catch (e) {
-      return apenasNumeros;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final valorExibicao = widget.numero 
-        ? _formatarValorParaExibicao(widget.valorInicial)
-        : widget.valorInicial;
-
-    if (controller.text != valorExibicao) {
-      controller.text = valorExibicao;
-    }
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onDoubleTap: () {
-        setState(() {
-          editando = true;
-        });
-      },
-      child: Container(
-        width: widget.largura,
-        height: 50,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        alignment: Alignment.center,
-        child: editando
-            ? Focus(
-                onFocusChange: (focus) {
-                  if (!focus) {
-                    widget.onSubmit(_prepararParaSalvar(controller.text));
-                    setState(() => editando = false);
-                  }
-                },
-                child: TextField(
-                  autofocus: true,
-                  controller: controller,
-                  textAlign: TextAlign.center,
-                  keyboardType: widget.numero ? TextInputType.number : TextInputType.text,
-                  onChanged: (v) {
-                    if (widget.numero) {
-                      String novaFormatacao = _aplicarMascaraNumerica(v);
-                      if (controller.text != novaFormatacao) {
-                        controller.text = novaFormatacao;
-                        controller.selection = TextSelection.fromPosition(
-                          TextPosition(offset: controller.text.length),
-                        );
-                      }
-                    }
-                  },
-                  onSubmitted: (v) {
-                    widget.onSubmit(_prepararParaSalvar(v));
-                    setState(() => editando = false);
-                  },
-                  decoration: InputDecoration(
-                    isDense: true,
-                    border: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.blue.shade700, width: 2),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                  ),
-                  style: const TextStyle(fontSize: 14),
-                ),
-              )
-            : Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                child: Text(
-                  valorExibicao,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: widget.numero ? FontWeight.w500 : FontWeight.normal,
-                    color: valorExibicao.isEmpty ? Colors.grey : Colors.black,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
   }
 }

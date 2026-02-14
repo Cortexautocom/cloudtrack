@@ -6,12 +6,18 @@ class NovaVendaDialog extends StatefulWidget {
   final Function(bool sucesso, String? mensagem)? onSalvar;
   final String? filialId;
   final String? filialNome;
+  
+  // Novos parâmetros para edição
+  final Map<String, dynamic>? movimentacaoParaEdicao;
+  final String? ordemId;
 
   const NovaVendaDialog({
     super.key,
     this.onSalvar,
     this.filialId,
     this.filialNome,
+    this.movimentacaoParaEdicao,
+    this.ordemId,
   });
 
   @override
@@ -28,12 +34,20 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
   List<Map<String, dynamic>> _produtos = [];
   bool _carregandoProdutos = false;
   bool _salvando = false;
+  
+  // Flag para modo edição
+  bool get _modoEdicao => widget.movimentacaoParaEdicao != null;
 
   @override
   void initState() {
     super.initState();
-    _carregarProdutos();
-    _adicionarPlaca(); // primeira placa já nasce aberta
+    _carregarProdutos().then((_) {
+      if (_modoEdicao) {
+        _carregarDadosParaEdicao();
+      } else {
+        _adicionarPlaca();
+      }
+    });
   }
 
   @override
@@ -43,6 +57,48 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       p.dispose();
     }
     super.dispose();
+  }
+
+  // =======================
+  // CARREGAR DADOS PARA EDIÇÃO
+  // =======================
+  void _carregarDadosParaEdicao() {
+    final mov = widget.movimentacaoParaEdicao!;
+    
+    // Criar uma placa
+    final placa = _PlacaVenda();
+    
+    // Extrair placa (pode ser String ou List)
+    final placasData = mov['placa'];
+    if (placasData is List && placasData.isNotEmpty) {
+      placa.controller.text = placasData.first.toString();
+    } else if (placasData is String) {
+      placa.controller.text = placasData;
+    }
+    
+    // Criar um tanque com os dados da movimentação
+    final tanque = _TanqueVenda(
+      capacidade: _calcularCapacidade(mov['saida_amb']?.toString() ?? '0'),
+    );
+    
+    tanque.produtoId = mov['produto_id']?.toString();
+    tanque.clienteController.text = mov['cliente']?.toString() ?? '';
+    tanque.pagamentoController.text = mov['forma_pagamento']?.toString() ?? '';
+    
+    placa.tanques.add(tanque);
+    _placasVenda.add(placa);
+    
+    setState(() {});
+  }
+
+  String _calcularCapacidade(String quantidadeLitros) {
+    try {
+      final litros = double.tryParse(quantidadeLitros) ?? 0;
+      final metrosCubicos = litros / 1000;
+      return metrosCubicos.toStringAsFixed(0);
+    } catch (e) {
+      return '0';
+    }
   }
 
   Future<void> _carregarProdutos() async {
@@ -70,7 +126,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       _placasVenda.add(_PlacaVenda());
     });
     
-    // Desliza para o final após a reconstrução do widget
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -207,7 +262,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     }
 
     if (existemCamposObrigatoriosVazios) {
-      // FORÇA rebuild para aplicar alertas em laranja
       setState(() {});
       return;
     }
@@ -247,16 +301,13 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       return;
     }
 
-    // Se houver tanques parciais (algum campo preenchido mas não todos),
-    // o comportamento anterior era impedir o salvamento e forçar correção.
     if (tanquesParciais > 0) {
       setState(() {});
       return;
     }
 
-    // Se houver ao menos um tanque completo e ao menos um tanque vazio,
-    // exibir diálogo de carregamento parcial.
-    if (tanquesVazios > 0 && tanquesCompletos < totalTanques) {
+    // Se for edição, não perguntar sobre carregamento parcial
+    if (!_modoEdicao && tanquesVazios > 0 && tanquesCompletos < totalTanques) {
       final bool? resultado = await _mostrarDialogCarregamentoParcial(
         tanquesCompletos,
         totalTanques,
@@ -267,7 +318,11 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       }
     }
 
-    await _processarSalvamentoVenda();
+    if (_modoEdicao) {
+      await _processarEdicaoVenda();
+    } else {
+      await _processarSalvamentoVenda();
+    }
   }
 
   Future<bool?> _mostrarDialogCarregamentoParcial(
@@ -297,6 +352,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                 backgroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
+                  side: const BorderSide(color: Color(0xFF0D47A1), width: 1),
                 ),
                 child: SizedBox(
                   width: 420,
@@ -308,7 +364,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         decoration: const BoxDecoration(
                           color: Color(0xFF0D47A1),
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
                         ),
                         child: Row(
                           children: const [
@@ -371,7 +427,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                         decoration: BoxDecoration(
                           color: Colors.grey.shade50,
                           borderRadius: const BorderRadius.vertical(
-                            bottom: Radius.circular(10),
+                            bottom: Radius.circular(9),
                           ),
                           border: Border(
                             top: BorderSide(color: Colors.grey.shade300, width: 1),
@@ -435,7 +491,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     );
   }
 
-
   Widget _infoLinha(String label, String valor, {bool destaque = false}) {
     return RichText(
       text: TextSpan(
@@ -461,7 +516,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
   }
 
   // =======================
-  // PROCESSAMENTO DO SALVAMENTO
+  // PROCESSAMENTO DO SALVAMENTO (NOVA VENDA)
   // =======================
   Future<void> _processarSalvamentoVenda() async {
     setState(() => _salvando = true);
@@ -504,12 +559,10 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       
       for (final placaVenda in _placasVenda) {
         for (final tanque in placaVenda.tanques) {
-          // Verificar se o tanque está completamente preenchido
           final produtoPreenchido = tanque.produtoId != null && tanque.produtoId!.isNotEmpty;
           final clientePreenchido = tanque.clienteController.text.trim().isNotEmpty;
           final pagamentoPreenchido = tanque.pagamentoController.text.trim().isNotEmpty;
           
-          // Pular tanques vazios (carregamento parcial)
           if (!(produtoPreenchido && clientePreenchido && pagamentoPreenchido)) {
             continue;
           }
@@ -536,10 +589,9 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             'quantidade': capacidadeLitros,
             'anp': false,
             'status_circuito_orig': 1,
-            // Usa apenas as 4 colunas padrão: entrada_amb, entrada_vinte, saida_amb, saida_vinte
             'entrada_amb': 0,
             'entrada_vinte': 0,
-            'saida_amb': capacidadeLitros, // Registra a venda em saída ambiente
+            'saida_amb': capacidadeLitros,
             'saida_vinte': 0,
           };
 
@@ -563,6 +615,60 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     }
   }
 
+  // =======================
+  // PROCESSAMENTO DA EDIÇÃO (UPDATE)
+  // =======================
+  Future<void> _processarEdicaoVenda() async {
+    setState(() => _salvando = true);
+
+    try {
+      final supabase = Supabase.instance.client;
+      final user = supabase.auth.currentUser;
+      
+      if (user == null) {
+        throw Exception('Usuário não autenticado');
+      }
+
+      // Só deve haver uma placa e um tanque na edição
+      if (_placasVenda.isEmpty || _placasVenda.first.tanques.isEmpty) {
+        throw Exception('Dados inválidos para edição');
+      }
+
+      final placaVenda = _placasVenda.first;
+      final tanque = placaVenda.tanques.first;
+
+      final capacidadeMCubicos = double.tryParse(tanque.capacidade) ?? 0.0;
+      final capacidadeLitros = capacidadeMCubicos * 1000.0;
+
+      // Preparar dados para update
+      final Map<String, dynamic> dadosAtualizados = {
+        'produto_id': tanque.produtoId,
+        'placa': [placaVenda.controller.text.trim().toUpperCase()],
+        'cliente': tanque.clienteController.text.trim(),
+        'forma_pagamento': tanque.pagamentoController.text.trim(),
+        'quantidade': capacidadeLitros,
+        'saida_amb': capacidadeLitros,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+
+      // Fazer update na movimentação existente
+      await supabase
+          .from('movimentacoes')
+          .update(dadosAtualizados)
+          .eq('id', widget.movimentacaoParaEdicao!['id']);
+
+      widget.onSalvar?.call(true, 'Programação atualizada!');
+      if (mounted) Navigator.of(context).pop(true);
+      
+    } catch (e) {
+      _mostrarErro('Erro ao atualizar venda: ${e.toString()}');
+    } finally {
+      if (mounted) {
+        setState(() => _salvando = false);
+      }
+    }
+  }
+
   void _mostrarErro(String mensagem) {
     print('ERRO: $mensagem');
     ScaffoldMessenger.of(context).showSnackBar(
@@ -579,7 +685,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
   // UI
   // =======================
   Widget _buildTanqueLinha(_TanqueVenda tanque) {
-    // Verificar se o tanque está incompleto (pelo menos um campo preenchido mas não todos)
     final produtoPreenchido = tanque.produtoId != null && tanque.produtoId!.isNotEmpty;
     final clientePreenchido = tanque.clienteController.text.trim().isNotEmpty;
     final pagamentoPreenchido = tanque.pagamentoController.text.trim().isNotEmpty;
@@ -600,7 +705,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // TÍTULO DO TANQUE (centralizado verticalmente)
           SizedBox(
             width: 140,
             child: Column(
@@ -621,7 +725,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
           
           const SizedBox(width: 12),
           
-          // PRODUTO (200px)
           SizedBox(
             width: 200,
             child: DropdownButtonFormField<String>(
@@ -651,7 +754,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
           
           const SizedBox(width: 12),
           
-          // CLIENTE (230px)
           SizedBox(
             width: 230,
             child: TextFormField(
@@ -663,7 +765,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
           
           const SizedBox(width: 12),
           
-          // FORMA DE PAGAMENTO (180px)
           SizedBox(
             width: 180,
             child: TextFormField(
@@ -673,7 +774,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             ),
           ),
           const SizedBox(width: 8),
-          // Ícone para limpar/resetar a linha do tanque
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: IconButton(
@@ -701,19 +801,17 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
 
   Widget _buildPlaca(_PlacaVenda placa, {bool primeira = false}) {
     final index = _placasVenda.indexOf(placa);
-    final mostrarRemover = !primeira; // Não mostrar no primeiro
+    final mostrarRemover = !primeira && !_modoEdicao; // Não mostrar remover no modo edição
     
     return Container(
-      key: ValueKey<int>(index), // Key para ajudar no scroll
+      key: ValueKey<int>(index),
       margin: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // LINHA DA PLACA + "+" + "X"
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // CAMPO DA PLACA
               SizedBox(
                 width: 180,
                 child: Column(
@@ -732,13 +830,14 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                       controller: placa.controller,
                       onChanged: (v) => _buscarPlacas(placa, v),
                       style: const TextStyle(fontSize: 13),
+                      enabled: !_modoEdicao, // Desabilitar edição de placa no modo edição
                       decoration: InputDecoration(
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 10,
                           vertical: 10,
                         ),
                         filled: true,
-                        fillColor: Colors.grey.shade50,
+                        fillColor: _modoEdicao ? Colors.grey.shade200 : Colors.grey.shade50,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
                           borderSide: const BorderSide(
@@ -760,7 +859,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                             width: 2.5,
                           ),
                         ),
-                        suffixIcon: placa.carregandoPlacas
+                        suffixIcon: placa.carregandoPlacas && !_modoEdicao
                             ? const Padding(
                                 padding: EdgeInsets.all(8),
                                 child: SizedBox(
@@ -776,10 +875,9 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                 ),
               ),
               
-              // BOTÕES: ADICIONAR (apenas primeira) ou REMOVER (apenas das demais)
               const SizedBox(width: 8),
               
-              if (primeira)
+              if (primeira && !_modoEdicao)
                 Padding(
                   padding: const EdgeInsets.only(top: 24),
                   child: IconButton(
@@ -822,7 +920,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             ],
           ),
 
-          if (placa.mostrarSugestoes)
+          if (placa.mostrarSugestoes && !_modoEdicao)
             Container(
               margin: const EdgeInsets.only(top: 4, left: 0),
               width: 350,
@@ -907,7 +1005,10 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     return Dialog(
       backgroundColor: Colors.white,
       insetPadding: const EdgeInsets.all(20),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: Color(0xFF0D47A1), width: 1),
+      ),
       child: SizedBox(
         width: 900,
         child: Column(
@@ -918,13 +1019,13 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
               padding: const EdgeInsets.all(14),
               decoration: const BoxDecoration(
                 color: Color(0xFF0D47A1),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
               ),
               child: Row(
                 children: [
-                  const Text(
-                    'Nova Venda',
-                    style: TextStyle(
+                  Text(
+                    _modoEdicao ? 'Editar Venda' : 'Nova Venda',
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
@@ -961,13 +1062,13 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: Colors.grey.shade50,
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(9)),
                 border: Border(top: BorderSide(color: Colors.grey.shade300, width: 1)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // BOTÃO CANCELAR (150px)
+                  // BOTÃO CANCELAR
                   SizedBox(
                     width: 150,
                     child: OutlinedButton(
@@ -996,7 +1097,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                   
                   const SizedBox(width: 12),
                   
-                  // BOTÃO EMITIR ORDEM (150px)
+                  // BOTÃO SALVAR (texto dinâmico)
                   SizedBox(
                     width: 150,
                     child: ElevatedButton(
@@ -1018,9 +1119,9 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text(
-                              'Emitir ordem',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          : Text(
+                              _modoEdicao ? 'Salvar alterações' : 'Emitir ordem',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                             ),
                     ),
                   ),
