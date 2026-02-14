@@ -627,7 +627,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
         throw Exception('Nenhum tanque completo para processar');
       }
 
-      widget.onSalvar?.call(true, 'Venda registrada com sucesso! (${tanquesProcessados} tanque(s) processado(s))');
+      widget.onSalvar?.call(true, 'Venda registrada com sucesso! ($tanquesProcessados tanque(s) processado(s))');
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       _mostrarErro('Erro ao salvar venda: ${e.toString()}');
@@ -793,7 +793,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
           SizedBox(
             width: 200,
             child: DropdownButtonFormField<String>(
-              value: tanque.produtoId,
+              initialValue: tanque.produtoId,
               isExpanded: true,
               items: [
                 const DropdownMenuItem<String>(
@@ -809,8 +809,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                           style: const TextStyle(fontSize: 13),
                         ),
                       ),
-                    )
-                    .toList(),
+                    ),
               ],
               onChanged: (v) => setState(() => tanque.produtoId = v),
               decoration: _inputDecoration('Produto*', incompleto: incompleto && !produtoPreenchido),
