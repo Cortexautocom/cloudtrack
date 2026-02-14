@@ -109,11 +109,13 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
       final dataInicio = '$dataFormatada 00:00:00';
       final dataFim = '$dataFormatada 23:59:59';
       
+      // ALTERAÇÃO: ts_mov substituído por data_mov
       query = query
-          .gte('ts_mov', dataInicio)
-          .lte('ts_mov', dataFim);
+          .gte('data_mov', dataInicio)
+          .lte('data_mov', dataFim);
 
-      final response = await query.order('ts_mov', ascending: true);
+      // ALTERAÇÃO: ts_mov substituído por data_mov
+      final response = await query.order('data_mov', ascending: true);
 
       setState(() {
         movimentacoes = List<Map<String, dynamic>>.from(response);

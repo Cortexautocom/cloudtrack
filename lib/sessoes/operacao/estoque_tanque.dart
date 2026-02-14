@@ -50,7 +50,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
 
   double get _wTable => _wData + _wDesc + (_wNum * 6);
 
-  String _coluna = 'ts_mov';
+  String _coluna = 'data_mov';
   bool _asc = true;
 
   @override
@@ -119,11 +119,12 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       
       final dataStr = widget.data.toIso8601String().split('T')[0];
 
+      // ALTERAÇÃO: ts_mov substituído por data_mov
       final dados = await _supabase
           .from('movimentacoes_tanque')
           .select('''
             id,
-            ts_mov,
+            data_mov,
             quantidade,
             produto_id,
             movimentacao_id,
@@ -134,9 +135,9 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             )
           ''')
           .eq('tanque_id', widget.tanqueId)
-          .gte('ts_mov', '$dataStr 00:00:00')
-          .lte('ts_mov', '$dataStr 23:59:59')
-          .order('ts_mov', ascending: true);
+          .gte('data_mov', '$dataStr 00:00:00')
+          .lte('data_mov', '$dataStr 23:59:59')
+          .order('data_mov', ascending: true);
 
       // Inicia os saldos com o estoque inicial
       num saldoAmb = _estoqueInicial['amb'] ?? 0;
@@ -165,7 +166,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       }
 
       _movs = lista;
-      _ordenar('ts_mov', true);
+      _ordenar('data_mov', true);
 
       _estoqueFinal = {
         'amb': _movsOrdenadas.isEmpty ? null : _movsOrdenadas.last['saldo_amb'],
@@ -187,7 +188,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     ord.sort((a, b) {
       dynamic va, vb;
       switch (col) {
-        case 'ts_mov':
+        case 'data_mov':
           va = DateTime.parse(a['data_mov']);
           vb = DateTime.parse(b['data_mov']);
           break;
@@ -274,7 +275,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.sort),
-            onPressed: () => _onSort('ts_mov'),
+            onPressed: () => _onSort('data_mov'),
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -391,7 +392,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             color: const Color(0xFF0D47A1),
             child: Row(
               children: [
-                _th('Data', _wData, () => _onSort('ts_mov')),
+                _th('Data', _wData, () => _onSort('data_mov')),
                 _th('Descrição', _wDesc, () => _onSort('descricao')),
                 _th('Entrada (Amb)', _wNum, () => _onSort('entrada_amb')),
                 _th('Entrada (20ºC)', _wNum, () => _onSort('entrada_vinte')),
