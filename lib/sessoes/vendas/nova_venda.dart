@@ -537,7 +537,8 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
         throw Exception('Usuário não autenticado');
       }
 
-      final hoje = DateTime.now();
+      // Garante que use o horário de Brasília (GMT -3)
+      final hoje = DateTime.now().toUtc().subtract(const Duration(hours: 3));
       final dataMov =
           '${hoje.year}-${hoje.month.toString().padLeft(2, '0')}-${hoje.day.toString().padLeft(2, '0')}';
 
@@ -586,6 +587,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             'tipo_mov_orig': 'saida',
             'descricao': 'Venda Comum',
             'data_mov': dataMov,
+            'ts_mov': hoje.toIso8601String(),
             'quantidade': capacidadeLitros,
             'anp': false,
             'status_circuito_orig': 1,
@@ -648,7 +650,8 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
         'forma_pagamento': tanque.pagamentoController.text.trim(),
         'quantidade': capacidadeLitros,
         'saida_amb': capacidadeLitros,
-        'updated_at': DateTime.now().toIso8601String(),
+        // Garante que use o horário de Brasília (GMT -3)
+        'updated_at': DateTime.now().toUtc().subtract(const Duration(hours: 3)).toIso8601String(),
       };
 
       // Fazer update na movimentação existente
