@@ -35,6 +35,9 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
   bool _carregandoProdutos = false;
   bool _salvando = false;
   
+  // Controle da data para edição
+  DateTime? _dataSelecionada;
+  
   // Flag para modo edição
   bool get _modoEdicao => widget.movimentacaoParaEdicao != null;
 
@@ -60,10 +63,28 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
   }
 
   // =======================
+  // FUNÇÃO PARA OBTER HORÁRIO BRASÍLIA (GMT-3)
+  // =======================
+  DateTime _getHorarioBrasilia() {
+    return DateTime.now().toUtc().subtract(const Duration(hours: 3));
+  }
+
+  // =======================
   // CARREGAR DADOS PARA EDIÇÃO
   // =======================
   void _carregarDadosParaEdicao() {
     final mov = widget.movimentacaoParaEdicao!;
+    
+    // Carregar a data do ts_mov
+    if (mov['ts_mov'] != null) {
+      try {
+        _dataSelecionada = DateTime.parse(mov['ts_mov'].toString());
+      } catch (e) {
+        _dataSelecionada = _getHorarioBrasilia();
+      }
+    } else {
+      _dataSelecionada = _getHorarioBrasilia();
+    }
     
     // Criar uma placa
     final placa = _PlacaVenda();
@@ -538,7 +559,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       }
 
       // Garante que use o horário de Brasília (GMT -3)
-      final hoje = DateTime.now().toUtc().subtract(const Duration(hours: 3));
+      final hoje = _getHorarioBrasilia();
       final dataMov =
           '${hoje.year}-${hoje.month.toString().padLeft(2, '0')}-${hoje.day.toString().padLeft(2, '0')}';
 
@@ -616,10 +637,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       }
     }
   }
-
-  // =======================
-  // PROCESSAMENTO DA EDIÇÃO (UPDATE)
-  // =======================
+  
   Future<void> _processarEdicaoVenda() async {
     setState(() => _salvando = true);
 
@@ -642,22 +660,66 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       final capacidadeMCubicos = double.tryParse(tanque.capacidade) ?? 0.0;
       final capacidadeLitros = capacidadeMCubicos * 1000.0;
 
-      // Preparar dados para update
-      final Map<String, dynamic> dadosAtualizados = {
+      // Obter o ordem_id da movimentação que está sendo editada
+      final ordemId = widget.movimentacaoParaEdicao!['ordem_id']?.toString();
+      
+      if (ordemId == null || ordemId.isEmpty) {
+        throw Exception('Ordem ID não encontrado para esta movimentação');
+      }
+
+      // Determinar o timestamp a ser usado (data selecionada ou atual)
+      DateTime timestampParaSalvar;
+      
+      if (_dataSelecionada != null) {
+        // Usar a data selecionada, mantendo o horário como 00:00:00 para consistência
+        timestampParaSalvar = DateTime(
+          _dataSelecionada!.year,
+          _dataSelecionada!.month,
+          _dataSelecionada!.day,
+          0, 0, 0, // Hora zero
+        );
+      } else {
+        // Se não selecionou data, usar o horário atual (GMT-3)
+        timestampParaSalvar = _getHorarioBrasilia();
+      }
+
+      // Formatar a data para data_mov e data_ordem (apenas a data)
+      final dataMov = 
+          '${timestampParaSalvar.year}-${timestampParaSalvar.month.toString().padLeft(2, '0')}-${timestampParaSalvar.day.toString().padLeft(2, '0')}';
+
+      // 1. ATUALIZAR A ORDEM (tabela ordens)
+      await supabase
+          .from('ordens')
+          .update({'data_ordem': dataMov})
+          .eq('id', ordemId);
+
+      // 2. ATUALIZAR TODAS AS MOVIMENTAÇÕES COM ESTE ordem_id
+      // Preparar dados base para update das movimentações
+      final Map<String, dynamic> dadosBaseMovimentacao = {
+        'data_mov': dataMov,
+        'ts_mov': timestampParaSalvar.toIso8601String(),
+        'updated_at': _getHorarioBrasilia().toIso8601String(),
+      };
+
+      // Atualizar todas as movimentações com o mesmo ordem_id
+      await supabase
+          .from('movimentacoes')
+          .update(dadosBaseMovimentacao)
+          .eq('ordem_id', ordemId);
+
+      // 3. ATUALIZAR A MOVIMENTAÇÃO ESPECÍFICA (com os dados do formulário)
+      final Map<String, dynamic> dadosMovimentacaoEspecifica = {
         'produto_id': tanque.produtoId,
         'placa': [placaVenda.controller.text.trim().toUpperCase()],
         'cliente': tanque.clienteController.text.trim(),
         'forma_pagamento': tanque.pagamentoController.text.trim(),
         'quantidade': capacidadeLitros,
         'saida_amb': capacidadeLitros,
-        // Garante que use o horário de Brasília (GMT -3)
-        'updated_at': DateTime.now().toUtc().subtract(const Duration(hours: 3)).toIso8601String(),
       };
 
-      // Fazer update na movimentação existente
       await supabase
           .from('movimentacoes')
-          .update(dadosAtualizados)
+          .update(dadosMovimentacaoEspecifica)
           .eq('id', widget.movimentacaoParaEdicao!['id']);
 
       widget.onSalvar?.call(true, 'Programação atualizada!');
@@ -797,6 +859,108 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
               },
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCampoData() {
+    if (!_modoEdicao) return const SizedBox.shrink();
+    
+    final dataFormatada = _dataSelecionada != null
+        ? '${_dataSelecionada!.day.toString().padLeft(2, '0')}/${_dataSelecionada!.month.toString().padLeft(2, '0')}/${_dataSelecionada!.year}'
+        : 'Selecionar data';
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const SizedBox(
+            width: 180,
+            child: Text(
+              'Data da programação',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: () async {
+              final dataSelecionada = await showDatePicker(
+                context: context,
+                initialDate: _dataSelecionada ?? DateTime.now(),
+                firstDate: DateTime(2020, 1, 1),
+                lastDate: DateTime.now().add(const Duration(days: 365)),
+                helpText: 'Selecionar data da programação',
+                cancelText: 'Cancelar',
+                confirmText: 'Confirmar',
+                builder: (context, child) {
+                  return Theme(
+                    data: Theme.of(context).copyWith(
+                      colorScheme: const ColorScheme.light(
+                        primary: Color(0xFF0D47A1),
+                        onPrimary: Colors.white,
+                        surface: Colors.white,
+                        onSurface: Colors.black,
+                      ),
+                    ),
+                    child: child!,
+                  );
+                },
+              );
+              
+              if (dataSelecionada != null) {
+                setState(() {
+                  _dataSelecionada = DateTime(
+                    dataSelecionada.year,
+                    dataSelecionada.month,
+                    dataSelecionada.day,
+                  );
+                });
+              }
+            },
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              width: 200,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFF0D47A1).withOpacity(0.5)),
+                borderRadius: BorderRadius.circular(6),
+                color: Colors.white,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    dataFormatada,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: _dataSelecionada != null ? Colors.black : Colors.grey.shade600,
+                    ),
+                  ),
+                  const Icon(
+                    Icons.calendar_today,
+                    size: 16,
+                    color: Color(0xFF0D47A1),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_dataSelecionada != null)
+            IconButton(
+              icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+              onPressed: () {
+                setState(() {
+                  _dataSelecionada = null;
+                });
+              },
+              tooltip: 'Limpar data',
+            ),
         ],
       ),
     );
@@ -1049,13 +1213,18 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                 controller: _scrollController,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 child: Column(
-                  children: List.generate(
-                    _placasVenda.length,
-                    (i) => _buildPlaca(
-                      _placasVenda[i],
-                      primeira: i == 0,
+                  children: [
+                    // Campo de data (aparece apenas no modo edição)
+                    _buildCampoData(),
+                    // Lista de placas
+                    ...List.generate(
+                      _placasVenda.length,
+                      (i) => _buildPlaca(
+                        _placasVenda[i],
+                        primeira: i == 0,
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
