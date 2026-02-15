@@ -154,15 +154,17 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       
       final dataStr = widget.data.toIso8601String().split('T')[0];
 
-      // Consulta simplificada: apenas na tabela movimentacoes_tanque
+      // Consulta com as 4 colunas da tabela movimentacoes_tanque
       final dados = await _supabase
           .from('movimentacoes_tanque')
           .select('''
             id,
             data_mov,
-            quantidade,
-            produto_id,
-            cliente
+            cliente,
+            entrada_amb,
+            entrada_vinte,
+            saida_amb,
+            saida_vinte
           ''')
           .eq('tanque_id', widget.tanqueId)
           .gte('data_mov', '$dataStr 00:00:00')
@@ -175,20 +177,24 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       final List<Map<String, dynamic>> lista = [];
 
       for (final m in dados) {
-        final num qtd = (m['quantidade'] ?? 0) as num;
+        final num entradaAmb = (m['entrada_amb'] ?? 0) as num;
+        final num entradaVinte = (m['entrada_vinte'] ?? 0) as num;
+        final num saidaAmb = (m['saida_amb'] ?? 0) as num;
+        final num saidaVinte = (m['saida_vinte'] ?? 0) as num;
         final String descricao = m['cliente'] ?? '';
 
-        saldoAmb -= qtd;
-        saldoVinte -= qtd;
+        // Atualiza saldos: entrada soma, saída subtrai
+        saldoAmb += entradaAmb - saidaAmb;
+        saldoVinte += entradaVinte - saidaVinte;
 
         lista.add({
           'id': m['id'],
           'data_mov': m['data_mov'],
           'descricao': descricao,
-          'entrada_amb': 0,
-          'entrada_vinte': 0,
-          'saida_amb': qtd,
-          'saida_vinte': qtd,
+          'entrada_amb': entradaAmb,
+          'entrada_vinte': entradaVinte,
+          'saida_amb': saidaAmb,
+          'saida_vinte': saidaVinte,
           'saldo_amb': saldoAmb,
           'saldo_vinte': saldoVinte,
         });
@@ -225,6 +231,8 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           va = (a['descricao'] ?? '').toString().toLowerCase();
           vb = (b['descricao'] ?? '').toString().toLowerCase();
           break;
+        case 'entrada_amb':
+        case 'entrada_vinte':
         case 'saida_amb':
         case 'saida_vinte':
         case 'saldo_amb':
