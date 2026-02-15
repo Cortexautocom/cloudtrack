@@ -998,9 +998,11 @@ class _CalcPageState extends State<CalcPage> {
         final double saidaVintePositiva = entradaVinte < 0 ? entradaVinte.abs() : 0.0;
 
       
+      final timestampBrasilia = _obterTimestampBrasilia();
+      
       final dadosMovimentacao = <String, dynamic>{
         'filial_id': filialId,
-        'data_mov': dataMov,
+        'data_mov': timestampBrasilia,
         'descricao': descricao,
         'entrada_amb': entradaAmbPositiva,
         'entrada_vinte': entradaVintePositiva,
@@ -1015,7 +1017,8 @@ class _CalcPageState extends State<CalcPage> {
         'tipo_op': 'cacl',
         'filial_origem_id': filialId,
         'observacoes': null,
-        'updated_at': DateTime.now().toIso8601String(),
+        'ts_mov': timestampBrasilia,
+        'updated_at': timestampBrasilia,
       };
       
       await supabase
@@ -1053,6 +1056,13 @@ class _CalcPageState extends State<CalcPage> {
     }
     
     return strValor;
+  }
+
+  // Função auxiliar para obter timestamp no horário de Brasília (UTC-3)
+  String _obterTimestampBrasilia() {
+    final agora = DateTime.now().toUtc();
+    final brasilia = agora.subtract(const Duration(hours: 3));
+    return brasilia.toIso8601String();
   }
 
   @override

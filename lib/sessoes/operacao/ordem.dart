@@ -2273,7 +2273,10 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
         'observacoes': null,
         'quantidade': null,
         'usuario_id': dadosOrdem['usuario_id'],
-        'created_at': DateTime.now().toIso8601String(),
+        'created_at': _obterTimestampBrasilia(),
+        'ts_mov': _obterTimestampBrasilia(),
+        'data_mov': _obterTimestampBrasilia(),
+        'updated_at': _obterTimestampBrasilia(),
         ...camposProduto,
       };
       
@@ -2530,6 +2533,13 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
   }
 
   // Função para converter campo de texto para inteiro
+  // Função auxiliar para obter timestamp no horário de Brasília (UTC-3)
+  String _obterTimestampBrasilia() {
+    final agora = DateTime.now().toUtc();
+    final brasilia = agora.subtract(const Duration(hours: 3));
+    return brasilia.toIso8601String();
+  }
+
   int? _converterParaInteiro(String texto) {
     if (texto.isEmpty) return null;
     

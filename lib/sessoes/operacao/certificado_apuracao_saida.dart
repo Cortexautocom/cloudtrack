@@ -2082,21 +2082,28 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   }) async {
     try {
       final supabase = Supabase.instance.client;
-      final agora = DateTime.now().toUtc().toIso8601String();
+      final timestampBrasilia = _obterTimestampBrasilia();
       
       await supabase
           .from('movimentacoes')
           .update({
             'saida_vinte': volume20C,
-            'data_carga': agora,
+            'data_carga': timestampBrasilia,
             'status_circuito_orig': '4',
-            'updated_at': agora,
+            'updated_at': timestampBrasilia,
           })
           .eq('id', movimentacaoId);
     } catch (e) {
       print('✗ Erro ao atualizar movimentação: $e');
       rethrow;
     }
+  }
+  
+  // Função auxiliar para obter timestamp no horário de Brasília (UTC-3)
+  String _obterTimestampBrasilia() {
+    final agora = DateTime.now().toUtc();
+    final brasilia = agora.subtract(const Duration(hours: 3));
+    return brasilia.toIso8601String();
   }
   
   // ================= AUXILIAR =================

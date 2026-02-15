@@ -2192,16 +2192,16 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
   }) async {
     try {
       final supabase = Supabase.instance.client;
-      final agora = DateTime.now().toUtc().toIso8601String();
+      final timestampBrasilia = _obterTimestampBrasilia();
       
       // Usa apenas as 4 colunas padrão: entrada_amb, entrada_vinte, saida_amb, saida_vinte
       await supabase
           .from('movimentacoes')
           .update({
             'entrada_vinte': volume20C,
-            'data_carga': agora,
+            'data_carga': timestampBrasilia,
             'status_circuito_dest': '5',
-            'updated_at': agora,
+            'updated_at': timestampBrasilia,
           })
           .eq('id', movimentacaoId);
           
@@ -2212,6 +2212,12 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
     }
   }
 
+  // Função auxiliar para obter timestamp no horário de Brasília (UTC-3)
+  String _obterTimestampBrasilia() {
+    final agora = DateTime.now().toUtc();
+    final brasilia = agora.subtract(const Duration(hours: 3));
+    return brasilia.toIso8601String();
+  }
 
   
   Future<String> _resolverProdutoId(String nomeProduto) async {
