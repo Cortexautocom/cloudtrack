@@ -560,8 +560,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
 
       // Garante que use o horário de Brasília (GMT -3)
       final hoje = _getHorarioBrasilia();
-      final dataMov =
-          '${hoje.year}-${hoje.month.toString().padLeft(2, '0')}-${hoje.day.toString().padLeft(2, '0')}';
+      final dataMov = hoje.toIso8601String();
 
       final ordemResponse = await supabase
           .from('ordens')

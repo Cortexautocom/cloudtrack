@@ -983,7 +983,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
             Icon(Icons.list, size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             Text(
-              'Nenhuma venda encontrada',
+              'Nenhuma programação ainda.',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey.shade600,

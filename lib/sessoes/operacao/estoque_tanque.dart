@@ -154,6 +154,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       
       final dataStr = widget.data.toIso8601String().split('T')[0];
 
+      // Consulta simplificada: apenas na tabela movimentacoes_tanque
       final dados = await _supabase
           .from('movimentacoes_tanque')
           .select('''
@@ -161,14 +162,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             data_mov,
             quantidade,
             produto_id,
-            movimentacao_id,
-            movimentacoes (
-              id,
-              data_mov,
-              cliente,
-              tipo_op,
-              descricao
-            )
+            cliente
           ''')
           .eq('tanque_id', widget.tanqueId)
           .gte('data_mov', '$dataStr 00:00:00')
@@ -182,17 +176,14 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
 
       for (final m in dados) {
         final num qtd = (m['quantidade'] ?? 0) as num;
-        final String tipoOp = m['movimentacoes']?['tipo_op'] ?? '';
-        final String descricao = tipoOp == 'cacl'
-            ? (m['movimentacoes']?['descricao'] ?? '')
-            : (m['movimentacoes']?['cliente'] ?? '');
+        final String descricao = m['cliente'] ?? '';
 
         saldoAmb -= qtd;
         saldoVinte -= qtd;
 
         lista.add({
           'id': m['id'],
-          'data_mov': m['movimentacoes']?['data_mov'] ?? dataStr,
+          'data_mov': m['data_mov'],
           'descricao': descricao,
           'entrada_amb': 0,
           'entrada_vinte': 0,
