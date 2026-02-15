@@ -2256,7 +2256,6 @@ class _EmitirOrdemPageState extends State<EmitirOrdemPage> {
       final Map<String, dynamic> dadosMovimentacao = {
         'filial_id': filialId,
         'empresa_id': empresaId,
-        'data_mov': dadosOrdem['data_analise'],
         'descricao': null,
         'cliente': null,
         'anp': false,
