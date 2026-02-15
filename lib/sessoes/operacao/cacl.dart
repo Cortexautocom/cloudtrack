@@ -944,18 +944,20 @@ class _CalcPageState extends State<CalcPage> {
       if (tipoCACL != 'movimentacao') {
         return;
       }
+      
       if (numeroControle == null || numeroControle.isEmpty) {
         return;
       }
+      
       if (filialId == null || filialId.isEmpty) {
         return;
       }
+      
       if (tanqueId == null || tanqueId.isEmpty) {
         return;
       }
       
       String? produtoId;
-      
       try {
         final tanqueData = await supabase
             .from('tanques')
@@ -972,7 +974,6 @@ class _CalcPageState extends State<CalcPage> {
       
       String dataMov = dadosCacl['data']?.toString() ?? '';
       String dataFormatada = '';
-      
       if (dataMov.isNotEmpty && dataMov.contains('-')) {
         final partes = dataMov.split('-');
         if (partes.length == 3) {
@@ -984,41 +985,47 @@ class _CalcPageState extends State<CalcPage> {
       
       final entradaSaidaAmbiente = dadosCacl['entrada_saida_ambiente'] ?? 0;
       final entradaSaida20 = dadosCacl['entrada_saida_20'] ?? 0;
-
-        final double entradaAmb = entradaSaidaAmbiente is num
+      
+      final entradaAmbDouble = entradaSaidaAmbiente is num
           ? entradaSaidaAmbiente.toDouble()
           : double.tryParse(entradaSaidaAmbiente.toString()) ?? 0.0;
-        final double entradaVinte = entradaSaida20 is num
+      
+      final entradaVinteDouble = entradaSaida20 is num
           ? entradaSaida20.toDouble()
           : double.tryParse(entradaSaida20.toString()) ?? 0.0;
-
-        final double entradaAmbPositiva = entradaAmb >= 0 ? entradaAmb : 0.0;
-        final double saidaAmbPositiva = entradaAmb < 0 ? entradaAmb.abs() : 0.0;
-        final double entradaVintePositiva = entradaVinte >= 0 ? entradaVinte : 0.0;
-        final double saidaVintePositiva = entradaVinte < 0 ? entradaVinte.abs() : 0.0;
-
+      
+      final entradaAmbInt = entradaAmbDouble.round();
+      final entradaVinteInt = entradaVinteDouble.round();
+      
+      final entradaAmbPositiva = entradaAmbInt >= 0 ? entradaAmbInt : 0;
+      final saidaAmbPositiva = entradaAmbInt < 0 ? entradaAmbInt.abs() : 0;
+      
+      final entradaVintePositiva = entradaVinteInt >= 0 ? entradaVinteInt : 0;
+      final saidaVintePositiva = entradaVinteInt < 0 ? entradaVinteInt.abs() : 0;
       
       final timestampBrasilia = _obterTimestampBrasilia();
       
       final dadosMovimentacao = <String, dynamic>{
         'filial_id': filialId,
+        'empresa_id': usuario.empresaId,
         'data_mov': timestampBrasilia,
+        'ts_mov': timestampBrasilia,
+        'updated_at': timestampBrasilia,
         'descricao': descricao,
         'entrada_amb': entradaAmbPositiva,
         'entrada_vinte': entradaVintePositiva,
         'saida_amb': saidaAmbPositiva,
         'saida_vinte': saidaVintePositiva,
-        'empresa_id': usuario.empresaId,
         'produto_id': produtoId,
         'cacl_id': caclId,
         'usuario_id': usuario.id,
-        'tipo_mov_orig': 'entrada',
-        'tipo_mov': null,
-        'tipo_op': 'cacl',
         'filial_origem_id': filialId,
-        'observacoes': null,
-        'ts_mov': timestampBrasilia,
-        'updated_at': timestampBrasilia,
+        'tipo_mov_orig': 'entrada',
+        'tipo_mov': '',
+        'tipo_op': 'cacl',
+        'anp': false,
+        'status_circuito_orig': 1,
+        'status_circuito_dest': 1,
       };
       
       await supabase
@@ -1028,29 +1035,25 @@ class _CalcPageState extends State<CalcPage> {
           .single();
       
     } catch (e) {
-      // Silencioso - não interrompe o fluxo principal
+      // Silencioso
     }
   }
 
-  // ✅ FUNÇÃO AUXILIAR PARA TRATAR NÚMERO DE CONTROLE (adicione na classe)
   String? _tratarNumeroControle(dynamic valor) {
     if (valor == null) return null;
     
     final strValor = valor.toString().trim();
     
-    // Se for vazio, NULL, ou "null" (string), retorna null
     if (strValor.isEmpty || 
         strValor == 'null' || 
         strValor.toLowerCase() == 'null') {
       return null;
     }
     
-    // Remove aspas simples se houver
     if (strValor.startsWith("'") && strValor.endsWith("'")) {
       return strValor.substring(1, strValor.length - 1);
     }
     
-    // Se for "0", considera como null (ainda não gerado)
     if (strValor == '0' || strValor == "'0'") {
       return null;
     }
@@ -1058,13 +1061,12 @@ class _CalcPageState extends State<CalcPage> {
     return strValor;
   }
 
-  // Função auxiliar para obter timestamp no horário de Brasília (UTC-3)
   String _obterTimestampBrasilia() {
     final agora = DateTime.now().toUtc();
     final brasilia = agora.subtract(const Duration(hours: 3));
     return brasilia.toIso8601String();
   }
-
+  
   @override
   Widget build(BuildContext context) {
     final medicoes = widget.dadosFormulario['medicoes'] ?? {};

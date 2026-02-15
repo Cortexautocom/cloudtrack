@@ -161,6 +161,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             id,
             data_mov,
             cliente,
+            descricao,
             entrada_amb,
             entrada_vinte,
             saida_amb,
@@ -181,7 +182,9 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         final num entradaVinte = (m['entrada_vinte'] ?? 0) as num;
         final num saidaAmb = (m['saida_amb'] ?? 0) as num;
         final num saidaVinte = (m['saida_vinte'] ?? 0) as num;
-        final String descricao = m['cliente'] ?? '';
+        final String cliente = (m['cliente']?.toString().trim() ?? '');
+        final String desc = (m['descricao']?.toString().trim() ?? '');
+        final String descricao = cliente.isNotEmpty ? cliente : desc;
 
         // Atualiza saldos: entrada soma, saída subtrai
         saldoAmb += entradaAmb - saidaAmb;
