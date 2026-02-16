@@ -1582,7 +1582,7 @@ class _TanqueCardState extends State<_TanqueCard> {
             borderRadius: BorderRadius.circular(14),
             onTap: widget.onTap,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
               child: Row(
                 children: [
                   Container(
@@ -1614,25 +1614,37 @@ class _TanqueCardState extends State<_TanqueCard> {
                             fontSize: 13,
                           ),
                         ),
-                        if (widget.tanque['lastro'] != null &&
-                            widget.tanque['lastro'].toString().trim().isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              'Lastro: ${_formatarMilhar(widget.tanque['lastro'])} L',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: _muted,
-                              ),
-                            ),
-                          ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                  const SizedBox(width: 16),
+                  // Informações em linha única
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Lastro (se existir)
+                      if (widget.tanque['lastro'] != null &&
+                          widget.tanque['lastro'].toString().trim().isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: _line, width: 1.2),
+                          ),
+                          child: Text(
+                            'Lastro: ${_formatarMilhar(widget.tanque['lastro'])} L',
+                            style: const TextStyle(
+                              color: _ink,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      if (widget.tanque['lastro'] != null &&
+                          widget.tanque['lastro'].toString().trim().isNotEmpty)
+                        const SizedBox(width: 8),
+                      // Capacidade
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
@@ -1641,7 +1653,7 @@ class _TanqueCardState extends State<_TanqueCard> {
                           border: Border.all(color: _line, width: 1.2),
                         ),
                         child: Text(
-                          '${widget.tanque['capacidade']} Litros',
+                          '${widget.tanque['capacidade']} L',
                           style: const TextStyle(
                             color: _ink,
                             fontSize: 11,
@@ -1649,7 +1661,8 @@ class _TanqueCardState extends State<_TanqueCard> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(width: 8),
+                      // Status
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
@@ -1668,7 +1681,6 @@ class _TanqueCardState extends State<_TanqueCard> {
                       ),
                     ],
                   ),
-                  const SizedBox(width: 8),
                 ],
               ),
             ),
