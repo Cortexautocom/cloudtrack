@@ -270,8 +270,8 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     _ordenar(col, asc);
   }
 
-  void _navegarParaCACL() {
-    Navigator.of(context).push(
+  Future<void> _navegarParaCACL() async {
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => MedicaoTanquesPage(
           onVoltar: () => Navigator.pop(context),
@@ -281,6 +281,9 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         ),
       ),
     );
+
+    if (!mounted) return;
+    await _carregar();
   }
 
   Color _bgEntrada() => Colors.green.shade50.withOpacity(0.3);

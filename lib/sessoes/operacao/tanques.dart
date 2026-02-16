@@ -439,6 +439,8 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
   Future<void> _abrirCACL() async {
     final filialId = widget.filialSelecionadaId ?? UsuarioAtual.instance!.filialId;
     final tanqueId = _tanqueSelecionadoParaAcoes?['id']?.toString();
+    bool caclFinalizado = false;
+
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => MedicaoTanquesPage(
@@ -446,11 +448,17 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
           filialSelecionadaId: filialId,
           tanqueSelecionadoId: tanqueId,
           onFinalizarCACL: () {
-            // Callback chamado quando CACL é emitido
+            caclFinalizado = true;
           },
         ),
       ),
     );
+
+    if (!mounted) return;
+
+    if (caclFinalizado) {
+      await _carregarDados();
+    }
     
     // Recarrega a lista de CACLs do tanque quando volta
     if (tanqueId != null && tanqueId.isNotEmpty) {
@@ -497,6 +505,19 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       _estoqueNomeFilial = nomeFilial;
       _mostrandoEstoqueTanque = true;
     });
+  }
+
+  void _voltarDoEstoqueTanque() {
+    setState(() {
+      _mostrandoEstoqueTanque = false;
+    });
+
+    _carregarDados();
+
+    final tanqueId = _tanqueSelecionadoParaAcoes?['id']?.toString() ?? _estoqueTanqueId;
+    if (tanqueId != null && tanqueId.isNotEmpty) {
+      _carregarCaclsDoTanque(tanqueId);
+    }
   }
 
   // Função para aplicar máscara no campo capacidade
@@ -667,11 +688,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
         filialId: _estoqueFilialId ?? '',
         nomeFilial: _estoqueNomeFilial ?? '',
         data: DateTime.now(),
-        onVoltar: () {
-          setState(() {
-            _mostrandoEstoqueTanque = false;
-          });
-        },
+        onVoltar: _voltarDoEstoqueTanque,
       );
     }
     return Shortcuts(

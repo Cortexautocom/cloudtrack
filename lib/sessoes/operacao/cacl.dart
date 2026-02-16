@@ -2700,6 +2700,8 @@ class _CalcPageState extends State<CalcPage> {
       
       // Aguardar um pouco para mostrar a mensagem
       await Future.delayed(const Duration(milliseconds: 1500));
+
+      widget.onFinalizar?.call();
       
       // **CORREÇÃO: Voltar DUAS telas (CalcPage → MedicaoTanquesPage → ListarCaclsPage)**
       if (context.mounted) {
