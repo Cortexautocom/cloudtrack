@@ -342,9 +342,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             ? const Center(child: CircularProgressIndicator())
             : _erro
                 ? Center(child: Text(_mensagemErro))
-                : _movsOrdenadas.isEmpty
-                    ? const Center(child: Text('Sem movimentações no dia'))
-                    : _buildConteudo(),
+                : _buildConteudo(),
       ),
     );
   }
