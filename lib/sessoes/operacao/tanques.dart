@@ -278,6 +278,9 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
 
     try {
       final supabase = Supabase.instance.client;
+      final hoje = DateTime.now();
+      final inicioDoDia = DateTime(hoje.year, hoje.month, hoje.day);
+      final fimDoDia = DateTime(hoje.year, hoje.month, hoje.day, 23, 59, 59);
 
       final response = await supabase
           .from('cacl')
@@ -297,8 +300,27 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
           .order('created_at', ascending: false);
 
       if (mounted) {
+        // Filtrar no lado do cliente
+        final caclesFiltrados = List<Map<String, dynamic>>.from(response).where((cacl) {
+          final status = cacl['status']?.toString().toLowerCase();
+          final dataCacl = cacl['data'] != null 
+              ? DateTime.parse(cacl['data'].toString())
+              : null;
+          
+          // Manter se for pendente OU se for do dia atual
+          if (status == 'pendente') {
+            return true;
+          }
+          
+          if (dataCacl != null) {
+            return dataCacl.isAfter(inicioDoDia) && dataCacl.isBefore(fimDoDia);
+          }
+          
+          return false;
+        }).toList();
+
         setState(() {
-          _caclesTanque = List<Map<String, dynamic>>.from(response);
+          _caclesTanque = caclesFiltrados;
         });
       }
     } catch (e) {
@@ -1239,7 +1261,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                       child: Align(
                         alignment: Alignment.center,
                         child: SizedBox( // ← largura fixa do card
-                          width: 1400,
+                          width: 1300,
                           child: MouseRegion(
                             cursor: SystemMouseCursors.click,
                             onEnter: (_) {
