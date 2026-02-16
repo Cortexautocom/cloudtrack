@@ -1234,193 +1234,228 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                       cacl['horario_final'],
                     );
 
-                    return MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      onEnter: (_) {
-                        setState(() => _hoverCaclIndex = index);
-                      },
-                      onExit: (_) {
-                        setState(() => _hoverCaclIndex = null);
-                      },
-                      child: GestureDetector(
-                        onTap: () async {
-                          final nivelUsuario = UsuarioAtual.instance?.nivel ?? 0;
-                          if (nivelUsuario == 2 && isCancelado) {
-                            return;
-                          }
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: SizedBox( // ← largura fixa do card
+                          width: 1400,
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            onEnter: (_) {
+                              setState(() => _hoverCaclIndex = index);
+                            },
+                            onExit: (_) {
+                              setState(() => _hoverCaclIndex = null);
+                            },
+                            child: GestureDetector(
+                              onTap: () async {
+                                final nivelUsuario = UsuarioAtual.instance?.nivel ?? 0;
+                                if (nivelUsuario == 2 && isCancelado) {
+                                  return;
+                                }
 
-                          final caclId = cacl['id'].toString();
-                          final isPendente = status?.toLowerCase() == 'pendente';
-                          final isAguardando = status?.toLowerCase() == 'aguardando';
+                                final caclId = cacl['id'].toString();
+                                final isPendente = status?.toLowerCase() == 'pendente';
+                                final isAguardando = status?.toLowerCase() == 'aguardando';
 
-                          if (!context.mounted) return;
+                                if (!context.mounted) return;
 
-                          if (isPendente || isAguardando) {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => EditarCaclPage(
-                                  caclId: caclId,
-                                  onVoltar: () {
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                              ),
-                            );
-                          } else {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => CaclHistoricoPage(
-                                  caclId: caclId,
-                                  onVoltar: () {
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                              ),
-                            );
-                          }
-
-                          final tanqueId =
-                              _tanqueSelecionadoParaAcoes?['id']?.toString();
-                          if (tanqueId != null && tanqueId.isNotEmpty) {
-                            _carregarCaclsDoTanque(tanqueId);
-                          }
-                        },
-                        child: Opacity(
-                          opacity: isCancelado ? 0.85 : 1.0,
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            curve: Curves.easeOut,
-                            transform: _hoverCaclIndex == index
-                                ? (Matrix4.identity()..scale(1.01))
-                                : Matrix4.identity(),
-                            decoration: BoxDecoration(
-                              color: _hoverCaclIndex == index
-                                  ? cardColor.withOpacity(0.85)
-                                  : cardColor,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: borderColor,
-                                width: 1.5,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(
-                                    _hoverCaclIndex == index ? 0.15 : 0.05,
-                                  ),
-                                  blurRadius: _hoverCaclIndex == index ? 12 : 4,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    width: 4,
-                                    height: 60,
-                                    decoration: BoxDecoration(
-                                      color: statusColor,
-                                      borderRadius: BorderRadius.circular(2),
+                                if (isPendente || isAguardando) {
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => EditarCaclPage(
+                                        caclId: caclId,
+                                        onVoltar: () {
+                                          Navigator.pop(context);
+                                        },
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 12),
+                                  );
+                                } else {
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => CaclHistoricoPage(
+                                        caclId: caclId,
+                                        onVoltar: () {
+                                          Navigator.pop(context);
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                }
 
-                                  Expanded(
-                                    child: Column(
+                                final tanqueId =
+                                    _tanqueSelecionadoParaAcoes?['id']?.toString();
+                                if (tanqueId != null && tanqueId.isNotEmpty) {
+                                  _carregarCaclsDoTanque(tanqueId);
+                                }
+                              },
+                              child: Opacity(
+                                opacity: isCancelado ? 0.85 : 1.0,
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 180),
+                                  curve: Curves.easeOut,
+                                  alignment: Alignment.center,
+                                  transformAlignment: Alignment.center,
+                                  transform: _hoverCaclIndex == index
+                                      ? (Matrix4.identity()..scale(1.01, 1.01))
+                                      : Matrix4.identity(),
+                                  decoration: BoxDecoration(
+                                    color: _hoverCaclIndex == index
+                                        ? cardColor.withOpacity(0.85)
+                                        : cardColor,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: borderColor,
+                                      width: 1.5,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(
+                                          _hoverCaclIndex == index ? 0.15 : 0.05,
+                                        ),
+                                        blurRadius: _hoverCaclIndex == index ? 12 : 4,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Row(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Row(
-                                          children: [
-                                            const Icon(
-                                              Icons.storage,
-                                              size: 16,
-                                              color: Colors.black54,
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              'Tanque $tanqueRef',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                                color: isCancelado
-                                                    ? Colors.grey
-                                                    : Colors.black87,
-                                              ),
-                                            ),
-                                          ],
+                                        Container(
+                                          width: 4,
+                                          height: 60,
+                                          decoration: BoxDecoration(
+                                            color: statusColor,
+                                            borderRadius: BorderRadius.circular(2),
+                                          ),
                                         ),
-                                        const SizedBox(height: 4),
+                                        const SizedBox(width: 12),
 
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              Icons.local_gas_station,
-                                              size: 14,
-                                              color: isCancelado
-                                                  ? Colors.grey
-                                                  : Colors.black54,
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Expanded(
-                                              child: Text(
-                                                produto,
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  color: isCancelado
-                                                      ? Colors.grey
-                                                      : Colors.black87,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  const Icon(
+                                                    Icons.storage,
+                                                    size: 16,
+                                                    color: Colors.black54,
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    'Tanque $tanqueRef',
+                                                    style: TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: isCancelado
+                                                          ? Colors.grey
+                                                          : Colors.black87,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
-                                            ),
-                                          ],
+                                              const SizedBox(height: 4),
+
+                                              Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.local_gas_station,
+                                                    size: 14,
+                                                    color: isCancelado
+                                                        ? Colors.grey
+                                                        : Colors.black54,
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Expanded(
+                                                    child: Text(
+                                                      produto,
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        color: isCancelado
+                                                            ? Colors.grey
+                                                            : Colors.black87,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+
+                                              Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.calendar_today,
+                                                    size: 14,
+                                                    color: isCancelado
+                                                        ? Colors.grey
+                                                        : Colors.black54,
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    data,
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      color: isCancelado
+                                                          ? Colors.grey
+                                                          : Colors.black54,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 16),
+                                                  Icon(
+                                                    Icons.access_time,
+                                                    size: 14,
+                                                    color: isCancelado
+                                                        ? Colors.grey
+                                                        : Colors.black54,
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Expanded(
+                                                    child: Text(
+                                                      horario,
+                                                      style: TextStyle(
+                                                        fontSize: 13,
+                                                        color: isCancelado
+                                                            ? Colors.grey
+                                                            : Colors.black54,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                        const SizedBox(height: 4),
 
-                                        Row(
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.end,
                                           children: [
-                                            Icon(
-                                              Icons.calendar_today,
-                                              size: 14,
-                                              color: isCancelado
-                                                  ? Colors.grey
-                                                  : Colors.black54,
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              data,
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                color: isCancelado
-                                                    ? Colors.grey
-                                                    : Colors.black54,
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                                vertical: 4,
                                               ),
-                                            ),
-                                            const SizedBox(width: 16),
-                                            Icon(
-                                              Icons.access_time,
-                                              size: 14,
-                                              color: isCancelado
-                                                  ? Colors.grey
-                                                  : Colors.black54,
-                                            ),
-                                            const SizedBox(width: 6),
-                                            Expanded(
+                                              decoration: BoxDecoration(
+                                                color: statusColor.withOpacity(0.15),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
                                               child: Text(
-                                                horario,
+                                                statusText,
                                                 style: TextStyle(
-                                                  fontSize: 13,
-                                                  color: isCancelado
-                                                      ? Colors.grey
-                                                      : Colors.black54,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: statusColor,
                                                 ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
                                               ),
                                             ),
                                           ],
@@ -1428,37 +1463,14 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                                       ],
                                     ),
                                   ),
-
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: statusColor.withOpacity(0.15),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Text(
-                                          statusText,
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                            color: statusColor,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
                     );
+
                   },
                 ),
             ]
