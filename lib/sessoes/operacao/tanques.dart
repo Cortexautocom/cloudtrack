@@ -313,7 +313,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
           }
           
           if (dataCacl != null) {
-            return dataCacl.isAfter(inicioDoDia) && dataCacl.isBefore(fimDoDia);
+            return !dataCacl.isBefore(inicioDoDia) && !dataCacl.isAfter(fimDoDia);
           }
           
           return false;
