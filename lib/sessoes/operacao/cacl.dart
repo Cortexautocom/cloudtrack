@@ -879,7 +879,7 @@ class _CalcPageState extends State<CalcPage> {
             const SnackBar(
               content: Text('✓ CACL emitido e salvo no banco com sucesso!'),
               backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
+              duration: Duration(seconds: 1),
             ),
           );
         }
@@ -2591,7 +2591,7 @@ class _CalcPageState extends State<CalcPage> {
           const SnackBar(
             content: Text('✓ Certificado CACL baixado com sucesso!'),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
+            duration: Duration(seconds: 2),
           ),
         );
       }
@@ -2693,7 +2693,7 @@ class _CalcPageState extends State<CalcPage> {
           const SnackBar(
             content: Text('✓ CACL finalizado com sucesso!'),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
+            duration: Duration(seconds: 1),
           ),
         );
       }
@@ -2854,7 +2854,7 @@ class _CalcPageState extends State<CalcPage> {
           const SnackBar(
             content: Text('✓ CACL salvo como pendente!'),
             backgroundColor: Colors.orange,
-            duration: Duration(seconds: 2),
+            duration: Duration(seconds: 1),
           ),
         );
         

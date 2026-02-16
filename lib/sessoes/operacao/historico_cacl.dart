@@ -834,276 +834,341 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                 color: const Color(0xFF0D47A1),
                                 child: ListView.separated(
                                   itemCount: cacles.length,
-                                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                  separatorBuilder: (_, __) => const SizedBox(height: 6), // ↓ cards mais próximos
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 16,
-                                    vertical: 8,
+                                    vertical: 4, // ↓ reduz espaçamento vertical geral
                                   ),
                                   itemBuilder: (context, index) {
                                     final cacl = cacles[index];
                                     final status = cacl['status']?.toString();
                                     final solicitaCanc = cacl['solicita_canc'] as bool?;
-                                    final isCancelado = status?.toLowerCase() == 'cancelado';
+                                    final isCancelado =
+                                        status?.toLowerCase() == 'cancelado';
                                     final statusColor = _getStatusColor(status);
-                                    final cardColor = _getCardColor(status, solicitaCanc);
-                                    final borderColor = _getBorderColor(status, solicitaCanc);
+                                    final cardColor =
+                                        _getCardColor(status, solicitaCanc);
+                                    final borderColor =
+                                        _getBorderColor(status, solicitaCanc);
                                     final statusText = _getStatusText(status);
-                                    final tanqueRef = cacl['tanques']?['referencia']?.toString() ?? '-';
-                                    final produto = cacl['produto'] ?? 'Produto não informado';
+                                    final tanqueRef =
+                                        cacl['tanques']?['referencia']?.toString() ?? '-';
+                                    final produto =
+                                        cacl['produto'] ?? 'Produto não informado';
                                     final data = _formatarData(cacl['data']);
                                     final horario = _formatarHorario(
                                       cacl['horario_inicial'],
                                       cacl['horario_final'],
                                     );
 
-                                    return MouseRegion(
-                                      cursor: SystemMouseCursors.click,
-                                      onEnter: (_) {
-                                        setState(() => _hoverIndex = index);
-                                      },
-                                      onExit: (_) {
-                                        setState(() => _hoverIndex = null);
-                                      },
-                                      child: GestureDetector(
-                                        onTap: () async {
-                                          final caclId = cacl['id'].toString();
-                                          
-                                          final nivelUsuario = _nivelUsuario ?? 0;
-                                          
-                                          if (nivelUsuario == 2 && isCancelado) {
-                                            return;
-                                          }
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 4, // ↓ reduz apenas a distância vertical entre cards
+                                      ),
+                                      child: Align(
+                                        alignment: Alignment.center,
+                                        child: SizedBox(
+                                          width: 1400, // ← largura máxima dos cards no histórico
+                                          child: MouseRegion(
+                                            cursor: SystemMouseCursors.click,
+                                            onEnter: (_) {
+                                              setState(() => _hoverIndex = index);
+                                            },
+                                            onExit: (_) {
+                                              setState(() => _hoverIndex = null);
+                                            },
+                                            child: GestureDetector(
+                                              onTap: () async {
+                                                final caclId = cacl['id'].toString();
 
-                                          if (!context.mounted) return;
+                                                final nivelUsuario = _nivelUsuario ?? 0;
 
-                                          await Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) => CaclHistoricoPage(
-                                                caclId: caclId,
-                                                onVoltar: () {
-                                                  Navigator.pop(context);
-                                                },
-                                              ),
-                                            ),
-                                          );
-                                          
-                                          _refreshData();
-                                        },
-                                        child: Opacity(
-                                          opacity: isCancelado ? 0.85 : 1.0,
-                                          child: AnimatedContainer(
-                                            duration: const Duration(milliseconds: 180),
-                                            curve: Curves.easeOut,
-                                            transform: _hoverIndex == index
-                                                ? (Matrix4.identity()..scale(1.01))
-                                                : Matrix4.identity(),
-                                            decoration: BoxDecoration(
-                                              color: _hoverIndex == index
-                                                  ? cardColor.withOpacity(0.85)
-                                                  : cardColor,
-                                              borderRadius: BorderRadius.circular(12),
-                                              border: Border.all(
-                                                color: borderColor,
-                                                width: 1.5,
-                                              ),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: Colors.black.withOpacity(
-                                                    _hoverIndex == index ? 0.15 : 0.05,
-                                                  ),
-                                                  blurRadius: _hoverIndex == index ? 12 : 4,
-                                                  offset: const Offset(0, 4),
-                                                ),
-                                              ],
-                                            ),
-                                            child: Padding(
-                                              padding: const EdgeInsets.all(12),
-                                              child: Row(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Container(
-                                                    width: 4,
-                                                    height: 60,
-                                                    decoration: BoxDecoration(
-                                                      color: statusColor,
-                                                      borderRadius: BorderRadius.circular(2),
+                                                if (nivelUsuario == 2 && isCancelado) {
+                                                  return;
+                                                }
+
+                                                if (!context.mounted) return;
+
+                                                await Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (_) => CaclHistoricoPage(
+                                                      caclId: caclId,
+                                                      onVoltar: () {
+                                                        Navigator.pop(context);
+                                                      },
                                                     ),
                                                   ),
-                                                  const SizedBox(width: 12),
-                                                  
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                );
+
+                                                _refreshData();
+                                              },
+                                              child: Opacity(
+                                                opacity: isCancelado ? 0.85 : 1.0,
+                                                child: AnimatedContainer(
+                                                  duration:
+                                                      const Duration(milliseconds: 180),
+                                                  curve: Curves.easeOut,
+                                                  alignment: Alignment.center,
+                                                  transformAlignment: Alignment.center,
+                                                  transform: _hoverIndex == index
+                                                      ? (Matrix4.identity()
+                                                        ..scale(1.01, 1.01))
+                                                      : Matrix4.identity(),
+                                                  decoration: BoxDecoration(
+                                                    color: _hoverIndex == index
+                                                        ? cardColor.withOpacity(0.85)
+                                                        : cardColor,
+                                                    borderRadius:
+                                                        BorderRadius.circular(12),
+                                                    border: Border.all(
+                                                      color: borderColor,
+                                                      width: 1.5,
+                                                    ),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.black.withOpacity(
+                                                          _hoverIndex == index
+                                                              ? 0.15
+                                                              : 0.05,
+                                                        ),
+                                                        blurRadius:
+                                                            _hoverIndex == index ? 12 : 4,
+                                                        offset: const Offset(0, 4),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  child: Padding(
+                                                    padding: const EdgeInsets.all(12),
+                                                    child: Row(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment.start,
                                                       children: [
-                                                        Row(
-                                                          children: [
-                                                            const Icon(
-                                                              Icons.storage,
-                                                              size: 16,
-                                                              color: Colors.black54,
-                                                            ),
-                                                            const SizedBox(width: 6),
-                                                            Text(
-                                                              'Tanque $tanqueRef',
-                                                              style: TextStyle(
-                                                                fontSize: 16,
-                                                                fontWeight: FontWeight.bold,
-                                                                color: isCancelado 
-                                                                    ? Colors.grey 
-                                                                    : Colors.black87,
-                                                              ),
-                                                            ),
-                                                          ],
+                                                        Container(
+                                                          width: 4,
+                                                          height: 60,
+                                                          decoration: BoxDecoration(
+                                                            color: statusColor,
+                                                            borderRadius:
+                                                                BorderRadius.circular(2),
+                                                          ),
                                                         ),
-                                                        const SizedBox(height: 4),
-                                                        
-                                                        Row(
-                                                          children: [
-                                                            Icon(
-                                                              Icons.local_gas_station,
-                                                              size: 14,
-                                                              color: isCancelado
-                                                                  ? Colors.grey 
-                                                                  : Colors.black54,
-                                                            ),
-                                                            const SizedBox(width: 6),
-                                                            Expanded(
-                                                              child: Text(
-                                                                produto,
-                                                                style: TextStyle(
-                                                                  fontSize: 14,
-                                                                  color: isCancelado 
-                                                                      ? Colors.grey 
-                                                                      : Colors.black87,
-                                                                ),
-                                                                maxLines: 1,
-                                                                overflow: TextOverflow.ellipsis,
+                                                        const SizedBox(width: 12),
+                                                        Expanded(
+                                                          child: Column(
+                                                            crossAxisAlignment:
+                                                                CrossAxisAlignment.start,
+                                                            children: [
+                                                              Row(
+                                                                children: [
+                                                                  const Icon(
+                                                                    Icons.storage,
+                                                                    size: 16,
+                                                                    color:
+                                                                        Colors.black54,
+                                                                  ),
+                                                                  const SizedBox(width: 6),
+                                                                  Text(
+                                                                    'Tanque $tanqueRef',
+                                                                    style: TextStyle(
+                                                                      fontSize: 16,
+                                                                      fontWeight:
+                                                                          FontWeight.bold,
+                                                                      color: isCancelado
+                                                                          ? Colors.grey
+                                                                          : Colors.black87,
+                                                                    ),
+                                                                  ),
+                                                                ],
                                                               ),
-                                                            ),
-                                                          ],
+                                                              const SizedBox(height: 4),
+                                                              Row(
+                                                                children: [
+                                                                  Icon(
+                                                                    Icons
+                                                                        .local_gas_station,
+                                                                    size: 14,
+                                                                    color: isCancelado
+                                                                        ? Colors.grey
+                                                                        : Colors.black54,
+                                                                  ),
+                                                                  const SizedBox(width: 6),
+                                                                  Expanded(
+                                                                    child: Text(
+                                                                      produto,
+                                                                      style: TextStyle(
+                                                                        fontSize: 14,
+                                                                        color: isCancelado
+                                                                            ? Colors.grey
+                                                                            : Colors.black87,
+                                                                      ),
+                                                                      maxLines: 1,
+                                                                      overflow:
+                                                                          TextOverflow
+                                                                              .ellipsis,
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                              const SizedBox(height: 4),
+                                                              Row(
+                                                                children: [
+                                                                  Icon(
+                                                                    Icons.calendar_today,
+                                                                    size: 14,
+                                                                    color: isCancelado
+                                                                        ? Colors.grey
+                                                                        : Colors.black54,
+                                                                  ),
+                                                                  const SizedBox(width: 6),
+                                                                  Text(
+                                                                    data,
+                                                                    style: TextStyle(
+                                                                      fontSize: 13,
+                                                                      color: isCancelado
+                                                                          ? Colors.grey
+                                                                          : Colors.black54,
+                                                                    ),
+                                                                  ),
+                                                                  const SizedBox(width: 16),
+                                                                  Icon(
+                                                                    Icons.access_time,
+                                                                    size: 14,
+                                                                    color: isCancelado
+                                                                        ? Colors.grey
+                                                                        : Colors.black54,
+                                                                  ),
+                                                                  const SizedBox(width: 6),
+                                                                  Expanded(
+                                                                    child: Text(
+                                                                      horario,
+                                                                      style: TextStyle(
+                                                                        fontSize: 13,
+                                                                        color: isCancelado
+                                                                            ? Colors.grey
+                                                                            : Colors.black54,
+                                                                      ),
+                                                                      maxLines: 1,
+                                                                      overflow:
+                                                                          TextOverflow
+                                                                              .ellipsis,
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ],
+                                                          ),
                                                         ),
-                                                        const SizedBox(height: 4),
-                                                        
-                                                        Row(
+                                                        Column(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment.end,
                                                           children: [
-                                                            Icon(
-                                                              Icons.calendar_today,
-                                                              size: 14,
-                                                              color: isCancelado
-                                                                  ? Colors.grey 
-                                                                  : Colors.black54,
-                                                            ),
-                                                            const SizedBox(width: 6),
-                                                            Text(
-                                                              data,
-                                                              style: TextStyle(
-                                                                fontSize: 13,
-                                                                color: isCancelado 
-                                                                    ? Colors.grey 
-                                                                    : Colors.black54,
+                                                            Container(
+                                                              padding: const EdgeInsets
+                                                                  .symmetric(
+                                                                horizontal: 8,
+                                                                vertical: 4,
                                                               ),
-                                                            ),
-                                                            const SizedBox(width: 16),
-                                                            Icon(
-                                                              Icons.access_time,
-                                                              size: 14,
-                                                              color: isCancelado 
-                                                                  ? Colors.grey 
-                                                                  : Colors.black54,
-                                                            ),
-                                                            const SizedBox(width: 6),
-                                                            Expanded(
+                                                              decoration: BoxDecoration(
+                                                                color: statusColor
+                                                                    .withOpacity(0.15),
+                                                                borderRadius:
+                                                                    BorderRadius.circular(
+                                                                        6),
+                                                              ),
                                                               child: Text(
-                                                                horario,
+                                                                statusText,
                                                                 style: TextStyle(
-                                                                  fontSize: 13,
-                                                                  color: isCancelado 
-                                                                      ? Colors.grey 
-                                                                      : Colors.black54,
+                                                                  fontSize: 11,
+                                                                  fontWeight:
+                                                                      FontWeight.w600,
+                                                                  color: statusColor,
                                                                 ),
-                                                                maxLines: 1,
-                                                                overflow: TextOverflow.ellipsis,
                                                               ),
                                                             ),
+                                                            const SizedBox(height: 8),
+                                                            if (!isCancelado &&
+                                                                (_nivelUsuario == 1 ||
+                                                                    _nivelUsuario == 2))
+                                                              ElevatedButton(
+                                                                onPressed: () {
+                                                                  if (solicitaCanc ==
+                                                                      true) {
+                                                                    ScaffoldMessenger.of(
+                                                                            context)
+                                                                        .showSnackBar(
+                                                                      const SnackBar(
+                                                                        content: Text(
+                                                                            'Cancelamento já solicitado. Aguarde a análise do supervisor.'),
+                                                                        backgroundColor:
+                                                                            Colors.orange,
+                                                                        duration: Duration(
+                                                                            seconds: 3),
+                                                                      ),
+                                                                    );
+                                                                  } else {
+                                                                    _showDialogSolicitarCancelamento(
+                                                                        cacl);
+                                                                  }
+                                                                },
+                                                                style: ElevatedButton
+                                                                    .styleFrom(
+                                                                  backgroundColor:
+                                                                      solicitaCanc == true
+                                                                          ? Colors.red
+                                                                              .shade50
+                                                                          : Colors.orange
+                                                                              .shade50,
+                                                                  foregroundColor:
+                                                                      solicitaCanc == true
+                                                                          ? Colors.red
+                                                                              .shade800
+                                                                          : Colors.orange
+                                                                              .shade800,
+                                                                  padding:
+                                                                      const EdgeInsets
+                                                                          .symmetric(
+                                                                    horizontal: 8,
+                                                                    vertical: 4,
+                                                                  ),
+                                                                  minimumSize:
+                                                                      const Size(0, 0),
+                                                                  shape:
+                                                                      RoundedRectangleBorder(
+                                                                    borderRadius:
+                                                                        BorderRadius
+                                                                            .circular(6),
+                                                                    side: BorderSide(
+                                                                      color: solicitaCanc ==
+                                                                              true
+                                                                          ? Colors.red
+                                                                              .shade300
+                                                                          : Colors.orange
+                                                                              .shade300,
+                                                                    ),
+                                                                  ),
+                                                                  elevation: 0,
+                                                                ),
+                                                                child: Text(
+                                                                  solicitaCanc == true
+                                                                      ? 'Cancelamento\nsolicitado'
+                                                                      : 'Solicitar\ncancelamento',
+                                                                  textAlign:
+                                                                      TextAlign.center,
+                                                                  style: const TextStyle(
+                                                                    fontSize: 10,
+                                                                    fontWeight:
+                                                                        FontWeight.w600,
+                                                                  ),
+                                                                ),
+                                                              ),
                                                           ],
                                                         ),
                                                       ],
                                                     ),
                                                   ),
-                                                  
-                                                  Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                                    children: [
-                                                      Container(
-                                                        padding: const EdgeInsets.symmetric(
-                                                          horizontal: 8,
-                                                          vertical: 4,
-                                                        ),
-                                                        decoration: BoxDecoration(
-                                                          color: statusColor.withOpacity(0.15),
-                                                          borderRadius: BorderRadius.circular(6),
-                                                        ),
-                                                        child: Text(
-                                                          statusText,
-                                                          style: TextStyle(
-                                                            fontSize: 11,
-                                                            fontWeight: FontWeight.w600,
-                                                            color: statusColor,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 8),
-                                                      
-                                                      if (!isCancelado && 
-                                                          (_nivelUsuario == 1 || _nivelUsuario == 2))
-                                                        ElevatedButton(
-                                                          onPressed: () {
-                                                            if (solicitaCanc == true) {
-                                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                                const SnackBar(
-                                                                  content: Text('Cancelamento já solicitado. Aguarde a análise do supervisor.'),
-                                                                  backgroundColor: Colors.orange,
-                                                                  duration: Duration(seconds: 3),
-                                                                ),
-                                                              );
-                                                            } else {
-                                                              _showDialogSolicitarCancelamento(cacl);
-                                                            }
-                                                          },
-                                                          style: ElevatedButton.styleFrom(
-                                                            backgroundColor: solicitaCanc == true 
-                                                                ? Colors.red.shade50 
-                                                                : Colors.orange.shade50,
-                                                            foregroundColor: solicitaCanc == true 
-                                                                ? Colors.red.shade800 
-                                                                : Colors.orange.shade800,
-                                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                            minimumSize: const Size(0, 0),
-                                                            shape: RoundedRectangleBorder(
-                                                              borderRadius: BorderRadius.circular(6),
-                                                              side: BorderSide(
-                                                                color: solicitaCanc == true 
-                                                                    ? Colors.red.shade300 
-                                                                    : Colors.orange.shade300,
-                                                              ),
-                                                            ),
-                                                            elevation: 0,
-                                                          ),
-                                                          child: Text(
-                                                            solicitaCanc == true 
-                                                                ? 'Cancelamento\nsolicitado' 
-                                                                : 'Solicitar\ncancelamento',
-                                                            textAlign: TextAlign.center,
-                                                            style: TextStyle(
-                                                              fontSize: 10,
-                                                              fontWeight: FontWeight.w600,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                    ],
-                                                  ),
-                                                ],
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -1114,11 +1179,11 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                 ),
                               ),
                       ),
-                      
                       _buildPaginacao(),
                     ],
                   ),
           ),
+
         ],
       ),
     );
