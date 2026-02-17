@@ -43,6 +43,11 @@ class _CalcPageState extends State<CalcPage> {
   bool _isEmittingCACL = false;
   bool _caclJaEmitido = false;
   String? _numeroControle; // Variável para armazenar o número de controle
+  final TextEditingController _sobraPerdaController = TextEditingController();
+
+  bool get _mostrarCampoSobraPerda {
+    return widget.dadosFormulario['origem_estoque_tanque'] == true;
+  }
 
   @override
   void initState() {
@@ -1066,6 +1071,12 @@ class _CalcPageState extends State<CalcPage> {
     final brasilia = agora.subtract(const Duration(hours: 3));
     return brasilia.toIso8601String();
   }
+
+  @override
+  void dispose() {
+    _sobraPerdaController.dispose();
+    super.dispose();
+  }
   
   @override
   Widget build(BuildContext context) {
@@ -1264,6 +1275,43 @@ class _CalcPageState extends State<CalcPage> {
                   if (_dadosFinaisEstaoCompletos() &&
                       (widget.dadosFormulario['cacl_verificacao'] ?? false))
                     const SizedBox(height: 20),
+
+                  if (_mostrarCampoSobraPerda) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        SizedBox(
+                          width: 130,
+                          child: TextFormField(
+                            controller: _sobraPerdaController,
+                            style: const TextStyle(fontSize: 12),
+                            decoration: InputDecoration(
+                              labelText: 'Sobra/Perda',
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        ElevatedButton(
+                          onPressed: () {},
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D47A1),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                          child: const Text('Lançar sobra/perda'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                  ],
 
                   // RODAPÉ
                   Container(
@@ -1676,7 +1724,7 @@ class _CalcPageState extends State<CalcPage> {
       }
       
       // Se número for menor que 1000, não adiciona ponto
-      final sinal = isNegativo ? '-' : (v > 0 ? '+' : '');
+      final sinal = isNegativo ? '-' : '';
       return '$sinal$inteiroFormatado L';
     }
 

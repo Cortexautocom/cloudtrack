@@ -399,6 +399,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'produto': tanqueAtual['produto'],
       'tanque': tanqueAtual['numero'],
       'tanque_id': tanqueAtual['id'],
+      'origem_estoque_tanque': widget.caclBloqueadoComoVerificacao,
       'responsavel': UsuarioAtual.instance?.nome ?? 'Usuário',
       'medicoes': dadosMedicoes,
       'filial_id': UsuarioAtual.instance!.nivel == 3 && widget.filialSelecionadaId != null
