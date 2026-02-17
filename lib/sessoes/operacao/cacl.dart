@@ -1240,10 +1240,28 @@ class _CalcPageState extends State<CalcPage> {
         }
       }
 
-      if (movimentacaoId == null || movimentacaoId.isEmpty) return;
+      if (movimentacaoId == null || movimentacaoId.isNotEmpty == false) return;
 
       final quantidade = sobraPerda.abs().round();
       final bool isSobra = sobraPerda >= 0;
+
+      // 🔹 Montar descrição no padrão solicitado:
+      // Ex: "Sobra CACL C-9AF8, 16/02/2026" ou "Perda CACL C-9AF8, 16/02/2026"
+      final numeroControle = _numeroControle;
+      String dataFormatada = '';
+      final dataRaw = widget.dadosFormulario['data']?.toString() ?? '';
+      if (dataRaw.contains('/')) {
+        dataFormatada = dataRaw;
+      } else if (dataRaw.contains('-')) {
+        final partes = dataRaw.split('-');
+        if (partes.length == 3) {
+          dataFormatada = '${partes[2]}/${partes[1]}/${partes[0]}';
+        }
+      }
+
+      final descricao = isSobra
+          ? 'Sobra CACL ${numeroControle ?? ''}, $dataFormatada'
+          : 'Perda CACL ${numeroControle ?? ''}, $dataFormatada';
 
       await supabase.from('movimentacoes_tanque').insert({
         'movimentacao_id': movimentacaoId,
@@ -1255,12 +1273,13 @@ class _CalcPageState extends State<CalcPage> {
         'entrada_vinte': isSobra ? quantidade : 0,
         'saida_amb': 0,
         'saida_vinte': isSobra ? 0 : quantidade,
-        'descricao': isSobra ? 'sobra' : 'perda',
+        'descricao': descricao,
       });
     } catch (_) {
       // Silencioso
     }
   }
+
 
   String? _tratarNumeroControle(dynamic valor) {
     if (valor == null) return null;
