@@ -49,6 +49,21 @@ class _CalcPageState extends State<CalcPage> {
     return widget.dadosFormulario['origem_estoque_tanque'] == true;
   }
 
+  void _preencherSobraPerdaCalculada() {
+    if (!_mostrarCampoSobraPerda) return;
+
+    final medicoes = widget.dadosFormulario['medicoes'] ?? {};
+    final volume20Final = _extrairNumero(medicoes['volume20Final']?.toString());
+
+    final estoqueRaw = widget.dadosFormulario['estoque_final_calculado_20'];
+    final estoqueCalculado = estoqueRaw is num
+        ? estoqueRaw.toDouble()
+        : double.tryParse(estoqueRaw?.toString() ?? '') ?? 0.0;
+
+    final sobraPerda = volume20Final - estoqueCalculado;
+    _sobraPerdaController.text = _formatarVolumeLitros(sobraPerda);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +76,8 @@ class _CalcPageState extends State<CalcPage> {
     } else {
       _carregarDadosParaVisualizacao();
     }
+
+    _preencherSobraPerdaCalculada();
   }
 
   Future<void> _carregarDadosParaVisualizacao() async {
@@ -321,6 +338,8 @@ class _CalcPageState extends State<CalcPage> {
       setState(() {
         _caclJaEmitido = true;
       });
+
+      _preencherSobraPerdaCalculada();
     } catch (_) {
       setState(() {
         volumeInicial = 0;
@@ -568,6 +587,8 @@ class _CalcPageState extends State<CalcPage> {
     }
 
     await _calcularMassa();
+
+    _preencherSobraPerdaCalculada();
     
     setState(() {});
   }

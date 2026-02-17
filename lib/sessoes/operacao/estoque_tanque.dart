@@ -271,6 +271,8 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   }
 
   Future<void> _navegarParaCACL() async {
+    final estoqueFinalCalculado20 = (_estoqueFinal['vinte'] ?? 0).toDouble();
+
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => MedicaoTanquesPage(
@@ -278,6 +280,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           filialSelecionadaId: widget.filialId,
           tanqueSelecionadoId: widget.tanqueId,
           caclBloqueadoComoVerificacao: true,
+          estoqueFinalCalculado20: estoqueFinalCalculado20,
         ),
       ),
     );

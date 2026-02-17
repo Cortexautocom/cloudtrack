@@ -10,6 +10,7 @@ class MedicaoTanquesPage extends StatefulWidget {
   final VoidCallback? onFinalizarCACL;
   final List<Map<String, dynamic>>? caclesHoje;
   final bool caclBloqueadoComoVerificacao;
+  final double? estoqueFinalCalculado20;
 
   const MedicaoTanquesPage({
     super.key,
@@ -19,6 +20,7 @@ class MedicaoTanquesPage extends StatefulWidget {
     this.onFinalizarCACL,
     this.caclesHoje,
     this.caclBloqueadoComoVerificacao = false,
+    this.estoqueFinalCalculado20,
   });
 
   @override
@@ -400,6 +402,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'tanque': tanqueAtual['numero'],
       'tanque_id': tanqueAtual['id'],
       'origem_estoque_tanque': widget.caclBloqueadoComoVerificacao,
+      'estoque_final_calculado_20': widget.estoqueFinalCalculado20,
       'responsavel': UsuarioAtual.instance?.nome ?? 'Usuário',
       'medicoes': dadosMedicoes,
       'filial_id': UsuarioAtual.instance!.nivel == 3 && widget.filialSelecionadaId != null
