@@ -1240,13 +1240,11 @@ class _CalcPageState extends State<CalcPage> {
         }
       }
 
-      if (movimentacaoId == null || movimentacaoId.isNotEmpty == false) return;
+      if (movimentacaoId == null || movimentacaoId.isEmpty) return;
 
       final quantidade = sobraPerda.abs().round();
       final bool isSobra = sobraPerda >= 0;
 
-      // 🔹 Montar descrição no padrão solicitado:
-      // Ex: "Sobra CACL C-9AF8, 16/02/2026" ou "Perda CACL C-9AF8, 16/02/2026"
       final numeroControle = _numeroControle;
       String dataFormatada = '';
       final dataRaw = widget.dadosFormulario['data']?.toString() ?? '';
@@ -1267,6 +1265,7 @@ class _CalcPageState extends State<CalcPage> {
         'movimentacao_id': movimentacaoId,
         'tanque_id': tanqueId,
         'produto_id': produtoId,
+        'cacl_id': caclId, // ✅ vínculo com o CACL que gerou a sobra/perda
         'data_mov': _obterTimestampBrasilia(),
         'cliente': null,
         'entrada_amb': 0,
@@ -1279,6 +1278,7 @@ class _CalcPageState extends State<CalcPage> {
       // Silencioso
     }
   }
+
 
 
   String? _tratarNumeroControle(dynamic valor) {

@@ -39,6 +39,9 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   Map<String, num?> _estoqueCACL = {'amb': null, 'vinte': null};
   bool _possuiCACL = false;
 
+  num? _valorSobraPerda;
+  bool? _ehSobra; // true = sobra (entrada), false = perda (saída)
+
   late DateTime _dataFiltro;
 
   final ScrollController _vertical = ScrollController();
@@ -215,6 +218,27 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         'amb': _movsOrdenadas.isEmpty ? null : _movsOrdenadas.last['saldo_amb'],
         'vinte': _movsOrdenadas.isEmpty ? null : _movsOrdenadas.last['saldo_vinte'],
       };
+
+      // Extrair sobra/perda do movimento mais recente
+      if (dados.isNotEmpty) {
+        final ultimoReg = dados.last; // Mais recente por data_mov
+        final entradaVinte = (ultimoReg['entrada_vinte'] ?? 0) as num;
+        final saidaVinte = (ultimoReg['saida_vinte'] ?? 0) as num;
+        
+        if (entradaVinte > 0) {
+          _valorSobraPerda = entradaVinte;
+          _ehSobra = true;
+        } else if (saidaVinte > 0) {
+          _valorSobraPerda = saidaVinte;
+          _ehSobra = false;
+        } else {
+          _valorSobraPerda = null;
+          _ehSobra = null;
+        }
+      } else {
+        _valorSobraPerda = null;
+        _ehSobra = null;
+      }
 
       setState(() => _carregando = false);
     } catch (e) {
@@ -458,10 +482,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     final estoqueFinalCalculado = _estoqueFinal['vinte'] ?? 0;
     final estoqueCACL = _estoqueCACL['vinte'];
     
-    final sobraPerda = _possuiCACL && estoqueCACL != null 
-        ? estoqueCACL - estoqueFinalCalculado 
-        : 0;
-    
     return Container(
       width: _wTable,
       padding: const EdgeInsets.all(16),
@@ -515,14 +535,21 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
               ),
             ),
           
-          _buildCampoResumo('Sobra/perda (20ºC):', sobraPerda, 
-              cor: sobraPerda < 0 ? Colors.red : const Color(0xFF0D47A1)),
+          if (_valorSobraPerda != null && _ehSobra != null)
+            _buildCampoResumo(
+              _ehSobra! ? 'Sobra (20ºC):' : 'Perda (20ºC):', 
+              _valorSobraPerda!, 
+              cor: _ehSobra! ? const Color(0xFF0D47A1) : Colors.red,
+              negrito: true,
+            )
+          else
+            _buildCampoResumo('Sobra/perda (20ºC):', 0, cor: Colors.grey),
         ],
       ),
     );
   }
 
-  Widget _buildCampoResumo(String label, num valor, {Color? cor}) {
+  Widget _buildCampoResumo(String label, num valor, {Color? cor, bool negrito = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -538,7 +565,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         Text(
           _fmtNum(valor),
           style: TextStyle(
-            fontSize: 16,
+            fontSize: negrito ? 18 : 16,
             fontWeight: FontWeight.bold,
             color: cor ?? const Color(0xFF0D47A1),
           ),
