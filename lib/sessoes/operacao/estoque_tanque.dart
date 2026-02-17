@@ -162,6 +162,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           .from('movimentacoes_tanque')
           .select('''
             id,
+            movimentacao_id,
             data_mov,
             cliente,
             descricao,
@@ -195,6 +196,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
 
         lista.add({
           'id': m['id'],
+          'movimentacao_id': m['movimentacao_id'],
           'data_mov': m['data_mov'],
           'descricao': descricao,
           'entrada_amb': entradaAmb,
@@ -275,6 +277,15 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
 
   Future<void> _navegarParaCACL() async {
     final estoqueFinalCalculado20 = (_estoqueFinal['vinte'] ?? 0).toDouble();
+    String? movimentacaoIdReferencia;
+
+    for (int i = _movsOrdenadas.length - 1; i >= 0; i--) {
+      final candidate = _movsOrdenadas[i]['movimentacao_id']?.toString();
+      if (candidate != null && candidate.isNotEmpty) {
+        movimentacaoIdReferencia = candidate;
+        break;
+      }
+    }
 
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -284,6 +295,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           tanqueSelecionadoId: widget.tanqueId,
           caclBloqueadoComoVerificacao: true,
           estoqueFinalCalculado20: estoqueFinalCalculado20,
+          movimentacaoIdReferencia: movimentacaoIdReferencia,
         ),
       ),
     );

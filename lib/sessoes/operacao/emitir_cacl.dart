@@ -11,6 +11,7 @@ class MedicaoTanquesPage extends StatefulWidget {
   final List<Map<String, dynamic>>? caclesHoje;
   final bool caclBloqueadoComoVerificacao;
   final double? estoqueFinalCalculado20;
+  final String? movimentacaoIdReferencia;
 
   const MedicaoTanquesPage({
     super.key,
@@ -21,6 +22,7 @@ class MedicaoTanquesPage extends StatefulWidget {
     this.caclesHoje,
     this.caclBloqueadoComoVerificacao = false,
     this.estoqueFinalCalculado20,
+    this.movimentacaoIdReferencia,
   });
 
   @override
@@ -162,15 +164,21 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         });
       }
 
+      if (!mounted) return;
+
       // Limpa controllers e focusNodes antigos
       for (var list in _controllers) {
         for (var c in list) {
-          c.dispose();
+          try {
+            c.dispose();
+          } catch (_) {}
         }
       }
       for (var list in _focusNodes) {
         for (var f in list) {
-          f.dispose();
+          try {
+            f.dispose();
+          } catch (_) {}
         }
       }
 
@@ -305,7 +313,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         : '$parteInteira,$parteDecimal';
   }
 
-  void _gerarCACL() {
+  Future<void> _gerarCACL() async {
     if (tanques.isEmpty) return;
 
     final tanqueAtual = tanques[_tanqueSelecionadoIndex];
@@ -403,6 +411,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'tanque_id': tanqueAtual['id'],
       'origem_estoque_tanque': widget.caclBloqueadoComoVerificacao,
       'estoque_final_calculado_20': widget.estoqueFinalCalculado20,
+      'movimentacao_id_referencia': widget.movimentacaoIdReferencia,
       'responsavel': UsuarioAtual.instance?.nome ?? 'Usuário',
       'medicoes': dadosMedicoes,
       'filial_id': UsuarioAtual.instance!.nivel == 3 && widget.filialSelecionadaId != null
@@ -412,27 +421,42 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'cacl_movimentacao': _caclMovimentacao,
     };
 
-    Navigator.of(context).push(
+    final resultado = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => CalcPage(
           dadosFormulario: dadosFormulario,
-          onFinalizar: () {
-            widget.onFinalizarCACL?.call();
-          },
-          onVoltar: () => Navigator.pop(context),
         ),
       ),
     );
+
+    if (!mounted) return;
+
+    if (resultado is Map &&
+        (resultado['status'] == 'pendente_salvo' ||
+            resultado['status'] == 'cacl_finalizado')) {
+      widget.onFinalizarCACL?.call();
+      widget.onVoltar();
+    }
   }
 
   @override
   void dispose() {
-    _dataController.dispose();
-    for (var list in _controllers) { 
-      for (var c in list) c.dispose(); 
+    try {
+      _dataController.dispose();
+    } catch (_) {}
+    for (final list in List<List<TextEditingController>>.from(_controllers)) {
+      for (final c in List<TextEditingController>.from(list)) {
+        try {
+          c.dispose();
+        } catch (_) {}
+      }
     }
-    for (var list in _focusNodes) { 
-      for (var f in list) f.dispose(); 
+    for (final list in List<List<FocusNode>>.from(_focusNodes)) {
+      for (final f in List<FocusNode>.from(list)) {
+        try {
+          f.dispose();
+        } catch (_) {}
+      }
     }
     super.dispose();
   }

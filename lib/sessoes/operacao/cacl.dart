@@ -43,6 +43,8 @@ class _CalcPageState extends State<CalcPage> {
   bool _isEmittingCACL = false;
   bool _caclJaEmitido = false;
   String? _numeroControle; // Variável para armazenar o número de controle
+  ScaffoldMessengerState? _scaffoldMessenger;
+  NavigatorState? _navigatorState;
 
   bool get _mostrarCampoSobraPerda {
     return widget.dadosFormulario['origem_estoque_tanque'] == true;
@@ -125,6 +127,18 @@ class _CalcPageState extends State<CalcPage> {
       _carregarDadosParaVisualizacao();
     }
   }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scaffoldMessenger ??= ScaffoldMessenger.maybeOf(context);
+    _navigatorState ??= Navigator.maybeOf(context);
+  }
+
+  void _mostrarSnackBar(SnackBar snackBar) {
+    _scaffoldMessenger?.showSnackBar(snackBar);
+  }
+
 
   Future<void> _carregarDadosParaVisualizacao() async {
     try {
@@ -745,7 +759,7 @@ class _CalcPageState extends State<CalcPage> {
       final session = supabase.auth.currentSession;
       if (session == null) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          _mostrarSnackBar(
             const SnackBar(
               content: Text('Você precisa estar logado para emitir o CACL'),
               backgroundColor: Colors.red,
@@ -889,7 +903,7 @@ class _CalcPageState extends State<CalcPage> {
           caclIdSalvo = idParaUpdate;
 
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            _mostrarSnackBar(
               const SnackBar(
                 content: Text('✓ CACL atualizado com sucesso!'),
                 backgroundColor: Colors.green,
@@ -916,7 +930,7 @@ class _CalcPageState extends State<CalcPage> {
           caclIdSalvo = resultadoInserir['id'].toString();
 
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            _mostrarSnackBar(
               const SnackBar(
                 content: Text('✓ Novo CACL criado (fallback)'),
                 backgroundColor: Colors.orange,
@@ -942,7 +956,7 @@ class _CalcPageState extends State<CalcPage> {
         caclIdSalvo = resultadoInserir['id'].toString();
 
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          _mostrarSnackBar(
             const SnackBar(
               content: Text('✓ CACL emitido e salvo no banco com sucesso!'),
               backgroundColor: Colors.green,
@@ -974,7 +988,7 @@ class _CalcPageState extends State<CalcPage> {
 
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _mostrarSnackBar(
           SnackBar(
             content: Text('Erro: ${e.toString()}'),
             backgroundColor: Colors.red,
@@ -1108,9 +1122,7 @@ class _CalcPageState extends State<CalcPage> {
 
   Future<void> _inserirMovimentacaoTanqueSobraPerda({
     required String caclId,
-    required String? numeroControle,
     required Map<String, dynamic> medicoes,
-    required Map<String, dynamic> dadosCacl,
   }) async {
     try {
       if (!_mostrarCampoSobraPerda) return;
@@ -1142,28 +1154,12 @@ class _CalcPageState extends State<CalcPage> {
       movimentacaoId = movExistente?['id']?.toString();
 
       if (movimentacaoId == null || movimentacaoId.isEmpty) {
-        final dadosMovimentacaoBase = <String, dynamic>{
-          ...dadosCacl,
-          'tipo': 'movimentacao',
-          'tanque_id': tanqueId,
-          'filial_id': dadosCacl['filial_id']?.toString(),
-          'entrada_saida_ambiente': 0,
-          'entrada_saida_20': 0,
-        };
-
-        await _salvarMovimentacaoCACL(
-          caclId: caclId,
-          numeroControle: numeroControle,
-          dadosCacl: dadosMovimentacaoBase,
-        );
-
-        final movCriada = await supabase
-            .from('movimentacoes')
-            .select('id')
-            .eq('cacl_id', caclId)
-            .maybeSingle();
-
-        movimentacaoId = movCriada?['id']?.toString();
+        final refId = widget.dadosFormulario['movimentacao_id_referencia']
+            ?.toString()
+            .trim();
+        if (refId != null && refId.isNotEmpty) {
+          movimentacaoId = refId;
+        }
       }
 
       if (movimentacaoId == null || movimentacaoId.isEmpty) return;
@@ -1501,7 +1497,7 @@ class _CalcPageState extends State<CalcPage> {
                                   if (widget.onVoltar != null) {
                                     widget.onVoltar!(); // Usa o callback fornecido
                                   } else {
-                                    Navigator.of(context).pop(); // Fallback padrão
+                                    _navigatorState?.pop(); // Fallback padrão
                                   }
                                 },
                           icon: const Icon(Icons.arrow_back, size: 18),
@@ -2794,7 +2790,7 @@ class _CalcPageState extends State<CalcPage> {
       
       // Mensagem de sucesso
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _mostrarSnackBar(
           const SnackBar(
             content: Text('✓ Certificado CACL baixado com sucesso!'),
             backgroundColor: Colors.green,
@@ -2807,7 +2803,7 @@ class _CalcPageState extends State<CalcPage> {
       print('ERRO ao gerar PDF CACL: $e');
       
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _mostrarSnackBar(
           SnackBar(
             content: Text('Erro ao gerar PDF: $e'),
             backgroundColor: Colors.red,
@@ -2864,7 +2860,7 @@ class _CalcPageState extends State<CalcPage> {
 
   void _showMobileMessageCACL() {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      _mostrarSnackBar(
         const SnackBar(
           content: Text('PDF CACL gerado! Em breve disponível para download no mobile.'),
           backgroundColor: Colors.blue,
@@ -2894,37 +2890,14 @@ class _CalcPageState extends State<CalcPage> {
 
   Future<void> _irParaApuracao() async {
     try {
-      // Mensagem de confirmação
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✓ CACL finalizado com sucesso!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 1),
-          ),
-        );
-      }
-      
-      // Aguardar um pouco para mostrar a mensagem
-      await Future.delayed(const Duration(milliseconds: 1500));
-
-      widget.onFinalizar?.call();
-      
-      // **CORREÇÃO: Voltar DUAS telas (CalcPage → MedicaoTanquesPage → ListarCaclsPage)**
-      if (context.mounted) {
-        // Conta quantas telas precisa voltar
-        int popCount = 0;
-        Navigator.of(context).popUntil((route) {
-          // Volta até encontrar a ListarCaclsPage (aproximadamente 2 telas)
-          popCount++;
-          return popCount > 2; // Volta CalcPage e MedicaoTanquesPage
-        });
-      }
+      if (!mounted) return;
+      _navigatorState?.pop({'status': 'cacl_finalizado'});
+      return;
       
     } catch (e) {
       print('Erro ao finalizar CACL: $e');
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _mostrarSnackBar(
           SnackBar(
             content: Text('Erro: $e'),
             backgroundColor: Colors.red,
@@ -2948,7 +2921,7 @@ class _CalcPageState extends State<CalcPage> {
       final session = supabase.auth.currentSession;
       if (session == null) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          _mostrarSnackBar(
             const SnackBar(
               content: Text('Você precisa estar logado'),
               backgroundColor: Colors.red,
@@ -3060,35 +3033,16 @@ class _CalcPageState extends State<CalcPage> {
 
       await _inserirMovimentacaoTanqueSobraPerda(
         caclId: caclIdSalvo,
-        numeroControle: numeroControleGerado,
         medicoes: medicoes,
-        dadosCacl: dadosParaInserir,
       );
-      
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✓ CACL salvo como pendente!'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 1),
-          ),
-        );
-        
-        await Future.delayed(const Duration(milliseconds: 1500));
-        
-        int contadorPop = 0;
-        Navigator.of(context).popUntil((route) {
-          if (contadorPop >= 2) {
-            return true;
-          }
-          contadorPop++;
-          return false;
-        });
-      }
+
+      if (!mounted) return;
+      _navigatorState?.pop({'status': 'pendente_salvo'});
+      return;
       
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _mostrarSnackBar(
           SnackBar(
             content: Text('Erro ao salvar: ${e.toString()}'),
             backgroundColor: Colors.red,
