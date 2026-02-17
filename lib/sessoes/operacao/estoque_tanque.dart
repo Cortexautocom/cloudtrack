@@ -39,6 +39,8 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   Map<String, num?> _estoqueCACL = {'amb': null, 'vinte': null};
   bool _possuiCACL = false;
 
+  late DateTime _dataFiltro;
+
   final ScrollController _vertical = ScrollController();
   final ScrollController _hHeader = ScrollController();
   final ScrollController _hBody = ScrollController();
@@ -59,6 +61,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   @override
   void initState() {
     super.initState();
+    _dataFiltro = widget.data;
     _syncScroll();
     _carregar();
   }
@@ -86,7 +89,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   
   Future<void> _carregarEstoqueInicialDoDiario() async {
     try {
-      final dataAnterior = widget.data.subtract(const Duration(days: 1));
+      final dataAnterior = _dataFiltro.subtract(const Duration(days: 1));
       final dataAnteriorStr = dataAnterior.toIso8601String().split('T')[0];
       final inicioDoDiaAnterior = '$dataAnteriorStr 00:00:00';
       final fimDoDiaAnterior = '$dataAnteriorStr 23:59:59';
@@ -114,7 +117,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
 
   Future<void> _verificarCACLExistente() async {
     try {
-      final dataStr = widget.data.toIso8601String().split('T')[0];
+      final dataStr = _dataFiltro.toIso8601String().split('T')[0];
       final inicioDoDia = '$dataStr 00:00:00';
       final fimDoDia = '$dataStr 23:59:59';
       
@@ -152,7 +155,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       await _carregarEstoqueInicialDoDiario();
       await _verificarCACLExistente();
       
-      final dataStr = widget.data.toIso8601String().split('T')[0];
+      final dataStr = _dataFiltro.toIso8601String().split('T')[0];
 
       // Consulta com as 4 colunas da tabela movimentacoes_tanque
       final dados = await _supabase
@@ -322,7 +325,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           children: [
             Text('Estoque do Tanque – ${widget.referenciaTanque}'),
             Text(
-              '${widget.nomeFilial} | ${_fmtData(widget.data.toIso8601String())}',
+              '${widget.nomeFilial} | ${_fmtData(_dataFiltro.toIso8601String())}',
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
             ),
           ],
@@ -332,6 +335,11 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           onPressed: widget.onVoltar ?? () => Navigator.pop(context),
         ),
         actions: [
+          // Seletor de data
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: _buildCampoDataFiltro(),
+          ),
           IconButton(
             icon: const Icon(Icons.sort),
             onPressed: () => _onSort('data_mov'),
@@ -349,6 +357,77 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             : _erro
                 ? Center(child: Text(_mensagemErro))
                 : _buildConteudo(),
+      ),
+    );
+  }
+
+  // Widget do seletor de data (copiado da ProgramacaoPage)
+  Widget _buildCampoDataFiltro() {
+    final String textoData = '${_dataFiltro.day.toString().padLeft(2, '0')}/${_dataFiltro.month.toString().padLeft(2, '0')}/${_dataFiltro.year}';
+    
+    return InkWell(
+      onTap: () async {
+        final dataSelecionada = await showDatePicker(
+          context: context,
+          initialDate: _dataFiltro,
+          firstDate: DateTime(2020, 1, 1),
+          lastDate: DateTime.now().add(const Duration(days: 365)),
+          helpText: 'Selecionar data',
+          cancelText: 'Cancelar',
+          confirmText: 'Confirmar',
+          builder: (context, child) {
+            return Theme(
+              data: Theme.of(context).copyWith(
+                colorScheme: const ColorScheme.light(
+                  primary: Color(0xFF0D47A1),
+                  onPrimary: Colors.white,
+                  surface: Colors.white,
+                  onSurface: Colors.black,
+                ),
+              ),
+              child: child!,
+            );
+          },
+        );
+        
+        if (dataSelecionada != null) {
+          setState(() {
+            _dataFiltro = DateTime(
+              dataSelecionada.year,
+              dataSelecionada.month,
+              dataSelecionada.day,
+            );
+          });
+          _carregar();
+        }
+      },
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFF0D47A1).withOpacity(0.5)),
+          borderRadius: BorderRadius.circular(4),
+          color: Colors.white,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.calendar_today,
+              size: 14,
+              color: Color(0xFF0D47A1),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              textoData,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF0D47A1),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
