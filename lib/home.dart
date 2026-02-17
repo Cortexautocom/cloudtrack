@@ -51,10 +51,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     'Vendas',
     'Gestão de Frota',
     'Bombeios e Cotas',
+    'Laboratório',
     'Financeiro',
     'Jurídico',
     'Gestão de Projetos',
     'Recursos Humanos',
+    'Almoxerifado',
     'Relatórios',
     'Configurações',
     'Ajuda'
@@ -137,10 +139,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     'Vendas': const Color(0xFF4CAF50),   // Verde
     'Gestão de Frota': const Color(0xFFF44336), // Vermelho
     'Bombeios e Cotas': const Color(0xFF00BCD4), // Ciano
+    'Laboratório': const Color(0xFF8BC34A), // Verde claro
     'Financeiro': const Color(0xFF009688), // Verde-água
     'Jurídico': const Color(0xFF3F51B5), // Índigo
     'Gestão de Projetos': const Color(0xFFFF5722), // Laranja profundo
     'Recursos Humanos': const Color(0xFFE91E63), // Rosa
+    'Almoxerifado': const Color(0xFF9E9E9E), // Cinza
     'Relatórios': const Color(0xFF795548), // Marrom
     'Configurações': const Color(0xFF607D8B), // Azul cinza
     'Ajuda': const Color(0xFF673AB7), // Roxo profundo
@@ -825,7 +829,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 400),
                                 padding: const EdgeInsets.symmetric(
-                                    vertical: 16, horizontal: 10), // Aumentei de 15 para 16
+                                    vertical: 10, horizontal: 10),
                                 decoration: BoxDecoration(
                                   color: isSelected
                                       ? Colors.white
@@ -963,9 +967,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         return _buildAjudaPage();
 
       case 'Financeiro':
+      case 'Laboratório':
       case 'Jurídico':
       case 'Gestão de Projetos':
       case 'Recursos Humanos':
+      case 'Almoxerifado':
         return _buildAreaIndisponivelPage();
 
       case 'Estoques':
@@ -2262,6 +2268,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         return Icons.local_shipping;
       case 'Bombeios e Cotas':
         return Icons.invert_colors;
+      case 'Laboratório':
+        return Icons.science;
       case 'Financeiro':
         return Icons.account_balance_wallet;
       case 'Jurídico':
@@ -2270,6 +2278,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         return Icons.assignment;
       case 'Recursos Humanos':
         return Icons.people;
+      case 'Almoxerifado':
+        return Icons.inventory_2;
       case 'Relatórios':
         return Icons.bar_chart;
       case 'Configurações':
