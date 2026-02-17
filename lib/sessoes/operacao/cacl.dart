@@ -58,10 +58,58 @@ class _CalcPageState extends State<CalcPage> {
     return _formatarVolumeLitros(_obterEstoqueFinalCalculado20());
   }
 
+  String? _obterVolume20DisponivelRaw(Map<String, dynamic> medicoes) {
+    final volume20FinalRaw = medicoes['volume20Final']?.toString().trim();
+    final volume20InicialRaw = medicoes['volume20Inicial']?.toString().trim();
+
+    bool valido(String? valor) {
+      if (valor == null || valor.isEmpty || valor == '-') return false;
+      return valor.replaceAll(RegExp(r'[^0-9]'), '').isNotEmpty;
+    }
+
+    if (valido(volume20FinalRaw)) return volume20FinalRaw;
+    if (valido(volume20InicialRaw)) return volume20InicialRaw;
+    return null;
+  }
+
+  bool _podeCalcularSobraPerda(Map<String, dynamic> medicoes) {
+    return _obterVolume20DisponivelRaw(medicoes) != null;
+  }
+
+  double? _obterValorSobraPerda(Map<String, dynamic> medicoes) {
+    if (!_podeCalcularSobraPerda(medicoes)) return null;
+
+    final volume20Raw = _obterVolume20DisponivelRaw(medicoes);
+    final volume20 = _extrairNumero(volume20Raw);
+    return volume20 - _obterEstoqueFinalCalculado20();
+  }
+
+  String _formatarSobraPerdaComSinal(double valor) {
+    final sinal = valor >= 0 ? '+' : '-';
+    final valorFormatado = _formatarVolumeLitros(valor.abs());
+    return '$sinal$valorFormatado';
+  }
+
+  TextStyle _obterEstiloSobraPerda(Map<String, dynamic> medicoes) {
+    final valor = _obterValorSobraPerda(medicoes);
+    if (valor == null) {
+      return const TextStyle(fontSize: 11);
+    }
+
+    return TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.bold,
+      color: valor >= 0 ? Colors.blue[700] : Colors.red[700],
+    );
+  }
+
   String _obterSobraPerdaFormatada(Map<String, dynamic> medicoes) {
-    final volume20Final = _extrairNumero(medicoes['volume20Final']?.toString());
-    final sobraPerda = volume20Final - _obterEstoqueFinalCalculado20();
-    return _formatarVolumeLitros(sobraPerda);
+    final sobraPerda = _obterValorSobraPerda(medicoes);
+    if (sobraPerda == null) {
+      return '-';
+    }
+
+    return _formatarSobraPerdaComSinal(sobraPerda);
   }
 
   @override
@@ -1648,7 +1696,7 @@ class _CalcPageState extends State<CalcPage> {
                 padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                 child: Text(
                   _obterSobraPerdaFormatada(medicoes),
-                  style: const TextStyle(fontSize: 11),
+                  style: _obterEstiloSobraPerda(medicoes),
                   textAlign: TextAlign.center,
                 ),
               ),
