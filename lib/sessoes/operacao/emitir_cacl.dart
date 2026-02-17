@@ -42,6 +42,14 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
   bool _caclMovimentacao = false;
   bool _botaoHabilitado = false;
 
+  String _horarioAtualBrasiliaFormatado() {
+    final agoraUtc = DateTime.now().toUtc();
+    final brasilia = agoraUtc.subtract(const Duration(hours: 3));
+    final hora = brasilia.hour.toString().padLeft(2, '0');
+    final minuto = brasilia.minute.toString().padLeft(2, '0');
+    return '$hora:$minuto h';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -170,7 +178,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       for (int i = 0; i < tanques.length; i++) {
         _controllers.add([
           // ===== 1ª MEDIÇÃO =====
-          TextEditingController(), // 0 - horário Inicial
+            TextEditingController(text: _horarioAtualBrasiliaFormatado()), // 0 - horário Inicial
           TextEditingController(), // 1 - cm Inicial
           TextEditingController(), // 2 - mm Inicial
           TextEditingController(), // 3 - temp tanque Inicial

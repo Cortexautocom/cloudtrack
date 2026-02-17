@@ -37,6 +37,14 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
   // Checkboxes (carregar do CACL se existirem)
   bool _caclVerificacao = false;
   bool _caclMovimentacao = false;
+
+  String _horarioAtualBrasiliaFormatado() {
+    final agoraUtc = DateTime.now().toUtc();
+    final brasilia = agoraUtc.subtract(const Duration(hours: 3));
+    final hora = brasilia.hour.toString().padLeft(2, '0');
+    final minuto = brasilia.minute.toString().padLeft(2, '0');
+    return '$hora:$minuto h';
+  }
   
   @override
   void initState() {
@@ -48,7 +56,11 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
   void _inicializarControladores() {
     // Inicializar 20 controladores (0-19) para garantir índices
     for (int i = 0; i < 20; i++) {
-      _controllers.add(TextEditingController());
+      _controllers.add(
+        TextEditingController(
+          text: i == 10 ? _horarioAtualBrasiliaFormatado() : '',
+        ),
+      );
       _focusNodes.add(FocusNode());
     }
     
