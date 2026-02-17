@@ -43,25 +43,25 @@ class _CalcPageState extends State<CalcPage> {
   bool _isEmittingCACL = false;
   bool _caclJaEmitido = false;
   String? _numeroControle; // Variável para armazenar o número de controle
-  final TextEditingController _sobraPerdaController = TextEditingController();
 
   bool get _mostrarCampoSobraPerda {
     return widget.dadosFormulario['origem_estoque_tanque'] == true;
   }
 
-  void _preencherSobraPerdaCalculada() {
-    if (!_mostrarCampoSobraPerda) return;
-
-    final medicoes = widget.dadosFormulario['medicoes'] ?? {};
-    final volume20Final = _extrairNumero(medicoes['volume20Final']?.toString());
-
+  double _obterEstoqueFinalCalculado20() {
     final estoqueRaw = widget.dadosFormulario['estoque_final_calculado_20'];
-    final estoqueCalculado = estoqueRaw is num
-        ? estoqueRaw.toDouble()
-        : double.tryParse(estoqueRaw?.toString() ?? '') ?? 0.0;
+    if (estoqueRaw is num) return estoqueRaw.toDouble();
+    return double.tryParse(estoqueRaw?.toString() ?? '') ?? 0.0;
+  }
 
-    final sobraPerda = volume20Final - estoqueCalculado;
-    _sobraPerdaController.text = _formatarVolumeLitros(sobraPerda);
+  String _obterEstoqueFinalCalculadoFormatado() {
+    return _formatarVolumeLitros(_obterEstoqueFinalCalculado20());
+  }
+
+  String _obterSobraPerdaFormatada(Map<String, dynamic> medicoes) {
+    final volume20Final = _extrairNumero(medicoes['volume20Final']?.toString());
+    final sobraPerda = volume20Final - _obterEstoqueFinalCalculado20();
+    return _formatarVolumeLitros(sobraPerda);
   }
 
   @override
@@ -76,8 +76,6 @@ class _CalcPageState extends State<CalcPage> {
     } else {
       _carregarDadosParaVisualizacao();
     }
-
-    _preencherSobraPerdaCalculada();
   }
 
   Future<void> _carregarDadosParaVisualizacao() async {
@@ -338,8 +336,6 @@ class _CalcPageState extends State<CalcPage> {
       setState(() {
         _caclJaEmitido = true;
       });
-
-      _preencherSobraPerdaCalculada();
     } catch (_) {
       setState(() {
         volumeInicial = 0;
@@ -350,7 +346,6 @@ class _CalcPageState extends State<CalcPage> {
       });
     }
   }
-
 
   // ✅ FUNÇÃO AUXILIAR: Formatar horário para exibição
   String _formatarHorarioDisplay(String? timeString) {
@@ -588,8 +583,6 @@ class _CalcPageState extends State<CalcPage> {
 
     await _calcularMassa();
 
-    _preencherSobraPerdaCalculada();
-    
     setState(() {});
   }
 
@@ -1094,12 +1087,6 @@ class _CalcPageState extends State<CalcPage> {
   }
 
   @override
-  void dispose() {
-    _sobraPerdaController.dispose();
-    super.dispose();
-  }
-  
-  @override
   Widget build(BuildContext context) {
     final medicoes = widget.dadosFormulario['medicoes'] ?? {};
 
@@ -1296,43 +1283,6 @@ class _CalcPageState extends State<CalcPage> {
                   if (_dadosFinaisEstaoCompletos() &&
                       (widget.dadosFormulario['cacl_verificacao'] ?? false))
                     const SizedBox(height: 20),
-
-                  if (_mostrarCampoSobraPerda) ...[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        SizedBox(
-                          width: 130,
-                          child: TextFormField(
-                            controller: _sobraPerdaController,
-                            style: const TextStyle(fontSize: 12),
-                            decoration: InputDecoration(
-                              labelText: 'Sobra/Perda',
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        ElevatedButton(
-                          onPressed: () {},
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0D47A1),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                          ),
-                          child: const Text('Lançar sobra/perda'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                  ],
 
                   // RODAPÉ
                   Container(
@@ -1654,6 +1604,64 @@ class _CalcPageState extends State<CalcPage> {
             ),
           ],
         ),
+
+        if (_mostrarCampoSobraPerda)
+          TableRow(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  "Estoque final calculado:",
+                  style: const TextStyle(fontSize: 11),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  _obterEstoqueFinalCalculadoFormatado(),
+                  style: const TextStyle(fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  "-",
+                  style: TextStyle(fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+
+        if (_mostrarCampoSobraPerda)
+          TableRow(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  "Sobra/perda:",
+                  style: const TextStyle(fontSize: 11),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  _obterSobraPerdaFormatada(medicoes),
+                  style: const TextStyle(fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  "-",
+                  style: TextStyle(fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
       ],
     );
   }
