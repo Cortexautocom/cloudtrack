@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'cacl_pdf.dart';
+import 'estoque_tanque.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:typed_data';
 import 'dart:convert' show base64Encode;
@@ -137,6 +138,82 @@ class _CalcPageState extends State<CalcPage> {
 
   void _mostrarSnackBar(SnackBar snackBar) {
     _scaffoldMessenger?.showSnackBar(snackBar);
+  }
+
+  DateTime _obterDataParaEstoque() {
+    final dataRaw = widget.dadosFormulario['data']?.toString().trim() ?? '';
+    if (dataRaw.isEmpty) return DateTime.now();
+
+    try {
+      if (dataRaw.contains('/')) {
+        final partes = dataRaw.split('/');
+        if (partes.length == 3) {
+          final dia = int.tryParse(partes[0]) ?? DateTime.now().day;
+          final mes = int.tryParse(partes[1]) ?? DateTime.now().month;
+          final ano = int.tryParse(partes[2]) ?? DateTime.now().year;
+          return DateTime(ano, mes, dia);
+        }
+      }
+
+      if (dataRaw.contains('-')) {
+        return DateTime.parse(dataRaw);
+      }
+    } catch (_) {}
+
+    return DateTime.now();
+  }
+
+  Future<void> _irParaEstoqueTanqueAposEmissao() async {
+    final tanqueId = _obterTanqueId();
+    final filialId = widget.dadosFormulario['filial_id']?.toString();
+
+    if (tanqueId == null || tanqueId.isEmpty || filialId == null || filialId.isEmpty) {
+      _navigatorState?.pop({'status': 'cacl_emitido'});
+      return;
+    }
+
+    String referenciaTanque = widget.dadosFormulario['tanque']?.toString() ?? 'Tanque';
+    String nomeFilial = widget.dadosFormulario['base']?.toString() ?? 'Filial';
+
+    try {
+      final supabase = Supabase.instance.client;
+
+      final tanque = await supabase
+          .from('tanques')
+          .select('referencia')
+          .eq('id', tanqueId)
+          .maybeSingle();
+      if (tanque != null && tanque['referencia'] != null) {
+        referenciaTanque = tanque['referencia'].toString();
+      }
+
+      final filial = await supabase
+          .from('filiais')
+          .select('nome')
+          .eq('id', filialId)
+          .maybeSingle();
+      if (filial != null && filial['nome'] != null) {
+        nomeFilial = filial['nome'].toString();
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    await _navigatorState?.pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => EstoqueTanquePage(
+          tanqueId: tanqueId,
+          referenciaTanque: referenciaTanque,
+          filialId: filialId,
+          nomeFilial: nomeFilial,
+          data: _obterDataParaEstoque(),
+          onVoltar: () {
+            _navigatorState?.maybePop();
+          },
+        ),
+      ),
+      (route) => route.isFirst,
+    );
   }
 
 
@@ -982,6 +1059,10 @@ class _CalcPageState extends State<CalcPage> {
           _caclJaEmitido = _numeroControle != null && _numeroControle!.isNotEmpty;
         });
       }
+
+      if (!mounted) return;
+      await _irParaEstoqueTanqueAposEmissao();
+      return;
 
     } catch (e) {
       if (context.mounted) {
@@ -2873,7 +2954,7 @@ class _CalcPageState extends State<CalcPage> {
   Future<void> _irParaApuracao() async {
     try {
       if (!mounted) return;
-      _navigatorState?.pop({'status': 'cacl_finalizado'});
+      await _irParaEstoqueTanqueAposEmissao();
       return;
       
     } catch (e) {
