@@ -286,7 +286,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
   bool _carregandoDadosMovimentacao = false;
   bool _salvandoCertificado = false;
   bool _origemAmbBloqueado = false;
-  bool _origem20Bloqueado = false;
 
   final TextEditingController dataCtrl = TextEditingController();
   final TextEditingController horaCtrl = TextEditingController();
@@ -542,7 +541,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         try {
             campos['origem20']!.text =
               _aplicarMascaraMilhar(movimentacao['saida_vinte'].toString());
-            _origem20Bloqueado = true;
+            // Campo origem20 editável mesmo vindo da movimentação
         } catch (_) {}
       }
 
@@ -707,6 +706,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       
       if (origemText.isEmpty || destinoText.isEmpty) {
         campos['difAmb']!.text = '';
+        setState(() {});
         return;
       }
       
@@ -723,9 +723,11 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       } else {
         campos['difAmb']!.text = '';
       }
+      setState(() {});
     } catch (e) {
       // Erro ao calcular diferença ambiente
       campos['difAmb']!.text = '';
+      setState(() {});
     }
   }
 
@@ -736,6 +738,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       
       if (origemText.isEmpty || destinoText.isEmpty) {
         campos['dif20']!.text = '';
+        setState(() {});
         return;
       }
       
@@ -752,9 +755,11 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       } else {
         campos['dif20']!.text = '';
       }
+      setState(() {});
     } catch (e) {
       // Erro ao calcular diferença 20°C
       campos['dif20']!.text = '';
+      setState(() {});
     }
   }
 
@@ -776,6 +781,28 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
     valorFormatado = _aplicarMascaraMilhar(valorFormatado);
     
     return sinal + valorFormatado;
+  }
+
+  Color _obterCorDiferenca(String texto) {
+    if (texto.isEmpty) return Colors.black87;
+    
+    if (texto.startsWith('-')) {
+      return Colors.red;
+    } else if (texto.startsWith('+')) {
+      return Colors.blue;
+    }
+    
+    return Colors.black87;
+  }
+
+  FontWeight _obterPesoDiferenca(String texto) {
+    if (texto.isEmpty) return FontWeight.normal;
+    
+    if (texto.startsWith('-')) {
+      return FontWeight.bold;
+    }
+    
+    return FontWeight.normal;
   }
 
   @override
@@ -1122,6 +1149,10 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                                       controller: campos['difAmb'],
                                       enabled: false,
                                       keyboardType: TextInputType.number,
+                                      style: TextStyle(
+                                        color: _obterCorDiferenca(campos['difAmb']!.text),
+                                        fontWeight: _obterPesoDiferenca(campos['difAmb']!.text),
+                                      ),
                                       decoration: _decoration('Complemento/Retirada').copyWith(
                                         fillColor: Colors.grey[200],
                                       ),
@@ -1134,7 +1165,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                                       controller: campos['origem20'],
                                       focusNode: _modoVisualizacao ? null : _focusOrigem20,
                                       keyboardType: TextInputType.number,
-                                      enabled: !_modoVisualizacao && !_origem20Bloqueado,
+                                      enabled: !_modoVisualizacao,
                                       onChanged: _modoVisualizacao
                                           ? null
                                           : (value) {
@@ -1150,7 +1181,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                                               _calcularDiferenca20C();
                                             },
                                       decoration: _decoration('Quantidade de origem').copyWith(
-                                        fillColor: (!_modoVisualizacao && !_origem20Bloqueado) ? Colors.white : Colors.grey[300],
+                                        fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
                                       ),
                                     ),
 
@@ -1169,6 +1200,10 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                                       controller: campos['dif20'],
                                       enabled: false,
                                       keyboardType: TextInputType.number,
+                                      style: TextStyle(
+                                        color: _obterCorDiferenca(campos['dif20']!.text),
+                                        fontWeight: _obterPesoDiferenca(campos['dif20']!.text),
+                                      ),
                                       decoration: _decoration('Diferença').copyWith(
                                         fillColor: Colors.grey[200],
                                       ),
@@ -2164,7 +2199,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
           const SnackBar(
             content: Text('✓ Certificado emitido com sucesso!'),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
+            duration: Duration(seconds: 1),
           ),
         );
       }
