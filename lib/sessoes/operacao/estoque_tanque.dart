@@ -48,7 +48,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   static const double _hFoot = 32;
 
   static const double _wData = 120;
-  static const double _wDesc = 260;
+  static const double _wDesc = 240;
   static const double _wNum = 130;
 
   double get _wTable => _wData + _wDesc + (_wNum * 6);
