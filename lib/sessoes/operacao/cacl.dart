@@ -856,9 +856,6 @@ class _CalcPageState extends State<CalcPage> {
         dadosParaInserir['porcentagem_diferenca'] = '0.00%';
       }
 
-      print('💾 DEBUG: Salvando densidade_20_inicial: ${medicoes['densidade20Inicial']?.toString()}');
-      print('💾 DEBUG: Salvando densidade_20_final: ${medicoes['densidade20Final']?.toString()}');
-
       dadosParaInserir.remove('numero_controle');
 
       String? idParaUpdate = widget.caclId;
@@ -1364,14 +1361,9 @@ class _CalcPageState extends State<CalcPage> {
                     _linhaMedicao("Temperatura da amostra:", 
                         _formatarTemperatura(medicoes['tempAmostraInicial']), 
                         _formatarTemperatura(medicoes['tempAmostraFinal'])),
-                    () {
-                      print('📊 DEBUG: Montando linha de densidade a 20ºC');
-                      print('📊 DEBUG: densidade20Inicial raw: ${medicoes['densidade20Inicial']}');
-                      print('📊 DEBUG: densidade20Final raw: ${medicoes['densidade20Final']}');
-                      return _linhaMedicao("Densidade da amostra, considerada à temperatura padrão (20 ºC):", 
+                    _linhaMedicao("Densidade da amostra, considerada à temperatura padrão (20 ºC):", 
                         _obterValorMedicao(medicoes['densidade20Inicial']), 
-                        _obterValorMedicao(medicoes['densidade20Final']));
-                    }(),                    
+                        _obterValorMedicao(medicoes['densidade20Final'])),                    
                     _linhaMedicao("Fator de correção de volume do produto (FCV):", 
                         _obterValorMedicao(medicoes['fatorCorrecaoInicial']), 
                         _obterValorMedicao(medicoes['fatorCorrecaoFinal'])),                    
@@ -2004,11 +1996,9 @@ class _CalcPageState extends State<CalcPage> {
         return "-";
       }
 
-      print('📊 DEBUG _obterValorMedicao: retornando valor string "$v"');
       return v;
     }
 
-    print('📊 DEBUG _obterValorMedicao: retornando valor convertido "${valor.toString()}"');
     return valor.toString();
   }
 
@@ -2104,8 +2094,6 @@ class _CalcPageState extends State<CalcPage> {
 
       final int alvo = (densNum * 10000).round();
 
-      print('🔷 DEBUG: View=$nomeView | TempNum=$tempNum | Alvo densidade=$alvo');
-
       // Gera possíveis formatos de temperatura conforme seu banco
       final tempsParaTentar = <String>{
         tempNum.toStringAsFixed(0).replaceAll('.', ','),
@@ -2119,7 +2107,6 @@ class _CalcPageState extends State<CalcPage> {
       Map<String, dynamic>? linha;
 
       for (final tempStr in tempsParaTentar) {
-        print('🟡 DEBUG: Tentando temperatura_obs = "$tempStr"');
         linha = await supabase
             .from(nomeView)
             .select('*')
@@ -2127,13 +2114,11 @@ class _CalcPageState extends State<CalcPage> {
             .maybeSingle();
 
         if (linha != null) {
-          print('🟢 DEBUG: Linha encontrada para temperatura_obs = "$tempStr"');
           break;
         }
       }
 
       if (linha == null) {
-        print('🔴 DEBUG: Nenhuma linha encontrada para temperaturas: $tempsParaTentar');
         return '-';
       }
 
@@ -2158,7 +2143,6 @@ class _CalcPageState extends State<CalcPage> {
       }
 
       if (melhorValor == null) {
-        print('🔴 DEBUG: Nenhuma coluna d_ com valor para temp encontrado');
         return '-';
       }
 
@@ -2174,7 +2158,6 @@ class _CalcPageState extends State<CalcPage> {
       }
 
       final resultado = _formatarResultado(melhorValor.toString());
-      print('🟢 DEBUG: Densidade20 encontrada: $resultado');
       return resultado;
     } catch (e) {
       print('🔴 DEBUG: Erro em _buscarDensidade20C: $e');
@@ -2784,7 +2767,6 @@ class _CalcPageState extends State<CalcPage> {
       if (kIsWeb) {
         await _downloadForWebCACL(pdfBytes);
       } else {
-        print('PDF CACL gerado (${pdfBytes.length} bytes)');
         _showMobileMessageCACL();
       }
       
