@@ -1106,6 +1106,88 @@ class _CalcPageState extends State<CalcPage> {
     }
   }
 
+  Future<void> _inserirMovimentacaoTanqueSobraPerda({
+    required String caclId,
+    required String? numeroControle,
+    required Map<String, dynamic> medicoes,
+    required Map<String, dynamic> dadosCacl,
+  }) async {
+    try {
+      if (!_mostrarCampoSobraPerda) return;
+
+      final sobraPerda = _obterValorSobraPerda(medicoes);
+      if (sobraPerda == null) return;
+
+      final supabase = Supabase.instance.client;
+      final tanqueId = _obterTanqueId();
+      if (tanqueId == null || tanqueId.isEmpty) return;
+
+      final tanqueData = await supabase
+          .from('tanques')
+          .select('id_produto')
+          .eq('id', tanqueId)
+          .maybeSingle();
+
+      final produtoId = tanqueData?['id_produto']?.toString();
+      if (produtoId == null || produtoId.isEmpty) return;
+
+      String? movimentacaoId;
+
+      final movExistente = await supabase
+          .from('movimentacoes')
+          .select('id')
+          .eq('cacl_id', caclId)
+          .maybeSingle();
+
+      movimentacaoId = movExistente?['id']?.toString();
+
+      if (movimentacaoId == null || movimentacaoId.isEmpty) {
+        final dadosMovimentacaoBase = <String, dynamic>{
+          ...dadosCacl,
+          'tipo': 'movimentacao',
+          'tanque_id': tanqueId,
+          'filial_id': dadosCacl['filial_id']?.toString(),
+          'entrada_saida_ambiente': 0,
+          'entrada_saida_20': 0,
+        };
+
+        await _salvarMovimentacaoCACL(
+          caclId: caclId,
+          numeroControle: numeroControle,
+          dadosCacl: dadosMovimentacaoBase,
+        );
+
+        final movCriada = await supabase
+            .from('movimentacoes')
+            .select('id')
+            .eq('cacl_id', caclId)
+            .maybeSingle();
+
+        movimentacaoId = movCriada?['id']?.toString();
+      }
+
+      if (movimentacaoId == null || movimentacaoId.isEmpty) return;
+
+      final quantidade = sobraPerda.abs().round();
+      final bool isSobra = sobraPerda >= 0;
+
+      await supabase.from('movimentacoes_tanque').insert({
+        'movimentacao_id': movimentacaoId,
+        'tanque_id': tanqueId,
+        'produto_id': produtoId,
+        'data_mov': _obterTimestampBrasilia(),
+        'cliente': null,
+        'entrada_amb': 0,
+        'entrada_vinte': isSobra ? quantidade : 0,
+        'saida_amb': 0,
+        'saida_vinte': isSobra ? 0 : quantidade,
+        'descricao': isSobra ? 'sobra' : 'perda',
+      });
+    } catch (_) {
+      // Silencioso
+    }
+  }
+
   String? _tratarNumeroControle(dynamic valor) {
     if (valor == null) return null;
     
@@ -2975,6 +3057,13 @@ class _CalcPageState extends State<CalcPage> {
           );
         } catch (e) {}
       }
+
+      await _inserirMovimentacaoTanqueSobraPerda(
+        caclId: caclIdSalvo,
+        numeroControle: numeroControleGerado,
+        medicoes: medicoes,
+        dadosCacl: dadosParaInserir,
+      );
       
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
