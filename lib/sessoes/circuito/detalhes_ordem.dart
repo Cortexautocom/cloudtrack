@@ -496,6 +496,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
         final analises = await _supabase
           .from('ordens_analises')
           .select('id, tipo_analise')
+          .eq('movimentacao_id', movimentacaoId)
           .eq('tipo_analise', 'destino');
         
         bool modoSomenteVisualizacao = false;
