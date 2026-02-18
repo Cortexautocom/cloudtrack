@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:html' as html;
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'emitir_cacl.dart';
@@ -41,6 +44,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
 
   num? _valorSobraPerda;
   bool? _ehSobra; // true = sobra (entrada), false = perda (saída)
+  bool _baixandoExcel = false;
 
   late DateTime _dataFiltro;
 
@@ -328,6 +332,159 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     await _carregar();
   }
 
+  Future<void> _baixarExcel() async {
+    if (_movsOrdenadas.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não há dados para exportar'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _baixandoExcel = true;
+    });
+
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    
+    try {
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('Gerando relatório Excel...'),
+          duration: Duration(seconds: 5),
+        ),
+      );
+
+      final requestData = {
+        'tanqueId': widget.tanqueId,
+        'referenciaTanque': widget.referenciaTanque,
+        'filialId': widget.filialId,
+        'nomeFilial': widget.nomeFilial,
+        'data': _dataFiltro.toIso8601String(),
+        'estoqueInicial': _estoqueInicial,
+        'estoqueFinal': _estoqueFinal,
+        'estoqueCACL': _estoqueCACL,
+        'possuiCACL': _possuiCACL,
+        'valorSobraPerda': _valorSobraPerda,
+        'ehSobra': _ehSobra,
+      };
+
+      debugPrint('Enviando para Edge Function: $requestData');
+
+      final response = await _chamarEdgeFunctionBinaria(requestData);
+      
+      if (response.statusCode != 200) {
+        final errorBody = response.body;
+        throw Exception('Erro ${response.statusCode}: ${errorBody.isNotEmpty ? errorBody : "Falha na Edge Function"}');
+      }
+
+      final bytes = response.bodyBytes;
+      
+      if (bytes.isEmpty) {
+        throw Exception('Arquivo vazio recebido da Edge Function');
+      }
+
+      debugPrint('Arquivo XLSX recebido: ${bytes.length} bytes');
+
+      final blob = html.Blob(
+        [bytes], 
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      
+      final nomeFilialFormatado = widget.nomeFilial
+          .replaceAll(' ', '_')
+          .replaceAll(RegExp(r'[^\w_]'), '');
+      
+      final dia = _dataFiltro.day.toString().padLeft(2, '0');
+      final mes = _dataFiltro.month.toString().padLeft(2, '0');
+      final ano = _dataFiltro.year.toString();
+      final fileName = 'estoque_tanque_${widget.referenciaTanque}_${nomeFilialFormatado}_${dia}_${mes}_${ano}.xlsx';
+      
+      html.AnchorElement(href: url)
+        ..setAttribute('download', fileName)
+        ..click();
+      
+      html.Url.revokeObjectUrl(url);
+
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('Download do Excel iniciado! Verifique sua pasta de downloads.'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 4),
+        ),
+      );
+
+    } catch (e) {
+      debugPrint('Erro detalhado ao baixar relatório: $e');
+      
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('Erro: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _baixandoExcel = false;
+        });
+      }
+    }
+  }
+
+  Future<http.Response> _chamarEdgeFunctionBinaria(Map<String, dynamic> requestData) async {
+    try {
+      const supabaseUrl = 'https://ikaxzlpaihdkqyjqrxyw.supabase.co';
+      
+      final session = Supabase.instance.client.auth.currentSession;
+
+      if (session == null || session.accessToken.isEmpty) {
+        throw Exception('Sessão inválida. Faça login novamente.');
+      }
+
+      return await _fazerRequisicao(
+        supabaseUrl,
+        session.accessToken,
+        requestData,
+      );
+      
+    } catch (e) {
+      debugPrint('Erro detalhado ao chamar Edge Function: $e');
+      rethrow;
+    }
+  }
+
+  Future<http.Response> _fazerRequisicao(
+    String supabaseUrl, 
+    String accessToken, 
+    Map<String, dynamic> requestData
+  ) async {
+    final functionUrl = '$supabaseUrl/functions/v1/down_excel_estoque_tanque';
+    
+    debugPrint('URL: $functionUrl');
+    debugPrint('Token (início): ${accessToken.substring(0, 20)}...');
+    debugPrint('Dados: ${jsonEncode(requestData)}');
+    
+    final response = await http.post(
+      Uri.parse(functionUrl),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      },
+      body: jsonEncode(requestData),
+    );
+    
+    debugPrint('Status Code: ${response.statusCode}');
+    debugPrint('Tamanho resposta: ${response.bodyBytes.length} bytes');
+    
+    return response;
+  }
+
   Color _bgEntrada() => Colors.green.shade50.withOpacity(0.3);
   Color _bgSaida() => Colors.red.shade50.withOpacity(0.3);
 
@@ -376,6 +533,24 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             child: _buildCampoDataFiltro(),
           ),
+          // Botão de download Excel
+          _baixandoExcel
+              ? const Padding(
+                  padding: EdgeInsets.all(12.0),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0D47A1)),
+                    ),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.download),
+                  tooltip: 'Baixar Excel',
+                  onPressed: _baixarExcel,
+                ),
           IconButton(
             icon: const Icon(Icons.sort),
             onPressed: () => _onSort('data_mov'),
