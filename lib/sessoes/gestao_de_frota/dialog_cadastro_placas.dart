@@ -1,158 +1,7 @@
+// dialog_cadastro_placas.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// ============================================
-// UTILITÁRIOS
-// ============================================
-
-// Utilitário de datas
-DateTime? parseData(String? dataStr) {
-  if (dataStr == null || dataStr.isEmpty) return null;
-  try {
-    final partes = dataStr.split('/');
-    if (partes.length != 3) return null;
-    final dia = int.parse(partes[0]);
-    final mes = int.parse(partes[1]);
-    final ano = int.parse(partes[2]);
-    final anoCompleto = ano < 100 ? 2000 + ano : ano;
-    return DateTime(anoCompleto, mes, dia);
-  } catch (_) {
-    return null;
-  }
-}
-
-String formatarData(DateTime data) {
-  return '${data.day.toString().padLeft(2, '0')}/'
-      '${data.month.toString().padLeft(2, '0')}/'
-      '${data.year}';
-}
-
-Color getCorStatusData(DateTime? data) {
-  if (data == null) return Colors.grey;
-  final dias = data.difference(DateTime.now()).inDays;
-  if (dias < 0) return Colors.red;
-  if (dias <= 30) return Colors.orange;
-  if (dias <= 90) return Colors.amber[800]!;
-  return Colors.green;
-}
-
-String getDiasRestantes(DateTime data) {
-  final dias = data.difference(DateTime.now()).inDays;
-  if (dias < 0) return 'Vencido há ${dias.abs()} dias';
-  if (dias == 0) return 'Vence hoje';
-  if (dias == 1) return 'Vence amanhã';
-  return 'Vence em $dias dias';
-}
-
-bool validarData(String texto) {
-  if (texto.isEmpty) return true;
-  final regex = RegExp(r'^\d{2}/\d{2}/\d{4}$');
-  if (!regex.hasMatch(texto)) return false;
-  final partes = texto.split('/');
-  if (partes.length != 3) return false;
-  try {
-    final dia = int.parse(partes[0]);
-    final mes = int.parse(partes[1]);
-    final ano = int.parse(partes[2]);
-    if (dia < 1 || dia > 31) return false;
-    if (mes < 1 || mes > 12) return false;
-    if (ano < 2000 || ano > 2100) return false;
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
-
-String aplicarMascaraData(String texto) {
-  final apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
-  if (apenasNumeros.isEmpty) return '';
-  var resultado = '';
-  for (int i = 0; i < apenasNumeros.length && i < 8; i++) {
-    if (i == 2 || i == 4) resultado += '/';
-    resultado += apenasNumeros[i];
-  }
-  return resultado;
-}
-
-// Utilitário de placa e litros
-String aplicarMascaraPlaca(String texto) {
-  final limpo = texto.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase();
-  if (limpo.isEmpty) return '';
-  var resultado = '';
-  for (int i = 0; i < limpo.length && i < 7; i++) {
-    if (i < 3) {
-      if (limpo[i].contains(RegExp(r'[A-Z]'))) resultado += limpo[i];
-    } else {
-      resultado += limpo[i];
-    }
-    if (i == 2 && resultado.length == 3) resultado += '-';
-  }
-  return resultado;
-}
-
-String aplicarMascaraLitros(String texto) {
-  final apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
-  if (apenasNumeros.isEmpty) return '';
-  if (apenasNumeros.length <= 3) return apenasNumeros;
-  final parteInteira = apenasNumeros.substring(0, apenasNumeros.length - 3);
-  final parteDecimal = apenasNumeros.substring(apenasNumeros.length - 3);
-  return '$parteInteira.$parteDecimal';
-}
-
-int? parseLitros(String texto) {
-  if (texto.isEmpty) return null;
-  final limpo = texto.replaceAll('.', '');
-  return int.tryParse(limpo);
-}
-
-// Utilitário de bocas
-Color getCorBoca(int capacidade) {
-  final cores = [
-    Colors.blue, Colors.green, Colors.orange, Colors.purple, Colors.red,
-    Colors.teal, Colors.indigo, Colors.deepOrange, Colors.cyan, Colors.lime,
-  ];
-  return cores[capacidade % cores.length];
-}
-
-int totalBocas(List<int> bocas) {
-  return bocas.isNotEmpty ? bocas.reduce((a, b) => a + b) : 0;
-}
-
-// ============================================
-// CONTROLLER PARA CADA PLACA
-// ============================================
-class PlacaController {
-  final TextEditingController placaController = TextEditingController();
-  int numeroBocas = 0;
-  final List<TextEditingController> bocasControllers = [];
-  List<int?> bocasValues = [];
-  final Map<String, TextEditingController> documentosControllers = {};
-
-  PlacaController() {
-    final documentos = [
-      'CIPP', 'CIV', 'Aferição', 'Tacógrafo',
-      'AET Federal', 'AET Bahia', 'AET Goiás',
-      'AET Alagoas', 'AET Minas G'
-    ];
-    for (final doc in documentos) {
-      documentosControllers[doc] = TextEditingController();
-    }
-  }
-
-  void dispose() {
-    placaController.dispose();
-    for (final controller in bocasControllers) {
-      controller.dispose();
-    }
-    for (final controller in documentosControllers.values) {
-      controller.dispose();
-    }
-  }
-}
-
-// ============================================
-// DIALOG DE CADASTRO DE PLACAS
-// ============================================
 class DialogCadastroPlacas extends StatefulWidget {
   const DialogCadastroPlacas({super.key});
 
@@ -160,429 +9,1026 @@ class DialogCadastroPlacas extends StatefulWidget {
   State<DialogCadastroPlacas> createState() => _DialogCadastroPlacasState();
 }
 
-class _DialogCadastroPlacasState extends State<DialogCadastroPlacas> {
-  final List<PlacaController> _placasControllers = [];
-  final List<String> _documentos = [
-    'CIPP', 'CIV', 'Aferição', 'Tacógrafo',
-    'AET Federal', 'AET Bahia', 'AET Goiás',
-    'AET Alagoas', 'AET Minas G'
-  ];
-  
-  final Map<String, String> _colunasMap = {
-    'CIPP': 'cipp', 'CIV': 'civ', 'Aferição': 'afericao',
-    'Tacógrafo': 'tacografo', 'AET Federal': 'aet_fed',
-    'AET Bahia': 'aet_ba', 'AET Goiás': 'aet_go',
-    'AET Alagoas': 'aet_al', 'AET Minas G': 'aet_mg',
-  };
-  
+class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
+    with TickerProviderStateMixin {
+  late TabController _tabController;
+  final List<Map<String, dynamic>> _placas = [];
+  final List<TextEditingController> _placaControllers = [];
+  final List<TextEditingController> _renavamControllers = [];
+  final List<TextEditingController> _transportadoraControllers = [];
+  final _transportadoraIdController = TextEditingController();
+  bool _carregandoTransportadoras = false;
+  List<Map<String, dynamic>> _transportadoras = [];
+  String? _selectedTransportadoraId;
   bool _salvando = false;
-  final Map<int, bool> _documentosExpandidos = {};
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 1, vsync: this);
     _adicionarPlaca();
+    _carregarTransportadoras();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    for (var controller in _placaControllers) {
+      controller.dispose();
+    }
+    for (var controller in _renavamControllers) {
+      controller.dispose();
+    }
+    for (var controller in _transportadoraControllers) {
+      controller.dispose();
+    }
+    _transportadoraIdController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _carregarTransportadoras() async {
+    setState(() => _carregandoTransportadoras = true);
+    try {
+      final data = await Supabase.instance.client
+          .from('transportadoras')
+          .select('id, nome')
+          .order('nome');
+      
+      setState(() {
+        _transportadoras = List<Map<String, dynamic>>.from(data);
+      });
+    } catch (e) {
+      print('Erro ao carregar transportadoras: $e');
+    } finally {
+      setState(() => _carregandoTransportadoras = false);
+    }
   }
 
   void _adicionarPlaca() {
+    if (_placas.length >= 3) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Limite máximo de 3 placas por veículo'),
+          backgroundColor: Colors.orange[700],
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        ),
+      );
+      return;
+    }
+
     setState(() {
-      _placasControllers.add(PlacaController());
-      _documentosExpandidos[_placasControllers.length - 1] = false;
+      final novaPlaca = {
+        'placa': '',
+        'renavam': '',
+        'transportadora': '',
+        'tanques': <int>[],
+      };
+      _placas.add(novaPlaca);
+      _placaControllers.add(TextEditingController());
+      _renavamControllers.add(TextEditingController());
+      _transportadoraControllers.add(TextEditingController());
+      
+      _tabController = TabController(
+        length: _placas.length,
+        vsync: this,
+      );
+      _tabController.animateTo(_placas.length - 1);
     });
   }
 
   void _removerPlaca(int index) {
-    if (_placasControllers.length > 1) {
+    if (_placas.length <= 1) return;
+    
+    setState(() {
+      _placaControllers[index].dispose();
+      _renavamControllers[index].dispose();
+      _transportadoraControllers[index].dispose();
+      
+      _placaControllers.removeAt(index);
+      _renavamControllers.removeAt(index);
+      _transportadoraControllers.removeAt(index);
+      _placas.removeAt(index);
+      
+      _tabController = TabController(
+        length: _placas.length,
+        vsync: this,
+      );
+    });
+  }
+
+  Future<void> _salvarPlacas() async {
+    // Validação básica
+    for (var i = 0; i < _placas.length; i++) {
+      if (_placaControllers[i].text.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Placa ${i + 1} é obrigatória'),
+            backgroundColor: Colors.orange[700],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          ),
+        );
+        return;
+      }
+    }
+
+    setState(() => _salvando = true);
+
+    try {
+      for (var i = 0; i < _placas.length; i++) {
+        final dados = {
+          'placa': _placaControllers[i].text.toUpperCase(),
+          'tanques': _placas[i]['tanques'] ?? [],
+          'transportadora_id': _selectedTransportadoraId,
+          'renavam': _renavamControllers[i].text.isNotEmpty 
+              ? _renavamControllers[i].text 
+              : null,
+        };
+
+        await Supabase.instance.client
+            .from('equipamentos')
+            .insert(dados);
+      }
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${_placas.length} placa(s) cadastrada(s) com sucesso'),
+            backgroundColor: Colors.green[700],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao salvar: $e'),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _salvando = false);
+      }
+    }
+  }
+
+  void _adicionarTanque(int placaIndex) {
+    setState(() {
+      if (_placas[placaIndex]['tanques'] == null) {
+        _placas[placaIndex]['tanques'] = <int>[];
+      }
+      (_placas[placaIndex]['tanques'] as List).add(0);
+    });
+  }
+
+  void _removerTanque(int placaIndex, int tanqueIndex) {
+    setState(() {
+      (_placas[placaIndex]['tanques'] as List).removeAt(tanqueIndex);
+    });
+  }
+
+  void _atualizarTanque(int placaIndex, int tanqueIndex, String valor) {
+    final numero = int.tryParse(valor);
+    if (numero != null) {
       setState(() {
-        _placasControllers.removeAt(index);
-        _documentosExpandidos.remove(index);
-        final novosExpandidos = <int, bool>{};
-        for (int i = 0; i < _placasControllers.length; i++) {
-          novosExpandidos[i] = _documentosExpandidos[i + 1] ?? false;
-        }
-        _documentosExpandidos.clear();
-        _documentosExpandidos.addAll(novosExpandidos);
+        _placas[placaIndex]['tanques'][tanqueIndex] = numero;
       });
     }
   }
 
-  void _alternarExpansaoDocumentos(int index) {
-    setState(() {
-      _documentosExpandidos[index] = !(_documentosExpandidos[index] ?? false);
-    });
-  }
-
-  Future<void> _salvarCadastro() async {
-    if (_salvando) return;
-    for (final controller in _placasControllers) {
-      final placa = controller.placaController.text.trim().toUpperCase();
-      if (placa.isEmpty) {
-        _mostrarErro('Informe a placa do veículo');
-        return;
-      }
-      if (placa.length < 7) {
-        _mostrarErro('Placa inválida: $placa');
-        return;
-      }
-    }
-    for (final controller in _placasControllers) {
-      for (final doc in _documentos) {
-        final dataCtrl = controller.documentosControllers[doc];
-        if (dataCtrl != null && dataCtrl.text.isNotEmpty) {
-          if (!validarData(dataCtrl.text)) {
-            _mostrarErro('Data inválida no documento $doc: ${dataCtrl.text}');
-            return;
-          }
-        }
-      }
-    }
-    setState(() => _salvando = true);
-    try {
-      final client = Supabase.instance.client;
-      for (final controller in _placasControllers) {
-        final placa = controller.placaController.text.trim().toUpperCase();
-        final dados = <String, dynamic>{'placa': placa};
-        final bocasValidas = <int>[];
-        for (int i = 0; i < controller.bocasValues.length; i++) {
-          final valor = controller.bocasValues[i];
-          if (valor != null && valor > 0) bocasValidas.add(valor);
-        }
-        if (bocasValidas.isNotEmpty) dados['tanques'] = bocasValidas;
-        for (final doc in _documentos) {
-          final dataCtrl = controller.documentosControllers[doc];
-          if (dataCtrl != null && dataCtrl.text.isNotEmpty) {
-            final coluna = _colunasMap[doc];
-            if (coluna != null) dados[coluna] = dataCtrl.text.trim();
-          }
-        }
-        await client.from('equipamentos').upsert(dados);
-      }
-      _mostrarSucesso('Veículos cadastrados com sucesso!');
-      Navigator.of(context).pop();
-    } catch (e) {
-      _mostrarErro('Erro ao cadastrar: ${e.toString()}');
-    } finally {
-      setState(() => _salvando = false);
-    }
-  }
-
-  void _mostrarSucesso(String mensagem) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mensagem), backgroundColor: Colors.green),
-    );
-  }
-
-  void _mostrarErro(String mensagem) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mensagem), backgroundColor: Colors.red),
-    );
-  }
-
-  void _atualizarBocaValue(int placaIndex, int bocaIndex, String texto, BuildContext context) {
-    final controller = _placasControllers[placaIndex];
-    final litros = parseLitros(texto);
-    if (litros != null && litros > 65000) {
-      _resetarBocaComErro(controller, bocaIndex, context);
-      return;
-    }
-    controller.bocasValues[bocaIndex] = litros;
-    final total = controller.bocasValues.fold<int>(0, (sum, value) => sum + (value ?? 0));
-    if (total > 65000 && litros != null) {
-      _resetarBocaComErro(controller, bocaIndex, context);
-    }
-  }
-
-  void _resetarBocaComErro(PlacaController controller, int bocaIndex, BuildContext context) {
-    controller.bocasValues[bocaIndex] = null;
-    controller.bocasControllers[bocaIndex].text = '';
-    controller.bocasControllers[bocaIndex].value = TextEditingValue(
-      text: '',
-      selection: TextSelection.collapsed(offset: 0),
-    );
-    _mostrarDialogErro(context);
-    setState(() {});
-  }
-
-  void _mostrarDialogErro(BuildContext context) {
+  void _abrirCadastroTransportadora() {
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (context) => AlertDialog(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 48),
-            const SizedBox(height: 16),
-            const Text("Hum... algo não parece correto.", textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            const Text("Verifique as quantidades digitadas.\n\n"
-                "• Máximo por compartimento: 65.000 litros\n"
-                "• Máximo total: 65.000 litros", textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14)),
-          ],
-        ),
-        actions: [
-          Center(
-            child: SizedBox(
-              width: 100,
-              child: ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange.shade700,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ),
-          ),
-        ],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-        actionsPadding: const EdgeInsets.only(bottom: 20),
+      builder: (context) => DialogCadastroTransportadora(
+        onSalvar: (novoId) async {
+          await _carregarTransportadoras();
+          setState(() {
+            _selectedTransportadoraId = novoId;
+          });
+        },
       ),
     );
   }
 
   @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.blue[900]!, width: 1),
+      ),
+      child: Container(
+        width: 800,
+        constraints: const BoxConstraints(maxHeight: 600),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    'Cadastrar Placas',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blue[900],
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: IconButton.styleFrom(
+                      minimumSize: const Size(30, 30),
+                      padding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Transportadora principal
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Transportadora Responsável',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                      const Spacer(),
+                      TextButton.icon(
+                        onPressed: _abrirCadastroTransportadora,
+                        icon: const Icon(Icons.add, size: 14),
+                        label: const Text('Transportadora', style: TextStyle(fontSize: 12)),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.blue[900],
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: _carregandoTransportadoras
+                        ? const Padding(
+                            padding: EdgeInsets.all(10),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                                SizedBox(width: 8),
+                                Text('Carregando...', style: TextStyle(fontSize: 12)),
+                              ],
+                            ),
+                          )
+                        : DropdownButtonFormField<String>(
+                            value: _selectedTransportadoraId,
+                            hint: const Text('Selecionar transportadora', style: TextStyle(fontSize: 13)),
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            items: _transportadoras.map((t) {
+                              return DropdownMenuItem<String>(
+                                value: t['id'].toString(),
+                                child: Text(
+                                  t['nome'] ?? '--',
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedTransportadoraId = value;
+                              });
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Tabs de placas
+            Container(
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey[200]!),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TabBar(
+                      controller: _tabController,
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.start,
+                      labelColor: Colors.blue[900],
+                      unselectedLabelColor: Colors.grey[600],
+                      indicatorColor: Colors.blue[900],
+                      indicatorSize: TabBarIndicatorSize.label,
+                      tabs: List.generate(_placas.length, (index) {
+                        return Tab(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('Placa ${index + 1}'),
+                              if (_placas.length > 1)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 4),
+                                  child: GestureDetector(
+                                    onTap: () => _removerPlaca(index),
+                                    child: Icon(
+                                      Icons.close,
+                                      size: 14,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: TextButton.icon(
+                      onPressed: _placas.length < 3 ? _adicionarPlaca : null,
+                      icon: const Icon(Icons.add, size: 14),
+                      label: const Text('Placa', style: TextStyle(fontSize: 12)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.blue[900],
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Conteúdo das tabs
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: List.generate(_placas.length, (index) {
+                  return _buildPlacaTab(index);
+                }),
+              ),
+            ),
+
+            // Footer com botões
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: Colors.grey[200]!)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: _salvando ? null : () => Navigator.of(context).pop(),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.grey[700],
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('Cancelar', style: TextStyle(fontSize: 13)),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: _salvando ? null : _salvarPlacas,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue[900],
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    child: _salvando
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(Colors.white),
+                            ),
+                          )
+                        : const Text('Salvar', style: TextStyle(fontSize: 13)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlacaTab(int index) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Campos da placa
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey[300]!),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Dados da Placa ${index + 1}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.blue[900],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                
+                // Placa
+                TextField(
+                  controller: _placaControllers[index],
+                  style: const TextStyle(fontSize: 13),
+                  decoration: InputDecoration(
+                    label: Text('Placa *', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      borderSide: BorderSide(color: Colors.blue[900]!),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    isDense: true,
+                  ),
+                  textCapitalization: TextCapitalization.characters,
+                ),
+                const SizedBox(height: 12),
+                
+                // Documentos - Renavan e Transportadora específica
+                Text(
+                  'Documentos',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _renavamControllers[index],
+                        style: const TextStyle(fontSize: 13),
+                        keyboardType: TextInputType.number,
+                        maxLength: 15,
+                        decoration: InputDecoration(
+                          label: Text('Renavan', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(4),
+                            borderSide: BorderSide(color: Colors.grey[300]!),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(4),
+                            borderSide: BorderSide(color: Colors.grey[300]!),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(4),
+                            borderSide: BorderSide(color: Colors.blue[900]!),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          isDense: true,
+                          counterText: '',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _transportadoraControllers[index],
+                        style: const TextStyle(fontSize: 13),
+                        maxLength: 50,
+                        decoration: InputDecoration(
+                          label: Text('Transportadora', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(4),
+                            borderSide: BorderSide(color: Colors.grey[300]!),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(4),
+                            borderSide: BorderSide(color: Colors.grey[300]!),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(4),
+                            borderSide: BorderSide(color: Colors.blue[900]!),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                          isDense: true,
+                          counterText: '',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Compartimentos
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey[300]!),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Compartimentos',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blue[900],
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _adicionarTanque(index),
+                      icon: const Icon(Icons.add, size: 14),
+                      label: const Text('Compartimento', style: TextStyle(fontSize: 11)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.blue[900],
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                if (_placas[index]['tanques']?.isEmpty ?? true)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Text(
+                        'Cavalo (sem compartimentos)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  ...List.generate(
+                    (_placas[index]['tanques'] as List).length,
+                    (tanqueIndex) {                      
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                style: const TextStyle(fontSize: 13),
+                                decoration: InputDecoration(
+                                  label: Text('Compartimento ${tanqueIndex + 1} (m³)', 
+                                      style: TextStyle(fontSize: 11, color: Colors.grey[700])),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                    borderSide: BorderSide(color: Colors.grey[300]!),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                    borderSide: BorderSide(color: Colors.grey[300]!),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                    borderSide: BorderSide(color: Colors.blue[900]!),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  isDense: true,
+                                ),
+                                keyboardType: TextInputType.number,
+                                onChanged: (value) => _atualizarTanque(index, tanqueIndex, value),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 16),
+                              onPressed: () => _removerTanque(index, tanqueIndex),
+                              style: IconButton.styleFrom(
+                                foregroundColor: Colors.grey[600],
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size(30, 30),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ==============================
+// DIALOG DE CADASTRO DE TRANSPORTADORA
+// ==============================
+class DialogCadastroTransportadora extends StatefulWidget {
+  final Function(String) onSalvar;
+
+  const DialogCadastroTransportadora({
+    super.key,
+    required this.onSalvar,
+  });
+
+  @override
+  State<DialogCadastroTransportadora> createState() => _DialogCadastroTransportadoraState();
+}
+
+class _DialogCadastroTransportadoraState extends State<DialogCadastroTransportadora> {
+  final _nomeController = TextEditingController();
+  final _cnpjController = TextEditingController();
+  final _inscricaoEstadualController = TextEditingController();
+  final _telefoneUmController = TextEditingController();
+  final _telefoneDoisController = TextEditingController();
+  final _nomeDoisController = TextEditingController();
+  String? _situacaoSelecionada;
+  bool _salvando = false;
+
+  @override
   void dispose() {
-    for (final controller in _placasControllers) controller.dispose();
+    _nomeController.dispose();
+    _cnpjController.dispose();
+    _inscricaoEstadualController.dispose();
+    _telefoneUmController.dispose();
+    _telefoneDoisController.dispose();
+    _nomeDoisController.dispose();
     super.dispose();
+  }
+
+  Future<void> _salvar() async {
+    if (_nomeController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Nome da transportadora é obrigatório'),
+          backgroundColor: Colors.orange[700],
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _salvando = true);
+
+    try {
+      final dados = {
+        'nome': _nomeController.text.trim(),
+        'cnpj': _cnpjController.text.trim().isNotEmpty ? _cnpjController.text.trim() : null,
+        'inscricao_estadual': _inscricaoEstadualController.text.trim().isNotEmpty ? _inscricaoEstadualController.text.trim() : null,
+        'telefone_um': _telefoneUmController.text.trim().isNotEmpty ? _telefoneUmController.text.trim() : null,
+        'telefone_dois': _telefoneDoisController.text.trim().isNotEmpty ? _telefoneDoisController.text.trim() : null,
+        'situacao': _situacaoSelecionada,
+        'nome_dois': _nomeDoisController.text.trim().isNotEmpty ? _nomeDoisController.text.trim() : null,
+      };
+
+      final resultado = await Supabase.instance.client
+          .from('transportadoras')
+          .insert(dados)
+          .select('id')
+          .single();
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        widget.onSalvar(resultado['id'].toString());
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Transportadora cadastrada com sucesso'),
+            backgroundColor: Colors.green[700],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao salvar: $e'),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _salvando = false);
+      }
+    }
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    bool obrigatorio = false,
+    TextInputType? keyboardType,
+    int? maxLength,
+  }) {
+    return TextField(
+      controller: controller,
+      style: const TextStyle(fontSize: 13),
+      keyboardType: keyboardType,
+      maxLength: maxLength,
+      decoration: InputDecoration(
+        label: Text(
+          obrigatorio ? '$label *' : label,
+          style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: BorderSide(color: Colors.blue[900]!),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        isDense: true,
+        counterText: '',
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      insetPadding: const EdgeInsets.all(20),
+      backgroundColor: Colors.white,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: Colors.blue[900]!, width: 1),
+      ),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 600),
+        width: 500,
+        constraints: const BoxConstraints(maxHeight: 550),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Header
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF0D47A1),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12), topRight: Radius.circular(12)),
+                border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.add_circle, color: Colors.white),
-                  SizedBox(width: 12),
-                  Text('Cadastrar Novo Veículo',
-                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(
+                    'Nova Transportadora',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blue[900],
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: IconButton.styleFrom(
+                      minimumSize: const Size(30, 30),
+                      padding: EdgeInsets.zero,
+                    ),
+                  ),
                 ],
               ),
             ),
+
+            // Conteúdo
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ..._placasControllers.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final controller = entry.value;
-                      while (controller.bocasControllers.length < controller.numeroBocas) {
-                        controller.bocasControllers.add(TextEditingController());
-                      }
-                      final totalLitros = controller.bocasValues.fold<int>(0, (sum, value) => sum + (value ?? 0));
-                      final temErroCapacidade = totalLitros > 65000;
-                      
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey.shade300),
+                    // Nome (obrigatório)
+                    _buildTextField(
+                      controller: _nomeController,
+                      label: 'Nome',
+                      obrigatorio: true,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Nome secundário
+                    _buildTextField(
+                      controller: _nomeDoisController,
+                      label: 'Nome Secundário',
+                    ),
+                    const SizedBox(height: 12),
+
+                    // CNPJ e Inscrição Estadual
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTextField(
+                            controller: _cnpjController,
+                            label: 'CNPJ',
+                            maxLength: 18,
+                          ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('${index + 1}ª Placa',
-                              style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0D47A1), fontSize: 16)),
-                            const SizedBox(height: 12),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  width: 150,
-                                  child: TextField(
-                                    controller: controller.placaController,
-                                    decoration: const InputDecoration(
-                                      hintText: 'ABC-1234', border: OutlineInputBorder(), isDense: true),
-                                    onChanged: (texto) {
-                                      final mascara = aplicarMascaraPlaca(texto);
-                                      if (mascara != texto) controller.placaController.value = TextEditingValue(
-                                        text: mascara, selection: TextSelection.collapsed(offset: mascara.length),
-                                      );
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(children: [
-                                      Container(
-                                        width: 100,
-                                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(color: Colors.grey.shade400),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: DropdownButtonHideUnderline(
-                                          child: DropdownButton<int>(
-                                            value: controller.numeroBocas == 0 ? null : controller.numeroBocas,
-                                            isExpanded: true, hint: const Text(''),
-                                            items: List.generate(10, (i) => i + 1)
-                                                .map((valor) => DropdownMenuItem<int>(value: valor, child: Text('$valor')))
-                                                .toList(),
-                                            onChanged: (valor) {
-                                              setState(() {
-                                                if (valor != null) {
-                                                  controller.numeroBocas = valor;
-                                                  for (final ctrl in controller.bocasControllers) ctrl.dispose();
-                                                  controller.bocasControllers.clear();
-                                                  controller.bocasValues = List<int?>.filled(valor, null);
-                                                  for (int i = 0; i < valor; i++) {
-                                                    controller.bocasControllers.add(TextEditingController());
-                                                  }
-                                                }
-                                              });
-                                            },
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      const Text('compartimentos'),
-                                    ]),
-                                    if (temErroCapacidade)
-                                      Padding(padding: const EdgeInsets.only(top: 4),
-                                        child: Text('Verifique as quantidades digitadas',
-                                          style: TextStyle(color: Colors.red.shade700, fontSize: 11, fontStyle: FontStyle.italic)),
-                                      ),
-                                  ],
-                                ),
-                                const Spacer(),
-                                if (_placasControllers.length > 1)
-                                  IconButton(icon: const Icon(Icons.remove_circle, color: Colors.red),
-                                    onPressed: () => _removerPlaca(index)),
-                              ],
-                            ),
-                            if (controller.numeroBocas > 0) ...[
-                              const SizedBox(height: 12),
-                              const Text('Capacidades',
-                                style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0D47A1), fontSize: 14)),
-                              const SizedBox(height: 8),
-                              Wrap(spacing: 12, runSpacing: 8, children: List.generate(controller.numeroBocas, (bocaIndex) {
-                                if (bocaIndex >= controller.bocasControllers.length) {
-                                  controller.bocasControllers.add(TextEditingController());
-                                }
-                                final temErroIndividual = controller.bocasValues[bocaIndex] != null && controller.bocasValues[bocaIndex]! > 65000;
-                                return SizedBox(width: 120, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                  Tooltip(
-                                    message: temErroIndividual || temErroCapacidade
-                                        ? "Hum... algo não parece correto. Verifique as quantidades digitadas."
-                                        : "Digite a capacidade em litros (ex: 15000)",
-                                    triggerMode: TooltipTriggerMode.tap,
-                                    showDuration: const Duration(seconds: 3),
-                                    decoration: BoxDecoration(color: Colors.orange.shade700, borderRadius: BorderRadius.circular(4)),
-                                    textStyle: const TextStyle(color: Colors.white, fontSize: 12),
-                                    child: TextField(
-                                      controller: controller.bocasControllers[bocaIndex],
-                                      keyboardType: TextInputType.number,
-                                      decoration: InputDecoration(
-                                        hintText: '999.999', border: const OutlineInputBorder(), suffixText: 'L', isDense: true,
-                                        errorText: temErroIndividual ? 'Verifique as quantidades digitadas' : null,
-                                        errorStyle: TextStyle(color: Colors.red.shade700, fontSize: 11, fontStyle: FontStyle.italic),
-                                      ),
-                                      onChanged: (texto) {
-                                        final mascara = aplicarMascaraLitros(texto);
-                                        if (mascara != texto) controller.bocasControllers[bocaIndex].value = TextEditingValue(
-                                          text: mascara, selection: TextSelection.collapsed(offset: mascara.length),
-                                        );
-                                        _atualizarBocaValue(index, bocaIndex, mascara, context);
-                                      },
-                                    ),
-                                  ),
-                                ]));
-                              })),
-                            ],
-                            const SizedBox(height: 16),
-                            Container(decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(6)),
-                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                InkWell(onTap: () => _alternarExpansaoDocumentos(index),
-                                  child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                    decoration: BoxDecoration(color: Colors.grey.shade100, border: Border(bottom: BorderSide(
-                                      color: Colors.grey.shade300, width: _documentosExpandidos[index] == true ? 1 : 0))),
-                                    child: Row(children: [
-                                      Icon(_documentosExpandidos[index] == true ? Icons.expand_less : Icons.expand_more,
-                                        size: 20, color: const Color(0xFF0D47A1)),
-                                      const SizedBox(width: 8),
-                                      const Text('Documentos (opcional)',
-                                        style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0D47A1), fontSize: 14)),
-                                    ]),
-                                  ),
-                                ),
-                                if (_documentosExpandidos[index] == true) ...[
-                                  Padding(padding: const EdgeInsets.all(12),
-                                    child: Wrap(spacing: 12, runSpacing: 6, children: _documentos.map((doc) => SizedBox(
-                                      width: 150,
-                                      child: TextField(
-                                        controller: controller.documentosControllers[doc],
-                                        decoration: const InputDecoration(
-                                          hintText: 'dd/mm/aaaa', border: OutlineInputBorder(), isDense: true,
-                                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-                                        keyboardType: TextInputType.number,
-                                        onChanged: (texto) {
-                                          final mascara = aplicarMascaraData(texto);
-                                          if (mascara != texto) controller.documentosControllers[doc]?.value = TextEditingValue(
-                                            text: mascara, selection: TextSelection.collapsed(offset: mascara.length),
-                                          );
-                                        },
-                                      ),
-                                    )).toList()),
-                                  ),
-                                ],
-                              ]),
-                            ),
-                            if (index < _placasControllers.length - 1)
-                              const Divider(height: 24, thickness: 1, color: Colors.grey),
-                          ],
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildTextField(
+                            controller: _inscricaoEstadualController,
+                            label: 'Inscrição Estadual',
+                            maxLength: 20,
+                          ),
                         ),
-                      );
-                    }).toList(),
-                    Center(child: OutlinedButton.icon(
-                      onPressed: _adicionarPlaca,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Adicionar outra placa'),
-                    )),
-                    const SizedBox(height: 24),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Telefones
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTextField(
+                            controller: _telefoneUmController,
+                            label: 'Telefone 1',
+                            keyboardType: TextInputType.phone,
+                            maxLength: 15,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildTextField(
+                            controller: _telefoneDoisController,
+                            label: 'Telefone 2',
+                            keyboardType: TextInputType.phone,
+                            maxLength: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Situação
+                    Text(
+                      'Situação',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: DropdownButtonFormField<String>(
+                        value: _situacaoSelecionada,
+                        hint: const Text('Selecionar situação', style: TextStyle(fontSize: 13)),
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'Ativa', child: Text('Ativa', style: TextStyle(fontSize: 13))),
+                          DropdownMenuItem(value: 'Inativa', child: Text('Inativa', style: TextStyle(fontSize: 13))),
+                          DropdownMenuItem(value: 'Suspensa', child: Text('Suspensa', style: TextStyle(fontSize: 13))),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            _situacaoSelecionada = value;
+                          });
+                        },
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
-            Container(padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.grey.shade50,
-                border: Border(top: BorderSide(color: Colors.grey.shade300)),
-                borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(12), bottomRight: Radius.circular(12))),
-              child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
-                const SizedBox(width: 12),
-                ElevatedButton(onPressed: _salvando ? null : _salvarCadastro,
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D47A1), foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12)),
-                  child: _salvando
-                      ? const SizedBox(width: 20, height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text('Concluir Cadastro'),
-                ),
-              ]),
+
+            // Footer com botões
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: Colors.grey[200]!)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: _salvando ? null : () => Navigator.of(context).pop(),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.grey[700],
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('Voltar', style: TextStyle(fontSize: 13)),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: _salvando ? null : _salvar,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue[900],
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    child: _salvando
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(Colors.white),
+                            ),
+                          )
+                        : const Text('Salvar', style: TextStyle(fontSize: 13)),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
