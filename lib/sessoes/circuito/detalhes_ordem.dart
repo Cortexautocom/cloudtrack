@@ -437,15 +437,31 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
     if (ordemId == null || ordemId.isEmpty) return;
 
     try {
+      // Buscar TODAS as movimentações da ordem para obter os tanques
       final movimentacoes = await _supabase
           .from('movimentacoes')
-          .select('id, status_circuito_orig, status_circuito_dest')
+          .select('id, status_circuito_orig, status_circuito_dest, produtos!produto_id(id, nome, nome_dois), saida_amb, saida_vinte')
           .eq('ordem_id', ordemId)
-          .order('id', ascending: true)
-          .limit(1);
+          .order('id', ascending: true);
 
       if (!mounted) return;
       if (movimentacoes.isEmpty) return;
+
+      // Criar lista de tanques baseada nas movimentações
+      final List<Map<String, dynamic>> tanquesDaOrdem = [];
+      for (var mov in movimentacoes) {
+        final produtoNome = mov['produtos']?['nome_dois']?.toString() ?? 
+                           mov['produtos']?['nome']?.toString() ?? 
+                           'Produto não identificado';
+        final produtoId = mov['produtos']?['id']?.toString();
+        tanquesDaOrdem.add({
+          'movimentacao_id': mov['id']?.toString(),
+          'produto_nome': produtoNome,
+          'produto_id': produtoId,
+          'saida_amb': mov['saida_amb'],
+          'saida_vinte': mov['saida_vinte'],
+        });
+      }
 
       final movimentacaoId = movimentacoes.first['id']?.toString();
       if (movimentacaoId == null) return;
@@ -478,10 +494,11 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
             builder: (_) => EmitirCertificadoPage(
               idCertificado: idAnaliseExistente,
               idMovimentacao: movimentacaoId,
+              tanquesDaOrdem: tanquesDaOrdem, // NOVA LISTA DE TANQUES
               onVoltar: () {
                 Navigator.of(context).pop(true);
               },
-              modoSomenteVisualizacao: modoSomenteVisualizacao, // NOVO PARÂMETRO
+              modoSomenteVisualizacao: modoSomenteVisualizacao,
             ),
           ),
         );

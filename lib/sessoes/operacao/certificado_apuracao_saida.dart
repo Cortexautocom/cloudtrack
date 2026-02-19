@@ -8,6 +8,43 @@ import 'dart:js' as js;
 import 'certificado_pdf.dart';
 import '../../login_page.dart';
 
+// ================= MODELO DE DADOS TANQUE =================
+
+class TanqueDados {
+  final String id;
+  final TextEditingController volumeAmbCtrl;
+  final TextEditingController volume20CCtrl;
+  final String? produtoNome; // Nome do produto deste tanque
+  final String? produtoId; // ID do produto (UUID)
+  bool buscarDoBanco;
+  
+  // Dados da coleta (preenchidos no dialog)
+  String? tempAmostra;
+  String? densidadeObservada;
+  String? tempCT;
+  String? densidade20C;
+  String? fatorCorrecao;
+
+  TanqueDados({
+    required this.id,
+    required this.volumeAmbCtrl,
+    required this.volume20CCtrl,
+    this.produtoNome,
+    this.produtoId,
+    this.buscarDoBanco = false,
+    this.tempAmostra,
+    this.densidadeObservada,
+    this.tempCT,
+    this.densidade20C,
+    this.fatorCorrecao,
+  });
+
+  void dispose() {
+    volumeAmbCtrl.dispose();
+    volume20CCtrl.dispose();
+  }
+}
+
 // ================= COMPONENTE PLACA AUTOCOMPLETE =================
 
 class PlacaAutocompleteField extends StatefulWidget {
@@ -282,6 +319,7 @@ class EmitirCertificadoPage extends StatefulWidget {
   final VoidCallback onVoltar;
   final String? idCertificado;
   final String? idMovimentacao;
+  final List<Map<String, dynamic>>? tanquesDaOrdem; // NOVA: Lista de tanques da ordem
   final bool modoSomenteVisualizacao;
 
   const EmitirCertificadoPage({
@@ -289,6 +327,7 @@ class EmitirCertificadoPage extends StatefulWidget {
     required this.onVoltar,
     this.idCertificado,
     this.idMovimentacao,
+    this.tanquesDaOrdem,
     this.modoSomenteVisualizacao = false,
   });
 
@@ -307,7 +346,8 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   // ================= CONTROLLERS =================
   final TextEditingController dataCtrl = TextEditingController();
   final TextEditingController horaCtrl = TextEditingController();
-  final FocusNode _focusTempCT = FocusNode();
+  // FocusNode removido - não é mais usado
+  // final FocusNode _focusTempCT = FocusNode();
 
   final Map<String, TextEditingController?> campos = {
     'numeroControle': TextEditingController(),
@@ -319,16 +359,17 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     'carreta1': TextEditingController(),
     'carreta2': TextEditingController(),
 
+    // Campos abaixo não são mais usados na UI - dados vêm do dialog de cada tanque
+    // Mantidos por compatibilidade com código legado (podem ser removidos futuramente)
     'tempAmostra': TextEditingController(),
     'densidadeAmostra': TextEditingController(),
     'tempCT': TextEditingController(),
-
     'densidade20': TextEditingController(),
     'fatorCorrecao': TextEditingController(),
-
-    'volumeCarregadoAmb': TextEditingController(),
-    'volumeApurado20C': TextEditingController(),
   };
+
+  // ================= LISTA DE TANQUES =================
+  List<TanqueDados> _tanques = [];
 
   // ================= PRODUTOS =================
   List<String> produtos = [];
@@ -340,12 +381,10 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     super.initState();
     _setarDataHoraAtual();
     _carregarProdutos();
+    _inicializarTanquesDaOrdem(); // Inicializa tanques baseado na ordem
 
-    _focusTempCT.addListener(() {
-      if (!_modoVisualizacao && !_focusTempCT.hasFocus) {
-        _calcularResultadosObtidos();
-      }
-    });
+    // Listener removido - cálculos agora são feitos no dialog de cada tanque
+    // _focusTempCT.addListener(() { ... });
 
     if (widget.modoSomenteVisualizacao || (widget.idCertificado != null && widget.idCertificado!.isNotEmpty)) {
       // MODO VISUALIZAÇÃO - Forçado pelo parâmetro ou certificado já existe
@@ -421,17 +460,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
           }
         }
 
-        // Preenche volume ambiente diretamente de saida_amb
-        if (movimentacao['saida_amb'] != null) {
-          campos['volumeCarregadoAmb']!.text =
-              _mascaraMilharUI(movimentacao['saida_amb'].toString());
-        }
-
-        // Preenche volume 20°C diretamente de saida_vinte
-        if (movimentacao['saida_vinte'] != null) {
-          campos['volumeApurado20C']!.text =
-              _mascaraMilharUI(movimentacao['saida_vinte'].toString());
-        }
+        // Nota: Os volumes dos tanques já são preenchidos em _inicializarTanquesDaOrdem()
       }
     } catch (e) {
       if (context.mounted) {
@@ -463,6 +492,12 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       
       _preencherCamposComDadosExistentes();
       
+      // Carregar dados das coletas dos tanques
+      final movimentacaoId = _dadosExistentes!['movimentacao_id']?.toString();
+      if (movimentacaoId != null && movimentacaoId.isNotEmpty) {
+        await _carregarDadosColetasTanques(movimentacaoId);
+      }
+      
     } catch (e) {
       print('Erro ao carregar certificado: $e');
       if (context.mounted) {
@@ -473,6 +508,47 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
           ),
         );
       }
+    }
+  }
+  
+  // Método para carregar dados específicos de cada tanque da tabela coletas_tanques
+  Future<void> _carregarDadosColetasTanques(String movimentacaoId) async {
+    try {
+      final supabase = Supabase.instance.client;
+      
+      final coletas = await supabase
+          .from('coletas_tanques')
+          .select('*')
+          .eq('movimentacao_id', movimentacaoId)
+          .order('tanque_numero');
+      
+      if (coletas.isEmpty) return;
+      
+      setState(() {
+        // Preencher dados de cada tanque com os dados salvos
+        for (int i = 0; i < coletas.length && i < _tanques.length; i++) {
+          final coleta = coletas[i];
+          final tanque = _tanques[i];
+          
+          // Dados da coleta
+          tanque.tempAmostra = _formatarDecimalParaExibicao(coleta['temperatura_amostra']);
+          tanque.densidadeObservada = _formatarDecimalParaExibicao(coleta['densidade_observada']);
+          tanque.tempCT = _formatarDecimalParaExibicao(coleta['temperatura_ct']);
+          
+          // Volumes
+          if (coleta['volume_amb'] != null) {
+            tanque.volumeAmbCtrl.text = _mascaraMilharUI(coleta['volume_amb'].toString());
+          }
+          if (coleta['volume_vinte'] != null) {
+            tanque.volume20CCtrl.text = _mascaraMilharUI(coleta['volume_vinte'].toString());
+          }
+        }
+      });
+      
+      print('✓ Dados de ${coletas.length} tanque(s) carregados da tabela coletas_tanques');
+    } catch (e) {
+      print('Erro ao carregar dados das coletas: $e');
+      // Não lança exceção para não bloquear a visualização do certificado
     }
   }
   
@@ -496,27 +572,31 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       campos['carreta2']!.text =
           _dadosExistentes!['carreta2']?.toString() ?? '';
 
-      campos['tempAmostra']!.text =
-          _formatarDecimalParaExibicao(_dadosExistentes!['temperatura_amostra']);
-      campos['densidadeAmostra']!.text =
-          _formatarDecimalParaExibicao(_dadosExistentes!['densidade_observada']);
-      campos['tempCT']!.text =
-          _formatarDecimalParaExibicao(_dadosExistentes!['temperatura_ct']);
-      campos['densidade20']!.text =
-          _formatarDecimalParaExibicao(_dadosExistentes!['densidade_20c']);
-      campos['fatorCorrecao']!.text =
-          _formatarDecimalParaExibicao(_dadosExistentes!['fator_correcao']);
+      // Preencher dados da coleta no primeiro tanque
+      if (_tanques.isNotEmpty) {
+        _tanques[0].tempAmostra =
+            _formatarDecimalParaExibicao(_dadosExistentes!['temperatura_amostra']);
+        _tanques[0].densidadeObservada =
+            _formatarDecimalParaExibicao(_dadosExistentes!['densidade_observada']);
+        _tanques[0].tempCT =
+            _formatarDecimalParaExibicao(_dadosExistentes!['temperatura_ct']);
+        _tanques[0].densidade20C =
+            _formatarDecimalParaExibicao(_dadosExistentes!['densidade_20c']);
+        _tanques[0].fatorCorrecao =
+            _formatarDecimalParaExibicao(_dadosExistentes!['fator_correcao']);
 
-      final origemAmb = _dadosExistentes!['origem_ambiente'];
-      if (origemAmb != null) {
-        campos['volumeCarregadoAmb']!.text =
-            _mascaraMilharUI(origemAmb.toString());
-      }
+        // Preenche volumes do primeiro tanque
+        final origemAmb = _dadosExistentes!['origem_ambiente'];
+        if (origemAmb != null) {
+          _tanques[0].volumeAmbCtrl.text =
+              _mascaraMilharUI(origemAmb.toString());
+        }
 
-      final destino20 = _dadosExistentes!['destino_20c'];
-      if (destino20 != null) {
-        campos['volumeApurado20C']!.text =
-            _mascaraMilharUI(destino20.toString());
+        final destino20 = _dadosExistentes!['destino_20c'];
+        if (destino20 != null) {
+          _tanques[0].volume20CCtrl.text =
+              _mascaraMilharUI(destino20.toString());
+        }
       }
 
       if (_dadosExistentes!['data_analise'] != null) {
@@ -616,9 +696,8 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       campos['fatorCorrecao']!.text = '-';
     }
 
-    if (fcv != '-' &&
-        fcv.isNotEmpty &&
-        campos['volumeCarregadoAmb']!.text.isNotEmpty) {
+    // Calcular volume 20°C para todos os tanques que tiverem volume ambiente preenchido
+    if (fcv != '-' && fcv.isNotEmpty) {
       _calcularVolumeApurado20C();
     }
 
@@ -652,22 +731,10 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     final fcvText = campos['fatorCorrecao']!.text;
     if (fcvText.isEmpty || fcvText == '-') return;
 
-    final volumeAmbText = campos['volumeCarregadoAmb']!.text;
-    if (volumeAmbText.isEmpty) {
-      campos['volumeApurado20C']!.text = '';
-      return;
+    // Calcula para todos os tanques
+    for (var tanque in _tanques) {
+      _calcularVolume20CTanque(tanque);
     }
-
-    final volumeAmb =
-        double.tryParse(volumeAmbText.replaceAll('.', ''));
-    final fcv =
-        double.tryParse(fcvText.replaceAll(',', '.'));
-
-    if (volumeAmb == null || fcv == null) return;
-
-    final volume20C = volumeAmb * fcv;
-    campos['volumeApurado20C']!.text =
-        _formatarNumeroParaCampo(volume20C);
 
     setState(() {});
   }
@@ -901,99 +968,16 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                     },
                                   ]),
                                   const SizedBox(height: 20),
-                                  _secao('Coletas na presença do motorista'),
-                                  _linha([
-                                    TextFormField(
-                                      controller: campos['tempAmostra'],
-                                      keyboardType: TextInputType.number,
-                                      enabled: !_modoVisualizacao,
-                                      onChanged: _modoVisualizacao ? null : (value) {
-                                        final masked = _aplicarMascaraTemperatura(value);
-
-                                        if (masked != value) {
-                                          campos['tempAmostra']!.value = TextEditingValue(
-                                            text: masked,
-                                            selection: TextSelection.collapsed(offset: masked.length),
-                                          );
-                                        }
-                                      },
-                                      decoration: _decoration('Temperatura da amostra (°C)').copyWith(
-                                        hintText: '00,0',
-                                        fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
-                                      ),
-                                    ),
-
-                                    TextFormField(
-                                      controller: campos['densidadeAmostra'],
-                                      keyboardType: TextInputType.number,
-                                      enabled: !_modoVisualizacao,
-                                      onChanged: _modoVisualizacao ? null : (value) {
-                                        final masked = _aplicarMascaraDensidade(value);
-
-                                        if (masked != value) {
-                                          campos['densidadeAmostra']!.value = TextEditingValue(
-                                            text: masked,
-                                            selection: TextSelection.collapsed(offset: masked.length),
-                                          );
-                                        }
-                                      },
-                                      decoration: _decoration('Densidade observada').copyWith(
-                                        hintText: '0,0000',
-                                        fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
-                                      ),
-                                    ),
-
-                                    TextFormField(
-                                      controller: campos['tempCT'],
-                                      focusNode: _modoVisualizacao ? null : _focusTempCT,
-                                      keyboardType: TextInputType.number,
-                                      enabled: !_modoVisualizacao,
-                                      onChanged: _modoVisualizacao ? null : (value) {
-                                        final masked = _aplicarMascaraTemperatura(value);
-
-                                        if (masked != value) {
-                                          campos['tempCT']!.value = TextEditingValue(
-                                            text: masked,
-                                            selection: TextSelection.collapsed(offset: masked.length),
-                                          );
-                                        }
-                                      },
-                                      decoration: _decoration('Temperatura do CT (°C)').copyWith(
-                                        hintText: '00,0',
-                                        fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
-                                      ),
-                                    ),
-                                  ]),
-                                  const SizedBox(height: 20),
-                                  _secao('Resultados obtidos'),
-                                  _linha([
-                                    _campo('Densidade a 20 ºC', campos['densidade20']!, 
-                                           enabled: false), 
-                                    
-                                    _campo('Fator de correção (FCV)', campos['fatorCorrecao']!, 
-                                           enabled: false), 
-                                  ]),
-                                  const SizedBox(height: 20),
+                                  
+                                  // ======== CAMPOS REMOVIDOS - AGORA PREENCHIDOS NO DIALOG DE CADA TANQUE ========
+                                  // _secao('Coletas na presença do motorista'),
+                                  // _linha([... campos de temperatura, densidade, etc ...])
+                                  // _secao('Resultados obtidos'),
+                                  // _linha([... campos de densidade 20°C e FCV ...])
+                                  // ================================================================================
+                                  
                                   _secao('Volumes apurados'),
-                                  _linha([
-                                    TextFormField(
-                                      controller: campos['volumeCarregadoAmb'],
-                                      keyboardType: TextInputType.number,
-                                      enabled: false,
-                                      decoration: _decoration('Volume carregado (ambiente)').copyWith(
-                                        fillColor: Colors.grey[100],
-                                      ),
-                                    ),
-
-                                    TextFormField(
-                                      controller: campos['volumeApurado20C'],
-                                      keyboardType: TextInputType.number,
-                                      enabled: false,
-                                      decoration: _decoration('Volume apurado a 20 ºC').copyWith(
-                                        fillColor: Colors.grey[100],
-                                      ),
-                                    ),
-                                  ]),
+                                  _buildSecaoTanques(),
                                   const SizedBox(height: 40),
                                 ],
                               ),
@@ -1104,6 +1088,576 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         ],
       ),
     );
+  }
+
+  // ================= MÉTODOS DE GERENCIAMENTO DE TANQUES =================
+  
+  void _inicializarTanquesDaOrdem() {
+    if (widget.tanquesDaOrdem != null && widget.tanquesDaOrdem!.isNotEmpty) {
+      // Criar tanques baseado na lista recebida
+      for (var tanqueInfo in widget.tanquesDaOrdem!) {
+        final novoTanque = TanqueDados(
+          id: tanqueInfo['movimentacao_id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+          volumeAmbCtrl: TextEditingController(),
+          volume20CCtrl: TextEditingController(),
+          buscarDoBanco: false,
+          produtoNome: tanqueInfo['produto_nome']?.toString(),
+          produtoId: tanqueInfo['produto_id']?.toString(),
+        );
+        
+        // Preencher valores iniciais se disponíveis
+        if (tanqueInfo['saida_amb'] != null) {
+          novoTanque.volumeAmbCtrl.text = _mascaraMilharUI(tanqueInfo['saida_amb'].toString());
+        }
+        if (tanqueInfo['saida_vinte'] != null) {
+          novoTanque.volume20CCtrl.text = _mascaraMilharUI(tanqueInfo['saida_vinte'].toString());
+        }
+        
+        _tanques.add(novoTanque);
+      }
+    } else {
+      // Caso não tenha tanques da ordem, criar um padrão
+      _tanques.add(TanqueDados(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        volumeAmbCtrl: TextEditingController(),
+        volume20CCtrl: TextEditingController(),
+        buscarDoBanco: false,
+      ));
+    }
+  }
+
+  void _toggleBuscarDoBanco(String id, bool valor) {
+    setState(() {
+      final index = _tanques.indexWhere((t) => t.id == id);
+      if (index != -1) {
+        _tanques[index].buscarDoBanco = valor;
+        // TODO: Implementar busca no banco quando necessário
+      }
+    });
+  }
+
+  // ================= DIALOG DADOS DA COLETA =================
+  Future<void> _abrirDialogDadosColeta(TanqueDados tanque, int numeroTanque) async {
+    // Controllers temporários para o dialog
+    final tempAmostraCtrl = TextEditingController(text: tanque.tempAmostra ?? '');
+    final densObsCtrl = TextEditingController(text: tanque.densidadeObservada ?? '');
+    final tempCTCtrl = TextEditingController(text: tanque.tempCT ?? '');
+    final dens20Ctrl = TextEditingController(text: tanque.densidade20C ?? '');
+    final fcvCtrl = TextEditingController(text: tanque.fatorCorrecao ?? '');
+    
+    // Função local para calcular densidade 20°C e FCV
+    Future<void> calcularResultados(void Function(void Function()) setStateDialog) async {
+      if (produtoSelecionado == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Selecione um produto primeiro!'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+      
+      final tempAmostra = tempAmostraCtrl.text;
+      final densObs = densObsCtrl.text;
+      final tempCT = tempCTCtrl.text;
+      
+      if (tempAmostra.isEmpty || densObs.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Preencha temperatura da amostra e densidade observada!'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+      
+      setStateDialog(() {
+        dens20Ctrl.text = 'Calculando...';
+        fcvCtrl.text = 'Calculando...';
+      });
+      
+      // Buscar densidade 20°C
+      final dens20 = await _buscarDensidade20C(
+        temperaturaAmostra: tempAmostra,
+        densidadeObservada: densObs,
+        produtoNome: produtoSelecionado!,
+      );
+      
+      setStateDialog(() {
+        dens20Ctrl.text = dens20;
+      });
+      
+      if (dens20 == '-' || dens20.isEmpty || tempCT.isEmpty) {
+        setStateDialog(() {
+          fcvCtrl.text = '-';
+        });
+        return;
+      }
+      
+      // Buscar FCV
+      final fcv = await _buscarFCV(
+        temperaturaTanque: tempCT,
+        densidade20C: dens20,
+        produtoNome: produtoSelecionado!,
+      );
+      
+      setStateDialog(() {
+        fcvCtrl.text = fcv;
+      });
+    }
+    
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            // Verificar se o FCV está calculado e é válido
+            final fcvValido = fcvCtrl.text.isNotEmpty && 
+                              fcvCtrl.text != '-' && 
+                              fcvCtrl.text != 'Calculando...';
+            
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16.0),
+                side: const BorderSide(
+                  color: Color(0xFF0D47A1),
+                  width: 2.0,
+                ),
+              ),
+              backgroundColor: Colors.white,
+              title: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D47A1),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.science, color: Colors.white, size: 28),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Dados da Coleta - Tanque $numeroTanque',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              content: SizedBox(
+                width: 500,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 8),
+                      
+                      if (tanque.produtoNome != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue[50],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue[200]!),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.local_gas_station, color: Color(0xFF0D47A1)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Produto: ${tanque.produtoNome}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      
+                      // Campo: Temperatura da amostra
+                      TextFormField(
+                        controller: tempAmostraCtrl,
+                        keyboardType: TextInputType.number,
+                        onChanged: (value) {
+                          String masked = _aplicarMascaraTemperatura(value);
+                          if (masked != value) {
+                            tempAmostraCtrl.value = TextEditingValue(
+                              text: masked,
+                              selection: TextSelection.collapsed(offset: masked.length),
+                            );
+                          }
+                          setStateDialog(() {});
+                        },
+                        decoration: _decoration('Temperatura da amostra (ºC)'),
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      // Campo: Densidade observada
+                      TextFormField(
+                        controller: densObsCtrl,
+                        keyboardType: TextInputType.number,
+                        onChanged: (value) {
+                          String masked = _aplicarMascaraDensidade(value);
+                          if (masked != value) {
+                            densObsCtrl.value = TextEditingValue(
+                              text: masked,
+                              selection: TextSelection.collapsed(offset: masked.length),
+                            );
+                          }
+                          setStateDialog(() {});
+                        },
+                        decoration: _decoration('Densidade observada'),
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      // Campo: Temperatura do CT
+                      TextFormField(
+                        controller: tempCTCtrl,
+                        keyboardType: TextInputType.number,
+                        onChanged: (value) {
+                          String masked = _aplicarMascaraTemperatura(value);
+                          if (masked != value) {
+                            tempCTCtrl.value = TextEditingValue(
+                              text: masked,
+                              selection: TextSelection.collapsed(offset: masked.length),
+                            );
+                          }
+                          setStateDialog(() {});
+                        },
+                        decoration: _decoration('Temperatura do CT (ºC)'),
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      const Divider(),
+                      const SizedBox(height: 12),
+                      
+                      // Campo: Densidade a 20ºC (calculado)
+                      TextFormField(
+                        controller: dens20Ctrl,
+                        enabled: false,
+                        decoration: _decoration('Densidade a 20ºC').copyWith(
+                          fillColor: Colors.grey[100],
+                          suffixIcon: const Icon(Icons.calculate, color: Colors.green),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      // Campo: FCV (calculado)
+                      TextFormField(
+                        controller: fcvCtrl,
+                        enabled: false,
+                        decoration: _decoration('Fator de correção de volume (FCV)').copyWith(
+                          fillColor: Colors.grey[100],
+                          suffixIcon: const Icon(Icons.calculate, color: Colors.green),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                // Layout customizado: Calcular à esquerda, Voltar e Salvar à direita
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Botão Calcular - à esquerda
+                      ElevatedButton.icon(
+                        onPressed: () => calcularResultados(setStateDialog),
+                        icon: const Icon(Icons.calculate, size: 20),
+                        label: const Text(
+                          'Calcular',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0D47A1),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                      
+                      // Botões Voltar e Salvar - à direita
+                      Row(
+                        children: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(dialogContext).pop();
+                            },
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.grey[700],
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                side: BorderSide(color: Colors.grey[400]!),
+                              ),
+                            ),
+                            child: const Text(
+                              'Voltar',
+                              style: TextStyle(fontSize: 16),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton(
+                            onPressed: !fcvValido ? null : () {
+                              // Validar campos obrigatórios
+                              if (tempAmostraCtrl.text.isEmpty || 
+                                  densObsCtrl.text.isEmpty || 
+                                  tempCTCtrl.text.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Preencha todos os campos obrigatórios!'),
+                                    backgroundColor: Colors.orange,
+                                  ),
+                                );
+                                return;
+                              }
+                              
+                              // Validar que FCV foi calculado
+                              if (!fcvValido) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Clique em "Calcular" antes de salvar!'),
+                                    backgroundColor: Colors.orange,
+                                  ),
+                                );
+                                return;
+                              }
+                              
+                              // Salvar dados no tanque
+                              setState(() {
+                                tanque.tempAmostra = tempAmostraCtrl.text;
+                                tanque.densidadeObservada = densObsCtrl.text;
+                                tanque.tempCT = tempCTCtrl.text;
+                                tanque.densidade20C = dens20Ctrl.text;
+                                tanque.fatorCorrecao = fcvCtrl.text;
+                              });
+                              
+                              // Recalcular volume 20°C com o novo FCV
+                              _calcularVolume20CTanque(tanque);
+                              
+                              Navigator.of(dialogContext).pop();
+                              
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('✓ Dados da coleta salvos para Tanque $numeroTanque!'),
+                                  backgroundColor: Colors.green,
+                                  duration: Duration(seconds: 1),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: fcvValido ? Colors.green : Colors.grey[300],
+                              foregroundColor: fcvValido ? Colors.white : Colors.grey[600],
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text(
+                              'Salvar',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              actionsPadding: EdgeInsets.zero, // Remove padding padrão pois já temos padding customizado
+            );
+          },
+        );
+      },
+    );
+    
+    // Limpar recursos
+    tempAmostraCtrl.dispose();
+    densObsCtrl.dispose();
+    tempCTCtrl.dispose();
+    dens20Ctrl.dispose();
+    fcvCtrl.dispose();
+  }
+
+  Widget _buildSecaoTanques() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Lista de tanques
+        ..._tanques.asMap().entries.map((entry) {
+          final index = entry.key;
+          final tanque = entry.value;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _buildLinhaTanque(tanque, index + 1),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  Widget _buildLinhaTanque(TanqueDados tanque, int numeroTanque) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(8),
+        color: Colors.grey[50],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Cabeçalho com número do tanque e produto
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Tanque $numeroTanque${tanque.produtoNome != null ? " - ${tanque.produtoNome}" : ""}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: Color(0xFF0D47A1),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          
+          // Campos de volume e switch
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: TextFormField(
+                    controller: tanque.volumeAmbCtrl,
+                    keyboardType: TextInputType.number,
+                    enabled: !_modoVisualizacao,
+                    onChanged: (value) => _calcularVolume20CTanque(tanque),
+                    decoration: _decoration('Volume carregado (ambiente)').copyWith(
+                      fillColor: _modoVisualizacao ? Colors.grey[100] : Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: TextFormField(
+                    controller: tanque.volume20CCtrl,
+                    keyboardType: TextInputType.number,
+                    enabled: false,
+                    decoration: _decoration('Volume apurado a 20 ºC').copyWith(
+                      fillColor: Colors.grey[100],
+                    ),
+                  ),
+                ),
+              ),
+              // Ícone de dados da coleta
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        Icons.science_outlined,
+                        color: tanque.tempAmostra != null ? Colors.green : Color(0xFF0D47A1),
+                        size: 28,
+                      ),
+                      tooltip: 'Dados da Coleta',
+                      onPressed: _modoVisualizacao ? null : () => _abrirDialogDadosColeta(tanque, numeroTanque),
+                    ),
+                    Text(
+                      'Dados da\nColeta',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: tanque.tempAmostra != null ? Colors.green : Color(0xFF0D47A1),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              Expanded(
+                flex: 2,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Buscar do banco',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF0D47A1),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      Switch(
+                        value: tanque.buscarDoBanco,
+                        onChanged: _modoVisualizacao 
+                            ? null 
+                            : (valor) => _toggleBuscarDoBanco(tanque.id, valor),
+                        activeColor: const Color(0xFF0D47A1),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _calcularVolume20CTanque(TanqueDados tanque) {
+    if (_modoVisualizacao) return;
+
+    // Usar o FCV específico deste tanque (do dialog de dados da coleta)
+    final fcvText = tanque.fatorCorrecao;
+    if (fcvText == null || fcvText.isEmpty || fcvText == '-') {
+      tanque.volume20CCtrl.text = '';
+      return;
+    }
+
+    final volumeAmbText = tanque.volumeAmbCtrl.text;
+    if (volumeAmbText.isEmpty) {
+      tanque.volume20CCtrl.text = '';
+      return;
+    }
+
+    final volumeAmb = double.tryParse(volumeAmbText.replaceAll('.', ''));
+    final fcv = double.tryParse(fcvText.replaceAll(',', '.'));
+
+    if (volumeAmb == null || fcv == null) return;
+
+    final volume20C = volumeAmb * fcv;
+    tanque.volume20CCtrl.text = _formatarNumeroParaCampo(volume20C);
+
+    setState(() {});
   }
 
   // ================= UI HELPERS =================
@@ -1604,6 +2158,9 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     );
     
     try {
+      // Usar dados do primeiro tanque
+      final tanquePrincipal = _tanques.isNotEmpty ? _tanques[0] : null;
+      
       final dadosPDF = {
         'numeroControle': campos['numeroControle']!.text,
         'transportadora': campos['transportadora']!.text,
@@ -1612,13 +2169,14 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         'carreta1': campos['carreta1']!.text,
         'carreta2': campos['carreta2']!.text,
         'notas': campos['notas']!.text,
-        'tempAmostra': campos['tempAmostra']!.text,
-        'densidadeAmostra': campos['densidadeAmostra']!.text,
-        'tempCT': campos['tempCT']!.text,
-        'densidade20': campos['densidade20']!.text,
-        'fatorCorrecao': campos['fatorCorrecao']!.text,
-        'volumeCarregadoAmb': campos['volumeCarregadoAmb']!.text,
-        'volumeApurado20C': campos['volumeApurado20C']!.text,
+        // Usar dados da coleta do tanque principal
+        'tempAmostra': tanquePrincipal?.tempAmostra ?? '',
+        'densidadeAmostra': tanquePrincipal?.densidadeObservada ?? '',
+        'tempCT': tanquePrincipal?.tempCT ?? '',
+        'densidade20': tanquePrincipal?.densidade20C ?? '',
+        'fatorCorrecao': tanquePrincipal?.fatorCorrecao ?? '',
+        'volumeCarregadoAmb': tanquePrincipal?.volumeAmbCtrl.text ?? '',
+        'volumeApurado20C': tanquePrincipal?.volume20CCtrl.text ?? '',
       };
       
       final pdfDocument = await CertificadoPDF.gerar(
@@ -1984,6 +2542,14 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
 
       final produtoId = await _resolverProdutoId(produtoSelecionado!);
 
+      // Validar que pelo menos o primeiro tanque tem dados da coleta
+      if (_tanques.isEmpty || _tanques[0].tempAmostra == null) {
+        throw Exception('Preencha os dados da coleta do tanque antes de emitir o certificado!');
+      }
+
+      // Usar dados do primeiro tanque para o certificado
+      final tanquePrincipal = _tanques[0];
+
       // Dados do certificado - ADICIONA tipo_analise = 'origem'
       final dadosOrdem = {
         'data_analise': _formatarDataParaBanco(dataCtrl.text),
@@ -1999,20 +2565,14 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         'carreta2': campos['carreta2']!.text,
         'produto_id': produtoId,
         'produto_nome': produtoSelecionado,
-        'temperatura_amostra':
-            _converterParaDecimal(campos['tempAmostra']!.text),
-        'densidade_observada':
-            _converterParaDecimal(campos['densidadeAmostra']!.text),
-        'temperatura_ct':
-            _converterParaDecimal(campos['tempCT']!.text),
-        'densidade_20c':
-            _converterParaDecimal(campos['densidade20']!.text),
-        'fator_correcao':
-            _converterParaDecimal(campos['fatorCorrecao']!.text),
-        'origem_ambiente':
-            _converterParaInteiro(campos['volumeCarregadoAmb']!.text),
-        'destino_20c':
-            _converterParaInteiro(campos['volumeApurado20C']!.text),
+        // Usar dados do dialog de coleta do tanque principal
+        'temperatura_amostra': _converterParaDecimal(tanquePrincipal.tempAmostra),
+        'densidade_observada': _converterParaDecimal(tanquePrincipal.densidadeObservada),
+        'temperatura_ct': _converterParaDecimal(tanquePrincipal.tempCT),
+        'densidade_20c': _converterParaDecimal(tanquePrincipal.densidade20C),
+        'fator_correcao': _converterParaDecimal(tanquePrincipal.fatorCorrecao),
+        'origem_ambiente': _converterParaInteiro(tanquePrincipal.volumeAmbCtrl.text),
+        'destino_20c': _converterParaInteiro(tanquePrincipal.volume20CCtrl.text),
         'usuario_id': user.id,
         'filial_id': usuario.filialId,
       };
@@ -2029,10 +2589,66 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       campos['numeroControle']!.text =
           response['numero_controle'].toString();
 
-      // Atualizar movimentação com volume 20°C
-      if (widget.idMovimentacao != null) {
+      // ========== INSERIR DADOS DE COLETA POR TANQUE ==========
+      // Montar array de placas (sem valores vazios)
+      final placas = [
+        campos['placaCavalo']!.text,
+        campos['carreta1']!.text,
+        campos['carreta2']!.text,
+      ].where((p) => p.isNotEmpty).toList();
+
+      // Criar lista de dados de coleta para todos os tanques
+      final dadosColetas = <Map<String, dynamic>>[];
+      
+      for (int i = 0; i < _tanques.length; i++) {
+        final tanque = _tanques[i];
+        
+        // Usar produto_id do tanque (veio da página de detalhes)
+        // Se não tiver, tenta resolver pelo produto selecionado
+        String produtoIdTanque;
+        if (tanque.produtoId != null && tanque.produtoId!.isNotEmpty) {
+          produtoIdTanque = tanque.produtoId!;
+        } else {
+          // Fallback: usar o produto selecionado globalmente
+          produtoIdTanque = produtoId;
+        }
+        
+        // Adicionar dados do tanque (somente se tiver dados da coleta)
+        if (tanque.tempAmostra != null || tanque.densidadeObservada != null || tanque.tempCT != null) {
+          dadosColetas.add({
+            'movimentacao_id': widget.idMovimentacao,
+            'produto_id': produtoIdTanque,
+            'tanque_numero': i + 1,
+            'placas': placas,
+            'temperatura_amostra': _converterParaDecimal(tanque.tempAmostra),
+            'densidade_observada': _converterParaDecimal(tanque.densidadeObservada),
+            'temperatura_ct': _converterParaDecimal(tanque.tempCT),
+            'volume_amb': _converterParaInteiro(tanque.volumeAmbCtrl.text),
+            'volume_vinte': _converterParaInteiro(tanque.volume20CCtrl.text),
+          });
+        }
+      }
+      
+      // Inserir todos os tanques em batch (operação crítica)
+      if (dadosColetas.isNotEmpty) {
+        try {
+          await supabase
+              .from('coletas_tanques')
+              .insert(dadosColetas);
+          
+          print('✓ ${dadosColetas.length} coleta(s) de tanque inserida(s) com sucesso');
+        } catch (e) {
+          // Se falhar a inserção das coletas, toda a operação deve falhar
+          print('✗ ERRO CRÍTICO ao inserir coletas_tanques: $e');
+          throw Exception('Falha ao registrar dados de coleta dos tanques: $e');
+        }
+      }
+      // ========================================================
+
+      // Atualizar movimentação com volume 20°C do primeiro tanque
+      if (widget.idMovimentacao != null && _tanques.isNotEmpty) {
         final volume20C =
-            _converterParaInteiro(campos['volumeApurado20C']!.text) ?? 0;
+            _converterParaInteiro(_tanques[0].volume20CCtrl.text) ?? 0;
 
         await _atualizarMovimentacaoSomente20C(
           movimentacaoId: widget.idMovimentacao!,
@@ -2122,7 +2738,10 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   
   @override
   void dispose() {
-    _focusTempCT.dispose();
+    // _focusTempCT.dispose(); // Removido - FocusNode não é mais usado
+    for (var tanque in _tanques) {
+      tanque.dispose();
+    }
     super.dispose();
   }
 
@@ -2140,8 +2759,8 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     }
   }
 
-  double? _converterParaDecimal(String texto) {
-    if (texto.isEmpty || texto == '-') return null;
+  double? _converterParaDecimal(String? texto) {
+    if (texto == null || texto.isEmpty || texto == '-') return null;
     
     try {
       final textoLimpo = texto.replaceAll('.', '').replaceAll(',', '.');
