@@ -21,6 +21,7 @@ import 'sessoes/estoques/filtro_estoque.dart';
 import 'sessoes/estoques/estoque_mes.dart';
 import 'sessoes/gestao_de_frota/motoristas_page.dart';
 import 'sessoes/gestao_de_frota/veiculos.dart';
+import 'sessoes/gestao_de_frota/transportadoras.dart';
 import 'sessoes/circuito/acompanhamento_ordens.dart';
 import 'sessoes/estoques/transferencias.dart';
 import 'sessoes/operacao/listar_ordens.dart';
@@ -95,6 +96,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarDetalhesVeiculo = false;
   Map<String, dynamic>? _veiculoSelecionado;
   bool _mostrarMotoristas = false;
+  bool _mostrarTransportadoras = false;
   
   // FLAG UNIFICADA PARA MOSTRAR FILHOS DE QUALQUER SESSÃO
   bool _mostrarFilhosSessao = false;
@@ -291,6 +293,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
     _filhosPorSessao['Gestão de Frota'] = [
       {'id': 'fallback-veiculos', 'icon': Icons.directions_car, 'label': 'Veículos Próprios', 'descricao': 'Gerenciar frota de veículos próprios', 'tipo': 'veiculos', 'sessao_pai': 'Gestão de Frota'},
+      {'id': 'fallback-transportadoras', 'icon': Icons.local_shipping, 'label': 'Transportadoras', 'descricao': 'Gerenciar transportadoras', 'tipo': 'transportadoras', 'sessao_pai': 'Gestão de Frota'},
       {'id': 'fallback-terceiros', 'icon': Icons.local_shipping, 'label': 'Veículos de terceiros', 'descricao': 'Gerenciar veículos de transportadoras', 'tipo': 'veiculos_terceiros', 'sessao_pai': 'Gestão de Frota'},
       {'id': 'fallback-motoristas', 'icon': Icons.people, 'label': 'Motoristas', 'descricao': 'Gerenciar cadastro de motoristas', 'tipo': 'motoristas', 'sessao_pai': 'Gestão de Frota'},
       {'id': 'fallback-documentacao', 'icon': Icons.description, 'label': 'Documentação', 'descricao': 'Controle de documentos da frota', 'tipo': 'documentacao', 'sessao_pai': 'Gestão de Frota'},
@@ -318,6 +321,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       'acompanhar_ordem': Icons.directions_car,
       'visao_geral_circuito': Icons.dashboard,
       'veiculos': Icons.directions_car,
+      'transportadoras': Icons.local_shipping,
       'veiculos_terceiros': Icons.local_shipping,
       'motoristas': Icons.people,
       'documentacao': Icons.description,
@@ -344,6 +348,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       'acompanhar_ordem': 'Acompanhar situação da ordem',
       'visao_geral_circuito': 'Panorama completo dos circuitos',
       'veiculos': 'Gerenciar frota de veículos próprios',
+      'transportadoras': 'Gerenciar transportadoras',
       'veiculos_terceiros': 'Gerenciar veículos de transportadoras',
       'motoristas': 'Gerenciar cadastro de motoristas',
       'documentacao': 'Controle de documentos da frota',
@@ -529,9 +534,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     });
   }
 
+  void _resetarFlagsTransportadoras() {
+    setState(() {
+      _mostrarTransportadoras = false;
+    });
+  }
+
   void _resetarTodasFlagsGestaoFrota() {
     _resetarFlagsVeiculos();
     _resetarFlagsMotoristas();
+    _resetarFlagsTransportadoras();
     _mostrarAcompanhamentoOrdens = false;
   }
 
@@ -592,6 +604,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
 
     var filhos = _filhosPorSessao[nomeSessao] ?? [];
+
+    if (nomeSessao == 'Gestão de Frota' &&
+        !filhos.any((card) => card['tipo'] == 'transportadoras')) {
+      filhos = [
+        ...filhos,
+        {
+          'id': 'transportadoras',
+          'icon': Icons.local_shipping,
+          'label': 'Transportadoras',
+          'descricao': 'Gerenciar transportadoras',
+          'tipo': 'transportadoras',
+          'sessao_pai': 'Gestão de Frota',
+        },
+      ];
+    }
     
     // ATUALIZADO: Filtrar cards de Estoques por nível
     if (nomeSessao == 'Estoques') {
@@ -637,6 +664,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarDetalhesVeiculo = false;
       _veiculoSelecionado = null;
       _mostrarMotoristas = false;
+      _mostrarTransportadoras = false;
     });
   }
 
@@ -1441,6 +1469,19 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       );
     }
 
+    if (_mostrarTransportadoras) {
+      return _buildPaginaPadronizada(
+        titulo: 'Transportadoras',
+        conteudo: const TransportadorasPage(),
+        onVoltar: () {
+          setState(() {
+            _mostrarTransportadoras = false;
+            _mostrarFilhosDaSessao('Gestão de Frota');
+          });
+        },
+      );
+    }
+
     if (_mostrarFilhosSessao && _sessaoAtual != null) {
       return _buildFilhosSessaoPage();
     }
@@ -1478,7 +1519,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   _mostrarHistorico || _mostrarEscolherFilial || _mostrarMedicaoTanques || _mostrarTanques || 
                   _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || _mostrarEstoquePorTanque ||
                   _mostrarTempDensMedia || _mostrarCalcGerado || 
-                  _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarFiltrosEstoque ||
+                  _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarTransportadoras || _mostrarFiltrosEstoque ||
                   _mostrarCardsFilial || _mostrarSuporte))
 
                 IconButton(
@@ -1490,7 +1531,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   _mostrarHistorico || _mostrarEscolherFilial || _mostrarMedicaoTanques || _mostrarTanques || 
                   _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || _mostrarEstoquePorTanque ||
                   _mostrarTempDensMedia || _mostrarCalcGerado || 
-                  _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarFiltrosEstoque ||
+                  _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarTransportadoras || _mostrarFiltrosEstoque ||
                   _mostrarCardsFilial))
                 const SizedBox(width: 10),
               Text(
@@ -1569,6 +1610,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final usuario = UsuarioAtual.instance;
     final cardsPermitidos = _filhosSessaoAtual.where((card) {
       final cardId = card['id']?.toString();
+      final tipo = card['tipo']?.toString();
+      if (tipo == 'transportadoras') return true;
       if (usuario == null || cardId == null) return false;
       return usuario.podeAcessarCard(cardId);
     }).toList();
@@ -1708,8 +1751,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   Widget _buildCardFilho(Map<String, dynamic> card) {
     final usuario = UsuarioAtual.instance;
     final cardId = card['id']?.toString();
+    final tipo = card['tipo']?.toString();
     
-    if (usuario != null && cardId != null && !usuario.podeAcessarCard(cardId)) {
+    if (tipo != 'transportadoras' &&
+        usuario != null &&
+        cardId != null &&
+        !usuario.podeAcessarCard(cardId)) {
       return const SizedBox.shrink();
     }
 
@@ -1887,7 +1934,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final tipo = card['tipo'];
     final sessaoPai = _sessaoAtual;
 
-    if (usuario != null && cardId != null && !usuario.podeAcessarCard(cardId)) {
+    if (tipo != 'transportadoras' &&
+        usuario != null &&
+        cardId != null &&
+        !usuario.podeAcessarCard(cardId)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Você não tem permissão para acessar este recurso.'),
@@ -2083,7 +2133,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         break;
         
       case 'veiculos_terceiros':
-        debugPrint('Abrir tela de veículos de terceiros');
+      case 'transportadoras':
+        setState(() {
+          _mostrarTransportadoras = true;
+          _mostrarVeiculos = false;
+          _mostrarDetalhesVeiculo = false;
+          _veiculoSelecionado = null;
+          _mostrarMotoristas = false;
+        });
         break;
         
       case 'motoristas':
