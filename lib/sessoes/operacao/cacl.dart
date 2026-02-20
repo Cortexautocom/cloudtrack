@@ -1202,15 +1202,31 @@ class _CalcPageState extends State<CalcPage> {
     required String caclId,
     required Map<String, dynamic> medicoes,
   }) async {
+    print('🟡 [SOBRA/PERDA] Início da função');
+
     try {
-      if (!_mostrarCampoSobraPerda) return;
+      if (!_mostrarCampoSobraPerda) {
+        print('🔴 [SOBRA/PERDA] Campo de sobra/perda não habilitado (origem_estoque_tanque != true)');
+        return;
+      }
 
       final sobraPerda = _obterValorSobraPerda(medicoes);
-      if (sobraPerda == null) return;
+      print('🟡 [SOBRA/PERDA] Valor calculado: $sobraPerda');
+
+      if (sobraPerda == null || sobraPerda == 0) {
+        print('🔴 [SOBRA/PERDA] Valor nulo ou zero, nada a lançar');
+        return;
+      }
 
       final supabase = Supabase.instance.client;
+
       final tanqueId = _obterTanqueId();
-      if (tanqueId == null || tanqueId.isEmpty) return;
+      print('🟡 [SOBRA/PERDA] tanqueId: $tanqueId');
+
+      if (tanqueId == null || tanqueId.isEmpty) {
+        print('🔴 [SOBRA/PERDA] tanqueId inválido');
+        return;
+      }
 
       final tanqueData = await supabase
           .from('tanques')
@@ -1218,8 +1234,13 @@ class _CalcPageState extends State<CalcPage> {
           .eq('id', tanqueId)
           .maybeSingle();
 
+      print('🟡 [SOBRA/PERDA] Dados do tanque: $tanqueData');
+
       final produtoId = tanqueData?['id_produto']?.toString();
-      if (produtoId == null || produtoId.isEmpty) return;
+      if (produtoId == null || produtoId.isEmpty) {
+        print('🔴 [SOBRA/PERDA] produtoId não encontrado no tanque');
+        return;
+      }
 
       String? movimentacaoId;
 
@@ -1229,21 +1250,27 @@ class _CalcPageState extends State<CalcPage> {
           .eq('cacl_id', caclId)
           .maybeSingle();
 
+      print('🟡 [SOBRA/PERDA] movimentacao encontrada por cacl_id: $movExistente');
+
       movimentacaoId = movExistente?['id']?.toString();
 
       if (movimentacaoId == null || movimentacaoId.isEmpty) {
-        final refId = widget.dadosFormulario['movimentacao_id_referencia']
-            ?.toString()
-            .trim();
+        final refId = widget.dadosFormulario['movimentacao_id_referencia']?.toString().trim();
+        print('🟡 [SOBRA/PERDA] movimentacao_id_referencia: $refId');
         if (refId != null && refId.isNotEmpty) {
           movimentacaoId = refId;
         }
       }
 
-      if (movimentacaoId == null || movimentacaoId.isEmpty) return;
+      if (movimentacaoId == null || movimentacaoId.isEmpty) {
+        print('🔴 [SOBRA/PERDA] movimentacaoId final não encontrado. Abortando insert.');
+        return;
+      }
 
       final quantidade = sobraPerda.abs().round();
-      final bool isSobra = sobraPerda >= 0;
+      final bool isSobra = sobraPerda > 0;
+
+      print('🟡 [SOBRA/PERDA] quantidade: $quantidade | isSobra: $isSobra');
 
       final numeroControle = _numeroControle;
       String dataFormatada = '';
@@ -1261,11 +1288,13 @@ class _CalcPageState extends State<CalcPage> {
           ? 'Sobra CACL ${numeroControle ?? ''}, $dataFormatada'
           : 'Perda CACL ${numeroControle ?? ''}, $dataFormatada';
 
-      await supabase.from('movimentacoes_tanque').insert({
+      print('🟡 [SOBRA/PERDA] Descrição: $descricao');
+
+      final payload = {
         'movimentacao_id': movimentacaoId,
         'tanque_id': tanqueId,
         'produto_id': produtoId,
-        'cacl_id': caclId, // ✅ vínculo com o CACL que gerou a sobra/perda
+        'cacl_id': caclId,
         'data_mov': _obterTimestampBrasilia(),
         'cliente': null,
         'entrada_amb': 0,
@@ -1273,11 +1302,21 @@ class _CalcPageState extends State<CalcPage> {
         'saida_amb': 0,
         'saida_vinte': isSobra ? 0 : quantidade,
         'descricao': descricao,
-      });
-    } catch (_) {
-      // Silencioso
+      };
+
+      print('🟡 [SOBRA/PERDA] Payload insert movimentacoes_tanque: $payload');
+
+      final resp = await supabase.from('movimentacoes_tanque').insert(payload).select('id').single();
+
+      print('🟢 [SOBRA/PERDA] Insert realizado com sucesso! ID: ${resp['id']}');
+
+    } catch (e, s) {
+      print('🔴 [SOBRA/PERDA] ERRO ao inserir movimentação de sobra/perda');
+      print('🔴 [SOBRA/PERDA] Exception: $e');
+      print('🔴 [SOBRA/PERDA] Stacktrace: $s');
     }
   }
+
 
 
 

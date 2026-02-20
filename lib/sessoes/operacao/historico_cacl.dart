@@ -939,234 +939,268 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                                       ),
                                                     ],
                                                   ),
-                                                  child: Padding(
-                                                    padding: const EdgeInsets.all(12),
-                                                    child: Row(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment.start,
-                                                      children: [
-                                                        Container(
-                                                          width: 4,
-                                                          height: 60,
-                                                          decoration: BoxDecoration(
-                                                            color: statusColor,
-                                                            borderRadius:
-                                                                BorderRadius.circular(2),
-                                                          ),
-                                                        ),
-                                                        const SizedBox(width: 12),
-                                                        Expanded(
-                                                          child: Column(
-                                                            crossAxisAlignment:
-                                                                CrossAxisAlignment.start,
-                                                            children: [
-                                                              Row(
-                                                                children: [
-                                                                  const Icon(
-                                                                    Icons.storage,
-                                                                    size: 16,
-                                                                    color:
-                                                                        Colors.black54,
-                                                                  ),
-                                                                  const SizedBox(width: 6),
-                                                                  Text(
-                                                                    'Tanque $tanqueRef',
-                                                                    style: TextStyle(
-                                                                      fontSize: 16,
-                                                                      fontWeight:
-                                                                          FontWeight.bold,
-                                                                      color: isCancelado
-                                                                          ? Colors.grey
-                                                                          : Colors.black87,
-                                                                    ),
-                                                                  ),
-                                                                ],
+                                                  child: Stack(
+                                                    children: [
+                                                      Padding(
+                                                        padding: const EdgeInsets.all(12),
+                                                        child: Row(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment.start,
+                                                          children: [
+                                                            Container(
+                                                              width: 4,
+                                                              height: 60,
+                                                              decoration: BoxDecoration(
+                                                                color: statusColor,
+                                                                borderRadius:
+                                                                    BorderRadius.circular(2),
                                                               ),
-                                                              const SizedBox(height: 4),
-                                                              Row(
+                                                            ),
+                                                            const SizedBox(width: 12),
+                                                            Expanded(
+                                                              child: Column(
+                                                                crossAxisAlignment:
+                                                                    CrossAxisAlignment.start,
                                                                 children: [
-                                                                  Icon(
-                                                                    Icons
-                                                                        .local_gas_station,
-                                                                    size: 14,
-                                                                    color: isCancelado
-                                                                        ? Colors.grey
-                                                                        : Colors.black54,
-                                                                  ),
-                                                                  const SizedBox(width: 6),
-                                                                  Expanded(
-                                                                    child: Text(
-                                                                      produto,
-                                                                      style: TextStyle(
-                                                                        fontSize: 14,
-                                                                        color: isCancelado
-                                                                            ? Colors.grey
-                                                                            : Colors.black87,
+                                                                  Row(
+                                                                    children: [
+                                                                      const Icon(
+                                                                        Icons.storage,
+                                                                        size: 16,
+                                                                        color:
+                                                                            Colors.black54,
                                                                       ),
-                                                                      maxLines: 1,
-                                                                      overflow:
-                                                                          TextOverflow
-                                                                              .ellipsis,
-                                                                    ),
+                                                                      const SizedBox(width: 6),
+                                                                      Text(
+                                                                        'Tanque $tanqueRef',
+                                                                        style: TextStyle(
+                                                                          fontSize: 16,
+                                                                          fontWeight:
+                                                                              FontWeight.bold,
+                                                                          color: isCancelado
+                                                                              ? Colors.grey
+                                                                              : Colors.black87,
+                                                                        ),
+                                                                      ),
+                                                                    ],
                                                                   ),
-                                                                ],
-                                                              ),
-                                                              const SizedBox(height: 4),
-                                                              Row(
-                                                                children: [
-                                                                  Icon(
-                                                                    Icons.calendar_today,
-                                                                    size: 14,
-                                                                    color: isCancelado
-                                                                        ? Colors.grey
-                                                                        : Colors.black54,
-                                                                  ),
-                                                                  const SizedBox(width: 6),
-                                                                  Text(
-                                                                    data,
-                                                                    style: TextStyle(
-                                                                      fontSize: 13,
-                                                                      color: isCancelado
-                                                                          ? Colors.grey
-                                                                          : Colors.black54,
-                                                                    ),
-                                                                  ),
-                                                                  const SizedBox(width: 16),
-                                                                  Icon(
-                                                                    Icons.access_time,
-                                                                    size: 14,
-                                                                    color: isCancelado
-                                                                        ? Colors.grey
-                                                                        : Colors.black54,
-                                                                  ),
-                                                                  const SizedBox(width: 6),
-                                                                  Expanded(
-                                                                    child: Text(
-                                                                      horario,
-                                                                      style: TextStyle(
-                                                                        fontSize: 13,
+                                                                  const SizedBox(height: 4),
+                                                                  Row(
+                                                                    children: [
+                                                                      Icon(
+                                                                        Icons
+                                                                            .local_gas_station,
+                                                                        size: 14,
                                                                         color: isCancelado
                                                                             ? Colors.grey
                                                                             : Colors.black54,
                                                                       ),
-                                                                      maxLines: 1,
-                                                                      overflow:
-                                                                          TextOverflow
-                                                                              .ellipsis,
-                                                                    ),
+                                                                      const SizedBox(width: 6),
+                                                                      Expanded(
+                                                                        child: Text(
+                                                                          produto,
+                                                                          style: TextStyle(
+                                                                            fontSize: 14,
+                                                                            color: isCancelado
+                                                                                ? Colors.grey
+                                                                                : Colors.black87,
+                                                                          ),
+                                                                          maxLines: 1,
+                                                                          overflow:
+                                                                              TextOverflow
+                                                                                  .ellipsis,
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                  const SizedBox(height: 4),
+                                                                  Row(
+                                                                    children: [
+                                                                      Icon(
+                                                                        Icons.calendar_today,
+                                                                        size: 14,
+                                                                        color: isCancelado
+                                                                            ? Colors.grey
+                                                                            : Colors.black54,
+                                                                      ),
+                                                                      const SizedBox(width: 6),
+                                                                      Text(
+                                                                        data,
+                                                                        style: TextStyle(
+                                                                          fontSize: 13,
+                                                                          color: isCancelado
+                                                                              ? Colors.grey
+                                                                              : Colors.black54,
+                                                                        ),
+                                                                      ),
+                                                                      const SizedBox(width: 16),
+                                                                      Icon(
+                                                                        Icons.access_time,
+                                                                        size: 14,
+                                                                        color: isCancelado
+                                                                            ? Colors.grey
+                                                                            : Colors.black54,
+                                                                      ),
+                                                                      const SizedBox(width: 6),
+                                                                      Expanded(
+                                                                        child: Text(
+                                                                          horario,
+                                                                          style: TextStyle(
+                                                                            fontSize: 13,
+                                                                            color: isCancelado
+                                                                                ? Colors.grey
+                                                                                : Colors.black54,
+                                                                          ),
+                                                                          maxLines: 1,
+                                                                          overflow:
+                                                                              TextOverflow
+                                                                                  .ellipsis,
+                                                                        ),
+                                                                      ),
+                                                                    ],
                                                                   ),
                                                                 ],
+                                                              ),
+                                                            ),
+                                                            Column(
+                                                              crossAxisAlignment:
+                                                                  CrossAxisAlignment.end,
+                                                              children: [
+                                                                Container(
+                                                                  padding: const EdgeInsets
+                                                                      .symmetric(
+                                                                    horizontal: 8,
+                                                                    vertical: 4,
+                                                                  ),
+                                                                  decoration: BoxDecoration(
+                                                                    color: statusColor
+                                                                        .withOpacity(0.15),
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                            6),
+                                                                  ),
+                                                                  child: Text(
+                                                                    statusText,
+                                                                    style: TextStyle(
+                                                                      fontSize: 11,
+                                                                      fontWeight:
+                                                                          FontWeight.w600,
+                                                                      color: statusColor,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                                const SizedBox(height: 8),
+                                                                if (!isCancelado &&
+                                                                    (_nivelUsuario == 1 ||
+                                                                        _nivelUsuario == 2))
+                                                                  ElevatedButton(
+                                                                    onPressed: () {
+                                                                      if (solicitaCanc ==
+                                                                          true) {
+                                                                        ScaffoldMessenger.of(
+                                                                                context)
+                                                                            .showSnackBar(
+                                                                          const SnackBar(
+                                                                            content: Text(
+                                                                                'Cancelamento já solicitado. Aguarde a análise do supervisor.'),
+                                                                            backgroundColor:
+                                                                                Colors.orange,
+                                                                            duration: Duration(
+                                                                                seconds: 3),
+                                                                          ),
+                                                                        );
+                                                                      } else {
+                                                                        _showDialogSolicitarCancelamento(
+                                                                            cacl);
+                                                                      }
+                                                                    },
+                                                                    style: ElevatedButton
+                                                                        .styleFrom(
+                                                                      backgroundColor:
+                                                                          solicitaCanc == true
+                                                                              ? Colors.red
+                                                                                  .shade50
+                                                                              : Colors.orange
+                                                                                  .shade50,
+                                                                      foregroundColor:
+                                                                          solicitaCanc == true
+                                                                              ? Colors.red
+                                                                                  .shade800
+                                                                              : Colors.orange
+                                                                                  .shade800,
+                                                                      padding:
+                                                                          const EdgeInsets
+                                                                              .symmetric(
+                                                                        horizontal: 8,
+                                                                        vertical: 4,
+                                                                      ),
+                                                                      minimumSize:
+                                                                          const Size(0, 0),
+                                                                      shape:
+                                                                          RoundedRectangleBorder(
+                                                                        borderRadius:
+                                                                            BorderRadius
+                                                                                .circular(6),
+                                                                        side: BorderSide(
+                                                                          color: solicitaCanc ==
+                                                                                  true
+                                                                              ? Colors.red
+                                                                                  .shade300
+                                                                              : Colors.orange
+                                                                                  .shade300,
+                                                                        ),
+                                                                      ),
+                                                                      elevation: 0,
+                                                                    ),
+                                                                    child: Text(
+                                                                      solicitaCanc == true
+                                                                          ? 'Cancelamento\nsolicitado'
+                                                                          : 'Solicitar\ncancelamento',
+                                                                      textAlign:
+                                                                          TextAlign.center,
+                                                                      style: const TextStyle(
+                                                                        fontSize: 10,
+                                                                        fontWeight:
+                                                                            FontWeight.w600,
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                              ],
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                        if (_nivelUsuario == 3 &&
+                                                          (status?.toLowerCase() == 'emitido' ||
+                                                            status?.toLowerCase() == 'pendente'))
+                                                        Positioned(
+                                                          right: 4,
+                                                          bottom: 2,
+                                                          child: PopupMenuButton<String>(
+                                                            padding: EdgeInsets.zero,
+                                                            iconSize: 14,
+                                                            tooltip: 'Ações do CACL',
+                                                            icon: Icon(
+                                                              Icons.settings,
+                                                              size: 14,
+                                                              color: Colors.grey.shade700,
+                                                            ),
+                                                            onSelected: (value) async {
+                                                              if (value == 'cancelar') {
+                                                                await _cancelarCaclNivel3(
+                                                                  cacl['id'].toString(),
+                                                                );
+                                                              }
+                                                            },
+                                                            itemBuilder: (context) => const [
+                                                              PopupMenuItem<String>(
+                                                                value: 'cancelar',
+                                                                child: Text('Cancelar CACL'),
                                                               ),
                                                             ],
                                                           ),
                                                         ),
-                                                        Column(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment.end,
-                                                          children: [
-                                                            Container(
-                                                              padding: const EdgeInsets
-                                                                  .symmetric(
-                                                                horizontal: 8,
-                                                                vertical: 4,
-                                                              ),
-                                                              decoration: BoxDecoration(
-                                                                color: statusColor
-                                                                    .withOpacity(0.15),
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                        6),
-                                                              ),
-                                                              child: Text(
-                                                                statusText,
-                                                                style: TextStyle(
-                                                                  fontSize: 11,
-                                                                  fontWeight:
-                                                                      FontWeight.w600,
-                                                                  color: statusColor,
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            const SizedBox(height: 8),
-                                                            if (!isCancelado &&
-                                                                (_nivelUsuario == 1 ||
-                                                                    _nivelUsuario == 2))
-                                                              ElevatedButton(
-                                                                onPressed: () {
-                                                                  if (solicitaCanc ==
-                                                                      true) {
-                                                                    ScaffoldMessenger.of(
-                                                                            context)
-                                                                        .showSnackBar(
-                                                                      const SnackBar(
-                                                                        content: Text(
-                                                                            'Cancelamento já solicitado. Aguarde a análise do supervisor.'),
-                                                                        backgroundColor:
-                                                                            Colors.orange,
-                                                                        duration: Duration(
-                                                                            seconds: 3),
-                                                                      ),
-                                                                    );
-                                                                  } else {
-                                                                    _showDialogSolicitarCancelamento(
-                                                                        cacl);
-                                                                  }
-                                                                },
-                                                                style: ElevatedButton
-                                                                    .styleFrom(
-                                                                  backgroundColor:
-                                                                      solicitaCanc == true
-                                                                          ? Colors.red
-                                                                              .shade50
-                                                                          : Colors.orange
-                                                                              .shade50,
-                                                                  foregroundColor:
-                                                                      solicitaCanc == true
-                                                                          ? Colors.red
-                                                                              .shade800
-                                                                          : Colors.orange
-                                                                              .shade800,
-                                                                  padding:
-                                                                      const EdgeInsets
-                                                                          .symmetric(
-                                                                    horizontal: 8,
-                                                                    vertical: 4,
-                                                                  ),
-                                                                  minimumSize:
-                                                                      const Size(0, 0),
-                                                                  shape:
-                                                                      RoundedRectangleBorder(
-                                                                    borderRadius:
-                                                                        BorderRadius
-                                                                            .circular(6),
-                                                                    side: BorderSide(
-                                                                      color: solicitaCanc ==
-                                                                              true
-                                                                          ? Colors.red
-                                                                              .shade300
-                                                                          : Colors.orange
-                                                                              .shade300,
-                                                                    ),
-                                                                  ),
-                                                                  elevation: 0,
-                                                                ),
-                                                                child: Text(
-                                                                  solicitaCanc == true
-                                                                      ? 'Cancelamento\nsolicitado'
-                                                                      : 'Solicitar\ncancelamento',
-                                                                  textAlign:
-                                                                      TextAlign.center,
-                                                                  style: const TextStyle(
-                                                                    fontSize: 10,
-                                                                    fontWeight:
-                                                                        FontWeight.w600,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                          ],
-                                                        ),
-                                                      ],
-                                                    ),
+                                                    ],
                                                   ),
                                                 ),
                                               ),
@@ -1226,6 +1260,43 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
           ),
         );
       }
+    }
+  }
+
+  Future<void> _cancelarCaclNivel3(String caclId) async {
+    try {
+      final supabase = Supabase.instance.client;
+
+      await supabase.from('cacl').delete().eq('id', caclId);
+
+      if (!mounted) return;
+
+      setState(() {
+        cacles.removeWhere((c) => c['id']?.toString() == caclId);
+        totalRegistros = totalRegistros > 0 ? totalRegistros - 1 : 0;
+        totalPaginas = (totalRegistros / limitePorPagina).ceil();
+        if (totalPaginas == 0) totalPaginas = 1;
+        if (paginaAtual > totalPaginas) paginaAtual = totalPaginas;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('CACL cancelado e removido com sucesso.'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      await _aplicarFiltros(resetarPagina: false);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao cancelar CACL: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
 

@@ -44,6 +44,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
 
   num? _valorSobraPerda;
   bool? _ehSobra; // true = sobra (entrada), false = perda (saída)
+  bool _temSaldoDiarioHoje = false;
   bool _baixandoExcel = false;
 
   late DateTime _dataFiltro;
@@ -152,6 +153,27 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     }
   }
 
+  Future<void> _verificarSaldoDiarioHoje() async {
+    try {
+      final hoje = DateTime.now();
+      final hojeStr = hoje.toIso8601String().split('T')[0];
+      final inicioHoje = '$hojeStr 00:00:00';
+      final fimHoje = '$hojeStr 23:59:59';
+
+      final response = await _supabase
+          .from('saldo_tanque_diario')
+          .select('id')
+          .eq('tanque_id', widget.tanqueId)
+          .gte('data_mov', inicioHoje)
+          .lte('data_mov', fimHoje)
+          .maybeSingle();
+
+      _temSaldoDiarioHoje = response != null;
+    } catch (e) {
+      _temSaldoDiarioHoje = false;
+    }
+  }
+
   Future<void> _carregar() async {
     setState(() {
       _carregando = true;
@@ -161,6 +183,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     try {
       await _carregarEstoqueInicialDoDiario();
       await _verificarCACLExistente();
+      await _verificarSaldoDiarioHoje();
       
       final dataStr = _dataFiltro.toIso8601String().split('T')[0];
 
@@ -223,12 +246,12 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         'vinte': _movsOrdenadas.isEmpty ? null : _movsOrdenadas.last['saldo_vinte'],
       };
 
-      // Extrair sobra/perda do movimento mais recente
-      if (dados.isNotEmpty) {
+      // Extrair sobra/perda somente se houver saldo_tanque_diario com data de hoje
+      if (_temSaldoDiarioHoje && dados.isNotEmpty) {
         final ultimoReg = dados.last; // Mais recente por data_mov
         final entradaVinte = (ultimoReg['entrada_vinte'] ?? 0) as num;
         final saidaVinte = (ultimoReg['saida_vinte'] ?? 0) as num;
-        
+
         if (entradaVinte > 0) {
           _valorSobraPerda = entradaVinte;
           _ehSobra = true;
