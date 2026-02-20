@@ -226,18 +226,12 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       _tanqueEditando = tanque;
       _referenciaController.text = tanque['referencia'];
       
-      // Formata a capacidade existente para o novo padrão
+      // Formata a capacidade igual ao campo Lastro
       final capacidade = tanque['capacidade'];
       if (capacidade != null && capacidade.isNotEmpty) {
-        final valorNumerico = int.tryParse(capacidade.replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
-        if (valorNumerico >= 1000) {
-          final parteMilhar = (valorNumerico ~/ 1000).toString();
-          _capacidadeController.text = '${parteMilhar}.000';
-        } else {
-          _capacidadeController.text = '1.000'; // Valor mínimo
-        }
+        _capacidadeController.text = _formatarMilhar(capacidade);
       } else {
-        _capacidadeController.text = '1.000'; // Valor padrão
+        _capacidadeController.clear();
       }
       
       _produtoSelecionado = tanque['id_produto']?.toString();
@@ -522,41 +516,16 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
 
   // Função para aplicar máscara no campo capacidade
   void _aplicarMascaraCapacidade(String valor) {
-    // Se o texto já está formatado corretamente, não faz nada
-    if (valor.endsWith('.000') && valor.length > 4) {
-      return;
-    }
-
-    // Remove todos os caracteres não numéricos
-    String digitsOnly = valor.replaceAll(RegExp(r'[^\d]'), '');
-    
-    // Se estiver vazio, define como 1.000
+    final digitsOnly = valor.replaceAll(RegExp(r'[^\d]'), '');
     if (digitsOnly.isEmpty) {
-      _capacidadeController.text = '1.000';
-      _capacidadeController.selection = TextSelection.fromPosition(
-        TextPosition(offset: 1),
-      );
+      _capacidadeController.clear();
       return;
     }
-    
-    // Remove zeros à esquerda, mas garante pelo menos 1
-    int valorNumerico = int.parse(digitsOnly);
-    if (valorNumerico < 1) {
-      valorNumerico = 1;
-    }
-    
-    // Formata como X.000
-    final parteMilhar = valorNumerico.toString();
-    final novoTexto = '${parteMilhar}.000';
-    
-    // Só atualiza se for diferente do texto atual
+    final novoTexto = _formatarMilhar(digitsOnly);
     if (_capacidadeController.text != novoTexto) {
       _capacidadeController.text = novoTexto;
-      
-      // Posiciona o cursor antes do ponto
-      final cursorPosition = parteMilhar.length;
       _capacidadeController.selection = TextSelection.fromPosition(
-        TextPosition(offset: cursorPosition),
+        TextPosition(offset: novoTexto.length),
       );
     }
   }

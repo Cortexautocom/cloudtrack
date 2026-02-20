@@ -57,6 +57,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     'Gestão de Projetos',
     'Recursos Humanos',
     'Almoxerifado',
+    'Manutenção e ativos',
+    'Segurança & Compliance',
     'Relatórios',
     'Configurações',
     'Ajuda'
@@ -146,6 +148,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     'Gestão de Projetos': const Color(0xFFFF5722), // Laranja profundo
     'Recursos Humanos': const Color(0xFFE91E63), // Rosa
     'Almoxerifado': const Color(0xFF9E9E9E), // Cinza
+    'Manutenção e ativos': const Color(0xFF455A64), // Cinza azulado
+    'Segurança & Compliance': const Color(0xFFD32F2F), // Vermelho escuro
     'Relatórios': const Color(0xFF795548), // Marrom
     'Configurações': const Color(0xFF607D8B), // Azul cinza
     'Ajuda': const Color(0xFF673AB7), // Roxo profundo
@@ -999,6 +1003,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       case 'Gestão de Projetos':
       case 'Recursos Humanos':
       case 'Almoxerifado':
+      case 'Manutenção e ativos':
+      case 'Segurança & Compliance':
         return _buildAreaIndisponivelPage();
 
       case 'Estoques':
@@ -1031,7 +1037,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             ),
             const SizedBox(height: 30), // Aumente este espaçamento
             const Text(
-              'Ainda indisponível para sua organização',
+              'Seu plano não contempla este módulo.',
               style: TextStyle(
                 fontSize: 24,
                 color: Colors.grey,
@@ -2336,6 +2342,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         return Icons.people;
       case 'Almoxerifado':
         return Icons.inventory_2;
+      case 'Manutenção e ativos':
+        return Icons.build;
+      case 'Segurança & Compliance':
+        return Icons.security;
       case 'Relatórios':
         return Icons.bar_chart;
       case 'Configurações':
@@ -2533,6 +2543,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       'Recursos Humanos': 'Recursos\nHumanos',
       'Gestão de Projetos': 'Gestão de\nProjetos',
       'Bombeios e Cotas': 'Bombeios\ne Cotas',
+      'Manutenção e ativos': 'Manutenção\ne ativos',
+      'Segurança & Compliance': 'Segurança &\nCompliance',
       'Configurações': 'Configurações', // Mantém igual (opcional)
     };
     
