@@ -94,14 +94,14 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     _hBody.dispose();
     super.dispose();
   }
-  
+
   Future<void> _carregarEstoqueInicialDoDiario() async {
     try {
       final dataAnterior = _dataFiltro.subtract(const Duration(days: 1));
       final dataAnteriorStr = dataAnterior.toIso8601String().split('T')[0];
       final inicioDoDiaAnterior = '$dataAnteriorStr 00:00:00';
       final fimDoDiaAnterior = '$dataAnteriorStr 23:59:59';
-      
+
       final response = await _supabase
           .from('saldo_tanque_diario')
           .select('saldo')
@@ -128,7 +128,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       final dataStr = _dataFiltro.toIso8601String().split('T')[0];
       final inicioDoDia = '$dataStr 00:00:00';
       final fimDoDia = '$dataStr 23:59:59';
-      
+
       final response = await _supabase
           .from('saldo_tanque_diario')
           .select('saldo')
@@ -184,7 +184,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       await _carregarEstoqueInicialDoDiario();
       await _verificarCACLExistente();
       await _verificarSaldoDiarioHoje();
-      
+
       final dataStr = _dataFiltro.toIso8601String().split('T')[0];
 
       // Consulta com as 4 colunas da tabela movimentacoes_tanque
@@ -243,7 +243,9 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
 
       _estoqueFinal = {
         'amb': _movsOrdenadas.isEmpty ? null : _movsOrdenadas.last['saldo_amb'],
-        'vinte': _movsOrdenadas.isEmpty ? null : _movsOrdenadas.last['saldo_vinte'],
+        'vinte': _movsOrdenadas.isEmpty
+            ? null
+            : _movsOrdenadas.last['saldo_vinte'],
       };
 
       // Extrair sobra/perda somente se houver saldo_tanque_diario com data de hoje
@@ -344,6 +346,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           onVoltar: () => Navigator.pop(context),
           filialSelecionadaId: widget.filialId,
           tanqueSelecionadoId: widget.tanqueId,
+          dataReferencia: _dataFiltro,
           caclBloqueadoComoVerificacao: true,
           estoqueFinalCalculado20: estoqueFinalCalculado20,
           movimentacaoIdReferencia: movimentacaoIdReferencia,
@@ -371,7 +374,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     });
 
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-    
+
     try {
       scaffoldMessenger.showSnackBar(
         const SnackBar(
@@ -397,52 +400,55 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       debugPrint('Enviando para Edge Function: $requestData');
 
       final response = await _chamarEdgeFunctionBinaria(requestData);
-      
+
       if (response.statusCode != 200) {
         final errorBody = response.body;
-        throw Exception('Erro ${response.statusCode}: ${errorBody.isNotEmpty ? errorBody : "Falha na Edge Function"}');
+        throw Exception(
+          'Erro ${response.statusCode}: ${errorBody.isNotEmpty ? errorBody : "Falha na Edge Function"}',
+        );
       }
 
       final bytes = response.bodyBytes;
-      
+
       if (bytes.isEmpty) {
         throw Exception('Arquivo vazio recebido da Edge Function');
       }
 
       debugPrint('Arquivo XLSX recebido: ${bytes.length} bytes');
 
-      final blob = html.Blob(
-        [bytes], 
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      );
+      final blob = html.Blob([
+        bytes,
+      ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       final url = html.Url.createObjectUrlFromBlob(blob);
-      
+
       final nomeFilialFormatado = widget.nomeFilial
           .replaceAll(' ', '_')
           .replaceAll(RegExp(r'[^\w_]'), '');
-      
+
       final dia = _dataFiltro.day.toString().padLeft(2, '0');
       final mes = _dataFiltro.month.toString().padLeft(2, '0');
       final ano = _dataFiltro.year.toString();
-      final fileName = 'estoque_tanque_${widget.referenciaTanque}_${nomeFilialFormatado}_${dia}_${mes}_${ano}.xlsx';
-      
+      final fileName =
+          'estoque_tanque_${widget.referenciaTanque}_${nomeFilialFormatado}_${dia}_${mes}_${ano}.xlsx';
+
       html.AnchorElement(href: url)
         ..setAttribute('download', fileName)
         ..click();
-      
+
       html.Url.revokeObjectUrl(url);
 
       scaffoldMessenger.showSnackBar(
         const SnackBar(
-          content: Text('Download do Excel iniciado! Verifique sua pasta de downloads.'),
+          content: Text(
+            'Download do Excel iniciado! Verifique sua pasta de downloads.',
+          ),
           backgroundColor: Colors.green,
           duration: Duration(seconds: 4),
         ),
       );
-
     } catch (e) {
       debugPrint('Erro detalhado ao baixar relatório: $e');
-      
+
       scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text('Erro: ${e.toString()}'),
@@ -459,10 +465,12 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     }
   }
 
-  Future<http.Response> _chamarEdgeFunctionBinaria(Map<String, dynamic> requestData) async {
+  Future<http.Response> _chamarEdgeFunctionBinaria(
+    Map<String, dynamic> requestData,
+  ) async {
     try {
       const supabaseUrl = 'https://ikaxzlpaihdkqyjqrxyw.supabase.co';
-      
+
       final session = Supabase.instance.client.auth.currentSession;
 
       if (session == null || session.accessToken.isEmpty) {
@@ -474,7 +482,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         session.accessToken,
         requestData,
       );
-      
     } catch (e) {
       debugPrint('Erro detalhado ao chamar Edge Function: $e');
       rethrow;
@@ -482,29 +489,30 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   }
 
   Future<http.Response> _fazerRequisicao(
-    String supabaseUrl, 
-    String accessToken, 
-    Map<String, dynamic> requestData
+    String supabaseUrl,
+    String accessToken,
+    Map<String, dynamic> requestData,
   ) async {
     final functionUrl = '$supabaseUrl/functions/v1/down_excel_estoque_tanque';
-    
+
     debugPrint('URL: $functionUrl');
     debugPrint('Token (início): ${accessToken.substring(0, 20)}...');
     debugPrint('Dados: ${jsonEncode(requestData)}');
-    
+
     final response = await http.post(
       Uri.parse(functionUrl),
       headers: {
         'Authorization': 'Bearer $accessToken',
         'Content-Type': 'application/json',
-        'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Accept':
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       },
       body: jsonEncode(requestData),
     );
-    
+
     debugPrint('Status Code: ${response.statusCode}');
     debugPrint('Tamanho resposta: ${response.bodyBytes.length} bytes');
-    
+
     return response;
   }
 
@@ -542,7 +550,10 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             Text('Estoque do Tanque – ${widget.referenciaTanque}'),
             Text(
               '${widget.nomeFilial} | ${_fmtData(_dataFiltro.toIso8601String())}',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.normal,
+              ),
             ),
           ],
         ),
@@ -565,7 +576,9 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
                     height: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0D47A1)),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Color(0xFF0D47A1),
+                      ),
                     ),
                   ),
                 )
@@ -578,10 +591,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             icon: const Icon(Icons.sort),
             onPressed: () => _onSort('data_mov'),
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _carregar,
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _carregar),
         ],
       ),
       body: Padding(
@@ -589,16 +599,17 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         child: _carregando
             ? const Center(child: CircularProgressIndicator())
             : _erro
-                ? Center(child: Text(_mensagemErro))
-                : _buildConteudo(),
+            ? Center(child: Text(_mensagemErro))
+            : _buildConteudo(),
       ),
     );
   }
 
   // Widget do seletor de data (copiado da ProgramacaoPage)
   Widget _buildCampoDataFiltro() {
-    final String textoData = '${_dataFiltro.day.toString().padLeft(2, '0')}/${_dataFiltro.month.toString().padLeft(2, '0')}/${_dataFiltro.year}';
-    
+    final String textoData =
+        '${_dataFiltro.day.toString().padLeft(2, '0')}/${_dataFiltro.month.toString().padLeft(2, '0')}/${_dataFiltro.year}';
+
     return InkWell(
       onTap: () async {
         final dataSelecionada = await showDatePicker(
@@ -623,7 +634,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             );
           },
         );
-        
+
         if (dataSelecionada != null) {
           setState(() {
             _dataFiltro = DateTime(
@@ -679,7 +690,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   Widget _buildBlocoResumo() {
     final estoqueFinalCalculado = _estoqueFinal['vinte'] ?? 0;
     final estoqueCACL = _estoqueCACL['vinte'];
-    
+
     return Container(
       width: _wTable,
       padding: const EdgeInsets.all(16),
@@ -694,10 +705,17 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildCampoResumo('Estoque final calculado (20ºC):', estoqueFinalCalculado),
-          
+          _buildCampoResumo(
+            'Estoque final calculado (20ºC):',
+            estoqueFinalCalculado,
+          ),
+
           if (_possuiCACL && estoqueCACL != null)
-            _buildCampoResumo('Saldo do CACL (20ºC):', estoqueCACL, cor: const Color(0xFF2E7D32))
+            _buildCampoResumo(
+              'Saldo do CACL (20ºC):',
+              estoqueCACL,
+              cor: const Color(0xFF2E7D32),
+            )
           else
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -732,11 +750,11 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
                 ),
               ),
             ),
-          
+
           if (_valorSobraPerda != null && _ehSobra != null)
             _buildCampoResumo(
-              _ehSobra! ? 'Sobra (20ºC):' : 'Perda (20ºC):', 
-              _valorSobraPerda!, 
+              _ehSobra! ? 'Sobra (20ºC):' : 'Perda (20ºC):',
+              _valorSobraPerda!,
               cor: _ehSobra! ? const Color(0xFF0D47A1) : Colors.red,
               negrito: true,
             )
@@ -747,7 +765,12 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     );
   }
 
-  Widget _buildCampoResumo(String label, num valor, {Color? cor, bool negrito = false}) {
+  Widget _buildCampoResumo(
+    String label,
+    num valor, {
+    Color? cor,
+    bool negrito = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -784,13 +807,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: Colors.grey.shade300),
           ),
-          child: Column(
-            children: [
-              _cabecalho(),
-              _corpo(),
-              _rodape(),
-            ],
-          ),
+          child: Column(children: [_cabecalho(), _corpo(), _rodape()]),
         ),
       ),
     );
@@ -832,7 +849,14 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       child: Container(
         width: w,
         alignment: Alignment.center,
-        child: Text(t, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+        child: Text(
+          t,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }
@@ -880,8 +904,16 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
                     _cell(_fmtNum(e['entrada_vinte']), _wNum, bg: _bgEntrada()),
                     _cell(_fmtNum(e['saida_amb']), _wNum, bg: _bgSaida()),
                     _cell(_fmtNum(e['saida_vinte']), _wNum, bg: _bgSaida()),
-                    _cell(_fmtNum(e['saldo_amb']), _wNum, cor: (e['saldo_amb'] ?? 0) < 0 ? Colors.red : null),
-                    _cell(_fmtNum(e['saldo_vinte']), _wNum, cor: (e['saldo_vinte'] ?? 0) < 0 ? Colors.red : null),
+                    _cell(
+                      _fmtNum(e['saldo_amb']),
+                      _wNum,
+                      cor: (e['saldo_amb'] ?? 0) < 0 ? Colors.red : null,
+                    ),
+                    _cell(
+                      _fmtNum(e['saldo_vinte']),
+                      _wNum,
+                      cor: (e['saldo_vinte'] ?? 0) < 0 ? Colors.red : null,
+                    ),
                   ],
                 ),
               );
@@ -918,7 +950,11 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       color: bg,
       child: Text(
         t.isEmpty ? '-' : t,
-        style: TextStyle(fontSize: 12, color: cor ?? Colors.grey.shade700, fontWeight: fw),
+        style: TextStyle(
+          fontSize: 12,
+          color: cor ?? Colors.grey.shade700,
+          fontWeight: fw,
+        ),
       ),
     );
   }
@@ -931,7 +967,11 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       color: Colors.grey.shade100,
       child: Text(
         '${_movsOrdenadas.length} movimentação(ões)',
-        style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+        style: TextStyle(
+          fontSize: 12,
+          color: Colors.grey.shade600,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }

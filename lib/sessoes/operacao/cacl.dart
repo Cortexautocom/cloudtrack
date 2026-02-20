@@ -9,11 +9,7 @@ import 'dart:js' as js;
 import '../../login_page.dart';
 
 // ✅ ETAPA 1 — Criar enum de modo do CACL
-enum CaclModo {
-  emissao,
-  visualizacao,
-  edicao,
-}
+enum CaclModo { emissao, visualizacao, edicao }
 
 class CalcPage extends StatefulWidget {
   final Map<String, dynamic> dadosFormulario;
@@ -142,37 +138,62 @@ class _CalcPageState extends State<CalcPage> {
 
   DateTime _obterDataParaEstoque() {
     final dataRaw = widget.dadosFormulario['data']?.toString().trim() ?? '';
-    if (dataRaw.isEmpty) return DateTime.now();
+    final hoje = DateTime.now();
+    if (dataRaw.isEmpty) return DateTime(hoje.year, hoje.month, hoje.day);
 
     try {
       if (dataRaw.contains('/')) {
         final partes = dataRaw.split('/');
         if (partes.length == 3) {
-          final dia = int.tryParse(partes[0]) ?? DateTime.now().day;
-          final mes = int.tryParse(partes[1]) ?? DateTime.now().month;
-          final ano = int.tryParse(partes[2]) ?? DateTime.now().year;
+          final dia = int.tryParse(partes[0]) ?? hoje.day;
+          final mes = int.tryParse(partes[1]) ?? hoje.month;
+          final ano = int.tryParse(partes[2]) ?? hoje.year;
           return DateTime(ano, mes, dia);
         }
       }
 
       if (dataRaw.contains('-')) {
-        return DateTime.parse(dataRaw);
+        final parsed = DateTime.parse(dataRaw);
+        return DateTime(parsed.year, parsed.month, parsed.day);
       }
     } catch (_) {}
 
-    return DateTime.now();
+    return DateTime(hoje.year, hoje.month, hoje.day);
+  }
+
+  String _obterTimestampBrasiliaComDataReferencia() {
+    final agoraUtc = DateTime.now().toUtc();
+    final horaBrasilia = agoraUtc.subtract(const Duration(hours: 3));
+    final dataReferencia = _obterDataParaEstoque();
+
+    final combinado = DateTime.utc(
+      dataReferencia.year,
+      dataReferencia.month,
+      dataReferencia.day,
+      horaBrasilia.hour,
+      horaBrasilia.minute,
+      horaBrasilia.second,
+      horaBrasilia.millisecond,
+      horaBrasilia.microsecond,
+    );
+
+    return combinado.toIso8601String();
   }
 
   Future<void> _irParaEstoqueTanqueAposEmissao() async {
     final tanqueId = _obterTanqueId();
     final filialId = widget.dadosFormulario['filial_id']?.toString();
 
-    if (tanqueId == null || tanqueId.isEmpty || filialId == null || filialId.isEmpty) {
+    if (tanqueId == null ||
+        tanqueId.isEmpty ||
+        filialId == null ||
+        filialId.isEmpty) {
       _navigatorState?.pop({'status': 'cacl_emitido'});
       return;
     }
 
-    String referenciaTanque = widget.dadosFormulario['tanque']?.toString() ?? 'Tanque';
+    String referenciaTanque =
+        widget.dadosFormulario['tanque']?.toString() ?? 'Tanque';
     String nomeFilial = widget.dadosFormulario['base']?.toString() ?? 'Filial';
 
     try {
@@ -216,22 +237,25 @@ class _CalcPageState extends State<CalcPage> {
     );
   }
 
-
   Future<void> _carregarDadosParaVisualizacao() async {
     try {
       final supabase = Supabase.instance.client;
       final medicoes = widget.dadosFormulario['medicoes'] ?? {};
 
       if (medicoes.isNotEmpty && medicoes.containsKey('volumeProdutoInicial')) {
-        volumeInicial =
-            _extrairNumero(medicoes['volumeProdutoInicial']?.toString());
-        volumeFinal =
-            _extrairNumero(medicoes['volumeProdutoFinal']?.toString());
+        volumeInicial = _extrairNumero(
+          medicoes['volumeProdutoInicial']?.toString(),
+        );
+        volumeFinal = _extrairNumero(
+          medicoes['volumeProdutoFinal']?.toString(),
+        );
 
-        volumeTotalLiquidoInicial =
-            _extrairNumero(medicoes['volumeTotalLiquidoInicial']?.toString());
-        volumeTotalLiquidoFinal =
-            _extrairNumero(medicoes['volumeTotalLiquidoFinal']?.toString());
+        volumeTotalLiquidoInicial = _extrairNumero(
+          medicoes['volumeTotalLiquidoInicial']?.toString(),
+        );
+        volumeTotalLiquidoFinal = _extrairNumero(
+          medicoes['volumeTotalLiquidoFinal']?.toString(),
+        );
 
         setState(() {
           _caclJaEmitido = true;
@@ -257,35 +281,35 @@ class _CalcPageState extends State<CalcPage> {
                   .maybeSingle();
 
               if (tanqueInfo != null && tanqueInfo['referencia'] != null) {
-                widget.dadosFormulario['tanque'] =
-                    tanqueInfo['referencia']?.toString();
+                widget.dadosFormulario['tanque'] = tanqueInfo['referencia']
+                    ?.toString();
               } else {
-                widget.dadosFormulario['tanque'] =
-                    resultado['produto']?.toString();
+                widget.dadosFormulario['tanque'] = resultado['produto']
+                    ?.toString();
               }
             } else {
-              widget.dadosFormulario['tanque'] =
-                  resultado['produto']?.toString();
+              widget.dadosFormulario['tanque'] = resultado['produto']
+                  ?.toString();
             }
 
-            widget.dadosFormulario['tanque_id'] =
-                resultado['tanque_id']?.toString();
+            widget.dadosFormulario['tanque_id'] = resultado['tanque_id']
+                ?.toString();
 
             if (resultado['data'] != null) {
-              widget.dadosFormulario['data'] =
-                  _formatarDataDisplay(resultado['data']);
+              widget.dadosFormulario['data'] = _formatarDataDisplay(
+                resultado['data'],
+              );
             }
             if (resultado['base'] != null) {
-              widget.dadosFormulario['base'] =
-                  resultado['base']?.toString();
+              widget.dadosFormulario['base'] = resultado['base']?.toString();
             }
             if (resultado['produto'] != null) {
-              widget.dadosFormulario['produto'] =
-                  resultado['produto']?.toString();
+              widget.dadosFormulario['produto'] = resultado['produto']
+                  ?.toString();
             }
             if (resultado['filial_id'] != null) {
-              widget.dadosFormulario['filial_id'] =
-                  resultado['filial_id']?.toString();
+              widget.dadosFormulario['filial_id'] = resultado['filial_id']
+                  ?.toString();
             }
             if (resultado['tipo'] != null) {
               final tipo = resultado['tipo']?.toString();
@@ -296,14 +320,12 @@ class _CalcPageState extends State<CalcPage> {
             }
 
             if (resultado['numero_controle'] != null) {
-              _numeroControle =
-                  resultado['numero_controle']?.toString();
+              _numeroControle = resultado['numero_controle']?.toString();
             }
 
             volumeInicial =
                 resultado['volume_produto_inicial']?.toDouble() ?? 0.0;
-            volumeFinal =
-                resultado['volume_produto_final']?.toDouble() ?? 0.0;
+            volumeFinal = resultado['volume_produto_final']?.toDouble() ?? 0.0;
             volumeTotalLiquidoInicial =
                 resultado['volume_total_liquido_inicial']?.toDouble() ?? 0.0;
             volumeTotalLiquidoFinal =
@@ -312,8 +334,9 @@ class _CalcPageState extends State<CalcPage> {
             final medicoesAtualizadas = <String, dynamic>{};
 
             if (resultado['horario_inicial'] != null) {
-              medicoesAtualizadas['horarioInicial'] =
-                  _formatarHorarioDisplay(resultado['horario_inicial']);
+              medicoesAtualizadas['horarioInicial'] = _formatarHorarioDisplay(
+                resultado['horario_inicial'],
+              );
             }
             if (resultado['altura_total_cm_inicial'] != null) {
               medicoesAtualizadas['cmInicial'] =
@@ -352,13 +375,14 @@ class _CalcPageState extends State<CalcPage> {
                   resultado['fator_correcao_inicial']?.toString();
             }
             if (resultado['massa_inicial'] != null) {
-              medicoesAtualizadas['massaInicial'] =
-                  resultado['massa_inicial']?.toString();
+              medicoesAtualizadas['massaInicial'] = resultado['massa_inicial']
+                  ?.toString();
             }
 
             if (resultado['horario_final'] != null) {
-              medicoesAtualizadas['horarioFinal'] =
-                  _formatarHorarioDisplay(resultado['horario_final']);
+              medicoesAtualizadas['horarioFinal'] = _formatarHorarioDisplay(
+                resultado['horario_final'],
+              );
             }
             if (resultado['altura_total_cm_final'] != null) {
               medicoesAtualizadas['cmFinal'] =
@@ -397,44 +421,46 @@ class _CalcPageState extends State<CalcPage> {
                   resultado['fator_correcao_final']?.toString();
             }
             if (resultado['massa_final'] != null) {
-              medicoesAtualizadas['massaFinal'] =
-                  resultado['massa_final']?.toString();
+              medicoesAtualizadas['massaFinal'] = resultado['massa_final']
+                  ?.toString();
             }
 
-            medicoesAtualizadas['volumeProdutoInicial'] =
-                _formatarVolumeLitros(volumeInicial);
-            medicoesAtualizadas['volumeProdutoFinal'] =
-                _formatarVolumeLitros(volumeFinal);
+            medicoesAtualizadas['volumeProdutoInicial'] = _formatarVolumeLitros(
+              volumeInicial,
+            );
+            medicoesAtualizadas['volumeProdutoFinal'] = _formatarVolumeLitros(
+              volumeFinal,
+            );
             medicoesAtualizadas['volumeTotalLiquidoInicial'] =
                 _formatarVolumeLitros(volumeTotalLiquidoInicial);
             medicoesAtualizadas['volumeTotalLiquidoFinal'] =
                 _formatarVolumeLitros(volumeTotalLiquidoFinal);
 
             if (resultado['volume_agua_inicial'] != null) {
-              medicoesAtualizadas['volumeAguaInicial'] =
-                  _formatarVolumeLitros(
-                      resultado['volume_agua_inicial']?.toDouble() ?? 0.0);
+              medicoesAtualizadas['volumeAguaInicial'] = _formatarVolumeLitros(
+                resultado['volume_agua_inicial']?.toDouble() ?? 0.0,
+              );
             }
             if (resultado['volume_agua_final'] != null) {
-              medicoesAtualizadas['volumeAguaFinal'] =
-                  _formatarVolumeLitros(
-                      resultado['volume_agua_final']?.toDouble() ?? 0.0);
+              medicoesAtualizadas['volumeAguaFinal'] = _formatarVolumeLitros(
+                resultado['volume_agua_final']?.toDouble() ?? 0.0,
+              );
             }
 
             if (resultado['volume_20_inicial'] != null) {
-              medicoesAtualizadas['volume20Inicial'] =
-                  _formatarVolumeLitros(
-                      resultado['volume_20_inicial']?.toDouble() ?? 0.0);
+              medicoesAtualizadas['volume20Inicial'] = _formatarVolumeLitros(
+                resultado['volume_20_inicial']?.toDouble() ?? 0.0,
+              );
             }
             if (resultado['volume_20_final'] != null) {
-              medicoesAtualizadas['volume20Final'] =
-                  _formatarVolumeLitros(
-                      resultado['volume_20_final']?.toDouble() ?? 0.0);
+              medicoesAtualizadas['volume20Final'] = _formatarVolumeLitros(
+                resultado['volume_20_final']?.toDouble() ?? 0.0,
+              );
             }
 
             if (resultado['faturado_final'] != null) {
-              medicoesAtualizadas['faturadoFinal'] =
-                  resultado['faturado_final']?.toString();
+              medicoesAtualizadas['faturadoFinal'] = resultado['faturado_final']
+                  ?.toString();
             }
 
             widget.dadosFormulario['medicoes'] = medicoesAtualizadas;
@@ -449,10 +475,8 @@ class _CalcPageState extends State<CalcPage> {
 
       final dadosDoBanco = widget.dadosFormulario;
 
-      volumeInicial =
-          dadosDoBanco['volume_produto_inicial']?.toDouble() ?? 0.0;
-      volumeFinal =
-          dadosDoBanco['volume_produto_final']?.toDouble() ?? 0.0;
+      volumeInicial = dadosDoBanco['volume_produto_inicial']?.toDouble() ?? 0.0;
+      volumeFinal = dadosDoBanco['volume_produto_final']?.toDouble() ?? 0.0;
       volumeTotalLiquidoInicial =
           dadosDoBanco['volume_total_liquido_inicial']?.toDouble() ?? 0.0;
       volumeTotalLiquidoFinal =
@@ -464,10 +488,12 @@ class _CalcPageState extends State<CalcPage> {
         ...medicoes,
         'volumeProdutoInicial': _formatarVolumeLitros(volumeInicial),
         'volumeProdutoFinal': _formatarVolumeLitros(volumeFinal),
-        'volumeTotalLiquidoInicial':
-            _formatarVolumeLitros(volumeTotalLiquidoInicial),
-        'volumeTotalLiquidoFinal':
-            _formatarVolumeLitros(volumeTotalLiquidoFinal),
+        'volumeTotalLiquidoInicial': _formatarVolumeLitros(
+          volumeTotalLiquidoInicial,
+        ),
+        'volumeTotalLiquidoFinal': _formatarVolumeLitros(
+          volumeTotalLiquidoFinal,
+        ),
       };
 
       widget.dadosFormulario['medicoes'] = medicoesAtualizadas;
@@ -489,7 +515,7 @@ class _CalcPageState extends State<CalcPage> {
   // ✅ FUNÇÃO AUXILIAR: Formatar horário para exibição
   String _formatarHorarioDisplay(String? timeString) {
     if (timeString == null || timeString.isEmpty) return '-';
-    
+
     try {
       if (timeString.contains('T')) {
         final dt = DateTime.parse(timeString);
@@ -505,14 +531,14 @@ class _CalcPageState extends State<CalcPage> {
     } catch (e) {
       return timeString;
     }
-    
+
     return timeString;
   }
 
   // ✅ FUNÇÃO AUXILIAR: Formatar data para exibição
   String _formatarDataDisplay(String? dataSql) {
     if (dataSql == null || dataSql.isEmpty) return '';
-    
+
     try {
       // Formato SQL: "YYYY-MM-DD"
       final partes = dataSql.split('-');
@@ -525,13 +551,13 @@ class _CalcPageState extends State<CalcPage> {
     } catch (e) {
       return dataSql;
     }
-    
+
     return dataSql;
-  }  
+  }
 
   Future<void> _calcularVolumesIniciais() async {
     final medicoes = widget.dadosFormulario['medicoes'];
-    
+
     final alturaAguaInicial = medicoes['alturaAguaInicial'];
     final alturaAguaFinal = medicoes['alturaAguaFinal'];
 
@@ -541,14 +567,16 @@ class _CalcPageState extends State<CalcPage> {
     final alturaTotalMmFinal = medicoes['mmFinal']?.toString() ?? '';
 
     Map<String, String?> extrairCmMm(String? alturaFormatada) {
-      if (alturaFormatada == null || alturaFormatada.isEmpty || alturaFormatada == '-') {
+      if (alturaFormatada == null ||
+          alturaFormatada.isEmpty ||
+          alturaFormatada == '-') {
         return {'cm': null, 'mm': null};
       }
-      
+
       try {
         final semUnidade = alturaFormatada.replaceAll(' cm', '').trim();
         final partes = semUnidade.split(',');
-        
+
         if (partes.length == 2) {
           return {'cm': partes[0], 'mm': partes[1]};
         } else if (partes.length == 1) {
@@ -560,25 +588,37 @@ class _CalcPageState extends State<CalcPage> {
         return {'cm': null, 'mm': null};
       }
     }
-    
+
     final aguaCmMmInicial = extrairCmMm(alturaAguaInicial);
     final aguaCmMmFinal = extrairCmMm(alturaAguaFinal);
 
     final Map<String, String?> totalCmMmInicial = {
       'cm': alturaTotalCmInicial.isEmpty ? null : alturaTotalCmInicial,
-      'mm': alturaTotalMmInicial.isEmpty ? null : alturaTotalMmInicial
-    };
-    
-    final Map<String, String?> totalCmMmFinal = {
-      'cm': alturaTotalCmFinal.isEmpty ? null : alturaTotalCmFinal,
-      'mm': alturaTotalMmFinal.isEmpty ? null : alturaTotalMmFinal
+      'mm': alturaTotalMmInicial.isEmpty ? null : alturaTotalMmInicial,
     };
 
-    final volumeTotalLiquidoInicial = await _buscarVolumeReal(totalCmMmInicial['cm'], totalCmMmInicial['mm']);
-    final volumeTotalLiquidoFinal = await _buscarVolumeReal(totalCmMmFinal['cm'], totalCmMmFinal['mm']);
-    
-    final volAguaInicial = await _buscarVolumeReal(aguaCmMmInicial['cm'], aguaCmMmInicial['mm']);
-    final volAguaFinal = await _buscarVolumeReal(aguaCmMmFinal['cm'], aguaCmMmFinal['mm']);
+    final Map<String, String?> totalCmMmFinal = {
+      'cm': alturaTotalCmFinal.isEmpty ? null : alturaTotalCmFinal,
+      'mm': alturaTotalMmFinal.isEmpty ? null : alturaTotalMmFinal,
+    };
+
+    final volumeTotalLiquidoInicial = await _buscarVolumeReal(
+      totalCmMmInicial['cm'],
+      totalCmMmInicial['mm'],
+    );
+    final volumeTotalLiquidoFinal = await _buscarVolumeReal(
+      totalCmMmFinal['cm'],
+      totalCmMmFinal['mm'],
+    );
+
+    final volAguaInicial = await _buscarVolumeReal(
+      aguaCmMmInicial['cm'],
+      aguaCmMmInicial['mm'],
+    );
+    final volAguaFinal = await _buscarVolumeReal(
+      aguaCmMmFinal['cm'],
+      aguaCmMmFinal['mm'],
+    );
 
     final volProdutoInicial = volumeTotalLiquidoInicial - volAguaInicial;
     final volProdutoFinal = volumeTotalLiquidoFinal - volAguaFinal;
@@ -593,58 +633,69 @@ class _CalcPageState extends State<CalcPage> {
       this.volumeTotalLiquidoFinal = volumeTotalLiquidoFinal;
     });
 
-    final volumeProdutoInicialFormatado = _formatarVolumeLitros(volProdutoInicial);
+    final volumeProdutoInicialFormatado = _formatarVolumeLitros(
+      volProdutoInicial,
+    );
     final volumeProdutoFinalFormatado = _formatarVolumeLitros(volProdutoFinal);
     final volumeAguaInicialFormatado = _formatarVolumeLitros(volAguaInicial);
     final volumeAguaFinalFormatado = _formatarVolumeLitros(volAguaFinal);
-    final volumeTotalInicialFormatado = _formatarVolumeLitros(volumeTotalInicial);
+    final volumeTotalInicialFormatado = _formatarVolumeLitros(
+      volumeTotalInicial,
+    );
     final volumeTotalFinalFormatado = _formatarVolumeLitros(volumeTotalFinal);
 
-    widget.dadosFormulario['medicoes']['volumeProdutoInicial'] = volumeProdutoInicialFormatado;
-    widget.dadosFormulario['medicoes']['volumeProdutoFinal'] = volumeProdutoFinalFormatado;
-    widget.dadosFormulario['medicoes']['volumeAguaInicial'] = volumeAguaInicialFormatado;
-    widget.dadosFormulario['medicoes']['volumeAguaFinal'] = volumeAguaFinalFormatado;
-    widget.dadosFormulario['medicoes']['volumeTotalLiquidoInicial'] = _formatarVolumeLitros(volumeTotalLiquidoInicial);
-    widget.dadosFormulario['medicoes']['volumeTotalLiquidoFinal'] = _formatarVolumeLitros(volumeTotalLiquidoFinal);
-    
-    widget.dadosFormulario['medicoes']['volumeTotalInicial'] = volumeTotalInicialFormatado;
-    widget.dadosFormulario['medicoes']['volumeTotalFinal'] = volumeTotalFinalFormatado;
+    widget.dadosFormulario['medicoes']['volumeProdutoInicial'] =
+        volumeProdutoInicialFormatado;
+    widget.dadosFormulario['medicoes']['volumeProdutoFinal'] =
+        volumeProdutoFinalFormatado;
+    widget.dadosFormulario['medicoes']['volumeAguaInicial'] =
+        volumeAguaInicialFormatado;
+    widget.dadosFormulario['medicoes']['volumeAguaFinal'] =
+        volumeAguaFinalFormatado;
+    widget.dadosFormulario['medicoes']['volumeTotalLiquidoInicial'] =
+        _formatarVolumeLitros(volumeTotalLiquidoInicial);
+    widget.dadosFormulario['medicoes']['volumeTotalLiquidoFinal'] =
+        _formatarVolumeLitros(volumeTotalLiquidoFinal);
+
+    widget.dadosFormulario['medicoes']['volumeTotalInicial'] =
+        volumeTotalInicialFormatado;
+    widget.dadosFormulario['medicoes']['volumeTotalFinal'] =
+        volumeTotalFinalFormatado;
 
     final produtoNome = widget.dadosFormulario['produto']?.toString() ?? '';
-      
-    if (medicoes['tempAmostraInicial'] != null && 
+
+    if (medicoes['tempAmostraInicial'] != null &&
         medicoes['tempAmostraInicial'].toString().isNotEmpty &&
         medicoes['tempAmostraInicial'].toString() != '-' &&
         medicoes['densidadeInicial'] != null &&
         medicoes['densidadeInicial'].toString().isNotEmpty &&
         medicoes['densidadeInicial'].toString() != '-' &&
         produtoNome.isNotEmpty) {
-      
       final densidade20Inicial = await _buscarDensidade20C(
         temperaturaAmostra: medicoes['tempAmostraInicial'].toString(),
         densidadeObservada: medicoes['densidadeInicial'].toString(),
         produtoNome: produtoNome,
       );
-      
-      widget.dadosFormulario['medicoes']['densidade20Inicial'] = densidade20Inicial;
+
+      widget.dadosFormulario['medicoes']['densidade20Inicial'] =
+          densidade20Inicial;
     } else {
       widget.dadosFormulario['medicoes']['densidade20Inicial'] = '-';
     }
 
-    if (medicoes['tempAmostraFinal'] != null && 
+    if (medicoes['tempAmostraFinal'] != null &&
         medicoes['tempAmostraFinal'].toString().isNotEmpty &&
         medicoes['tempAmostraFinal'].toString() != '-' &&
         medicoes['densidadeFinal'] != null &&
         medicoes['densidadeFinal'].toString().isNotEmpty &&
         medicoes['densidadeFinal'].toString() != '-' &&
         produtoNome.isNotEmpty) {
-      
       final densidade20Final = await _buscarDensidade20C(
         temperaturaAmostra: medicoes['tempAmostraFinal'].toString(),
         densidadeObservada: medicoes['densidadeFinal'].toString(),
         produtoNome: produtoNome,
       );
-      
+
       widget.dadosFormulario['medicoes']['densidade20Final'] = densidade20Final;
     } else {
       widget.dadosFormulario['medicoes']['densidade20Final'] = '-';
@@ -654,15 +705,18 @@ class _CalcPageState extends State<CalcPage> {
         medicoes['tempTanqueInicial'].toString().isNotEmpty &&
         medicoes['tempTanqueInicial'].toString() != '-' &&
         widget.dadosFormulario['medicoes']['densidade20Inicial'] != null &&
-        widget.dadosFormulario['medicoes']['densidade20Inicial'].toString().isNotEmpty &&
-        widget.dadosFormulario['medicoes']['densidade20Inicial'].toString() != '-') {
-      
+        widget.dadosFormulario['medicoes']['densidade20Inicial']
+            .toString()
+            .isNotEmpty &&
+        widget.dadosFormulario['medicoes']['densidade20Inicial'].toString() !=
+            '-') {
       final fcvInicial = await _buscarFCV(
         temperaturaTanque: medicoes['tempTanqueInicial'].toString(),
-        densidade20C: widget.dadosFormulario['medicoes']['densidade20Inicial'].toString(),
+        densidade20C: widget.dadosFormulario['medicoes']['densidade20Inicial']
+            .toString(),
         produtoNome: produtoNome,
       );
-      
+
       widget.dadosFormulario['medicoes']['fatorCorrecaoInicial'] = fcvInicial;
     } else {
       widget.dadosFormulario['medicoes']['fatorCorrecaoInicial'] = '-';
@@ -672,30 +726,39 @@ class _CalcPageState extends State<CalcPage> {
         medicoes['tempTanqueFinal'].toString().isNotEmpty &&
         medicoes['tempTanqueFinal'].toString() != '-' &&
         widget.dadosFormulario['medicoes']['densidade20Final'] != null &&
-        widget.dadosFormulario['medicoes']['densidade20Final'].toString().isNotEmpty &&
-        widget.dadosFormulario['medicoes']['densidade20Final'].toString() != '-') {
-      
+        widget.dadosFormulario['medicoes']['densidade20Final']
+            .toString()
+            .isNotEmpty &&
+        widget.dadosFormulario['medicoes']['densidade20Final'].toString() !=
+            '-') {
       final fcvFinal = await _buscarFCV(
         temperaturaTanque: medicoes['tempTanqueFinal'].toString(),
-        densidade20C: widget.dadosFormulario['medicoes']['densidade20Final'].toString(),
+        densidade20C: widget.dadosFormulario['medicoes']['densidade20Final']
+            .toString(),
         produtoNome: produtoNome,
       );
-      
+
       widget.dadosFormulario['medicoes']['fatorCorrecaoFinal'] = fcvFinal;
     } else {
       widget.dadosFormulario['medicoes']['fatorCorrecaoFinal'] = '-';
     }
 
     if (widget.dadosFormulario['medicoes']['fatorCorrecaoInicial'] != null &&
-        widget.dadosFormulario['medicoes']['fatorCorrecaoInicial'].toString().isNotEmpty &&
-        widget.dadosFormulario['medicoes']['fatorCorrecaoInicial'].toString() != '-') {
-      
+        widget.dadosFormulario['medicoes']['fatorCorrecaoInicial']
+            .toString()
+            .isNotEmpty &&
+        widget.dadosFormulario['medicoes']['fatorCorrecaoInicial'].toString() !=
+            '-') {
       try {
-        final fcvInicialStr = widget.dadosFormulario['medicoes']['fatorCorrecaoInicial'].toString();
-        final fcvInicial = double.tryParse(fcvInicialStr.replaceAll(',', '.')) ?? 1.0;
+        final fcvInicialStr = widget
+            .dadosFormulario['medicoes']['fatorCorrecaoInicial']
+            .toString();
+        final fcvInicial =
+            double.tryParse(fcvInicialStr.replaceAll(',', '.')) ?? 1.0;
         final volume20Inicial = volProdutoInicial * fcvInicial;
-        
-        widget.dadosFormulario['medicoes']['volume20Inicial'] = _formatarVolumeLitros(volume20Inicial);
+
+        widget.dadosFormulario['medicoes']['volume20Inicial'] =
+            _formatarVolumeLitros(volume20Inicial);
       } catch (e) {
         widget.dadosFormulario['medicoes']['volume20Inicial'] = '-';
       }
@@ -704,15 +767,21 @@ class _CalcPageState extends State<CalcPage> {
     }
 
     if (widget.dadosFormulario['medicoes']['fatorCorrecaoFinal'] != null &&
-        widget.dadosFormulario['medicoes']['fatorCorrecaoFinal'].toString().isNotEmpty &&
-        widget.dadosFormulario['medicoes']['fatorCorrecaoFinal'].toString() != '-') {
-      
+        widget.dadosFormulario['medicoes']['fatorCorrecaoFinal']
+            .toString()
+            .isNotEmpty &&
+        widget.dadosFormulario['medicoes']['fatorCorrecaoFinal'].toString() !=
+            '-') {
       try {
-        final fcvFinalStr = widget.dadosFormulario['medicoes']['fatorCorrecaoFinal'].toString();
-        final fcvFinal = double.tryParse(fcvFinalStr.replaceAll(',', '.')) ?? 1.0;
+        final fcvFinalStr = widget
+            .dadosFormulario['medicoes']['fatorCorrecaoFinal']
+            .toString();
+        final fcvFinal =
+            double.tryParse(fcvFinalStr.replaceAll(',', '.')) ?? 1.0;
         final volume20Final = volProdutoFinal * fcvFinal;
-        
-        widget.dadosFormulario['medicoes']['volume20Final'] = _formatarVolumeLitros(volume20Final);
+
+        widget.dadosFormulario['medicoes']['volume20Final'] =
+            _formatarVolumeLitros(volume20Final);
       } catch (e) {
         widget.dadosFormulario['medicoes']['volume20Final'] = '-';
       }
@@ -738,7 +807,8 @@ class _CalcPageState extends State<CalcPage> {
     final String? filialId = widget.dadosFormulario['filial_id']?.toString();
 
     // ✅ REGRA: se for Janaúba, usa arqueacao_janauba
-    final String nomeTabela = (filialId == 'bcc92c8e-bd40-4d26-acb0-87acdd2ce2b7')
+    final String nomeTabela =
+        (filialId == 'bcc92c8e-bd40-4d26-acb0-87acdd2ce2b7')
         ? 'arqueacao_janauba'
         : 'arqueacao_jequie';
 
@@ -791,32 +861,31 @@ class _CalcPageState extends State<CalcPage> {
     }
   }
 
-
   double _converterVolumeLitros(dynamic valor) {
     try {
       if (valor == null) return 0.0;
-      
+
       String str = valor.toString().trim();
       str = str.replaceAll(',', '.');
-      
+
       if (str.contains('.')) {
         final partes = str.split('.');
-        
+
         if (partes.length == 2) {
           String parteInteira = partes[0];
           String parteDecimal = partes[1];
-          
+
           if (parteDecimal.length < 3) {
             parteDecimal = parteDecimal.padRight(3, '0');
           }
-          
-          final numeroCompleto = double.tryParse('$parteInteira.$parteDecimal') ?? 0.0;
+
+          final numeroCompleto =
+              double.tryParse('$parteInteira.$parteDecimal') ?? 0.0;
           return numeroCompleto * 1000;
         }
       }
-      
+
       return double.tryParse(str) ?? 0.0;
-      
     } catch (e) {
       return 0.0;
     }
@@ -847,8 +916,10 @@ class _CalcPageState extends State<CalcPage> {
       }
 
       String? tipoCACL;
-      final bool caclVerificacao = widget.dadosFormulario['cacl_verificacao'] ?? false;
-      final bool caclMovimentacao = widget.dadosFormulario['cacl_movimentacao'] ?? false;
+      final bool caclVerificacao =
+          widget.dadosFormulario['cacl_verificacao'] ?? false;
+      final bool caclMovimentacao =
+          widget.dadosFormulario['cacl_movimentacao'] ?? false;
 
       if (caclVerificacao) {
         tipoCACL = 'verificacao';
@@ -856,11 +927,9 @@ class _CalcPageState extends State<CalcPage> {
         tipoCACL = 'movimentacao';
       }
 
-      String? dataFormatada;
       final dataOriginal = widget.dadosFormulario['data']?.toString() ?? '';
-      if (dataOriginal.isNotEmpty) {
-        dataFormatada = _formatarDataParaSQL(dataOriginal);
-      }
+      final dataFormatada = _formatarDataParaSQL(dataOriginal);
+      final timestampReferencia = _obterTimestampBrasiliaComDataReferencia();
 
       final tanqueIdParaSalvar = _obterTanqueId();
 
@@ -873,30 +942,42 @@ class _CalcPageState extends State<CalcPage> {
         'status': 'emitido',
         'tipo': tipoCACL,
 
-        'horario_inicial': _formatarHorarioParaTime(medicoes['horarioInicial']?.toString()),
-        'altura_total_liquido_inicial': medicoes['alturaTotalInicial']?.toString(),
+        'horario_inicial': _formatarHorarioParaTime(
+          medicoes['horarioInicial']?.toString(),
+        ),
+        'altura_total_liquido_inicial': medicoes['alturaTotalInicial']
+            ?.toString(),
         'altura_total_cm_inicial': medicoes['cmInicial']?.toString(),
         'altura_total_mm_inicial': medicoes['mmInicial']?.toString(),
         'volume_total_liquido_inicial': volumeTotalLiquidoInicial,
         'altura_agua_inicial': medicoes['alturaAguaInicial']?.toString(),
-        'volume_agua_inicial': _extrairNumeroFormatado(medicoes['volumeAguaInicial']?.toString()),
+        'volume_agua_inicial': _extrairNumeroFormatado(
+          medicoes['volumeAguaInicial']?.toString(),
+        ),
         'altura_produto_inicial': medicoes['alturaProdutoInicial']?.toString(),
         'volume_produto_inicial': volumeInicial,
         'temperatura_tanque_inicial': medicoes['tempTanqueInicial']?.toString(),
         'densidade_observada_inicial': medicoes['densidadeInicial']?.toString(),
-        'temperatura_amostra_inicial': medicoes['tempAmostraInicial']?.toString(),
+        'temperatura_amostra_inicial': medicoes['tempAmostraInicial']
+            ?.toString(),
         'densidade_20_inicial': medicoes['densidade20Inicial']?.toString(),
         'fator_correcao_inicial': medicoes['fatorCorrecaoInicial']?.toString(),
-        'volume_20_inicial': _extrairNumeroFormatado(medicoes['volume20Inicial']?.toString()),
+        'volume_20_inicial': _extrairNumeroFormatado(
+          medicoes['volume20Inicial']?.toString(),
+        ),
         'massa_inicial': medicoes['massaInicial']?.toString(),
 
-        'horario_final': _formatarHorarioParaTime(medicoes['horarioFinal']?.toString()),
+        'horario_final': _formatarHorarioParaTime(
+          medicoes['horarioFinal']?.toString(),
+        ),
         'altura_total_liquido_final': medicoes['alturaTotalFinal']?.toString(),
         'altura_total_cm_final': medicoes['cmFinal']?.toString(),
         'altura_total_mm_final': medicoes['mmFinal']?.toString(),
         'volume_total_liquido_final': volumeTotalLiquidoFinal,
         'altura_agua_final': medicoes['alturaAguaFinal']?.toString(),
-        'volume_agua_final': _extrairNumeroFormatado(medicoes['volumeAguaFinal']?.toString()),
+        'volume_agua_final': _extrairNumeroFormatado(
+          medicoes['volumeAguaFinal']?.toString(),
+        ),
         'altura_produto_final': medicoes['alturaProdutoFinal']?.toString(),
         'volume_produto_final': volumeFinal,
         'temperatura_tanque_final': medicoes['tempTanqueFinal']?.toString(),
@@ -904,31 +985,43 @@ class _CalcPageState extends State<CalcPage> {
         'temperatura_amostra_final': medicoes['tempAmostraFinal']?.toString(),
         'densidade_20_final': medicoes['densidade20Final']?.toString(),
         'fator_correcao_final': medicoes['fatorCorrecaoFinal']?.toString(),
-        'volume_20_final': _extrairNumeroFormatado(medicoes['volume20Final']?.toString()),
+        'volume_20_final': _extrairNumeroFormatado(
+          medicoes['volume20Final']?.toString(),
+        ),
         'massa_final': medicoes['massaFinal']?.toString(),
 
         'volume_ambiente_inicial': volumeInicial,
         'volume_ambiente_final': volumeFinal,
         'entrada_saida_ambiente': volumeFinal - volumeInicial,
-        'entrada_saida_20': (_extrairNumero(medicoes['volume20Final']?.toString()) -
+        'entrada_saida_20':
+            (_extrairNumero(medicoes['volume20Final']?.toString()) -
             _extrairNumero(medicoes['volume20Inicial']?.toString())),
 
-        'faturado_final': _converterParaDouble(medicoes['faturadoFinal']?.toString()),
-        'diferenca_faturado': (_extrairNumeroFormatado(medicoes['volume20Final']?.toString()) ?? 0) -
-            (_extrairNumeroFormatado(medicoes['volume20Inicial']?.toString()) ?? 0) -
+        'faturado_final': _converterParaDouble(
+          medicoes['faturadoFinal']?.toString(),
+        ),
+        'diferenca_faturado':
+            (_extrairNumeroFormatado(medicoes['volume20Final']?.toString()) ??
+                0) -
+            (_extrairNumeroFormatado(medicoes['volume20Inicial']?.toString()) ??
+                0) -
             (_converterParaDouble(medicoes['faturadoFinal']?.toString()) ?? 0),
 
-        'updated_at': DateTime.now().toIso8601String(),
+        'updated_at': timestampReferencia,
         'created_by': session.user.id,
       };
 
-      final entradaSaida20 = _extrairNumero(medicoes['volume20Final']?.toString()) -
+      final entradaSaida20 =
+          _extrairNumero(medicoes['volume20Final']?.toString()) -
           _extrairNumero(medicoes['volume20Inicial']?.toString());
-      final diferenca = entradaSaida20 - (_converterParaDouble(medicoes['faturadoFinal']?.toString()) ?? 0);
+      final diferenca =
+          entradaSaida20 -
+          (_converterParaDouble(medicoes['faturadoFinal']?.toString()) ?? 0);
 
       if (entradaSaida20 != 0) {
         final porcentagem = (diferenca / entradaSaida20) * 100;
-        dadosParaInserir['porcentagem_diferenca'] = '${porcentagem >= 0 ? '+' : ''}${porcentagem.toStringAsFixed(2)}%';
+        dadosParaInserir['porcentagem_diferenca'] =
+            '${porcentagem >= 0 ? '+' : ''}${porcentagem.toStringAsFixed(2)}%';
       } else {
         dadosParaInserir['porcentagem_diferenca'] = '0.00%';
       }
@@ -966,10 +1059,12 @@ class _CalcPageState extends State<CalcPage> {
               .select('numero_controle')
               .eq('id', idParaUpdate)
               .single();
-              
+
           if (resultadoAtualizado['numero_controle'] != null) {
             setState(() {
-              numeroControleGerado = _tratarNumeroControle(resultadoAtualizado['numero_controle']);
+              numeroControleGerado = _tratarNumeroControle(
+                resultadoAtualizado['numero_controle'],
+              );
               _numeroControle = numeroControleGerado;
             });
           }
@@ -987,7 +1082,7 @@ class _CalcPageState extends State<CalcPage> {
           }
         } catch (_) {
           dadosParaInserir['created_by'] = session.user.id;
-          
+
           final resultadoInserir = await supabase
               .from('cacl')
               .insert(dadosParaInserir)
@@ -996,7 +1091,9 @@ class _CalcPageState extends State<CalcPage> {
 
           if (resultadoInserir['numero_controle'] != null) {
             setState(() {
-              numeroControleGerado = _tratarNumeroControle(resultadoInserir['numero_controle']);
+              numeroControleGerado = _tratarNumeroControle(
+                resultadoInserir['numero_controle'],
+              );
               _numeroControle = numeroControleGerado;
             });
           }
@@ -1022,7 +1119,9 @@ class _CalcPageState extends State<CalcPage> {
 
         if (resultadoInserir['numero_controle'] != null) {
           setState(() {
-            numeroControleGerado = _tratarNumeroControle(resultadoInserir['numero_controle']);
+            numeroControleGerado = _tratarNumeroControle(
+              resultadoInserir['numero_controle'],
+            );
             _numeroControle = numeroControleGerado;
           });
         }
@@ -1040,11 +1139,10 @@ class _CalcPageState extends State<CalcPage> {
         }
       }
 
-      if (tipoCACL == 'movimentacao' && 
-          caclIdSalvo.isNotEmpty && 
+      if (tipoCACL == 'movimentacao' &&
+          caclIdSalvo.isNotEmpty &&
           numeroControleGerado != null &&
           numeroControleGerado!.isNotEmpty) {
-        
         try {
           await _salvarMovimentacaoCACL(
             caclId: caclIdSalvo,
@@ -1056,14 +1154,14 @@ class _CalcPageState extends State<CalcPage> {
 
       if (mounted) {
         setState(() {
-          _caclJaEmitido = _numeroControle != null && _numeroControle!.isNotEmpty;
+          _caclJaEmitido =
+              _numeroControle != null && _numeroControle!.isNotEmpty;
         });
       }
 
       if (!mounted) return;
       await _irParaEstoqueTanqueAposEmissao();
       return;
-
     } catch (e) {
       if (context.mounted) {
         _mostrarSnackBar(
@@ -1091,31 +1189,31 @@ class _CalcPageState extends State<CalcPage> {
     try {
       final supabase = Supabase.instance.client;
       final usuario = UsuarioAtual.instance;
-      
+
       if (usuario == null) {
         return;
       }
-      
+
       final tipoCACL = dadosCacl['tipo']?.toString();
       final filialId = dadosCacl['filial_id']?.toString();
       final tanqueId = dadosCacl['tanque_id']?.toString();
-      
+
       if (tipoCACL != 'movimentacao') {
         return;
       }
-      
+
       if (numeroControle == null || numeroControle.isEmpty) {
         return;
       }
-      
+
       if (filialId == null || filialId.isEmpty) {
         return;
       }
-      
+
       if (tanqueId == null || tanqueId.isEmpty) {
         return;
       }
-      
+
       String? produtoId;
       try {
         final tanqueData = await supabase
@@ -1123,14 +1221,14 @@ class _CalcPageState extends State<CalcPage> {
             .select('id_produto, referencia')
             .eq('id', tanqueId)
             .maybeSingle();
-        
+
         if (tanqueData != null) {
           produtoId = tanqueData['id_produto']?.toString();
         }
       } catch (e) {
         return;
       }
-      
+
       String dataMov = dadosCacl['data']?.toString() ?? '';
       String dataFormatada = '';
       if (dataMov.isNotEmpty && dataMov.contains('-')) {
@@ -1139,31 +1237,33 @@ class _CalcPageState extends State<CalcPage> {
           dataFormatada = '${partes[2]}/${partes[1]}/${partes[0]}';
         }
       }
-      
+
       final descricao = 'CACL $numeroControle, $dataFormatada';
-      
+
       final entradaSaidaAmbiente = dadosCacl['entrada_saida_ambiente'] ?? 0;
       final entradaSaida20 = dadosCacl['entrada_saida_20'] ?? 0;
-      
+
       final entradaAmbDouble = entradaSaidaAmbiente is num
           ? entradaSaidaAmbiente.toDouble()
           : double.tryParse(entradaSaidaAmbiente.toString()) ?? 0.0;
-      
+
       final entradaVinteDouble = entradaSaida20 is num
           ? entradaSaida20.toDouble()
           : double.tryParse(entradaSaida20.toString()) ?? 0.0;
-      
+
       final entradaAmbInt = entradaAmbDouble.round();
       final entradaVinteInt = entradaVinteDouble.round();
-      
+
       final entradaAmbPositiva = entradaAmbInt >= 0 ? entradaAmbInt : 0;
       final saidaAmbPositiva = entradaAmbInt < 0 ? entradaAmbInt.abs() : 0;
-      
+
       final entradaVintePositiva = entradaVinteInt >= 0 ? entradaVinteInt : 0;
-      final saidaVintePositiva = entradaVinteInt < 0 ? entradaVinteInt.abs() : 0;
-      
-      final timestampBrasilia = _obterTimestampBrasilia();
-      
+      final saidaVintePositiva = entradaVinteInt < 0
+          ? entradaVinteInt.abs()
+          : 0;
+
+      final timestampBrasilia = _obterTimestampBrasiliaComDataReferencia();
+
       final dadosMovimentacao = <String, dynamic>{
         'filial_id': filialId,
         'empresa_id': usuario.empresaId,
@@ -1186,13 +1286,12 @@ class _CalcPageState extends State<CalcPage> {
         'status_circuito_orig': 1,
         'status_circuito_dest': 1,
       };
-      
+
       await supabase
           .from('movimentacoes')
           .insert(dadosMovimentacao)
           .select('id')
           .single();
-      
     } catch (e) {
       // Silencioso
     }
@@ -1206,7 +1305,9 @@ class _CalcPageState extends State<CalcPage> {
 
     try {
       if (!_mostrarCampoSobraPerda) {
-        print('🔴 [SOBRA/PERDA] Campo de sobra/perda não habilitado (origem_estoque_tanque != true)');
+        print(
+          '🔴 [SOBRA/PERDA] Campo de sobra/perda não habilitado (origem_estoque_tanque != true)',
+        );
         return;
       }
 
@@ -1250,12 +1351,16 @@ class _CalcPageState extends State<CalcPage> {
           .eq('cacl_id', caclId)
           .maybeSingle();
 
-      print('🟡 [SOBRA/PERDA] movimentacao encontrada por cacl_id: $movExistente');
+      print(
+        '🟡 [SOBRA/PERDA] movimentacao encontrada por cacl_id: $movExistente',
+      );
 
       movimentacaoId = movExistente?['id']?.toString();
 
       if (movimentacaoId == null || movimentacaoId.isEmpty) {
-        final refId = widget.dadosFormulario['movimentacao_id_referencia']?.toString().trim();
+        final refId = widget.dadosFormulario['movimentacao_id_referencia']
+            ?.toString()
+            .trim();
         print('🟡 [SOBRA/PERDA] movimentacao_id_referencia: $refId');
         if (refId != null && refId.isNotEmpty) {
           movimentacaoId = refId;
@@ -1263,7 +1368,9 @@ class _CalcPageState extends State<CalcPage> {
       }
 
       if (movimentacaoId == null || movimentacaoId.isEmpty) {
-        print('🔴 [SOBRA/PERDA] movimentacaoId final não encontrado. Abortando insert.');
+        print(
+          '🔴 [SOBRA/PERDA] movimentacaoId final não encontrado. Abortando insert.',
+        );
         return;
       }
 
@@ -1295,7 +1402,7 @@ class _CalcPageState extends State<CalcPage> {
         'tanque_id': tanqueId,
         'produto_id': produtoId,
         'cacl_id': caclId,
-        'data_mov': _obterTimestampBrasilia(),
+        'data_mov': _obterTimestampBrasiliaComDataReferencia(),
         'cliente': null,
         'entrada_amb': 0,
         'entrada_vinte': isSobra ? quantidade : 0,
@@ -1306,10 +1413,13 @@ class _CalcPageState extends State<CalcPage> {
 
       print('🟡 [SOBRA/PERDA] Payload insert movimentacoes_tanque: $payload');
 
-      final resp = await supabase.from('movimentacoes_tanque').insert(payload).select('id').single();
+      final resp = await supabase
+          .from('movimentacoes_tanque')
+          .insert(payload)
+          .select('id')
+          .single();
 
       print('🟢 [SOBRA/PERDA] Insert realizado com sucesso! ID: ${resp['id']}');
-
     } catch (e, s) {
       print('🔴 [SOBRA/PERDA] ERRO ao inserir movimentação de sobra/perda');
       print('🔴 [SOBRA/PERDA] Exception: $e');
@@ -1317,35 +1427,26 @@ class _CalcPageState extends State<CalcPage> {
     }
   }
 
-
-
-
   String? _tratarNumeroControle(dynamic valor) {
     if (valor == null) return null;
-    
+
     final strValor = valor.toString().trim();
-    
-    if (strValor.isEmpty || 
-        strValor == 'null' || 
+
+    if (strValor.isEmpty ||
+        strValor == 'null' ||
         strValor.toLowerCase() == 'null') {
       return null;
     }
-    
+
     if (strValor.startsWith("'") && strValor.endsWith("'")) {
       return strValor.substring(1, strValor.length - 1);
     }
-    
+
     if (strValor == '0' || strValor == "'0'") {
       return null;
     }
-    
-    return strValor;
-  }
 
-  String _obterTimestampBrasilia() {
-    final agora = DateTime.now().toUtc();
-    final brasilia = agora.subtract(const Duration(hours: 3));
-    return brasilia.toIso8601String();
+    return strValor;
   }
 
   @override
@@ -1379,8 +1480,8 @@ class _CalcPageState extends State<CalcPage> {
                           children: [
                             Text(
                               widget.modo == CaclModo.emissao
-                                ? "CACL - PRÉ-VISUALIZAÇÃO"
-                                : widget.modo == CaclModo.edicao
+                                  ? "CACL - PRÉ-VISUALIZAÇÃO"
+                                  : widget.modo == CaclModo.edicao
                                   ? "CACL - EDIÇÃO"
                                   : "CACL - HISTÓRICO",
                               style: const TextStyle(
@@ -1389,14 +1490,14 @@ class _CalcPageState extends State<CalcPage> {
                                 color: Colors.black87,
                                 letterSpacing: 0.5,
                               ),
-                            ),                           
+                            ),
                           ],
                         ),
-                      ),                                            
+                      ),
                     ],
                   ),
 
-                  const SizedBox(height: 20),                  
+                  const SizedBox(height: 20),
 
                   // ✅ ATUALIZADO: DADOS PRINCIPAIS COM "Nº DE CONTROLE"
                   SizedBox(
@@ -1411,22 +1512,27 @@ class _CalcPageState extends State<CalcPage> {
                             children: [
                               _secaoTitulo("Nº DE CONTROLE:"),
                               _linhaValor(
-                                _numeroControle ?? 
-                                (widget.modo == CaclModo.emissao 
-                                  ? "A ser gerado..." 
-                                  : "C-XXXX")
+                                _numeroControle ??
+                                    (widget.modo == CaclModo.emissao
+                                        ? "A ser gerado..."
+                                        : "C-XXXX"),
                               ),
                             ],
                           ),
                         ),
                         const SizedBox(width: 10),
-                        
+
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _secaoTitulo("DATA:"),
-                              _linhaValor(_obterApenasData(widget.dadosFormulario['data']?.toString() ?? "")),
+                              _linhaValor(
+                                _obterApenasData(
+                                  widget.dadosFormulario['data']?.toString() ??
+                                      "",
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -1436,7 +1542,10 @@ class _CalcPageState extends State<CalcPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _secaoTitulo("BASE:"),
-                              _linhaValor(widget.dadosFormulario['base']?.toString() ?? "POLO DE COMBUSTÍVEL"),
+                              _linhaValor(
+                                widget.dadosFormulario['base']?.toString() ??
+                                    "POLO DE COMBUSTÍVEL",
+                              ),
                             ],
                           ),
                         ),
@@ -1446,7 +1555,10 @@ class _CalcPageState extends State<CalcPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _secaoTitulo("PRODUTO:"),
-                              _linhaValor(widget.dadosFormulario['produto']?.toString() ?? ""),
+                              _linhaValor(
+                                widget.dadosFormulario['produto']?.toString() ??
+                                    "",
+                              ),
                             ],
                           ),
                         ),
@@ -1467,48 +1579,78 @@ class _CalcPageState extends State<CalcPage> {
                   const SizedBox(height: 25),
 
                   // SEÇÃO DE MEDIÇÕES
-                  _subtitulo("VOLUME RECEBIDO NOS TANQUES DE TERRA E CANALIZAÇÃO RESPECTIVA"),
+                  _subtitulo(
+                    "VOLUME RECEBIDO NOS TANQUES DE TERRA E CANALIZAÇÃO RESPECTIVA",
+                  ),
                   const SizedBox(height: 12),
 
                   _tabelaMedicoes([
-                    _linhaMedicao("Altura total de líquido no tanque:", 
-                        _formatarAlturaTotal(medicoes['cmInicial'], medicoes['mmInicial']), 
-                        _formatarAlturaTotal(medicoes['cmFinal'], medicoes['mmFinal'])),
-                    _linhaMedicao("Volume total de líquido no tanque (temp. ambiente):", 
-                        _formatarVolumeLitros(volumeTotalLiquidoInicial), 
-                        _formatarVolumeLitros(volumeTotalLiquidoFinal)),
-                    _linhaMedicao("Altura da água aferida no tanque:", 
-                        _obterValorMedicao(medicoes['alturaAguaInicial']), 
-                        _obterValorMedicao(medicoes['alturaAguaFinal'])),
-                    _linhaMedicao("Volume correspondente à água:", 
-                        _obterValorMedicao(medicoes['volumeAguaInicial']), 
-                        _obterValorMedicao(medicoes['volumeAguaFinal'])),
-                    _linhaMedicao("Altura do produto aferido no tanque:", 
-                        _obterValorMedicao(medicoes['alturaProdutoInicial']), 
-                        _obterValorMedicao(medicoes['alturaProdutoFinal'])),
+                    _linhaMedicao(
+                      "Altura total de líquido no tanque:",
+                      _formatarAlturaTotal(
+                        medicoes['cmInicial'],
+                        medicoes['mmInicial'],
+                      ),
+                      _formatarAlturaTotal(
+                        medicoes['cmFinal'],
+                        medicoes['mmFinal'],
+                      ),
+                    ),
+                    _linhaMedicao(
+                      "Volume total de líquido no tanque (temp. ambiente):",
+                      _formatarVolumeLitros(volumeTotalLiquidoInicial),
+                      _formatarVolumeLitros(volumeTotalLiquidoFinal),
+                    ),
+                    _linhaMedicao(
+                      "Altura da água aferida no tanque:",
+                      _obterValorMedicao(medicoes['alturaAguaInicial']),
+                      _obterValorMedicao(medicoes['alturaAguaFinal']),
+                    ),
+                    _linhaMedicao(
+                      "Volume correspondente à água:",
+                      _obterValorMedicao(medicoes['volumeAguaInicial']),
+                      _obterValorMedicao(medicoes['volumeAguaFinal']),
+                    ),
+                    _linhaMedicao(
+                      "Altura do produto aferido no tanque:",
+                      _obterValorMedicao(medicoes['alturaProdutoInicial']),
+                      _obterValorMedicao(medicoes['alturaProdutoFinal']),
+                    ),
                     _linhaMedicao(
                       "Volume correspondente ao produto (temp. ambiente):",
                       _formatarVolumeLitros(volumeInicial),
                       _formatarVolumeLitros(volumeFinal),
                     ),
-                    _linhaMedicao("Temperatura do produto no tanque:", 
-                        _formatarTemperatura(medicoes['tempTanqueInicial']), 
-                        _formatarTemperatura(medicoes['tempTanqueFinal'])),
-                    _linhaMedicao("Densidade observada na amostra:", 
-                        _obterValorMedicao(medicoes['densidadeInicial']), 
-                        _obterValorMedicao(medicoes['densidadeFinal'])),
-                    _linhaMedicao("Temperatura da amostra:", 
-                        _formatarTemperatura(medicoes['tempAmostraInicial']), 
-                        _formatarTemperatura(medicoes['tempAmostraFinal'])),
-                    _linhaMedicao("Densidade da amostra, considerada à temperatura padrão (20 ºC):", 
-                        _obterValorMedicao(medicoes['densidade20Inicial']), 
-                        _obterValorMedicao(medicoes['densidade20Final'])),                    
-                    _linhaMedicao("Fator de correção de volume do produto (FCV):", 
-                        _obterValorMedicao(medicoes['fatorCorrecaoInicial']), 
-                        _obterValorMedicao(medicoes['fatorCorrecaoFinal'])),                    
-                    _linhaMedicao("Volume total do produto, considerada a temperatura padrão (20 ºC):", 
-                        _obterValorMedicao(medicoes['volume20Inicial']), 
-                        _obterValorMedicao(medicoes['volume20Final'])),
+                    _linhaMedicao(
+                      "Temperatura do produto no tanque:",
+                      _formatarTemperatura(medicoes['tempTanqueInicial']),
+                      _formatarTemperatura(medicoes['tempTanqueFinal']),
+                    ),
+                    _linhaMedicao(
+                      "Densidade observada na amostra:",
+                      _obterValorMedicao(medicoes['densidadeInicial']),
+                      _obterValorMedicao(medicoes['densidadeFinal']),
+                    ),
+                    _linhaMedicao(
+                      "Temperatura da amostra:",
+                      _formatarTemperatura(medicoes['tempAmostraInicial']),
+                      _formatarTemperatura(medicoes['tempAmostraFinal']),
+                    ),
+                    _linhaMedicao(
+                      "Densidade da amostra, considerada à temperatura padrão (20 ºC):",
+                      _obterValorMedicao(medicoes['densidade20Inicial']),
+                      _obterValorMedicao(medicoes['densidade20Final']),
+                    ),
+                    _linhaMedicao(
+                      "Fator de correção de volume do produto (FCV):",
+                      _obterValorMedicao(medicoes['fatorCorrecaoInicial']),
+                      _obterValorMedicao(medicoes['fatorCorrecaoFinal']),
+                    ),
+                    _linhaMedicao(
+                      "Volume total do produto, considerada a temperatura padrão (20 ºC):",
+                      _obterValorMedicao(medicoes['volume20Inicial']),
+                      _obterValorMedicao(medicoes['volume20Final']),
+                    ),
                   ], medicoes),
 
                   const SizedBox(height: 25),
@@ -1521,21 +1663,29 @@ class _CalcPageState extends State<CalcPage> {
                     _tabelaComparacaoResultados(
                       volumeAmbienteInicial: volumeInicial,
                       volumeAmbienteFinal: volumeFinal,
-                      volume20Inicial: _extrairNumero(medicoes['volume20Inicial']?.toString()),
-                      volume20Final: _extrairNumero(medicoes['volume20Final']?.toString()),
+                      volume20Inicial: _extrairNumero(
+                        medicoes['volume20Inicial']?.toString(),
+                      ),
+                      volume20Final: _extrairNumero(
+                        medicoes['volume20Final']?.toString(),
+                      ),
                       entradaSaidaAmbiente: volumeFinal - volumeInicial,
-                      entradaSaida20: _extrairNumero(medicoes['volume20Final']?.toString()) - 
-                                      _extrairNumero(medicoes['volume20Inicial']?.toString()),
+                      entradaSaida20:
+                          _extrairNumero(
+                            medicoes['volume20Final']?.toString(),
+                          ) -
+                          _extrairNumero(
+                            medicoes['volume20Inicial']?.toString(),
+                          ),
                     ),
 
                     // BLOCO FATURADO
-                    if (!(widget.dadosFormulario['cacl_verificacao'] ?? false)) ...[
+                    if (!(widget.dadosFormulario['cacl_verificacao'] ??
+                        false)) ...[
                       const SizedBox(height: 20),
-                      _blocoFaturado(
-                        medicoes: medicoes,
-                      ),
+                      _blocoFaturado(medicoes: medicoes),
                     ],
-                  ],                 
+                  ],
 
                   if (_dadosFinaisEstaoCompletos() &&
                       (widget.dadosFormulario['cacl_verificacao'] ?? false))
@@ -1546,11 +1696,17 @@ class _CalcPageState extends State<CalcPage> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: widget.modo == CaclModo.emissao && !_dadosFinaisEstaoCompletos()
-                          ? const Color(0xFFFFF3E0)  // Laranja claro se pendente
-                          : const Color(0xFFE3F2FD),  // Azul claro se completo/visualização
+                      color:
+                          widget.modo == CaclModo.emissao &&
+                              !_dadosFinaisEstaoCompletos()
+                          ? const Color(0xFFFFF3E0) // Laranja claro se pendente
+                          : const Color(
+                              0xFFE3F2FD,
+                            ), // Azul claro se completo/visualização
                       border: Border.all(
-                        color: widget.modo == CaclModo.emissao && !_dadosFinaisEstaoCompletos()
+                        color:
+                            widget.modo == CaclModo.emissao &&
+                                !_dadosFinaisEstaoCompletos()
                             ? Colors.orange
                             : const Color(0xFF2196F3),
                       ),
@@ -1559,10 +1715,13 @@ class _CalcPageState extends State<CalcPage> {
                     child: Row(
                       children: [
                         Icon(
-                          widget.modo == CaclModo.emissao && !_dadosFinaisEstaoCompletos()
+                          widget.modo == CaclModo.emissao &&
+                                  !_dadosFinaisEstaoCompletos()
                               ? Icons.pending
                               : Icons.info_outline,
-                          color: widget.modo == CaclModo.emissao && !_dadosFinaisEstaoCompletos()
+                          color:
+                              widget.modo == CaclModo.emissao &&
+                                  !_dadosFinaisEstaoCompletos()
                               ? Colors.orange
                               : const Color(0xFF2196F3),
                           size: 20,
@@ -1573,14 +1732,17 @@ class _CalcPageState extends State<CalcPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                widget.modo == CaclModo.emissao && !_dadosFinaisEstaoCompletos()
-                                  ? "CACL Pendente"
-                                  : widget.modo == CaclModo.emissao
+                                widget.modo == CaclModo.emissao &&
+                                        !_dadosFinaisEstaoCompletos()
+                                    ? "CACL Pendente"
+                                    : widget.modo == CaclModo.emissao
                                     ? "Pré-visualização do CACL"
                                     : "Visualização do CACL",
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: widget.modo == CaclModo.emissao && !_dadosFinaisEstaoCompletos()
+                                  color:
+                                      widget.modo == CaclModo.emissao &&
+                                          !_dadosFinaisEstaoCompletos()
                                       ? Colors.orange[800]
                                       : const Color(0xFF0D47A1),
                                   fontSize: 13,
@@ -1588,19 +1750,23 @@ class _CalcPageState extends State<CalcPage> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                widget.modo == CaclModo.emissao && !_dadosFinaisEstaoCompletos()
-                                  ? "Faltam dados da medição final. Salve como pendente para completar depois."
-                                  : widget.modo == CaclModo.edicao
+                                widget.modo == CaclModo.emissao &&
+                                        !_dadosFinaisEstaoCompletos()
+                                    ? "Faltam dados da medição final. Salve como pendente para completar depois."
+                                    : widget.modo == CaclModo.edicao
                                     ? "Editando CACL pendente. Verifique os dados antes de finalizar."
                                     : widget.modo == CaclModo.emissao
-                                      ? "Verifique os dados antes de emitir o documento oficial."
-                                      : "Este CACL já foi emitido e está salvo no histórico.",
+                                    ? "Verifique os dados antes de emitir o documento oficial."
+                                    : "Este CACL já foi emitido e está salvo no histórico.",
                                 style: TextStyle(
-                                  color: widget.modo == CaclModo.emissao && !_dadosFinaisEstaoCompletos()
+                                  color:
+                                      widget.modo == CaclModo.emissao &&
+                                          !_dadosFinaisEstaoCompletos()
                                       ? Colors.orange[700]
                                       : widget.modo == CaclModo.edicao
-                                        ? Colors.blue[700]  // ← COR DIFERENTE PARA EDIÇÃO
-                                        : Colors.grey[700],
+                                      ? Colors
+                                            .blue[700] // ← COR DIFERENTE PARA EDIÇÃO
+                                      : Colors.grey[700],
                                   fontSize: 11,
                                 ),
                               ),
@@ -1611,7 +1777,7 @@ class _CalcPageState extends State<CalcPage> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  
+
                   // ✅ BOTÕES PRINCIPAIS
                   Container(
                     margin: const EdgeInsets.only(top: 20),
@@ -1621,12 +1787,15 @@ class _CalcPageState extends State<CalcPage> {
                       children: [
                         // BOTÃO VOLTAR (AZUL) - DESABILITADO SE CACL JÁ FOI EMITIDO
                         ElevatedButton.icon(
-                          onPressed: (_caclJaEmitido && widget.modo == CaclModo.emissao) 
-                              ? null  // Desabilita se já foi emitido
+                          onPressed:
+                              (_caclJaEmitido &&
+                                  widget.modo == CaclModo.emissao)
+                              ? null // Desabilita se já foi emitido
                               : () {
                                   // Verifica se tem callback personalizado para voltar
                                   if (widget.onVoltar != null) {
-                                    widget.onVoltar!(); // Usa o callback fornecido
+                                    widget
+                                        .onVoltar!(); // Usa o callback fornecido
                                   } else {
                                     _navigatorState?.pop(); // Fallback padrão
                                   }
@@ -1636,23 +1805,27 @@ class _CalcPageState extends State<CalcPage> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF0D47A1), // Azul
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(6),
                             ),
                           ),
                         ),
-                        
+
                         const SizedBox(width: 20), // Espaço entre botões
-                        
                         // VERIFICA SE OS DADOS FINAIS ESTÃO COMPLETOS
-                        if ((widget.modo == CaclModo.emissao || widget.modo == CaclModo.edicao) && !_caclJaEmitido)
+                        if ((widget.modo == CaclModo.emissao ||
+                                widget.modo == CaclModo.edicao) &&
+                            !_caclJaEmitido)
                           ElevatedButton.icon(
-                            onPressed: _isEmittingCACL 
-                                ? null 
-                                : (_dadosFinaisEstaoCompletos() 
-                                    ? _emitirCACL 
-                                    : _salvarComoPendente),
+                            onPressed: _isEmittingCACL
+                                ? null
+                                : (_dadosFinaisEstaoCompletos()
+                                      ? _emitirCACL
+                                      : _salvarComoPendente),
                             icon: _isEmittingCACL
                                 ? const SizedBox(
                                     width: 16,
@@ -1663,31 +1836,36 @@ class _CalcPageState extends State<CalcPage> {
                                     ),
                                   )
                                 : _dadosFinaisEstaoCompletos()
-                                    ? const Icon(Icons.send, size: 18)
-                                    : const Icon(Icons.pending_actions, size: 18),
+                                ? const Icon(Icons.send, size: 18)
+                                : const Icon(Icons.pending_actions, size: 18),
                             label: _isEmittingCACL
                                 ? const Text('Processando...')
                                 : _dadosFinaisEstaoCompletos()
-                                    ? const Text('Emitir CACL')
-                                    : const Text('Salvar como Pendente'),
+                                ? const Text('Emitir CACL')
+                                : const Text('Salvar como Pendente'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: _dadosFinaisEstaoCompletos() 
-                                  ? Colors.green 
+                              backgroundColor: _dadosFinaisEstaoCompletos()
+                                  ? Colors.green
                                   : Colors.orange,
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(6),
                               ),
                             ),
                           ),
-                        
+
                         // ESPAÇO ENTRE BOTÕES
-                        if (_caclJaEmitido || widget.modo == CaclModo.visualizacao)
+                        if (_caclJaEmitido ||
+                            widget.modo == CaclModo.visualizacao)
                           const SizedBox(width: 20),
-                        
+
                         // BOTÃO GERAR PDF (só se já emitido)
-                        if (_caclJaEmitido || widget.modo == CaclModo.visualizacao)
+                        if (_caclJaEmitido ||
+                            widget.modo == CaclModo.visualizacao)
                           ElevatedButton.icon(
                             onPressed: _isGeneratingPDF ? null : _baixarPDFCACL,
                             icon: _isGeneratingPDF
@@ -1700,21 +1878,26 @@ class _CalcPageState extends State<CalcPage> {
                                     ),
                                   )
                                 : const Icon(Icons.picture_as_pdf, size: 18),
-                            label: Text(_isGeneratingPDF ? 'Gerando...' : 'Gerar PDF'),
+                            label: Text(
+                              _isGeneratingPDF ? 'Gerando...' : 'Gerar PDF',
+                            ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF0D47A1),
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(6),
                               ),
                             ),
                           ),
-                        
+
                         // BOTÃO FINALIZAR (só se já emitido no modo emissão)
                         if (widget.modo == CaclModo.emissao && _caclJaEmitido)
                           const SizedBox(width: 20),
-                        
+
                         if (widget.modo == CaclModo.emissao && _caclJaEmitido)
                           ElevatedButton.icon(
                             onPressed: _irParaApuracao,
@@ -1723,7 +1906,10 @@ class _CalcPageState extends State<CalcPage> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.orange,
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(6),
                               ),
@@ -1771,10 +1957,7 @@ class _CalcPageState extends State<CalcPage> {
         border: Border.all(color: Colors.black26),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(
-        valor,
-        style: const TextStyle(fontSize: 11),
-      ),
+      child: Text(valor, style: const TextStyle(fontSize: 11)),
     );
   }
 
@@ -1791,9 +1974,7 @@ class _CalcPageState extends State<CalcPage> {
       },
       children: [
         TableRow(
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-          ),
+          decoration: BoxDecoration(color: Colors.grey[200]),
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
@@ -1833,7 +2014,7 @@ class _CalcPageState extends State<CalcPage> {
           ],
         ),
         ...linhas,
-        
+
         TableRow(
           children: [
             Padding(
@@ -1925,7 +2106,7 @@ class _CalcPageState extends State<CalcPage> {
 
   String _formatarHorarioCACL(String? horario) {
     if (horario == null || horario.isEmpty) return '--:-- h';
-    
+
     String horarioLimpo = horario.trim();
 
     if (horarioLimpo.contains('T')) {
@@ -1936,23 +2117,24 @@ class _CalcPageState extends State<CalcPage> {
         // Continua para os fallbacks
       }
     }
-    
+
     if (horarioLimpo.toLowerCase().endsWith('h')) {
       return horarioLimpo;
     }
-    
+
     return '$horarioLimpo h';
   }
 
-  TableRow _linhaMedicao(String descricao, String valorInicial, String valorFinal) {
+  TableRow _linhaMedicao(
+    String descricao,
+    String valorInicial,
+    String valorFinal,
+  ) {
     return TableRow(
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-          child: Text(
-            descricao,
-            style: const TextStyle(fontSize: 11),
-          ),
+          child: Text(descricao, style: const TextStyle(fontSize: 11)),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
@@ -1985,30 +2167,30 @@ class _CalcPageState extends State<CalcPage> {
     // Função para formatar no padrão "999.999 L"
     String fmt(double v) {
       if (v.isNaN) return "-";
-      
+
       final volumeInteiro = v.round();
       final isNegativo = volumeInteiro < 0;
       String inteiroFormatado = volumeInteiro.abs().toString();
-      
+
       // CORREÇÃO: Só adiciona pontos se tiver mais de 3 dígitos
       if (inteiroFormatado.length > 3) {
         final buffer = StringBuffer();
         int contador = 0;
-        
+
         for (int i = inteiroFormatado.length - 1; i >= 0; i--) {
           buffer.write(inteiroFormatado[i]);
           contador++;
-          
+
           if (contador == 3 && i > 0) {
             buffer.write('.');
             contador = 0;
           }
         }
-        
+
         final chars = buffer.toString().split('').reversed.toList();
         inteiroFormatado = chars.join('');
       }
-      
+
       // Se número for menor que 1000, não adiciona ponto
       final sinal = isNegativo ? '-' : '';
       return '$sinal$inteiroFormatado L';
@@ -2032,26 +2214,34 @@ class _CalcPageState extends State<CalcPage> {
           children: [
             Padding(
               padding: EdgeInsets.all(6.0),
-              child: Text("DESCRIÇÃO",
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+              child: Text(
+                "DESCRIÇÃO",
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+              ),
             ),
             Padding(
               padding: EdgeInsets.all(6.0),
-              child: Text("1ª MEDIÇÃO",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+              child: Text(
+                "1ª MEDIÇÃO",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+              ),
             ),
             Padding(
               padding: EdgeInsets.all(6.0),
-              child: Text("2ª MEDIÇÃO",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+              child: Text(
+                "2ª MEDIÇÃO",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+              ),
             ),
             Padding(
               padding: EdgeInsets.all(6.0),
-              child: Text("ENTRADA/SAÍDA",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+              child: Text(
+                "ENTRADA/SAÍDA",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),
@@ -2065,21 +2255,27 @@ class _CalcPageState extends State<CalcPage> {
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
-              child: Text(fmt(volumeAmbienteInicial), 
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 10)),
+              child: Text(
+                fmt(volumeAmbienteInicial),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10),
+              ),
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
-              child: Text(fmt(volumeAmbienteFinal), 
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 10)),
+              child: Text(
+                fmt(volumeAmbienteFinal),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10),
+              ),
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
-              child: Text(fmt(entradaSaidaAmbiente),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 10)),
+              child: Text(
+                fmt(entradaSaidaAmbiente),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10),
+              ),
             ),
           ],
         ),
@@ -2093,21 +2289,27 @@ class _CalcPageState extends State<CalcPage> {
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
-              child: Text(fmt(volume20Inicial), 
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 10)),
+              child: Text(
+                fmt(volume20Inicial),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10),
+              ),
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
-              child: Text(fmt(volume20Final), 
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 10)),
+              child: Text(
+                fmt(volume20Final),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10),
+              ),
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
-              child: Text(fmt(entradaSaida20),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 10)),
+              child: Text(
+                fmt(entradaSaida20),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10),
+              ),
             ),
           ],
         ),
@@ -2125,13 +2327,18 @@ class _CalcPageState extends State<CalcPage> {
 
       final semUnidade = v.replaceAll(" cm", "").trim();
 
-      if (semUnidade == "," || semUnidade == "0,0" || semUnidade == "0,00" || semUnidade == "0,000" || semUnidade == "0,0000") {
+      if (semUnidade == "," ||
+          semUnidade == "0,0" ||
+          semUnidade == "0,00" ||
+          semUnidade == "0,000" ||
+          semUnidade == "0,0000") {
         return "-";
       }
 
       if (semUnidade == "0,") return "-";
 
-      if (semUnidade.startsWith("0,") && semUnidade.substring(2).replaceAll("0", "").isEmpty) {
+      if (semUnidade.startsWith("0,") &&
+          semUnidade.substring(2).replaceAll("0", "").isEmpty) {
         return "-";
       }
 
@@ -2152,48 +2359,48 @@ class _CalcPageState extends State<CalcPage> {
     if (cm == null || cm.isEmpty) return "-";
     final mmValue = (mm == null || mm.isEmpty) ? "0" : mm;
     return "$cm,$mmValue cm";
-  }  
+  }
 
   String _formatarVolumeLitros(double volume) {
     final volumeInteiro = volume.round();
-    
+
     String inteiroFormatado = volumeInteiro.toString();
-    
+
     if (inteiroFormatado.length > 3) {
       final buffer = StringBuffer();
       int contador = 0;
-      
+
       for (int i = inteiroFormatado.length - 1; i >= 0; i--) {
         buffer.write(inteiroFormatado[i]);
         contador++;
-        
+
         if (contador == 3 && i > 0) {
           buffer.write('.');
           contador = 0;
         }
       }
-      
+
       final chars = buffer.toString().split('').reversed.toList();
       inteiroFormatado = chars.join('');
     }
-    
+
     return '$inteiroFormatado L';
   }
 
   String _formatarTemperatura(dynamic valor) {
     if (valor == null) return "-";
     if (valor is String && valor.isEmpty) return "-";
-    
+
     final strValor = valor.toString().trim();
-    
+
     final valorSemUnidade = strValor
         .replaceAll(' ºC', '')
         .replaceAll('°C', '')
         .replaceAll('ºC', '')
         .trim();
-    
+
     if (valorSemUnidade.isEmpty) return "-";
-    
+
     return '$valorSemUnidade ºC';
   }
 
@@ -2241,7 +2448,6 @@ class _CalcPageState extends State<CalcPage> {
         tempNum.toStringAsFixed(0),
         tempNum.toStringAsFixed(1),
       }.toList();
-
 
       Map<String, dynamic>? linha;
 
@@ -2304,8 +2510,6 @@ class _CalcPageState extends State<CalcPage> {
     }
   }
 
-
-
   Future<String> _buscarFCV({
     required String temperaturaTanque,
     required String densidade20C,
@@ -2324,9 +2528,9 @@ class _CalcPageState extends State<CalcPage> {
       final nomeProdutoLower = produtoNome.toLowerCase().trim();
       final String nomeView =
           (nomeProdutoLower.contains('anidro') ||
-                  nomeProdutoLower.contains('hidratado'))
-              ? 'tcv_anidro_hidratado_vw'
-              : 'tcv_gasolina_diesel_vw';
+              nomeProdutoLower.contains('hidratado'))
+          ? 'tcv_anidro_hidratado_vw'
+          : 'tcv_gasolina_diesel_vw';
 
       String temperaturaFormatada = temperaturaTanque
           .replaceAll(' ºC', '')
@@ -2345,8 +2549,9 @@ class _CalcPageState extends State<CalcPage> {
           .trim()
           .replaceAll('.', ',');
 
-      final densidadeNum =
-          double.tryParse(densidadeFormatada.replaceAll(',', '.'));
+      final densidadeNum = double.tryParse(
+        densidadeFormatada.replaceAll(',', '.'),
+      );
       const double densidadeLimite = 0.8780;
 
       if (densidadeNum != null && densidadeNum > densidadeLimite) {
@@ -2364,8 +2569,10 @@ class _CalcPageState extends State<CalcPage> {
       parteDecimal = parteDecimal.padRight(4, '0');
       parteDecimal = '${parteDecimal.substring(0, 3)}0';
 
-      final String codigoBase =
-          '${parteInteira}${parteDecimal}'.padLeft(5, '0');
+      final String codigoBase = '${parteInteira}${parteDecimal}'.padLeft(
+        5,
+        '0',
+      );
 
       final String colunaExata = 'v_$codigoBase';
       final String prefixo = 'v_${codigoBase.substring(0, 4)}';
@@ -2395,7 +2602,9 @@ class _CalcPageState extends State<CalcPage> {
           if (valor == null) continue;
           if (valor is String) {
             final limpo = valor.trim();
-            if (limpo.isEmpty || limpo == '-' || limpo.toLowerCase() == 'null') {
+            if (limpo.isEmpty ||
+                limpo == '-' ||
+                limpo.toLowerCase() == 'null') {
               continue;
             }
           }
@@ -2409,10 +2618,7 @@ class _CalcPageState extends State<CalcPage> {
         }
 
         if (melhorColuna == null || melhorValor == null) return null;
-        return {
-          'coluna': melhorColuna,
-          'valor': melhorValor,
-        };
+        return {'coluna': melhorColuna, 'valor': melhorValor};
       }
 
       bool colunaInexistente = false;
@@ -2488,9 +2694,13 @@ class _CalcPageState extends State<CalcPage> {
         ]);
       }
 
-      final comPonto =
-          temperaturasParaTentar.map((t) => t.replaceAll(',', '.')).toList();
-      temperaturasParaTentar = {...temperaturasParaTentar, ...comPonto}.toList();
+      final comPonto = temperaturasParaTentar
+          .map((t) => t.replaceAll(',', '.'))
+          .toList();
+      temperaturasParaTentar = {
+        ...temperaturasParaTentar,
+        ...comPonto,
+      }.toList();
 
       for (final temp in temperaturasParaTentar) {
         final linhaFb = await supabase
@@ -2502,9 +2712,7 @@ class _CalcPageState extends State<CalcPage> {
 
         if (linhaFb == null) continue;
 
-        final cols = linhaFb.keys
-            .where((k) => k.startsWith(prefixo))
-            .toList();
+        final cols = linhaFb.keys.where((k) => k.startsWith(prefixo)).toList();
 
         if (cols.isNotEmpty) {
           final c = cols.first;
@@ -2541,70 +2749,78 @@ class _CalcPageState extends State<CalcPage> {
     return valorLimpo;
   }
 
-
   Future<void> _calcularMassa() async {
     final medicoes = widget.dadosFormulario['medicoes'];
-    
+
     // Para 1ª medição (Inicial) - Volume20 × Densidade20
-    if (medicoes['volume20Inicial'] != null && 
+    if (medicoes['volume20Inicial'] != null &&
         medicoes['volume20Inicial'].toString().isNotEmpty &&
         medicoes['volume20Inicial'].toString() != '-' &&
         medicoes['densidade20Inicial'] != null &&
         medicoes['densidade20Inicial'].toString().isNotEmpty &&
         medicoes['densidade20Inicial'].toString() != '-') {
-      
       try {
         // Converter volume a 20ºC formatado para double
-        final volume20Inicial = _converterVolumeParaDouble(medicoes['volume20Inicial'].toString());
-        
+        final volume20Inicial = _converterVolumeParaDouble(
+          medicoes['volume20Inicial'].toString(),
+        );
+
         // Converter densidade a 20ºC para double
-        final densidade20Inicial = double.tryParse(
-          medicoes['densidade20Inicial'].toString()
-              .replaceAll(' kg/L', '')
-              .replaceAll(',', '.')
-              .trim()
-        ) ?? 0.0;
-        
+        final densidade20Inicial =
+            double.tryParse(
+              medicoes['densidade20Inicial']
+                  .toString()
+                  .replaceAll(' kg/L', '')
+                  .replaceAll(',', '.')
+                  .trim(),
+            ) ??
+            0.0;
+
         // Cálculo da massa: Volume a 20ºC × Densidade a 20ºC
         final massaInicial = volume20Inicial * densidade20Inicial;
-        
+
         // Formatar massa: ponto como milhar, vírgula como decimal, 1 casa decimal
         final massaInicialFormatada = _formatarMassa(massaInicial);
-        
-        widget.dadosFormulario['medicoes']['massaInicial'] = massaInicialFormatada;
+
+        widget.dadosFormulario['medicoes']['massaInicial'] =
+            massaInicialFormatada;
       } catch (e) {
         widget.dadosFormulario['medicoes']['massaInicial'] = '-';
       }
     } else {
       widget.dadosFormulario['medicoes']['massaInicial'] = '-';
     }
-    
+
     // Para 2ª medição (Final) - Volume20 × Densidade20
-    if (medicoes['volume20Final'] != null && 
+    if (medicoes['volume20Final'] != null &&
         medicoes['volume20Final'].toString().isNotEmpty &&
         medicoes['volume20Final'].toString() != '-' &&
         medicoes['densidade20Final'] != null &&
         medicoes['densidade20Final'].toString().isNotEmpty &&
         medicoes['densidade20Final'].toString() != '-') {
-      
       try {
         // Converter volume a 20ºC formatado para double
-        final volume20Final = _converterVolumeParaDouble(medicoes['volume20Final'].toString());
-        
+        final volume20Final = _converterVolumeParaDouble(
+          medicoes['volume20Final'].toString(),
+        );
+
         // Converter densidade a 20ºC para double
-        final densidade20Final = double.tryParse(
-          medicoes['densidade20Final'].toString()
-              .replaceAll(' kg/L', '')
-              .replaceAll(',', '.')
-              .trim()
-        ) ?? 0.0;
-        
+        final densidade20Final =
+            double.tryParse(
+              medicoes['densidade20Final']
+                  .toString()
+                  .replaceAll(' kg/L', '')
+                  .replaceAll(',', '.')
+                  .trim(),
+            ) ??
+            0.0;
+
         // Cálculo da massa: Volume a 20ºC × Densidade a 20ºC
         final massaFinal = volume20Final * densidade20Final;
-        
+
         // Formatar massa: ponto como milhar, vírgula como decimal, 1 casa decimal
         final massaFinalFormatada = _formatarMassa(massaFinal);
-        
+
         widget.dadosFormulario['medicoes']['massaFinal'] = massaFinalFormatada;
       } catch (e) {
         widget.dadosFormulario['medicoes']['massaFinal'] = '-';
@@ -2619,38 +2835,37 @@ class _CalcPageState extends State<CalcPage> {
       if (massa.isNaN || massa.isInfinite || massa == 0.0) {
         return '-';
       }
-      
+
       // Arredonda para 1 casa decimal
       final massaArredondada = massa.toStringAsFixed(1);
-      
+
       // Separa parte inteira e decimal
       final partes = massaArredondada.split('.');
       if (partes.length != 2) {
         return massaArredondada;
       }
-      
+
       String parteInteira = partes[0];
       String parteDecimal = partes[1];
-      
+
       // Formata parte inteira com pontos como separadores de milhar
       String parteInteiraFormatada = '';
       int contador = 0;
-      
+
       // Percorre de trás para frente para adicionar pontos
       for (int i = parteInteira.length - 1; i >= 0; i--) {
         parteInteiraFormatada = parteInteira[i] + parteInteiraFormatada;
         contador++;
-        
+
         // Adiciona ponto a cada 3 dígitos (exceto no início)
         if (contador == 3 && i > 0) {
           parteInteiraFormatada = '.$parteInteiraFormatada';
           contador = 0;
         }
       }
-      
+
       // Retorna no formato: "194.458,3"
       return '$parteInteiraFormatada,$parteDecimal';
-      
     } catch (e) {
       return '-';
     }
@@ -2658,15 +2873,14 @@ class _CalcPageState extends State<CalcPage> {
 
   double _converterVolumeParaDouble(String volumeStr) {
     try {
-      
       // Remove "L" e espaços
       String limpo = volumeStr.replaceAll(' L', '').trim();
-      
+
       // Se estiver vazio após limpar, retorna 0
       if (limpo.isEmpty || limpo == '-') {
         return 0.0;
       }
-      
+
       // Remove pontos usados como separadores de milhar (formato: 1.500)
       if (limpo.contains('.')) {
         // Verifica se é formato brasileiro (ponto como separador de milhar)
@@ -2683,10 +2897,10 @@ class _CalcPageState extends State<CalcPage> {
           limpo = limpo.replaceAll('.', '');
         }
       }
-      
+
       // Converte vírgula para ponto para parse
       limpo = limpo.replaceAll(',', '.');
-      
+
       return double.tryParse(limpo) ?? 0.0;
     } catch (e) {
       return 0.0;
@@ -2703,39 +2917,37 @@ class _CalcPageState extends State<CalcPage> {
     return double.tryParse(somenteNumeros) ?? 0;
   }
 
-  Widget _blocoFaturado({
-    required Map<String, dynamic> medicoes,
-  }) {
+  Widget _blocoFaturado({required Map<String, dynamic> medicoes}) {
     // Função para formatar no padrão "999.999 L" - Corrigida para negativos
     String fmt(num v) {
       if (v.isNaN) return "-";
-      
+
       // Arredonda e converte para inteiro
       final volumeInteiro = v.round();
-      
+
       // Converte para string e remove sinal negativo temporariamente
       final isNegativo = volumeInteiro < 0;
       String inteiroFormatado = volumeInteiro.abs().toString();
-      
+
       // Adiciona pontos como separadores de milhar
       if (inteiroFormatado.length > 3) {
         final buffer = StringBuffer();
         int contador = 0;
-        
+
         for (int i = inteiroFormatado.length - 1; i >= 0; i--) {
           buffer.write(inteiroFormatado[i]);
           contador++;
-          
+
           if (contador == 3 && i > 0) {
             buffer.write('.');
             contador = 0;
           }
         }
-        
+
         final chars = buffer.toString().split('').reversed.toList();
         inteiroFormatado = chars.join('');
       }
-      
+
       // Adiciona sinal negativo se necessário
       final sinal = isNegativo ? '-' : '';
       return '$sinal$inteiroFormatado L';
@@ -2749,36 +2961,42 @@ class _CalcPageState extends State<CalcPage> {
 
     // Pega o valor do usuário para "Faturado"
     final faturadoUsuarioStr = medicoes['faturadoFinal']?.toString() ?? '';
-    
+
     // Converte para double (se não for vazio)
     double faturadoUsuario = 0.0;
     if (faturadoUsuarioStr.isNotEmpty && faturadoUsuarioStr != '-') {
       try {
         // Remove pontos de milhar e converte vírgula para ponto
-        String limpo = faturadoUsuarioStr.replaceAll('.', '').replaceAll(',', '.');
+        String limpo = faturadoUsuarioStr
+            .replaceAll('.', '')
+            .replaceAll(',', '.');
         faturadoUsuario = double.tryParse(limpo) ?? 0.0;
       } catch (e) {
         faturadoUsuario = 0.0;
       }
     }
-    
+
     // Pega os volumes
     final volume20Final = _extrairNumero(medicoes['volume20Final']?.toString());
-    final volume20Inicial = _extrairNumero(medicoes['volume20Inicial']?.toString());
-    
+    final volume20Inicial = _extrairNumero(
+      medicoes['volume20Inicial']?.toString(),
+    );
+
     // Cálculo da diferença: Volume a 20ºC - Faturado
     final entradaSaida20 = volume20Final - volume20Inicial;
     final diferenca = entradaSaida20 - faturadoUsuario;
-    
+
     // Formata
     final faturadoFormatado = faturadoUsuario > 0 ? fmt(faturadoUsuario) : "-";
     final diferencaFormatada = fmt(diferenca);
-    
+
     // Porcentagem
     final entradaSaida20Double = entradaSaida20.toDouble();
-    final porcentagem = entradaSaida20Double != 0 ? (diferenca.toDouble() / entradaSaida20Double) * 100 : 0.0;
+    final porcentagem = entradaSaida20Double != 0
+        ? (diferenca.toDouble() / entradaSaida20Double) * 100
+        : 0.0;
     final porcentagemFormatada = fmtPercent(porcentagem);
-    
+
     // Concatenação: "-114 L | -0,36%"
     final concatenacao = '$diferencaFormatada ║ $porcentagemFormatada';
 
@@ -2807,7 +3025,10 @@ class _CalcPageState extends State<CalcPage> {
                     TableRow(
                       children: [
                         Container(
-                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          padding: EdgeInsets.symmetric(
+                            vertical: 8,
+                            horizontal: 12,
+                          ),
                           color: Color(0xFFF5F5F5),
                           child: Center(
                             child: Text(
@@ -2822,7 +3043,10 @@ class _CalcPageState extends State<CalcPage> {
                           ),
                         ),
                         Container(
-                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          padding: EdgeInsets.symmetric(
+                            vertical: 8,
+                            horizontal: 12,
+                          ),
                           color: Colors.white,
                           child: Center(
                             child: Text(
@@ -2830,7 +3054,8 @@ class _CalcPageState extends State<CalcPage> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black87, // ALTERADO: COR AUTOMÁTICA (PRETO)
+                                color: Colors
+                                    .black87, // ALTERADO: COR AUTOMÁTICA (PRETO)
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -2841,7 +3066,10 @@ class _CalcPageState extends State<CalcPage> {
                     TableRow(
                       children: [
                         Container(
-                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          padding: EdgeInsets.symmetric(
+                            vertical: 8,
+                            horizontal: 12,
+                          ),
                           color: Color(0xFFF5F5F5),
                           child: Center(
                             child: Text(
@@ -2856,7 +3084,10 @@ class _CalcPageState extends State<CalcPage> {
                           ),
                         ),
                         Container(
-                          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          padding: EdgeInsets.symmetric(
+                            vertical: 8,
+                            horizontal: 12,
+                          ),
                           color: Colors.white,
                           child: Center(
                             child: Text(
@@ -2864,7 +3095,8 @@ class _CalcPageState extends State<CalcPage> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: corDiferenca, // ALTERADO: COR CONDICIONAL
+                                color:
+                                    corDiferenca, // ALTERADO: COR CONDICIONAL
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -2878,7 +3110,7 @@ class _CalcPageState extends State<CalcPage> {
             ),
           ],
         ),
-        SizedBox(height: 15),        
+        SizedBox(height: 15),
       ],
     );
   }
@@ -2887,28 +3119,28 @@ class _CalcPageState extends State<CalcPage> {
     setState(() {
       _isGeneratingPDF = true;
     });
-    
+
     try {
       // ✅ ATUALIZA: Passa o número de controle para o PDF
       if (_numeroControle != null) {
         widget.dadosFormulario['numero_controle'] = _numeroControle;
       }
-      
+
       // Gera o PDF usando a classe CACLPdf
       final pdfDocument = await CACLPdf.gerar(
         dadosFormulario: widget.dadosFormulario,
       );
-      
+
       // Converte o documento para bytes
       final pdfBytes = await pdfDocument.save();
-      
+
       // Faz download
       if (kIsWeb) {
         await _downloadForWebCACL(pdfBytes);
       } else {
         _showMobileMessageCACL();
       }
-      
+
       // Mensagem de sucesso
       if (context.mounted) {
         _mostrarSnackBar(
@@ -2919,10 +3151,9 @@ class _CalcPageState extends State<CalcPage> {
           ),
         );
       }
-      
     } catch (e) {
       print('ERRO ao gerar PDF CACL: $e');
-      
+
       if (context.mounted) {
         _mostrarSnackBar(
           SnackBar(
@@ -2946,12 +3177,13 @@ class _CalcPageState extends State<CalcPage> {
     try {
       final base64 = base64Encode(bytes);
       final dataUrl = 'data:application/pdf;base64,$base64';
-      
+
       final produto = widget.dadosFormulario['produto']?.toString() ?? 'CACL';
       final data = widget.dadosFormulario['data']?.toString() ?? '';
       final fileName = 'CACL_${produto}_${data.replaceAll('/', '-')}.pdf';
-      
-      final jsCode = '''
+
+      final jsCode =
+          '''
         try {
           const link = document.createElement('a');
           link.href = '$dataUrl';
@@ -2971,9 +3203,8 @@ class _CalcPageState extends State<CalcPage> {
           window.open('$dataUrl', '_blank');
         }
       ''';
-      
+
       js.context.callMethod('eval', [jsCode]);
-      
     } catch (e) {
       print('Erro no download Web CACL: $e');
     }
@@ -2983,7 +3214,9 @@ class _CalcPageState extends State<CalcPage> {
     if (context.mounted) {
       _mostrarSnackBar(
         const SnackBar(
-          content: Text('PDF CACL gerado! Em breve disponível para download no mobile.'),
+          content: Text(
+            'PDF CACL gerado! Em breve disponível para download no mobile.',
+          ),
           backgroundColor: Colors.blue,
           duration: Duration(seconds: 3),
         ),
@@ -2993,19 +3226,24 @@ class _CalcPageState extends State<CalcPage> {
 
   String _formatarDataParaSQL(String dataDisplay) {
     try {
+      if (dataDisplay.contains('-')) {
+        final parsed = DateTime.parse(dataDisplay);
+        return '${parsed.year}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')}';
+      }
+
       // Converte "22/12/2025" para "2025-12-22"
       final partes = dataDisplay.split('/');
       if (partes.length == 3) {
         final dia = partes[0];
         final mes = partes[1];
         final ano = partes[2];
-        return '$ano-$mes-$dia';  // Formato SQL: yyyy-MM-dd
+        return '$ano-$mes-$dia'; // Formato SQL: yyyy-MM-dd
       }
-      return dataDisplay;
+      final data = _obterDataParaEstoque();
+      return '${data.year}-${data.month.toString().padLeft(2, '0')}-${data.day.toString().padLeft(2, '0')}';
     } catch (e) {
-      // Fallback: data atual no formato SQL
-      final now = DateTime.now();
-      return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final data = _obterDataParaEstoque();
+      return '${data.year}-${data.month.toString().padLeft(2, '0')}-${data.day.toString().padLeft(2, '0')}';
     }
   }
 
@@ -3014,31 +3252,27 @@ class _CalcPageState extends State<CalcPage> {
       if (!mounted) return;
       await _irParaEstoqueTanqueAposEmissao();
       return;
-      
     } catch (e) {
       print('Erro ao finalizar CACL: $e');
       if (context.mounted) {
         _mostrarSnackBar(
-          SnackBar(
-            content: Text('Erro: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red),
         );
       }
     }
   }
-  
+
   Future<void> _salvarComoPendente() async {
     if (_isEmittingCACL) return;
-    
+
     setState(() {
       _isEmittingCACL = true;
     });
-    
+
     try {
       final supabase = Supabase.instance.client;
       final medicoes = widget.dadosFormulario['medicoes'] ?? {};
-      
+
       final session = supabase.auth.currentSession;
       if (session == null) {
         if (context.mounted) {
@@ -3051,48 +3285,55 @@ class _CalcPageState extends State<CalcPage> {
         }
         return;
       }
-      
+
       String? tipoCACL;
-      final bool caclVerificacao = widget.dadosFormulario['cacl_verificacao'] ?? false;
-      final bool caclMovimentacao = widget.dadosFormulario['cacl_movimentacao'] ?? false;
-      
+      final bool caclVerificacao =
+          widget.dadosFormulario['cacl_verificacao'] ?? false;
+      final bool caclMovimentacao =
+          widget.dadosFormulario['cacl_movimentacao'] ?? false;
+
       if (caclVerificacao) {
         tipoCACL = 'verificacao';
       } else if (caclMovimentacao) {
         tipoCACL = 'movimentacao';
       }
-      
-      String? dataFormatada;
+
       final dataOriginal = widget.dadosFormulario['data']?.toString() ?? '';
-      if (dataOriginal.isNotEmpty) {
-        dataFormatada = _formatarDataParaSQL(dataOriginal);
-      }
-      
+      final dataFormatada = _formatarDataParaSQL(dataOriginal);
+      final timestampReferencia = _obterTimestampBrasiliaComDataReferencia();
+
       final dadosParaInserir = {
         'data': dataFormatada,
         'base': widget.dadosFormulario['base']?.toString(),
         'produto': widget.dadosFormulario['produto']?.toString(),
         'tanque_id': _obterTanqueId(),
         'filial_id': widget.dadosFormulario['filial_id']?.toString(),
-        'status': 'pendente',      
+        'status': 'pendente',
         'tipo': tipoCACL,
-        
-        'horario_inicial': _formatarHorarioParaTime(medicoes['horarioInicial']?.toString()),
+
+        'horario_inicial': _formatarHorarioParaTime(
+          medicoes['horarioInicial']?.toString(),
+        ),
         'altura_total_cm_inicial': medicoes['cmInicial']?.toString(),
         'altura_total_mm_inicial': medicoes['mmInicial']?.toString(),
         'volume_total_liquido_inicial': volumeTotalLiquidoInicial,
         'altura_agua_inicial': medicoes['alturaAguaInicial']?.toString(),
-        'volume_agua_inicial': _extrairNumeroFormatado(medicoes['volumeAguaInicial']?.toString()),
+        'volume_agua_inicial': _extrairNumeroFormatado(
+          medicoes['volumeAguaInicial']?.toString(),
+        ),
         'altura_produto_inicial': medicoes['alturaProdutoInicial']?.toString(),
         'volume_produto_inicial': volumeInicial,
         'temperatura_tanque_inicial': medicoes['tempTanqueInicial']?.toString(),
         'densidade_observada_inicial': medicoes['densidadeInicial']?.toString(),
-        'temperatura_amostra_inicial': medicoes['tempAmostraInicial']?.toString(),
+        'temperatura_amostra_inicial': medicoes['tempAmostraInicial']
+            ?.toString(),
         'densidade_20_inicial': medicoes['densidade20Inicial']?.toString(),
         'fator_correcao_inicial': medicoes['fatorCorrecaoInicial']?.toString(),
-        'volume_20_inicial': _extrairNumeroFormatado(medicoes['volume20Inicial']?.toString()),
+        'volume_20_inicial': _extrairNumeroFormatado(
+          medicoes['volume20Inicial']?.toString(),
+        ),
         'massa_inicial': medicoes['massaInicial']?.toString(),
-        
+
         'horario_final': null,
         'altura_total_cm_final': null,
         'altura_total_mm_final': null,
@@ -3108,7 +3349,7 @@ class _CalcPageState extends State<CalcPage> {
         'fator_correcao_final': null,
         'volume_20_final': null,
         'massa_final': null,
-        
+
         'volume_ambiente_inicial': volumeInicial,
         'volume_ambiente_final': null,
         'entrada_saida_ambiente': null,
@@ -3116,13 +3357,13 @@ class _CalcPageState extends State<CalcPage> {
         'faturado_final': null,
         'diferenca_faturado': null,
         'porcentagem_diferenca': null,
-        
+
         'created_by': session.user.id,
-        'updated_at': DateTime.now().toIso8601String(),
+        'updated_at': timestampReferencia,
       };
-      
+
       dadosParaInserir.remove('numero_controle');
-      
+
       final resultadoInserir = await supabase
           .from('cacl')
           .insert(dadosParaInserir)
@@ -3131,18 +3372,19 @@ class _CalcPageState extends State<CalcPage> {
 
       if (resultadoInserir['numero_controle'] != null) {
         setState(() {
-          _numeroControle = _tratarNumeroControle(resultadoInserir['numero_controle']);
+          _numeroControle = _tratarNumeroControle(
+            resultadoInserir['numero_controle'],
+          );
         });
       }
-      
+
       final caclIdSalvo = resultadoInserir['id'].toString();
       final numeroControleGerado = _numeroControle;
 
-      if (tipoCACL == 'movimentacao' && 
-          caclIdSalvo.isNotEmpty && 
+      if (tipoCACL == 'movimentacao' &&
+          caclIdSalvo.isNotEmpty &&
           numeroControleGerado != null &&
           numeroControleGerado.isNotEmpty) {
-        
         try {
           await _salvarMovimentacaoCACL(
             caclId: caclIdSalvo,
@@ -3160,7 +3402,6 @@ class _CalcPageState extends State<CalcPage> {
       if (!mounted) return;
       _navigatorState?.pop({'status': 'pendente_salvo'});
       return;
-      
     } catch (e) {
       if (context.mounted) {
         _mostrarSnackBar(
@@ -3179,31 +3420,31 @@ class _CalcPageState extends State<CalcPage> {
       }
     }
   }
-    
+
   bool _dadosFinaisEstaoCompletos() {
     final medicoes = widget.dadosFormulario['medicoes'] ?? {};
-    
+
     // Lista dos campos OBRIGATÓRIOS para medição final
     final camposObrigatorios = [
-      'cmFinal',          // Altura total cm
-      'mmFinal',          // Altura total mm  
-      'alturaAguaFinal',  // Altura da água
-      'tempTanqueFinal',  // Temperatura tanque
-      'densidadeFinal',   // Densidade observada
+      'cmFinal', // Altura total cm
+      'mmFinal', // Altura total mm
+      'alturaAguaFinal', // Altura da água
+      'tempTanqueFinal', // Temperatura tanque
+      'densidadeFinal', // Densidade observada
       'tempAmostraFinal', // Temperatura amostra
-      'horarioFinal',     // Horário final
+      'horarioFinal', // Horário final
     ];
-    
+
     // Verifica cada campo
     for (var campo in camposObrigatorios) {
       final valor = medicoes[campo]?.toString() ?? '';
-      
+
       // Se o campo estiver vazio, com "-" ou "0", considera incompleto
       if (valor.isEmpty || valor == '-' || valor == '0') {
         return false; // Dados finais incompletos
       }
     }
-    
+
     return true; // Todos os dados finais estão preenchidos
   }
 
@@ -3231,22 +3472,44 @@ class _CalcPageState extends State<CalcPage> {
     if (dataDisplay.contains('/')) {
       final partes = dataDisplay.split('/');
       if (partes.length == 3) {
-        final dia = int.tryParse(partes[0]) ?? DateTime.now().day;
-        final mes = int.tryParse(partes[1]) ?? DateTime.now().month;
-        final ano = int.tryParse(partes[2]) ?? DateTime.now().year;
+        final dataRef = _obterDataParaEstoque();
+        final dia = int.tryParse(partes[0]) ?? dataRef.day;
+        final mes = int.tryParse(partes[1]) ?? dataRef.month;
+        final ano = int.tryParse(partes[2]) ?? dataRef.year;
         baseDate = DateTime(ano, mes, dia, horas, minutos);
       } else {
-        baseDate = DateTime.now();
+        final dataRef = _obterDataParaEstoque();
+        baseDate = DateTime(
+          dataRef.year,
+          dataRef.month,
+          dataRef.day,
+          horas,
+          minutos,
+        );
       }
     } else if (dataDisplay.contains('-')) {
       try {
         final data = DateTime.parse(dataDisplay);
         baseDate = DateTime(data.year, data.month, data.day, horas, minutos);
       } catch (_) {
-        baseDate = DateTime.now();
+        final dataRef = _obterDataParaEstoque();
+        baseDate = DateTime(
+          dataRef.year,
+          dataRef.month,
+          dataRef.day,
+          horas,
+          minutos,
+        );
       }
     } else {
-      baseDate = DateTime.now();
+      final dataRef = _obterDataParaEstoque();
+      baseDate = DateTime(
+        dataRef.year,
+        dataRef.month,
+        dataRef.day,
+        horas,
+        minutos,
+      );
     }
 
     return baseDate.toIso8601String();
@@ -3266,9 +3529,13 @@ class _CalcPageState extends State<CalcPage> {
   double? _converterParaDouble(String? valor) {
     if (valor == null || valor.isEmpty || valor == '-') return null;
     try {
-      String limpo = valor.replaceAll(' L', '').replaceAll(' cm', '')
-          .replaceAll(' ºC', '').replaceAll('°C', '')
-          .replaceAll(',', '.').replaceAll('.', '');
+      String limpo = valor
+          .replaceAll(' L', '')
+          .replaceAll(' cm', '')
+          .replaceAll(' ºC', '')
+          .replaceAll('°C', '')
+          .replaceAll(',', '.')
+          .replaceAll('.', '');
       return double.tryParse(limpo);
     } catch (e) {
       return null;
@@ -3279,7 +3546,7 @@ class _CalcPageState extends State<CalcPage> {
   String? _obterTanqueId() {
     if (widget.dadosFormulario.containsKey('tanque_id')) {
       final tanqueId = widget.dadosFormulario['tanque_id']?.toString();
-      
+
       if (tanqueId != null && tanqueId.isNotEmpty) {
         if (_isValidUUID(tanqueId)) {
           return tanqueId;
@@ -3288,51 +3555,48 @@ class _CalcPageState extends State<CalcPage> {
         }
       }
     }
-    
+
     return null;
   }
 
   bool _isValidUUID(String str) {
     if (str.isEmpty) return false;
-    
+
     // Aceita UUID com hífens: 123e4567-e89b-12d3-a456-426614174000
     final uuidRegex = RegExp(
       r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
       caseSensitive: false,
     );
-    
+
     // Aceita UUID sem hífens: 123e4567e89b12d3a456426614174000
-    final uuidNoHyphensRegex = RegExp(
-      r'^[0-9a-f]{32}$',
-      caseSensitive: false,
-    );
-    
+    final uuidNoHyphensRegex = RegExp(r'^[0-9a-f]{32}$', caseSensitive: false);
+
     return uuidRegex.hasMatch(str) || uuidNoHyphensRegex.hasMatch(str);
   }
 
   String _obterNomeTanque() {
     // Tenta pegar o nome do tanque
     final tanqueNome = widget.dadosFormulario['tanque']?.toString();
-    
+
     // Se já tem e não é um UUID, retorna ele
-    if (tanqueNome != null && 
-        tanqueNome.isNotEmpty && 
+    if (tanqueNome != null &&
+        tanqueNome.isNotEmpty &&
         !_isValidUUID(tanqueNome)) {
       return tanqueNome;
     }
-    
+
     // Se o valor atual é um UUID, tenta buscar o nome da tabela 'tanques'
     if (tanqueNome != null && _isValidUUID(tanqueNome)) {
       _buscarNomeTanquePorId(tanqueNome);
       return 'Carregando...'; // Retorna temporário
     }
-    
+
     // Fallback para usar o produto como nome
     final produto = widget.dadosFormulario['produto']?.toString();
     if (produto != null && produto.isNotEmpty) {
       return produto;
     }
-    
+
     return 'Tanque';
   }
 
@@ -3344,11 +3608,12 @@ class _CalcPageState extends State<CalcPage> {
           .select('referencia')
           .eq('id', tanqueId)
           .maybeSingle();
-          
+
       if (resultado != null && resultado['referencia'] != null) {
         if (mounted) {
           setState(() {
-            widget.dadosFormulario['tanque'] = resultado['referencia']?.toString();
+            widget.dadosFormulario['tanque'] = resultado['referencia']
+                ?.toString();
           });
         }
       }
