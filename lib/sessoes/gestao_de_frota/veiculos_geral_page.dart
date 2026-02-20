@@ -818,14 +818,24 @@ class _VeiculosGeralPageState extends State<VeiculosGeralPage> {
     final filtro = widget.filtro.trim().toLowerCase();
     if (filtro.isEmpty) return _veiculos;
 
+    final capacidadeBuscada = int.tryParse(filtro);
+
     return _veiculos.where((v) {
       final placa = v['placa']?.toString().toLowerCase() ?? '';
       final renavam = v['renavam']?.toString().toLowerCase() ?? '';
       final transportadora = _nomeTransportadora(v).toLowerCase();
+      final tanques = _parseTanques(v['tanques']);
+      final capacidadeTotal = _totalTanques(tanques);
+      final capacidadeComoTexto = capacidadeTotal.toString();
+
+      final bateCapacidade = capacidadeBuscada != null
+          ? capacidadeTotal == capacidadeBuscada
+          : capacidadeComoTexto.contains(filtro);
 
       return placa.contains(filtro) ||
           renavam.contains(filtro) ||
-          transportadora.contains(filtro);
+          transportadora.contains(filtro) ||
+          bateCapacidade;
     }).toList();
   }
 

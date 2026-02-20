@@ -1,9 +1,40 @@
 // dialog_cadastro_placas.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+enum TipoCadastroVeiculo { proprios, terceiros }
+
+class PlacaInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    var texto = newValue.text.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase();
+
+    if (texto.length > 7) {
+      texto = texto.substring(0, 7);
+    }
+
+    if (texto.length > 3) {
+      texto = '${texto.substring(0, 3)}-${texto.substring(3)}';
+    }
+
+    return TextEditingValue(
+      text: texto,
+      selection: TextSelection.collapsed(offset: texto.length),
+    );
+  }
+}
+
 class DialogCadastroPlacas extends StatefulWidget {
-  const DialogCadastroPlacas({super.key});
+  final TipoCadastroVeiculo tipoCadastro;
+
+  const DialogCadastroPlacas({
+    super.key,
+    required this.tipoCadastro,
+  });
 
   @override
   State<DialogCadastroPlacas> createState() => _DialogCadastroPlacasState();
@@ -27,7 +58,11 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
     super.initState();
     _tabController = TabController(length: 1, vsync: this);
     _adicionarPlaca();
-    _carregarTransportadoras();
+    if (widget.tipoCadastro == TipoCadastroVeiculo.proprios) {
+      _carregarTransportadoraPropria();
+    } else {
+      _carregarTransportadoras();
+    }
   }
 
   @override
@@ -64,7 +99,68 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
     }
   }
 
+  Future<void> _carregarTransportadoraPropria() async {
+    setState(() => _carregandoTransportadoras = true);
+    try {
+      final propria = await Supabase.instance.client
+          .from('transportadoras')
+          .select('id, nome')
+          .eq('tipo', 'propria')
+          .order('nome')
+          .limit(1)
+          .maybeSingle();
+
+      if (propria == null) {
+        if (!mounted) return;
+        setState(() {
+          _selectedTransportadoraId = null;
+          _carregandoTransportadoras = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Nenhuma transportadora própria encontrada (tipo = propria).'),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      if (!mounted) return;
+      final nomePropria = (propria['nome'] ?? '').toString();
+      setState(() {
+        _selectedTransportadoraId = propria['id'].toString();
+        for (final controller in _transportadoraControllers) {
+          controller.text = nomePropria;
+        }
+        _carregandoTransportadoras = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _carregandoTransportadoras = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao carregar transportadora própria: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   void _adicionarPlaca() {
+    if (widget.tipoCadastro == TipoCadastroVeiculo.proprios && _placas.length >= 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('No cadastro de veículos próprios, apenas 1 placa por vez.'),
+          backgroundColor: Colors.orange[700],
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        ),
+      );
+      return;
+    }
+
     if (_placas.length >= 3) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -88,6 +184,15 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
       _placaControllers.add(TextEditingController());
       _renavamControllers.add(TextEditingController());
       _transportadoraControllers.add(TextEditingController());
+
+      if (widget.tipoCadastro == TipoCadastroVeiculo.proprios) {
+        final nomeAtual = _transportadoraControllers.isNotEmpty
+            ? (_transportadoraControllers.first.text)
+            : '';
+        if (nomeAtual.isNotEmpty) {
+          _transportadoraControllers.last.text = nomeAtual;
+        }
+      }
       
       _tabController = TabController(
         length: _placas.length,
@@ -131,11 +236,96 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
         );
         return;
       }
+
+      final tanques = List<int>.from(_placas[i]['tanques'] ?? []);
+      final possuiCompartimentoPreenchido = tanques.any((valor) => valor > 0);
+
+      if (!possuiCompartimentoPreenchido) {
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Dialog(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: BorderSide(color: Colors.blue[900]!, width: 1),
+            ),
+            child: Container(
+              width: 360,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 36,
+                    color: Colors.orange[700],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Compartimento não informado',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.blue[900],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Placa ${i + 1}: preencha pelo menos 1 compartimento.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue[900],
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      child: const Text('Ok', style: TextStyle(fontSize: 13)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+        return;
+      }
+
     }
 
     setState(() => _salvando = true);
 
     try {
+      if (_selectedTransportadoraId == null || _selectedTransportadoraId!.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Transportadora não definida para o cadastro.'),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        setState(() => _salvando = false);
+        return;
+      }
+
+      final tabelaDestino = widget.tipoCadastro == TipoCadastroVeiculo.proprios
+          ? 'equipamentos'
+          : 'veiculos_geral';
+
       for (var i = 0; i < _placas.length; i++) {
         final dados = {
           'placa': _placaControllers[i].text.toUpperCase(),
@@ -147,15 +337,17 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
         };
 
         await Supabase.instance.client
-            .from('equipamentos')
-            .insert(dados);
+      .from(tabelaDestino)
+      .insert(dados)
+      .select('id')
+      .single();
       }
 
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${_placas.length} placa(s) cadastrada(s) com sucesso'),
+            content: Text('${_placas.length} veículo(s) cadastrado(s) com sucesso'),
             backgroundColor: Colors.green[700],
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
@@ -221,6 +413,8 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
 
   @override
   Widget build(BuildContext context) {
+    final bool ehProprios = widget.tipoCadastro == TipoCadastroVeiculo.proprios;
+
     return Dialog(
       backgroundColor: Colors.white,
       elevation: 0,
@@ -243,7 +437,7 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
               child: Row(
                 children: [
                   Text(
-                    'Cadastrar Placas',
+                    ehProprios ? 'Cadastrar Veículos Próprios' : 'Cadastrar Veículos de Terceiros',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -263,84 +457,94 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
               ),
             ),
 
-            // Transportadora principal
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        'Transportadora Responsável',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey[700],
-                        ),
-                      ),
-                      const Spacer(),
-                      TextButton.icon(
-                        onPressed: _abrirCadastroTransportadora,
-                        icon: const Icon(Icons.add, size: 14),
-                        label: const Text('Transportadora', style: TextStyle(fontSize: 12)),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.blue[900],
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey[300]!),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: _carregandoTransportadoras
-                        ? const Padding(
-                            padding: EdgeInsets.all(10),
-                            child: Row(
-                              children: [
-                                SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                ),
-                                SizedBox(width: 8),
-                                Text('Carregando...', style: TextStyle(fontSize: 12)),
-                              ],
-                            ),
-                          )
-                        : DropdownButtonFormField<String>(
-                            value: _selectedTransportadoraId,
-                            hint: const Text('Selecionar transportadora', style: TextStyle(fontSize: 13)),
-                            isExpanded: true,
-                            decoration: const InputDecoration(
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            ),
-                            items: _transportadoras.map((t) {
-                              return DropdownMenuItem<String>(
-                                value: t['id'].toString(),
-                                child: Text(
-                                  t['nome'] ?? '--',
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedTransportadoraId = value;
-                              });
-                            },
+            if (!ehProprios)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Transportadora Responsável',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey[700],
                           ),
-                  ),
-                ],
+                        ),
+                        const Spacer(),
+                        TextButton.icon(
+                          onPressed: _abrirCadastroTransportadora,
+                          icon: const Icon(Icons.add, size: 14),
+                          label: const Text('Transportadora', style: TextStyle(fontSize: 12)),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.blue[900],
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: _carregandoTransportadoras
+                          ? const Padding(
+                              padding: EdgeInsets.all(10),
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text('Carregando...', style: TextStyle(fontSize: 12)),
+                                ],
+                              ),
+                            )
+                          : DropdownButtonFormField<String>(
+                              value: _selectedTransportadoraId,
+                              hint: const Text('Selecionar transportadora', style: TextStyle(fontSize: 13)),
+                              isExpanded: true,
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              items: _transportadoras.map((t) {
+                                return DropdownMenuItem<String>(
+                                  value: t['id'].toString(),
+                                  child: Text(
+                                    t['nome'] ?? '--',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                final nomeSelecionado = _transportadoras
+                                    .firstWhere(
+                                      (t) => t['id'].toString() == value,
+                                      orElse: () => {'nome': ''},
+                                    )['nome']
+                                    .toString();
+
+                                setState(() {
+                                  _selectedTransportadoraId = value;
+                                  for (final controller in _transportadoraControllers) {
+                                    controller.text = nomeSelecionado;
+                                  }
+                                });
+                              },
+                            ),
+                    ),
+                  ],
+                ),
               ),
-            ),
 
             // Tabs de placas
             Container(
@@ -384,20 +588,21 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
                       }),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: TextButton.icon(
-                      onPressed: _placas.length < 3 ? _adicionarPlaca : null,
-                      icon: const Icon(Icons.add, size: 14),
-                      label: const Text('Placa', style: TextStyle(fontSize: 12)),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.blue[900],
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  if (!ehProprios)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: TextButton.icon(
+                        onPressed: _placas.length < 3 ? _adicionarPlaca : null,
+                        icon: const Icon(Icons.add, size: 14),
+                        label: const Text('Placa', style: TextStyle(fontSize: 12)),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.blue[900],
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -407,7 +612,7 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
               child: TabBarView(
                 controller: _tabController,
                 children: List.generate(_placas.length, (index) {
-                  return _buildPlacaTab(index);
+                  return _buildPlacaTab(index, ehProprios: ehProprios);
                 }),
               ),
             ),
@@ -465,7 +670,7 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
     );
   }
 
-  Widget _buildPlacaTab(int index) {
+  Widget _buildPlacaTab(int index, {required bool ehProprios}) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -495,6 +700,8 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
                 TextField(
                   controller: _placaControllers[index],
                   style: const TextStyle(fontSize: 13),
+                  maxLength: 8,
+                  inputFormatters: [PlacaInputFormatter()],
                   decoration: InputDecoration(
                     label: Text('Placa *', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
                     border: OutlineInputBorder(
@@ -511,6 +718,7 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
                     ),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                     isDense: true,
+                    counterText: '',
                   ),
                   textCapitalization: TextCapitalization.characters,
                 ),
@@ -535,6 +743,7 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
                         style: const TextStyle(fontSize: 13),
                         keyboardType: TextInputType.number,
                         maxLength: 15,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                         decoration: InputDecoration(
                           label: Text('Renavan', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
                           border: OutlineInputBorder(
@@ -561,6 +770,8 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
                         controller: _transportadoraControllers[index],
                         style: const TextStyle(fontSize: 13),
                         maxLength: 50,
+                        readOnly: ehProprios,
+                        enabled: !ehProprios,
                         decoration: InputDecoration(
                           label: Text('Transportadora', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
                           border: OutlineInputBorder(
@@ -642,7 +853,7 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
                 else
                   ...List.generate(
                     (_placas[index]['tanques'] as List).length,
-                    (tanqueIndex) {                      
+                    (tanqueIndex) {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Row(
@@ -650,9 +861,15 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
                             Expanded(
                               child: TextField(
                                 style: const TextStyle(fontSize: 13),
+                                keyboardType: TextInputType.number,
+                                maxLength: 2,
+                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                onChanged: (value) => _atualizarTanque(index, tanqueIndex, value),
                                 decoration: InputDecoration(
-                                  label: Text('Compartimento ${tanqueIndex + 1} (m³)', 
-                                      style: TextStyle(fontSize: 11, color: Colors.grey[700])),
+                                  label: Text(
+                                    'Compartimento ${tanqueIndex + 1} (m³)',
+                                    style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                                  ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(4),
                                     borderSide: BorderSide(color: Colors.grey[300]!),
@@ -667,9 +884,8 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
                                   ),
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                   isDense: true,
+                                  counterText: '',
                                 ),
-                                keyboardType: TextInputType.number,
-                                onChanged: (value) => _atualizarTanque(index, tanqueIndex, value),
                               ),
                             ),
                             const SizedBox(width: 8),

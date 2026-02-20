@@ -745,6 +745,7 @@ class _VeiculosPageState extends State<VeiculosPage> {
   bool _carregando = true;
   String _filtroPlaca = '';
   int _abaAtual = 0; // 0 = Veículos, 1 = Conjuntos
+  int _terceirosRefreshToken = 0;
   final TextEditingController _buscaController = TextEditingController();
 
   @override
@@ -764,10 +765,10 @@ class _VeiculosPageState extends State<VeiculosPage> {
             tanques,
             renavam,
             transportadora_id,
-            transportadoras!inner(nome)
+            transportadoras(nome)
           ''')
           .order('placa');
-      
+
       setState(() {
         _veiculos = List<Map<String, dynamic>>.from(data);
       });
@@ -777,6 +778,7 @@ class _VeiculosPageState extends State<VeiculosPage> {
       setState(() => _carregando = false);
     }
   }
+
 
   List<int> _parsetanques(dynamic tanquesData) {
     if (tanquesData is List) return tanquesData.cast<int>();
@@ -789,20 +791,46 @@ class _VeiculosPageState extends State<VeiculosPage> {
 
   List<Map<String, dynamic>> get _veiculosFiltrados {
     if (_filtroPlaca.isEmpty) return _veiculos;
+
+    final filtro = _filtroPlaca.trim().toLowerCase();
+    final capacidadeBuscada = int.tryParse(filtro);
+
     return _veiculos.where((v) {
       final placa = v['placa']?.toString().toLowerCase() ?? '';
       final transportadora = _getNomeTransportadora(v).toLowerCase();
-      return placa.contains(_filtroPlaca.toLowerCase()) ||
-             transportadora.contains(_filtroPlaca.toLowerCase());
+      final tanques = _parsetanques(v['tanques']);
+      final capacidadeTotal = _calcularTotaltanques(tanques);
+      final capacidadeComoTexto = capacidadeTotal.toString();
+
+      final bateCapacidade = capacidadeBuscada != null
+          ? capacidadeTotal == capacidadeBuscada
+          : capacidadeComoTexto.contains(filtro);
+
+      return placa.contains(filtro) ||
+             transportadora.contains(filtro) ||
+             bateCapacidade;
     }).toList();
   }
 
   void _abrirCadastroVeiculo() {
+    final tipoCadastro = _abaAtual == 2
+        ? TipoCadastroVeiculo.terceiros
+        : TipoCadastroVeiculo.proprios;
+
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (context) => const DialogCadastroPlacas(),
-    ).then((_) => _carregarVeiculos());
+      builder: (context) => DialogCadastroPlacas(tipoCadastro: tipoCadastro),
+    ).then((_) {
+      if (!mounted) return;
+      if (_abaAtual == 2) {
+        setState(() {
+          _terceirosRefreshToken++;
+        });
+      } else {
+        _carregarVeiculos();
+      }
+    });
   }
 
   Color _getCorBoca(int capacidade) {
@@ -923,10 +951,10 @@ class _VeiculosPageState extends State<VeiculosPage> {
                     },
                     decoration: InputDecoration(
                       hintText: _abaAtual == 0
-                          ? 'Buscar placa ou transportadora...'
+                          ? 'Buscar placa, transportadora ou capacidade...'
                           : _abaAtual == 1
                               ? 'Buscar por placa, motorista, capacidade...'
-                              : 'Buscar placa, renavam ou transportadora...',
+                            : 'Buscar placa, renavam, transportadora ou capacidade...',
                       filled: true,
                       fillColor: Colors.white,
                       prefixIcon: const Icon(Icons.search, size: 20),
@@ -953,6 +981,7 @@ class _VeiculosPageState extends State<VeiculosPage> {
                         buscaController: _buscaController,
                       )
                     : VeiculosGeralPage(
+                        key: ValueKey('terceiros-$_terceirosRefreshToken'),
                         filtro: _filtroPlaca,
                       ),
           ),
