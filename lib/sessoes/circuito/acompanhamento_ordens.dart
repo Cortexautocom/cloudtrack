@@ -194,6 +194,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       _ordemSelecionada = null;
       _mostrarDetalhes = false;
     });
+    _carregarDados();
   }
 
   @override
@@ -205,8 +206,11 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     _filialFiltroId = UsuarioAtual.instance?.filialId;
     final hoje = DateTime.now();
     _dataFiltroController.text = '${hoje.day.toString().padLeft(2, '0')}/${hoje.month.toString().padLeft(2, '0')}/${hoje.year}';
-    
-    _carregarDados();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _carregarDados();
+    });
     _filtroGeralController.addListener(_aplicarFiltros);
     _dataFiltroController.addListener(_aplicarFiltros);
   }

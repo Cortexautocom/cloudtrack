@@ -2645,14 +2645,10 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       }
       // ========================================================
 
-      // Atualizar movimentação com volume 20°C do primeiro tanque
-      if (widget.idMovimentacao != null && _tanques.isNotEmpty) {
-        final volume20C =
-            _converterParaInteiro(_tanques[0].volume20CCtrl.text) ?? 0;
-
-        await _atualizarMovimentacaoSomente20C(
-          movimentacaoId: widget.idMovimentacao!,
-          volume20C: volume20C,
+      // Atualizar TODAS as movimentações da ordem (volumes por tanque + data_carga/status)
+      if (widget.idMovimentacao != null && widget.idMovimentacao!.isNotEmpty) {
+        await _atualizarMovimentacoesDaOrdem(
+          movimentacaoReferenciaId: widget.idMovimentacao!,
         );
       }
 
@@ -2691,26 +2687,57 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     }
   }
 
-  // Atualiza movimentação usando apenas as 4 colunas padrão: saida_amb, saida_vinte, entrada_amb, entrada_vinte
-  Future<void> _atualizarMovimentacaoSomente20C({
-    required String movimentacaoId,
-    required int volume20C,
+  Future<void> _atualizarMovimentacoesDaOrdem({
+    required String movimentacaoReferenciaId,
   }) async {
     try {
       final supabase = Supabase.instance.client;
       final timestampBrasilia = _obterTimestampBrasilia();
-      
-      await supabase
+
+      final movimentacaoRef = await supabase
           .from('movimentacoes')
-          .update({
-            'saida_vinte': volume20C,
-            'data_carga': timestampBrasilia,
-            'status_circuito_orig': '4',
-            'updated_at': timestampBrasilia,
-          })
-          .eq('id', movimentacaoId);
+          .select('ordem_id')
+          .eq('id', movimentacaoReferenciaId)
+          .maybeSingle();
+
+      final ordemId = movimentacaoRef?['ordem_id']?.toString();
+      if (ordemId == null || ordemId.isEmpty) {
+        throw Exception('Não foi possível identificar a ordem da movimentação.');
+      }
+
+      final movimentacoesDaOrdem = await supabase
+          .from('movimentacoes')
+          .select('id')
+          .eq('ordem_id', ordemId);
+
+      final tanquesPorMovimentacaoId = {
+        for (final tanque in _tanques) tanque.id: tanque,
+      };
+
+      for (final mov in movimentacoesDaOrdem) {
+        final movimentacaoId = mov['id']?.toString();
+        if (movimentacaoId == null || movimentacaoId.isEmpty) continue;
+
+        final tanque = tanquesPorMovimentacaoId[movimentacaoId];
+
+        final dadosUpdate = <String, dynamic>{
+          'data_carga': timestampBrasilia,
+          'status_circuito_orig': '4',
+          'updated_at': timestampBrasilia,
+        };
+
+        if (tanque != null) {
+          dadosUpdate['saida_amb'] = _converterParaInteiro(tanque.volumeAmbCtrl.text);
+          dadosUpdate['saida_vinte'] = _converterParaInteiro(tanque.volume20CCtrl.text);
+        }
+
+        await supabase
+            .from('movimentacoes')
+            .update(dadosUpdate)
+            .eq('id', movimentacaoId);
+      }
     } catch (e) {
-      print('✗ Erro ao atualizar movimentação: $e');
+      print('✗ Erro ao atualizar movimentações da ordem: $e');
       rethrow;
     }
   }
