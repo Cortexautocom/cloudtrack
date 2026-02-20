@@ -770,8 +770,8 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
                         controller: _transportadoraControllers[index],
                         style: const TextStyle(fontSize: 13),
                         maxLength: 50,
-                        readOnly: ehProprios,
-                        enabled: !ehProprios,
+                        readOnly: true,
+                        enabled: false,
                         decoration: InputDecoration(
                           label: Text('Transportadora', style: TextStyle(fontSize: 12, color: Colors.grey[700])),
                           border: OutlineInputBorder(
