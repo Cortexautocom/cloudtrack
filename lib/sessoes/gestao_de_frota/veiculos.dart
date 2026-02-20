@@ -743,15 +743,52 @@ class VeiculosPage extends StatefulWidget {
 class _VeiculosPageState extends State<VeiculosPage> {
   List<Map<String, dynamic>> _veiculos = [];
   bool _carregando = true;
-  String _filtroPlaca = '';
+  String _filtroVeiculos = '';
+  String _filtroTerceiros = '';
   int _abaAtual = 0; // 0 = Veículos, 1 = Conjuntos
   int _terceirosRefreshToken = 0;
-  final TextEditingController _buscaController = TextEditingController();
+  final TextEditingController _buscaVeiculosController = TextEditingController();
+  final TextEditingController _buscaConjuntosController = TextEditingController();
+  final TextEditingController _buscaTerceirosController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _carregarVeiculos();
+  }
+
+  @override
+  void dispose() {
+    _buscaVeiculosController.dispose();
+    _buscaConjuntosController.dispose();
+    _buscaTerceirosController.dispose();
+    super.dispose();
+  }
+
+  TextEditingController get _controladorBuscaAtual {
+    if (_abaAtual == 0) return _buscaVeiculosController;
+    if (_abaAtual == 1) return _buscaConjuntosController;
+    return _buscaTerceirosController;
+  }
+
+  String get _hintBuscaAtual {
+    if (_abaAtual == 0) {
+      return 'Buscar placa, transportadora ou capacidade...';
+    }
+    if (_abaAtual == 1) {
+      return 'Buscar por placa, motorista, capacidade...';
+    }
+    return 'Buscar placa, renavam, transportadora ou capacidade...';
+  }
+
+  void _onBuscaChanged(String value) {
+    setState(() {
+      if (_abaAtual == 0) {
+        _filtroVeiculos = value;
+      } else if (_abaAtual == 2) {
+        _filtroTerceiros = value;
+      }
+    });
   }
 
   Future<void> _carregarVeiculos() async {
@@ -790,9 +827,9 @@ class _VeiculosPageState extends State<VeiculosPage> {
   }
 
   List<Map<String, dynamic>> get _veiculosFiltrados {
-    if (_filtroPlaca.isEmpty) return _veiculos;
+    if (_filtroVeiculos.isEmpty) return _veiculos;
 
-    final filtro = _filtroPlaca.trim().toLowerCase();
+    final filtro = _filtroVeiculos.trim().toLowerCase();
     final capacidadeBuscada = int.tryParse(filtro);
 
     return _veiculos.where((v) {
@@ -943,18 +980,11 @@ class _VeiculosPageState extends State<VeiculosPage> {
                 SizedBox(
                   width: 300,
                   child: TextField(
-                    controller: _buscaController,
-                    onChanged: (value) {
-                      setState(() {
-                        _filtroPlaca = value;
-                      });
-                    },
+                    key: ValueKey('busca-$_abaAtual'),
+                    controller: _controladorBuscaAtual,
+                    onChanged: _onBuscaChanged,
                     decoration: InputDecoration(
-                      hintText: _abaAtual == 0
-                          ? 'Buscar placa, transportadora ou capacidade...'
-                          : _abaAtual == 1
-                              ? 'Buscar por placa, motorista, capacidade...'
-                            : 'Buscar placa, renavam, transportadora ou capacidade...',
+                      hintText: _hintBuscaAtual,
                       filled: true,
                       fillColor: Colors.white,
                       prefixIcon: const Icon(Icons.search, size: 20),
@@ -978,11 +1008,11 @@ class _VeiculosPageState extends State<VeiculosPage> {
                 ? _buildVeiculosList()
                 : _abaAtual == 1
                     ? ConjuntosPage(
-                        buscaController: _buscaController,
+                        buscaController: _buscaConjuntosController,
                       )
                     : VeiculosGeralPage(
                         key: ValueKey('terceiros-$_terceirosRefreshToken'),
-                        filtro: _filtroPlaca,
+                        filtro: _filtroTerceiros,
                       ),
           ),
         ],
@@ -1000,8 +1030,6 @@ class _VeiculosPageState extends State<VeiculosPage> {
         onTap: () {
           setState(() {
             _abaAtual = aba;
-            _buscaController.clear();
-            _filtroPlaca = '';
           });
         },
         hoverColor: const Color(0xFF0D47A1).withOpacity(0.08),
@@ -1132,7 +1160,7 @@ class _VeiculosPageState extends State<VeiculosPage> {
                               size: 48, color: Colors.grey),
                           const SizedBox(height: 16),
                           Text(
-                            _filtroPlaca.isEmpty
+                            _filtroVeiculos.isEmpty
                                 ? 'Nenhum veículo cadastrado'
                                 : 'Nenhum veículo encontrado',
                             style: const TextStyle(fontSize: 16, color: Colors.grey),

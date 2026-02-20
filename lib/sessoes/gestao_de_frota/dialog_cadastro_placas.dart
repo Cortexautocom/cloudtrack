@@ -310,7 +310,10 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
     setState(() => _salvando = true);
 
     try {
-      if (_selectedTransportadoraId == null || _selectedTransportadoraId!.isEmpty) {
+      final precisaTransportadora = widget.tipoCadastro == TipoCadastroVeiculo.proprios;
+
+      if (precisaTransportadora &&
+          (_selectedTransportadoraId == null || _selectedTransportadoraId!.isEmpty)) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Transportadora não definida para o cadastro.'),
