@@ -193,6 +193,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           .select('''
             id,
             movimentacao_id,
+            cacl_id,
             data_mov,
             cliente,
             descricao,
@@ -227,6 +228,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         lista.add({
           'id': m['id'],
           'movimentacao_id': m['movimentacao_id'],
+          'cacl_id': m['cacl_id'],
           'data_mov': m['data_mov'],
           'descricao': descricao,
           'entrada_amb': entradaAmb,
@@ -316,11 +318,22 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       return 0;
     });
 
+    final semCacl = ord.where((m) => !_temCaclIdValido(m)).toList();
+    final comCacl = ord.where(_temCaclIdValido).toList();
+    final ordenadasParaUI = [...semCacl, ...comCacl];
+
     setState(() {
-      _movsOrdenadas = ord;
+      _movsOrdenadas = ordenadasParaUI;
       _coluna = col;
       _asc = asc;
     });
+  }
+
+  bool _temCaclIdValido(Map<String, dynamic> mov) {
+    final caclId = mov['cacl_id']?.toString().trim();
+    return caclId != null &&
+        caclId.isNotEmpty &&
+        caclId.toLowerCase() != 'null';
   }
 
   void _onSort(String col) {
