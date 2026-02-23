@@ -335,27 +335,36 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
     }
   }
 
-  String _formatarData(dynamic data) {
-    if (data == null) return '-';
+  String _formatarInicio(dynamic data, dynamic horarioInicial) {
+    if (data == null) return 'Início: -';
+
     try {
       final d = DateTime.parse(data.toString());
-      return '${d.day.toString().padLeft(2, '0')}/'
-          '${d.month.toString().padLeft(2, '0')}/'
-          '${d.year}';
-    } catch (_) {
-      return data.toString();
-    }
-  }
 
-  String _formatarHorario(dynamic horarioInicial, dynamic horarioFinal) {
-    if (horarioInicial != null && horarioFinal != null) {
-      return '$horarioInicial - $horarioFinal';
-    } else if (horarioInicial != null) {
-      return 'Início: $horarioInicial';
-    } else if (horarioFinal != null) {
-      return 'Fim: $horarioFinal';
+      final dataFmt =
+          '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+      String horaFmt = '';
+      if (horarioInicial != null) {
+        // se vier "18:00" ok, se vier timestamp, extrai só HH:mm
+        final h = horarioInicial.toString();
+        if (h.contains('T')) {
+          final dh = DateTime.parse(h);
+          horaFmt =
+              '${dh.hour.toString().padLeft(2, '0')}:${dh.minute.toString().padLeft(2, '0')}';
+        } else {
+          horaFmt = h.substring(0, 5); // garante HH:mm
+        }
+      } else {
+        // fallback: usa a hora do próprio campo data (timestamp)
+        horaFmt =
+            '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+      }
+
+      return 'Início: $dataFmt, $horaFmt h';
+    } catch (_) {
+      return 'Início: -';
     }
-    return 'Sem horário';
   }
 
   Color _getStatusColor(String? status) {
@@ -1074,402 +1083,386 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
   }
 
   Widget _buildCardsAcoesDoTanque() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(60, 18, 60, 16),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (_tanqueSelecionadoParaAcoes != null) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _line, width: 1.2),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: _accent.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: _accent.withOpacity(0.2)),
-                      ),
-                      child: const Icon(Icons.storage, color: _accent, size: 22),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _tanqueSelecionadoParaAcoes!['referencia'] ?? 'Tanque',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: _ink,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _tanqueSelecionadoParaAcoes!['produto'] ?? 'Produto',
-                            style: const TextStyle(fontSize: 12, color: _muted),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(60, 18, 60, 16),
+    child: SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_tanqueSelecionadoParaAcoes != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _line, width: 1.2),
               ),
-              const SizedBox(height: 24),
-              Row(
+              child: Row(
                 children: [
-                  // Card CACL
-                  Expanded(
-                    child: _buildCardAcao(
-                      icon: Icons.analytics,
-                      titulo: 'CACL',
-                      descricao: 'Emitir CACL',
-                      onTap: _abrirCACL,
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: _accent.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _accent.withOpacity(0.2)),
                     ),
+                    child: const Icon(Icons.storage, color: _accent, size: 22),
                   ),
-                  const SizedBox(width: 16),
-                  // Card Estoque Tanque
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: _buildCardAcao(
-                      icon: Icons.inventory_2,
-                      titulo: 'Estoque tanque',
-                      descricao: 'Consultar estoque do tanque',
-                      onTap: _abrirEstoqueTanque,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  // Card Editar Tanque
-                  Expanded(
-                    child: _buildCardAcao(
-                      icon: Icons.edit,
-                      titulo: 'Editar Tanque',
-                      descricao: 'Atualizar dados do tanque',
-                      onTap: _abrirEdicaoTanque,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _tanqueSelecionadoParaAcoes!['referencia'] ?? 'Tanque',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: _ink,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _tanqueSelecionadoParaAcoes!['produto'] ?? 'Produto',
+                          style: const TextStyle(fontSize: 12, color: _muted),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _line, width: 1.2),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildCardAcao(
+                    icon: Icons.analytics,
+                    titulo: 'CACL',
+                    descricao: 'Emitir CACL Movimentação',
+                    onTap: _abrirCACL,
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.receipt_long_outlined, size: 18, color: _accent),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'CACLs emitidos do tanque',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: _ink,
-                      ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildCardAcao(
+                    icon: Icons.inventory_2,
+                    titulo: 'Estoque tanque',
+                    descricao: 'Consultar estoque do tanque',
+                    onTap: _abrirEstoqueTanque,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildCardAcao(
+                    icon: Icons.edit,
+                    titulo: 'Editar Tanque',
+                    descricao: 'Atualizar dados do tanque',
+                    onTap: _abrirEdicaoTanque,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _line, width: 1.2),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.receipt_long_outlined, size: 18, color: _accent),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'CACLs emitidos do tanque',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: _ink,
                     ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.refresh, size: 18, color: _accent),
-                      onPressed: _tanqueSelecionadoParaAcoes?['id'] == null
-                          ? null
-                          : () {
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.refresh, size: 18, color: _accent),
+                    onPressed: _tanqueSelecionadoParaAcoes?['id'] == null
+                        ? null
+                        : () {
+                            final tanqueId =
+                                _tanqueSelecionadoParaAcoes?['id']?.toString();
+                            if (tanqueId != null && tanqueId.isNotEmpty) {
+                              _carregarCaclsDoTanque(tanqueId);
+                            }
+                          },
+                    tooltip: 'Recarregar CACLs',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (_carregandoCacls)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: CircularProgressIndicator(color: _accent),
+                ),
+              )
+            else if (_caclesTanque.isEmpty)
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.receipt_long_outlined, size: 52, color: _muted),
+                    SizedBox(height: 10),
+                    Text(
+                      'Nenhum CACL encontrado para este tanque',
+                      style: TextStyle(fontSize: 14, color: _muted),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _caclesTanque.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final cacl = _caclesTanque[index];
+                  final status = cacl['status']?.toString();
+                  final solicitaCanc = cacl['solicita_canc'] as bool?;
+                  final isCancelado = status?.toLowerCase() == 'cancelado';
+                  final statusColor = _getStatusColor(status);
+                  final cardColor = _getCardColor(status, solicitaCanc);
+                  final borderColor = _getBorderColor(status, solicitaCanc);
+                  final statusText = _getStatusText(status);
+                  final tanqueRef =
+                      cacl['tanques']?['referencia']?.toString() ?? '-';
+                  final produto = cacl['produto'] ?? 'Produto não informado';
+
+                  final inicio =
+                      _formatarInicio(cacl['data'], cacl['horario_inicial']);
+
+                  return Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: SizedBox(
+                        width: 1300,
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          onEnter: (_) =>
+                              setState(() => _hoverCaclIndex = index),
+                          onExit: (_) =>
+                              setState(() => _hoverCaclIndex = null),
+                          child: GestureDetector(
+                            onTap: () async {
+                              final nivelUsuario =
+                                  UsuarioAtual.instance?.nivel ?? 0;
+                              if (nivelUsuario == 2 && isCancelado) return;
+
+                              final caclId = cacl['id'].toString();
+                              final isPendente =
+                                  status?.toLowerCase() == 'pendente';
+                              final isAguardando =
+                                  status?.toLowerCase() == 'aguardando';
+
+                              if (!context.mounted) return;
+
+                              if (isPendente || isAguardando) {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => EditarCaclPage(
+                                      caclId: caclId,
+                                      onVoltar: () =>
+                                          Navigator.pop(context),
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => CaclHistoricoPage(
+                                      caclId: caclId,
+                                      onVoltar: () =>
+                                          Navigator.pop(context),
+                                    ),
+                                  ),
+                                );
+                              }
+
                               final tanqueId =
-                                  _tanqueSelecionadoParaAcoes?['id']?.toString();
+                                  _tanqueSelecionadoParaAcoes?['id']
+                                      ?.toString();
                               if (tanqueId != null && tanqueId.isNotEmpty) {
                                 _carregarCaclsDoTanque(tanqueId);
                               }
                             },
-                      tooltip: 'Recarregar CACLs',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (_carregandoCacls)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20),
-                    child: CircularProgressIndicator(color: _accent),
-                  ),
-                )
-              else if (_caclesTanque.isEmpty)
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.receipt_long_outlined, size: 52, color: _muted),
-                      SizedBox(height: 10),
-                      Text(
-                        'Nenhum CACL encontrado para este tanque',
-                        style: TextStyle(fontSize: 14, color: _muted),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _caclesTanque.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final cacl = _caclesTanque[index];
-                    final status = cacl['status']?.toString();
-                    final solicitaCanc = cacl['solicita_canc'] as bool?;
-                    final isCancelado = status?.toLowerCase() == 'cancelado';
-                    final statusColor = _getStatusColor(status);
-                    final cardColor = _getCardColor(status, solicitaCanc);
-                    final borderColor = _getBorderColor(status, solicitaCanc);
-                    final statusText = _getStatusText(status);
-                    final tanqueRef = cacl['tanques']?['referencia']?.toString() ?? '-';
-                    final produto = cacl['produto'] ?? 'Produto não informado';
-                    final data = _formatarData(cacl['data']);
-                    final horario = _formatarHorario(
-                      cacl['horario_inicial'],
-                      cacl['horario_final'],
-                    );
-
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                      child: Align(
-                        alignment: Alignment.center,
-                        child: SizedBox( // ← largura fixa do card
-                          width: 1300,
-                          child: MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            onEnter: (_) {
-                              setState(() => _hoverCaclIndex = index);
-                            },
-                            onExit: (_) {
-                              setState(() => _hoverCaclIndex = null);
-                            },
-                            child: GestureDetector(
-                              onTap: () async {
-                                final nivelUsuario = UsuarioAtual.instance?.nivel ?? 0;
-                                if (nivelUsuario == 2 && isCancelado) {
-                                  return;
-                                }
-
-                                final caclId = cacl['id'].toString();
-                                final isPendente = status?.toLowerCase() == 'pendente';
-                                final isAguardando = status?.toLowerCase() == 'aguardando';
-
-                                if (!context.mounted) return;
-
-                                if (isPendente || isAguardando) {
-                                  await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => EditarCaclPage(
-                                        caclId: caclId,
-                                        onVoltar: () {
-                                          Navigator.pop(context);
-                                        },
+                            child: Opacity(
+                              opacity: isCancelado ? 0.85 : 1.0,
+                              child: AnimatedContainer(
+                                duration:
+                                    const Duration(milliseconds: 180),
+                                curve: Curves.easeOut,
+                                transform: _hoverCaclIndex == index
+                                    ? (Matrix4.identity()
+                                      ..scale(1.01, 1.01))
+                                    : Matrix4.identity(),
+                                decoration: BoxDecoration(
+                                  color: _hoverCaclIndex == index
+                                      ? cardColor.withOpacity(0.85)
+                                      : cardColor,
+                                  borderRadius:
+                                      BorderRadius.circular(12),
+                                  border: Border.all(
+                                      color: borderColor, width: 1.5),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(
+                                        _hoverCaclIndex == index
+                                            ? 0.15
+                                            : 0.05,
                                       ),
+                                      blurRadius: _hoverCaclIndex == index
+                                          ? 12
+                                          : 4,
+                                      offset: const Offset(0, 4),
                                     ),
-                                  );
-                                } else {
-                                  await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => CaclHistoricoPage(
-                                        caclId: caclId,
-                                        onVoltar: () {
-                                          Navigator.pop(context);
-                                        },
-                                      ),
-                                    ),
-                                  );
-                                }
-
-                                final tanqueId =
-                                    _tanqueSelecionadoParaAcoes?['id']?.toString();
-                                if (tanqueId != null && tanqueId.isNotEmpty) {
-                                  _carregarCaclsDoTanque(tanqueId);
-                                }
-                              },
-                              child: Opacity(
-                                opacity: isCancelado ? 0.85 : 1.0,
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 180),
-                                  curve: Curves.easeOut,
-                                  alignment: Alignment.center,
-                                  transformAlignment: Alignment.center,
-                                  transform: _hoverCaclIndex == index
-                                      ? (Matrix4.identity()..scale(1.01, 1.01))
-                                      : Matrix4.identity(),
-                                  decoration: BoxDecoration(
-                                    color: _hoverCaclIndex == index
-                                        ? cardColor.withOpacity(0.85)
-                                        : cardColor,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: borderColor,
-                                      width: 1.5,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(
-                                          _hoverCaclIndex == index ? 0.15 : 0.05,
+                                  ],
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        width: 4,
+                                        height: 60,
+                                        decoration: BoxDecoration(
+                                          color: statusColor,
+                                          borderRadius:
+                                              BorderRadius.circular(2),
                                         ),
-                                        blurRadius: _hoverCaclIndex == index ? 12 : 4,
-                                        offset: const Offset(0, 4),
                                       ),
-                                    ],
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(12),
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Container(
-                                          width: 4,
-                                          height: 60,
-                                          decoration: BoxDecoration(
-                                            color: statusColor,
-                                            borderRadius: BorderRadius.circular(2),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  const Icon(
-                                                    Icons.storage,
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                const Icon(Icons.storage,
                                                     size: 16,
-                                                    color: Colors.black54,
+                                                    color:
+                                                        Colors.black54),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  'Tanque $tanqueRef',
+                                                  style: TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight:
+                                                        FontWeight.bold,
+                                                    color: isCancelado
+                                                        ? Colors.grey
+                                                        : Colors.black87,
                                                   ),
-                                                  const SizedBox(width: 6),
-                                                  Text(
-                                                    'Tanque $tanqueRef',
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.local_gas_station,
+                                                  size: 14,
+                                                  color: isCancelado
+                                                      ? Colors.grey
+                                                      : Colors.black54,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Expanded(
+                                                  child: Text(
+                                                    produto,
                                                     style: TextStyle(
-                                                      fontSize: 16,
-                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 14,
                                                       color: isCancelado
                                                           ? Colors.grey
                                                           : Colors.black87,
                                                     ),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                   ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 4),
-
-                                              Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.local_gas_station,
-                                                    size: 14,
-                                                    color: isCancelado
-                                                        ? Colors.grey
-                                                        : Colors.black54,
-                                                  ),
-                                                  const SizedBox(width: 6),
-                                                  Expanded(
-                                                    child: Text(
-                                                      produto,
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        color: isCancelado
-                                                            ? Colors.grey
-                                                            : Colors.black87,
-                                                      ),
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 4),
-
-                                              Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.calendar_today,
-                                                    size: 14,
-                                                    color: isCancelado
-                                                        ? Colors.grey
-                                                        : Colors.black54,
-                                                  ),
-                                                  const SizedBox(width: 6),
-                                                  Text(
-                                                    data,
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.play_circle_outline,
+                                                  size: 14,
+                                                  color: isCancelado
+                                                      ? Colors.grey
+                                                      : Colors.black54,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Expanded(
+                                                  child: Text(
+                                                    inicio,
                                                     style: TextStyle(
                                                       fontSize: 13,
                                                       color: isCancelado
                                                           ? Colors.grey
                                                           : Colors.black54,
                                                     ),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                   ),
-                                                  const SizedBox(width: 16),
-                                                  Icon(
-                                                    Icons.access_time,
-                                                    size: 14,
-                                                    color: isCancelado
-                                                        ? Colors.grey
-                                                        : Colors.black54,
-                                                  ),
-                                                  const SizedBox(width: 6),
-                                                  Expanded(
-                                                    child: Text(
-                                                      horario,
-                                                      style: TextStyle(
-                                                        fontSize: 13,
-                                                        color: isCancelado
-                                                            ? Colors.grey
-                                                            : Colors.black54,
-                                                      ),
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-
-                                        Column(
-                                          crossAxisAlignment: CrossAxisAlignment.end,
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 4,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: statusColor.withOpacity(0.15),
-                                                borderRadius: BorderRadius.circular(6),
-                                              ),
-                                              child: Text(
-                                                statusText,
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: statusColor,
                                                 ),
-                                              ),
+                                              ],
                                             ),
                                           ],
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          Container(
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: statusColor
+                                                  .withOpacity(0.15),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              statusText,
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight:
+                                                    FontWeight.w600,
+                                                color: statusColor,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -1477,16 +1470,16 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                           ),
                         ),
                       ),
-                    );
-
-                  },
-                ),
-            ]
+                    ),
+                  );
+                },
+              ),
           ],
-        ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildCardAcao({
     required IconData icon,
