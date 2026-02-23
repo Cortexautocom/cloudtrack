@@ -84,10 +84,10 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     _tipoFiltro = 'saida';
     _filialFiltroId = UsuarioAtual.instance?.filialId;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      _carregarFiliais();
-      // Não carrega dados automaticamente - aguarda o botão filtrar
+      await _carregarFiliais();
+      await _aplicarFiltros();
       setState(() {
         _carregando = false;
       });
