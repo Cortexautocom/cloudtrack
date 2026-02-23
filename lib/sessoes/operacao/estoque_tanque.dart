@@ -95,30 +95,26 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     super.dispose();
   }
 
-  Future<void> _carregarEstoqueInicialDoDiario() async {
+  Future<void> _carregarEstoqueInicialDoBanco() async {
     try {
-      final dataAnterior = _dataFiltro.subtract(const Duration(days: 1));
-      final dataAnteriorStr = dataAnterior.toIso8601String().split('T')[0];
-      final inicioDoDiaAnterior = '$dataAnteriorStr 00:00:00';
-      final fimDoDiaAnterior = '$dataAnteriorStr 23:59:59';
+      final dataStr = _dataFiltro.toIso8601String().split('T')[0];
 
-      final response = await _supabase
-          .from('saldo_tanque_diario')
-          .select('saldo')
-          .eq('tanque_id', widget.tanqueId)
-          .gte('data_mov', inicioDoDiaAnterior)
-          .lte('data_mov', fimDoDiaAnterior)
-          .maybeSingle();
+      final response = await _supabase.rpc(
+        'fn_estoque_inicial_tanque',
+        params: {
+          'p_tanque_id': widget.tanqueId,
+          'p_data': dataStr, // yyyy-MM-dd
+        },
+      );
 
-      if (response != null) {
-        _estoqueInicial = {
-          'amb': response['saldo'] ?? 0,
-          'vinte': response['saldo'] ?? 0,
-        };
-      } else {
-        _estoqueInicial = {'amb': 0, 'vinte': 0};
-      }
+      final num saldo = (response ?? 0) as num;
+
+      _estoqueInicial = {
+        'amb': saldo,
+        'vinte': saldo,
+      };
     } catch (e) {
+      debugPrint('Erro ao buscar estoque inicial via função: $e');
       _estoqueInicial = {'amb': 0, 'vinte': 0};
     }
   }
@@ -181,7 +177,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     });
 
     try {
-      await _carregarEstoqueInicialDoDiario();
+      await _carregarEstoqueInicialDoBanco();
       await _verificarCACLExistente();
       await _verificarSaldoDiarioHoje();
 
