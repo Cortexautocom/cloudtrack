@@ -60,7 +60,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   String? _empresaId;
   
   final TextEditingController _filtroGeralController = TextEditingController();
-  final TextEditingController _dataFiltroController = TextEditingController();
   String? _filialFiltroId;
   String? _tipoFiltro;
 
@@ -70,8 +69,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   // Controladores para os filtros (para reset)
   late TextEditingController _dataInicioController;
   late TextEditingController _dataFimController;
-  String? _filialFiltro;
-  String? _tipoOperacaoFiltro;
 
   @override
   void initState() {
