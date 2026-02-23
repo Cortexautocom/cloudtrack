@@ -67,6 +67,368 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   bool _mostrarDetalhes = false;
   Map<String, dynamic>? _ordemSelecionada;
 
+  // Controladores para os filtros (para reset)
+  late TextEditingController _dataInicioController;
+  late TextEditingController _dataFimController;
+  String? _filialFiltro;
+  String? _tipoOperacaoFiltro;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Inicializa controladores de data
+    final agora = DateTime.now();
+    final dataFormatada = '${agora.day.toString().padLeft(2, '0')}/${agora.month.toString().padLeft(2, '0')}/${agora.year}';
+    _dataInicioController = TextEditingController(text: dataFormatada);
+    _dataFimController = TextEditingController();
+
+    // Define valores iniciais dos filtros
+    _tipoFiltro = 'saida';
+    _filialFiltroId = UsuarioAtual.instance?.filialId;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _carregarFiliais();
+      // Não carrega dados automaticamente - aguarda o botão filtrar
+      setState(() {
+        _carregando = false;
+      });
+    });
+  }
+
+  Future<void> _carregarFiliais() async {
+    try {
+      final usuario = UsuarioAtual.instance;
+      if (usuario == null) return;
+
+      if (usuario.nivel == 3) {
+        final dados = await _supabase
+            .from('filiais')
+            .select('id, nome')
+            .eq('empresa_id', _empresaId!)
+            .order('nome');
+
+        setState(() {
+          _filiais = List<Map<String, dynamic>>.from(dados);
+          if (_filialFiltroId == null && _filiais.isNotEmpty) {
+            _filialFiltroId = _filiais.first['id'].toString();
+          }
+        });
+      } else if (usuario.filialId != null) {
+        final filialData = await _supabase
+            .from('filiais')
+            .select('id, nome')
+            .eq('id', usuario.filialId!)
+            .single();
+
+        setState(() {
+          _filiais = [filialData];
+          _filialFiltroId = usuario.filialId;
+        });
+      }
+    } catch (e) {
+      // Erro silencioso
+    }
+  }
+
+  Future<void> _aplicarFiltros() async {
+    // Valida se pelo menos uma data foi preenchida
+    if (_dataInicioController.text.isEmpty && _dataFimController.text.isEmpty) {
+      _mostrarSnackBar('Preencha pelo menos uma data para filtrar');
+      return;
+    }
+
+    setState(() {
+      _carregando = true;
+      _erro = false;
+    });
+
+    try {
+      final usuario = UsuarioAtual.instance;
+      if (usuario == null) {
+        throw Exception('Usuário não autenticado');
+      }
+
+      _empresaId = usuario.empresaId;
+
+      if (_empresaId == null || _empresaId!.isEmpty) {
+        throw Exception('Não foi possível identificar a empresa do usuário');
+      }
+
+      // Converte as datas do formato dd/mm/aaaa para DateTime
+      DateTime? dataInicio;
+      DateTime? dataFim;
+
+      if (_dataInicioController.text.isNotEmpty) {
+        final partes = _dataInicioController.text.split('/');
+        if (partes.length == 3) {
+          dataInicio = DateTime(
+            int.parse(partes[2]),
+            int.parse(partes[1]),
+            int.parse(partes[0]),
+          );
+        }
+      }
+
+      if (_dataFimController.text.isNotEmpty) {
+        final partes = _dataFimController.text.split('/');
+        if (partes.length == 3) {
+          dataFim = DateTime(
+            int.parse(partes[2]),
+            int.parse(partes[1]),
+            int.parse(partes[0]),
+            23, 59, 59, // Fim do dia
+          );
+        }
+      }
+
+      // Se só tem data início, define data fim como início + 1 dia
+      if (dataInicio != null && dataFim == null) {
+        dataFim = DateTime(dataInicio.year, dataInicio.month, dataInicio.day, 23, 59, 59);
+      }
+      
+      // Se só tem data fim, define data início como fim - 1 dia
+      if (dataFim != null && dataInicio == null) {
+        dataInicio = DateTime(dataFim.year, dataFim.month, dataFim.day, 0, 0, 0);
+      }
+
+      var query = _supabase
+          .from('movimentacoes')
+          .select('''
+            id,
+            placa,
+            entrada_amb,
+            entrada_vinte,
+            saida_amb,
+            saida_vinte,
+            cliente,
+            descricao,
+            status_circuito_orig,
+            status_circuito_dest,
+            data_mov,
+            filial_id,
+            empresa_id,
+            tipo_op,
+            filial_origem_id,
+            filial_destino_id,
+            produtos!produto_id(id, nome_dois),
+            filiais!estoques_filial_id_fkey(id, nome),
+            filial_origem:filiais!movimentacoes_filial_origem_id_fkey(id, nome),
+            filial_destino:filiais!movimentacoes_filial_destino_id_fkey(id, nome),
+            ordem_id
+          ''')
+          .eq('empresa_id', _empresaId!);
+
+      // Aplica filtro de data no banco de dados
+      if (dataInicio != null) {
+        query = query.gte('data_mov', dataInicio.toIso8601String());
+      }
+      if (dataFim != null) {
+        query = query.lte('data_mov', dataFim.toIso8601String());
+      }
+
+      query.order('data_mov', ascending: false);
+
+      final dados = await query;
+      
+      List<Map<String, dynamic>> movimentacoesFiltradas = [];
+
+      // Filtra por filial baseado no nível do usuário
+      String? filialAtualId;
+      if (usuario.nivel < 3) {
+        filialAtualId = usuario.filialId;
+      } else if (usuario.nivel == 3) {
+        filialAtualId = _filialFiltroId;
+      }
+
+      if (filialAtualId != null && filialAtualId.isNotEmpty) {
+        movimentacoesFiltradas = dados.where((item) {
+          final tipoOp = (item['tipo_op']?.toString() ?? 'venda').toLowerCase();
+          final filialId = item['filial_id']?.toString();
+          final filialOrigemId = item['filial_origem_id']?.toString();
+          final filialDestinoId = item['filial_destino_id']?.toString();
+
+          // Filtro de tipo (entrada/saida)
+          if (_tipoFiltro == 'entrada') {
+            // Entrada: só mostrar se a filial atual é destino
+            if (tipoOp == 'usina' || tipoOp == 'transf') {
+              return filialDestinoId == filialAtualId;
+            }
+            // Para vendas, não faz sentido entrada
+            return false;
+          } else if (_tipoFiltro == 'saida') {
+            // Saída: só mostrar se a filial atual é origem (ou local para venda)
+            if (tipoOp == 'usina') {
+              return false; // usina não tem saída para filial
+            } else if (tipoOp == 'transf') {
+              return filialOrigemId == filialAtualId;
+            } else if (tipoOp == 'venda') {
+              return filialId == filialAtualId;
+            }
+            return false;
+          } else {
+            // Todos: comportamento antigo
+            if (tipoOp == 'usina') {
+              return filialDestinoId == filialAtualId;
+            } else if (tipoOp == 'transf') {
+              return filialOrigemId == filialAtualId || filialDestinoId == filialAtualId;
+            } else if (tipoOp == 'venda') {
+              return filialId == filialAtualId;
+            }
+            return false;
+          }
+        }).toList();
+      } else {
+        movimentacoesFiltradas = List<Map<String, dynamic>>.from(dados);
+      }
+
+      final Map<String, List<Map<String, dynamic>>> gruposOrdens = {};
+
+      for (var movimentacao in movimentacoesFiltradas) {
+        final ordemId = movimentacao['ordem_id']?.toString();
+        if (ordemId != null && ordemId.isNotEmpty) {
+          if (!gruposOrdens.containsKey(ordemId)) {
+            gruposOrdens[ordemId] = [];
+          }
+          gruposOrdens[ordemId]!.add(movimentacao);
+        }
+      }
+
+      final List<Map<String, dynamic>> ordensResumidas = [];
+
+      for (var entry in gruposOrdens.entries) {
+        final ordemId = entry.key;
+        final movimentacoesOrdem = entry.value;
+
+        if (movimentacoesOrdem.isEmpty) continue;
+
+        final primeiraMov = movimentacoesOrdem.first;
+
+        final Set<String> placasSet = {};
+        for (var mov in movimentacoesOrdem) {
+          final placasFormatadas = _formatarPlacas(mov['placa']);
+          if (placasFormatadas.isNotEmpty && placasFormatadas != 'N/I') {
+            final placasList = placasFormatadas.split(', ').map((p) => p.trim()).toList();
+            placasSet.addAll(placasList.where((p) => p.isNotEmpty));
+          }
+        }
+
+        final produtosAgrupados = agruparProdutosDaOrdem(movimentacoesOrdem);
+        final quantidadeTotal = produtosAgrupados.values.fold<double>(
+          0,
+          (sum, infos) => sum + infos.values.fold<double>(0, (s, v) => s + v),
+        );
+
+        final ordemResumo = {
+          'ordem_id': ordemId,
+          'data_mov': primeiraMov['data_mov'],
+          'status_circuito_orig': primeiraMov['status_circuito_orig'],
+          'status_circuito_dest': primeiraMov['status_circuito_dest'],
+          'tipo_op': primeiraMov['tipo_op'],
+          'filial_origem_id': primeiraMov['filial_origem_id'],
+          'filial_destino_id': primeiraMov['filial_destino_id'],
+          'placas': placasSet.toList(),
+          'quantidade_total': quantidadeTotal,
+          'produtos_agrupados': produtosAgrupados,
+          'itens': movimentacoesOrdem,
+        };
+
+        ordensResumidas.add(ordemResumo);
+      }
+
+      ordensResumidas.sort((a, b) {
+        final dataA = a['data_mov']?.toString() ?? '';
+        final dataB = b['data_mov']?.toString() ?? '';
+        return dataB.compareTo(dataA);
+      });
+
+      if (mounted) {
+        setState(() {
+          _ordens = ordensResumidas;
+          _ordensFiltradas = List.from(ordensResumidas);
+          _carregando = false;
+        });
+        
+        // Aplica filtro de texto se houver
+        _aplicarFiltroTexto();
+      }
+
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _carregando = false;
+          _erro = true;
+          _mensagemErro = e.toString();
+        });
+      }
+    }
+  }
+
+  void _aplicarFiltroTexto() {
+    final termoBusca = _filtroGeralController.text.toLowerCase().trim();
+    
+    if (termoBusca.isEmpty) {
+      setState(() {
+        _ordensFiltradas = List.from(_ordens);
+      });
+      return;
+    }
+
+    final resultado = _ordens.where((ordem) {
+      final placasOrdem = (ordem['placas'] as List).map((p) => p.toString().toLowerCase()).join(' ');
+      if (placasOrdem.contains(termoBusca)) return true;
+      
+      final quantidadeTotal = ordem['quantidade_total'].toString();
+      if (quantidadeTotal.contains(termoBusca)) return true;
+      
+      final statusTexto = _obterStatusTexto(ordem, null).toLowerCase();
+      if (statusTexto.contains(termoBusca)) return true;
+      
+      final tipoOpTexto = _obterTipoOpTexto(ordem['tipo_op']?.toString() ?? '').toLowerCase();
+      if (tipoOpTexto.contains(termoBusca)) return true;
+      
+      final produtos = ordem['produtos_agrupados'] as Map<String, Map<String, double>>;
+      if (produtos.keys.any((nome) => nome.toLowerCase().contains(termoBusca))) {
+        return true;
+      }
+      
+      return ordem['itens'].any((item) {
+        final cliente = (item['cliente'] ?? '').toString().toLowerCase();
+        final placaItem = _formatarPlacaParaBusca(item['placa']).toLowerCase();
+        final filial = _obterNomeFilialParaBusca(item).toLowerCase();
+        
+        return cliente.contains(termoBusca) ||
+               placaItem.contains(termoBusca) ||
+               filial.contains(termoBusca);
+      });
+    }).toList();
+
+    setState(() {
+      _ordensFiltradas = resultado;
+    });
+  }
+
+  void _limparFiltros() {
+    _dataInicioController.clear();
+    _dataFimController.clear();
+    _filtroGeralController.clear();
+    setState(() {
+      _ordens = [];
+      _ordensFiltradas = [];
+    });
+  }
+
+  void _mostrarSnackBar(String mensagem) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensagem),
+        backgroundColor: Colors.orange,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Color _obterCorProduto(String nomeProduto) {
     final Map<String, Color> mapeamentoExato = {
       'G. Comum': const Color(0xFFFF6B35),
@@ -193,332 +555,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     setState(() {
       _ordemSelecionada = null;
       _mostrarDetalhes = false;
-    });
-    _carregarDados();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    
-    // Define valores iniciais dos filtros
-    _tipoFiltro = 'saida';
-    _filialFiltroId = UsuarioAtual.instance?.filialId;
-    final hoje = DateTime.now();
-    _dataFiltroController.text = '${hoje.day.toString().padLeft(2, '0')}/${hoje.month.toString().padLeft(2, '0')}/${hoje.year}';
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _carregarDados();
-    });
-    _filtroGeralController.addListener(_aplicarFiltros);
-    _dataFiltroController.addListener(_aplicarFiltros);
-  }
-
-  Future<void> _carregarFiliais() async {
-    try {
-      final usuario = UsuarioAtual.instance;
-      if (usuario == null) return;
-
-      if (usuario.nivel == 3) {
-        final dados = await _supabase
-            .from('filiais')
-            .select('id, nome')
-            .eq('empresa_id', _empresaId!)
-            .order('nome');
-
-        setState(() {
-          _filiais = List<Map<String, dynamic>>.from(dados);
-          if (_filialFiltroId == null && _filiais.isNotEmpty) {
-            _filialFiltroId = _filiais.first['id'].toString();
-          }
-        });
-      } else if (usuario.filialId != null) {
-        final filialData = await _supabase
-            .from('filiais')
-            .select('id, nome')
-            .eq('id', usuario.filialId!)
-            .single();
-
-        setState(() {
-          _filiais = [filialData];
-          _filialFiltroId = usuario.filialId;
-        });
-      }
-    } catch (e) {
-      // Erro silencioso
-    }
-  }
-
-  Future<void> _carregarDados() async {
-    setState(() {
-      _carregando = true;
-      _erro = false;
-    });
-
-    try {
-      final usuario = UsuarioAtual.instance;
-      if (usuario == null) {
-        throw Exception('Usuário não autenticado');
-      }
-
-      _empresaId = usuario.empresaId;
-
-      if (_empresaId == null || _empresaId!.isEmpty) {
-        throw Exception('Não foi possível identificar a empresa do usuário');
-      }
-
-      await _carregarFiliais();
-
-      final String? filialUsuario = usuario.nivel == 3 
-          ? _filialFiltroId
-          : usuario.filialId;
-
-      var query = _supabase
-          .from('movimentacoes')
-          .select('''
-            id,
-            placa,
-            entrada_amb,
-            entrada_vinte,
-            saida_amb,
-            saida_vinte,
-            cliente,
-            descricao,
-            status_circuito_orig,
-            status_circuito_dest,
-            data_mov,
-            filial_id,
-            empresa_id,
-            tipo_op,
-            filial_origem_id,
-            filial_destino_id,
-            produtos!produto_id(id, nome_dois),
-            filiais!estoques_filial_id_fkey(id, nome),
-            filial_origem:filiais!movimentacoes_filial_origem_id_fkey(id, nome),
-            filial_destino:filiais!movimentacoes_filial_destino_id_fkey(id, nome),
-            ordem_id
-          ''')
-          .eq('empresa_id', _empresaId!)
-          .order('data_mov', ascending: false);
-
-      final dados = await query;
-      List<Map<String, dynamic>> movimentacoesFiltradas = [];
-
-      if (usuario.nivel < 3) {
-        if (filialUsuario != null) {
-          movimentacoesFiltradas = dados.where((item) {
-            final tipoOp = (item['tipo_op']?.toString() ?? 'venda').toLowerCase();
-            final filialId = item['filial_id']?.toString();
-            final filialOrigemId = item['filial_origem_id']?.toString();
-            final filialDestinoId = item['filial_destino_id']?.toString();
-            
-            if (tipoOp == 'usina') {
-              return filialDestinoId == filialUsuario;
-            } else if (tipoOp == 'transf') {
-              return filialOrigemId == filialUsuario || filialDestinoId == filialUsuario;
-            } else if (tipoOp == 'venda') {
-              return filialId == filialUsuario;
-            }
-            return false;
-          }).toList();
-        }
-      } else if (usuario.nivel == 3) {
-        if (_filialFiltroId != null && _filialFiltroId!.isNotEmpty) {
-          movimentacoesFiltradas = dados.where((item) {
-            final tipoOp = (item['tipo_op']?.toString() ?? 'venda');
-            final filialId = item['filial_id']?.toString();
-            final filialOrigemId = item['filial_origem_id']?.toString();
-            final filialDestinoId = item['filial_destino_id']?.toString();
-            
-            if (tipoOp == 'usina') {
-              return filialDestinoId == _filialFiltroId;
-            } else if (tipoOp == 'transf') {
-              return filialOrigemId == _filialFiltroId || filialDestinoId == _filialFiltroId;
-            } else if (tipoOp == 'venda') {
-              return filialId == _filialFiltroId;
-            }
-            return false;
-          }).toList();
-        } else {
-          movimentacoesFiltradas = List<Map<String, dynamic>>.from(dados);
-        }
-      }
-
-      final Map<String, List<Map<String, dynamic>>> gruposOrdens = {};
-      
-      for (var movimentacao in movimentacoesFiltradas) {
-        final ordemId = movimentacao['ordem_id']?.toString();
-        if (ordemId != null && ordemId.isNotEmpty) {
-          if (!gruposOrdens.containsKey(ordemId)) {
-            gruposOrdens[ordemId] = [];
-          }
-          gruposOrdens[ordemId]!.add(movimentacao);
-        }
-      }
-
-      final List<Map<String, dynamic>> ordensResumidas = [];
-
-      for (var entry in gruposOrdens.entries) {
-        final ordemId = entry.key;
-        final movimentacoesOrdem = entry.value;
-        
-        if (movimentacoesOrdem.isEmpty) continue;
-
-        final primeiraMov = movimentacoesOrdem.first;
-        
-        final Set<String> placasSet = {};
-        for (var mov in movimentacoesOrdem) {
-          final placasFormatadas = _formatarPlacas(mov['placa']);
-          if (placasFormatadas.isNotEmpty && placasFormatadas != 'N/I') {
-            final placasList = placasFormatadas.split(', ').map((p) => p.trim()).toList();
-            placasSet.addAll(placasList.where((p) => p.isNotEmpty));
-          }
-        }
-        
-        final produtosAgrupados = agruparProdutosDaOrdem(movimentacoesOrdem);
-        final quantidadeTotal = produtosAgrupados.values.fold<double>(
-          0,
-          (sum, infos) => sum + infos.values.fold<double>(0, (s, v) => s + v),
-        );
-
-        final ordemResumo = {
-          'ordem_id': ordemId,
-          'data_mov': primeiraMov['data_mov'],
-          'status_circuito_orig': primeiraMov['status_circuito_orig'],
-          'status_circuito_dest': primeiraMov['status_circuito_dest'],
-          'tipo_op': primeiraMov['tipo_op'],
-          'filial_origem_id': primeiraMov['filial_origem_id'],
-          'filial_destino_id': primeiraMov['filial_destino_id'],
-          'placas': placasSet.toList(),
-          'quantidade_total': quantidadeTotal,
-          'produtos_agrupados': produtosAgrupados,
-          'itens': movimentacoesOrdem,
-        };
-
-        ordensResumidas.add(ordemResumo);
-      }
-
-      ordensResumidas.sort((a, b) {
-        final dataA = a['data_mov']?.toString() ?? '';
-        final dataB = b['data_mov']?.toString() ?? '';
-        return dataB.compareTo(dataA);
-      });
-
-      if (mounted) {
-        setState(() {
-          _ordens = ordensResumidas;
-          _ordensFiltradas = List.from(ordensResumidas);
-          _carregando = false;
-        });
-      }
-      
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _carregando = false;
-          _erro = true;
-          _mensagemErro = e.toString();
-        });
-      }
-    }
-  }
-
-  void _aplicarFiltros() {
-    final termoBusca = _filtroGeralController.text.toLowerCase().trim();
-    final dataFiltro = _dataFiltroController.text.trim();
-    
-    List<Map<String, dynamic>> resultado = List.from(_ordens);
-
-    if (_filialFiltroId != null) {
-      resultado = resultado.where((ordem) {
-        return ordem['itens'].any((item) {
-          final tipoOp = (item['tipo_op']?.toString() ?? 'venda').toLowerCase();
-          
-          if (tipoOp == 'usina') {
-            return item['filial_destino_id'] == _filialFiltroId;
-          } else if (tipoOp == 'transf') {
-            return item['filial_origem_id'] == _filialFiltroId || 
-                   item['filial_destino_id'] == _filialFiltroId;
-          } else {
-            return item['filial_id'] == _filialFiltroId;
-          }
-        });
-      }).toList();
-    }
-
-    // Filtro por tipo (Entrada/Saída)
-    if (_tipoFiltro != null) {
-      final usuario = UsuarioAtual.instance;
-      final filialAtual = usuario?.nivel == 3 ? _filialFiltroId : usuario?.filialId;
-      
-      resultado = resultado.where((ordem) {
-        final itens = ordem['itens'] as List<dynamic>;
-        
-        final ehOrigem = itens.any((item) =>
-            item['filial_origem_id']?.toString() == filialAtual);
-        final ehDestino = itens.any((item) =>
-            item['filial_destino_id']?.toString() == filialAtual);
-        
-        if (_tipoFiltro == 'entrada') {
-          // Entrada: filial é destino mas não origem
-          return ehDestino && !ehOrigem;
-        } else if (_tipoFiltro == 'saida') {
-          // Saída: filial é origem mas não destino
-          return ehOrigem && !ehDestino;
-        }
-        return true;
-      }).toList();
-    }
-
-    if (dataFiltro.isNotEmpty) {
-      resultado = resultado.where((ordem) {
-        final dataMov = ordem['data_mov']?.toString() ?? '';
-        if (dataMov.isEmpty) return false;
-        
-        try {
-          final data = DateTime.parse(dataMov);
-          final dataFormatada = '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}';
-          return dataFormatada.contains(dataFiltro);
-        } catch (e) {
-          return false;
-        }
-      }).toList();
-    }
-
-    if (termoBusca.isNotEmpty) {
-      resultado = resultado.where((ordem) {
-        final placasOrdem = (ordem['placas'] as List).map((p) => p.toString().toLowerCase()).join(' ');
-        if (placasOrdem.contains(termoBusca)) return true;
-        
-        final quantidadeTotal = ordem['quantidade_total'].toString();
-        if (quantidadeTotal.contains(termoBusca)) return true;
-        
-        final statusTexto = _obterStatusTexto(ordem, null).toLowerCase();
-        if (statusTexto.contains(termoBusca)) return true;
-        
-        final tipoOpTexto = _obterTipoOpTexto(ordem['tipo_op']?.toString() ?? '').toLowerCase();
-        if (tipoOpTexto.contains(termoBusca)) return true;
-        
-        final produtos = ordem['produtos_agrupados'] as Map<String, Map<String, double>>;
-        if (produtos.keys.any((nome) => nome.toLowerCase().contains(termoBusca))) {
-          return true;
-        }
-        
-        return ordem['itens'].any((item) {
-          final cliente = (item['cliente'] ?? '').toString().toLowerCase();
-          final placaItem = _formatarPlacaParaBusca(item['placa']).toLowerCase();
-          final filial = _obterNomeFilialParaBusca(item).toLowerCase();
-          
-          return cliente.contains(termoBusca) ||
-                 placaItem.contains(termoBusca) ||
-                 filial.contains(termoBusca);
-        });
-      }).toList();
-    }
-
-    setState(() {
-      _ordensFiltradas = resultado;
     });
   }
 
@@ -718,165 +754,208 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       child: Row(
         children: [
           if (mostraFiltroFilial) ...[
-              Expanded(
-                flex: 2,
-                child: DropdownButtonFormField<String>(
-                  value: _filialFiltroId,
-                  decoration: InputDecoration(
-                    labelText: 'Filial *',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 16,
-                    ),
-                    suffixIcon: _filialFiltroId == null 
-                        ? Icon(Icons.error, color: Colors.orange, size: 20)
-                        : null,
-                  ),
-                  items: _filiais.map((filial) {
-                    return DropdownMenuItem(
-                      value: filial['id'].toString(),
-                      child: Text(filial['nome'].toString()),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _filialFiltroId = value;
-                    });
-                    _carregarDados();
-                  },
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Selecione uma filial';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-            ],
-            
-            Expanded(
-              flex: 2,
-              child: TextField(
-                controller: _dataFiltroController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [DataInputFormatter()],
-                decoration: InputDecoration(
-                  labelText: 'Data',
-                  hintText: 'dd/mm/aaaa',
-                  hintStyle: TextStyle(
-                    color: Colors.grey.shade400,
-                    fontSize: 13,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.5),
-                  ),
-                  prefixIcon: const Icon(Icons.calendar_today, size: 20, color: Color(0xFF0D47A1)),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 16,
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                ),
-              ),
-            ),
-            
-            const SizedBox(width: 12),
-            
             Expanded(
               flex: 2,
               child: DropdownButtonFormField<String>(
-                value: _tipoFiltro,
+                value: _filialFiltroId,
                 decoration: InputDecoration(
-                  labelText: 'Tipo',
+                  labelText: 'Filial *',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.5),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 16,
                   ),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
+                  suffixIcon: _filialFiltroId == null 
+                      ? Icon(Icons.error, color: Colors.orange, size: 20)
+                      : null,
                 ),
-                dropdownColor: Colors.white,
-                items: const [
-                  DropdownMenuItem(
-                    value: null,
-                    child: Text('Todos'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'entrada',
-                    child: Text('Entrada'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'saida',
-                    child: Text('Saída'),
-                  ),
-                ],
+                items: _filiais.map((filial) {
+                  return DropdownMenuItem(
+                    value: filial['id'].toString(),
+                    child: Text(filial['nome'].toString()),
+                  );
+                }).toList(),
                 onChanged: (value) {
                   setState(() {
-                    _tipoFiltro = value;
+                    _filialFiltroId = value;
                   });
-                  _aplicarFiltros();
+                },
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Selecione uma filial';
+                  }
+                  return null;
                 },
               ),
             ),
-            
             const SizedBox(width: 12),
-            
-            Expanded(
-              flex: 3,
-              child: TextField(
-                controller: _filtroGeralController,
-                decoration: InputDecoration(
-                  labelText: 'Buscar (placa, cliente, status...)',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.5),
-                  ),
-                  prefixIcon: const Icon(Icons.search, color: Color(0xFF0D47A1)),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 16,
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
+          ],
+
+          // Campo único de Data
+          Expanded(
+            flex: 2,
+            child: TextField(
+              controller: _dataInicioController,
+              keyboardType: TextInputType.number,
+              inputFormatters: [DataInputFormatter()],
+              onSubmitted: (_) => _aplicarFiltros(),
+              decoration: InputDecoration(
+                labelText: 'Data',
+                hintText: 'dd/mm/aaaa',
+                hintStyle: TextStyle(
+                  color: Colors.grey.shade400,
+                  fontSize: 13,
                 ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.5),
+                ),
+                prefixIcon: const Icon(Icons.calendar_today, size: 20, color: Color(0xFF0D47A1)),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 16,
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
               ),
             ),
-          ],
-        ),
+          ),
+
+          const SizedBox(width: 12),
+
+          Expanded(
+            flex: 2,
+            child: DropdownButtonFormField<String>(
+              value: _tipoFiltro,
+              decoration: InputDecoration(
+                labelText: 'Tipo',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.5),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 16,
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+              ),
+              dropdownColor: Colors.white,
+              items: const [
+                DropdownMenuItem(
+                  value: null,
+                  child: Text('Todos'),
+                ),
+                DropdownMenuItem(
+                  value: 'entrada',
+                  child: Text('Entrada'),
+                ),
+                DropdownMenuItem(
+                  value: 'saida',
+                  child: Text('Saída'),
+                ),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _tipoFiltro = value;
+                });
+                _aplicarFiltros();
+              },
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          Expanded(
+            flex: 3,
+            child: TextField(
+              controller: _filtroGeralController,
+              onChanged: (_) => _aplicarFiltroTexto(),
+              decoration: InputDecoration(
+                labelText: 'Buscar (placa, cliente, status...)',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.5),
+                ),
+                prefixIcon: const Icon(Icons.search, color: Color(0xFF0D47A1)),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 16,
+                ),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // Botão Limpar
+          OutlinedButton.icon(
+            onPressed: _limparFiltros,
+            icon: const Icon(Icons.clear_all, size: 18),
+            label: const Text('Limpar'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.grey.shade700,
+              side: BorderSide(color: Colors.grey.shade400),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 14,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // Botão Filtrar
+          ElevatedButton.icon(
+            onPressed: _aplicarFiltros,
+            icon: const Icon(Icons.filter_list, size: 18),
+            label: const Text('Filtrar'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0D47A1),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 14,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              elevation: 2,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -926,7 +1005,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
           ),
           const SizedBox(height: 20),
           ElevatedButton(
-            onPressed: _carregarDados,
+            onPressed: _aplicarFiltros,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0D47A1),
               foregroundColor: Colors.white,
@@ -959,17 +1038,38 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
           ),
           const SizedBox(height: 10),
           const Text(
-            'Não há ordens registradas no momento.',
+            'Tente ajustar os filtros de data.',
             style: TextStyle(color: Colors.grey),
           ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _carregarDados,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0D47A1),
-              foregroundColor: Colors.white,
+          const SizedBox(height: 28),
+          SizedBox(
+            width: 180,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: _aplicarFiltros,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0D47A1),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                elevation: 3,
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.refresh, size: 22),
+                  SizedBox(width: 10),
+                  Text('Nova busca'),
+                ],
+              ),
             ),
-            child: const Text('Atualizar'),
           ),
         ],
       ),
@@ -977,8 +1077,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   }
 
   Color _obterCorFundoCard(Map<String, dynamic> ordem) {
-    // Cards agora sempre têm fundo branco; indicação de entrada/saída
-    // será feita por um ícone no final do card.
     return Colors.white;
   }
 
@@ -1024,7 +1122,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Ícone de direção (entrada/saída) no início do card
                   // Ícone de direção (origem/destino da filial do usuário)
                   Padding(
                     padding: const EdgeInsets.only(right: 12),
@@ -1312,7 +1409,8 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   @override
   void dispose() {
     _filtroGeralController.dispose();
-    _dataFiltroController.dispose();
+    _dataInicioController.dispose();
+    _dataFimController.dispose();
     super.dispose();
   }
 
@@ -1367,7 +1465,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
           if (!_carregando && !_erro && !_mostrarDetalhes)
             IconButton(
               icon: const Icon(Icons.refresh),
-              onPressed: _carregarDados,
+              onPressed: _aplicarFiltros,
               tooltip: 'Atualizar ordens',
             ),
         ],
