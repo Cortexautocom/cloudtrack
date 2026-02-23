@@ -253,33 +253,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
   }
 
   List<Map<String, dynamic>> _agruparPorOrdem(List<Map<String, dynamic>> dados) {
-    final resultado = List<Map<String, dynamic>>.from(dados);
-
-    resultado.sort((a, b) {
-      final ordemA = (a['ordem_id']?.toString() ?? '').trim();
-      final ordemB = (b['ordem_id']?.toString() ?? '').trim();
-
-      final aSemOrdem = ordemA.isEmpty;
-      final bSemOrdem = ordemB.isEmpty;
-
-      if (aSemOrdem && !bSemOrdem) return 1;
-      if (!aSemOrdem && bSemOrdem) return -1;
-
-      if (ordemA != ordemB) {
-        return ordemA.compareTo(ordemB);
-      }
-
-      final dataA = DateTime.tryParse(a['data_mov']?.toString() ?? '');
-      final dataB = DateTime.tryParse(b['data_mov']?.toString() ?? '');
-
-      if (dataA == null && dataB == null) return 0;
-      if (dataA == null) return 1;
-      if (dataB == null) return -1;
-
-      return dataA.compareTo(dataB);
-    });
-
-    return resultado;
+    return List<Map<String, dynamic>>.from(dados);
   }
 
   String _formatarQuantidadeParaBusca(String quantidade) {
