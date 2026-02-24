@@ -1126,12 +1126,130 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     }
   }
 
+  // Método para buscar dados mais recentes da coleta para um tanque específico
+  Future<void> _buscarDadosColetaRecente(TanqueDados tanque) async {
+    if (_modoVisualizacao || tanque.produtoId == null || tanque.produtoId!.isEmpty) {
+      return;
+    }
+
+    try {
+      final supabase = Supabase.instance.client;
+      final usuario = UsuarioAtual.instance;
+      
+      if (usuario == null || usuario.filialId == null) {
+        print('Usuário sem filial vinculada');
+        return;
+      }
+
+      // Buscar a coleta mais recente para este produto e filial
+      final coletaRecente = await supabase
+          .from('coletas_tanques')
+          .select('*')
+          .eq('produto_id', tanque.produtoId!)
+          .eq('filial_id', usuario.filialId!)
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (coletaRecente != null) {
+        setState(() {
+          // Preencher dados da coleta
+          tanque.tempAmostra = _formatarDecimalParaExibicao(coletaRecente['temperatura_amostra']);
+          tanque.densidadeObservada = _formatarDecimalParaExibicao(coletaRecente['densidade_observada']);
+          tanque.tempCT = _formatarDecimalParaExibicao(coletaRecente['temperatura_ct']);
+          
+          // Calcular densidade 20°C e FCV com base nos dados recuperados
+          _calcularDensidade20CFCV(tanque);
+          
+          // Mostrar mensagem de sucesso
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✓ Dados da última coleta carregados (${_formatarDataHora(coletaRecente['created_at'])})'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        });
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Nenhuma coleta anterior encontrada para este produto'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Erro ao buscar dados recentes: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao buscar dados: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  String _formatarDataHora(String? timestamp) {
+    if (timestamp == null) return '';
+    try {
+      final data = DateTime.parse(timestamp);
+      return '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')} ${data.hour.toString().padLeft(2, '0')}:${data.minute.toString().padLeft(2, '0')}';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  Future<void> _calcularDensidade20CFCV(TanqueDados tanque) async {
+    if (produtoSelecionado == null || 
+        tanque.tempAmostra == null || 
+        tanque.densidadeObservada == null ||
+        tanque.tempAmostra!.isEmpty ||
+        tanque.densidadeObservada!.isEmpty) {
+      return;
+    }
+
+    // Calcular densidade 20°C
+    final dens20 = await _buscarDensidade20C(
+      temperaturaAmostra: tanque.tempAmostra!,
+      densidadeObservada: tanque.densidadeObservada!,
+      produtoNome: produtoSelecionado!,
+    );
+
+    setState(() {
+      tanque.densidade20C = dens20;
+    });
+
+    if (dens20 != '-' && dens20.isNotEmpty && tanque.tempCT != null && tanque.tempCT!.isNotEmpty) {
+      // Calcular FCV
+      final fcv = await _buscarFCV(
+        temperaturaTanque: tanque.tempCT!,
+        densidade20C: dens20,
+        produtoNome: produtoSelecionado!,
+      );
+
+      setState(() {
+        tanque.fatorCorrecao = fcv;
+      });
+
+      // Recalcular volume 20°C
+      _calcularVolume20CTanque(tanque);
+    }
+  }
+
   void _toggleBuscarDoBanco(String id, bool valor) {
     setState(() {
       final index = _tanques.indexWhere((t) => t.id == id);
       if (index != -1) {
         _tanques[index].buscarDoBanco = valor;
-        // TODO: Implementar busca no banco quando necessário
+        
+        // Se marcou o switch, buscar dados do banco
+        if (valor) {
+          _buscarDadosColetaRecente(_tanques[index]);
+        }
       }
     });
   }
@@ -1216,7 +1334,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
             final fcvValido = fcvCtrl.text.isNotEmpty && 
                               fcvCtrl.text != '-' && 
                               fcvCtrl.text != 'Calculando...';
-            
+
             return AlertDialog(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16.0),
@@ -1284,6 +1402,69 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                             ),
                           ),
                         ),
+                      
+                      // Caixa de seleção "Buscar do banco" logo abaixo do nome do produto
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey[300]!),
+                        ),
+                        child: Row(
+                          children: [
+                            StatefulBuilder(
+                              builder: (context, setStateCheckbox) {
+                                return Checkbox(
+                                  value: tanque.buscarDoBanco,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      tanque.buscarDoBanco = value ?? false;
+                                    });
+                                    setStateCheckbox(() {});
+                                    
+                                    // Se marcou, buscar dados do banco
+                                    if (value == true) {
+                                      _buscarDadosColetaRecente(tanque).then((_) {
+                                        // Atualizar controllers com os novos dados
+                                        tempAmostraCtrl.text = tanque.tempAmostra ?? '';
+                                        densObsCtrl.text = tanque.densidadeObservada ?? '';
+                                        tempCTCtrl.text = tanque.tempCT ?? '';
+                                        dens20Ctrl.text = tanque.densidade20C ?? '';
+                                        fcvCtrl.text = tanque.fatorCorrecao ?? '';
+                                        setStateDialog(() {});
+                                      });
+                                    }
+                                  },
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Buscar dados da última coleta',
+                                    style: TextStyle(
+                                      fontSize: 14, 
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  Text(
+                                    'para este produto e filial',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       
                       // Campo: Temperatura da amostra
                       TextFormField(
@@ -2625,6 +2806,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
             'temperatura_ct': _converterParaDecimal(tanque.tempCT),
             'volume_amb': _converterParaInteiro(tanque.volumeAmbCtrl.text),
             'volume_vinte': _converterParaInteiro(tanque.volume20CCtrl.text),
+            'filial_id': usuario.filialId, // ← ADICIONADO: salva a filial do usuário
           });
         }
       }
@@ -2636,7 +2818,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
               .from('coletas_tanques')
               .insert(dadosColetas);
           
-          print('✓ ${dadosColetas.length} coleta(s) de tanque inserida(s) com sucesso');
+          print('✓ ${dadosColetas.length} coleta(s) de tanque inserida(s) com sucesso (filial_id=${usuario.filialId})');
         } catch (e) {
           // Se falhar a inserção das coletas, toda a operação deve falhar
           print('✗ ERRO CRÍTICO ao inserir coletas_tanques: $e');
