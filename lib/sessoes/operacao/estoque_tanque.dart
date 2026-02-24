@@ -790,7 +790,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
               ),
             ),
 
-          if (_valorSobraPerda != null && _ehSobra != null)
+          if (_possuiCACL && _valorSobraPerda != null && _ehSobra != null)
             _buildCampoResumo(
               _ehSobra! ? 'Sobra (20ºC):' : 'Perda (20ºC):',
               _valorSobraPerda!,
@@ -798,7 +798,11 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
               negrito: true,
             )
           else
-            _buildCampoResumo('Sobra/perda (20ºC):', 0, cor: Colors.grey),
+            _buildCampoResumo(
+              'Disponível após fechamento',
+              _estoqueFinal['vinte'] ?? 0,
+              cor: Colors.grey,
+            ),
         ],
       ),
     );
