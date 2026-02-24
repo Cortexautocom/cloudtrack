@@ -28,6 +28,7 @@ import 'sessoes/operacao/listar_ordens.dart';
 import 'sessoes/operacao/temp_dens_media.dart';
 import 'sessoes/ajuda/arquiteto.dart';
 import 'sessoes/ajuda/suporte.dart';
+import 'sessoes/circuito/criar_ordem.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -104,6 +105,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarFilhosSessao = false;
   String? _sessaoAtual;
   List<Map<String, dynamic>> _filhosSessaoAtual = [];
+  // Tipo do card filho selecionado (navegação por estado)
+  String? _filhoSelecionadoTipo;
   
   // DADOS PARA NAVEGAÇÃO
   String? _filialSelecionadaNome;
@@ -293,6 +296,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     _filhosPorSessao['Circuito'] = [      
       {'id': 'fallback-acompanhar', 'icon': Icons.directions_car, 'label': 'Acompanhar ordem', 'descricao': 'Acompanhar situação da ordem', 'tipo': 'acompanhar_ordem', 'sessao_pai': 'Circuito'},
       {'id': 'fallback-visao', 'icon': Icons.dashboard, 'label': 'Visão geral', 'descricao': 'Panorama completo dos circuitos', 'tipo': 'visao_geral_circuito', 'sessao_pai': 'Circuito'},
+      {'id': 'criar-ordem', 'icon': Icons.add_circle_outline, 'label': 'Criar Ordem', 'descricao': 'Criar uma nova ordem', 'tipo': 'criar_ordem', 'sessao_pai': 'Circuito'},
     ];
 
     _filhosPorSessao['Gestão de Frota'] = [
@@ -331,6 +335,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       'documentacao': Icons.description,
       'bombeios': Icons.invert_colors,
       'programacao_filial': Icons.local_gas_station,
+      'criar_ordem': Icons.add_circle_outline,
     };
     return mapaIcones[tipo] ?? Icons.apps;
   }
@@ -578,6 +583,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarFilhosSessao = false;
       _sessaoAtual = null;
       _filhosSessaoAtual = [];
+      _filhoSelecionadoTipo = null;
       _filialSelecionadaNome = null;
       _dadosCalcGerado = null;
       _filialSelecionadaId = null;
@@ -647,6 +653,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarFilhosSessao = true;
       _sessaoAtual = nomeSessao;
       _filhosSessaoAtual = List.from(filhos);
+      _filhoSelecionadoTipo = null;
       
       showConversaoList = false;
       _mostrarDownloads = false;
@@ -686,6 +693,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarFilhosSessao = false;
       _sessaoAtual = null;
       _filhosSessaoAtual = [];
+      _filhoSelecionadoTipo = null;
       
       showConversaoList = false;
       _mostrarDownloads = false;
@@ -1673,6 +1681,26 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       );
     }
 
+    // Se houver um card filho selecionado, exibe seu conteúdo no espaço dos cards
+    if (_filhoSelecionadoTipo != null) {
+      switch (_filhoSelecionadoTipo) {
+        case 'criar_ordem':
+          return _buildPaginaPadronizada(
+            titulo: _sessaoAtual ?? '',
+            conteudo: const CriarOrdemPage(),
+            mostrarVoltar: true,
+            onVoltar: () {
+              setState(() {
+                _filhoSelecionadoTipo = null;
+              });
+            },
+          );
+        default:
+          // fallback para voltar à lista de cards
+          break;
+      }
+    }
+
     return _buildPaginaPadronizada(
       titulo: _sessaoAtual ?? '',
       conteudo: SingleChildScrollView(
@@ -2102,10 +2130,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   void _navegarParaCardCircuito(String tipo) {
     final usuario = UsuarioAtual.instance;
-    
-    switch (tipo) {      
+    switch (tipo) {
       case 'acompanhar_ordem':
-        // Validar se o usuário tem filial vinculada
         if (usuario?.filialId == null || usuario!.filialId!.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -2116,7 +2142,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           );
           return;
         }
-        
         setState(() {
           _mostrarAcompanhamentoOrdens = true;
         });
@@ -2124,8 +2149,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       case 'visao_geral_circuito':
         // Adicione aqui quando criar a tela
         break;
+      case 'criar_ordem':
+        setState(() {
+          _filhoSelecionadoTipo = 'criar_ordem';
+          _mostrarFilhosSessao = true;
+          _sessaoAtual = 'Circuito';
+          _filhosSessaoAtual = List.from(_filhosPorSessao['Circuito'] ?? []);
+        });
+        break;
     }
   }
+// ...existing code...
+
 
   void _navegarParaCardGestaoFrota(String tipo) {
     switch (tipo) {
