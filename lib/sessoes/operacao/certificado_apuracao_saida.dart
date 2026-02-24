@@ -1161,14 +1161,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
           // Calcular densidade 20°C e FCV com base nos dados recuperados
           _calcularDensidade20CFCV(tanque);
           
-          // Mostrar mensagem de sucesso
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('✓ Dados da última coleta carregados (${_formatarDataHora(coletaRecente['created_at'])})'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 2),
-            ),
-          );
+          // Mensagem de sucesso removida conforme solicitado
         });
       } else {
         if (context.mounted) {
@@ -1190,16 +1183,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
           ),
         );
       }
-    }
-  }
-
-  String _formatarDataHora(String? timestamp) {
-    if (timestamp == null) return '';
-    try {
-      final data = DateTime.parse(timestamp);
-      return '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')} ${data.hour.toString().padLeft(2, '0')}:${data.minute.toString().padLeft(2, '0')}';
-    } catch (e) {
-      return '';
     }
   }
 
