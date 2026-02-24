@@ -553,6 +553,16 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       _ordemSelecionada = null;
       _mostrarDetalhes = false;
     });
+    // Garante atualização ao voltar para a lista
+    _aplicarFiltros();
+  }
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Garante atualização sempre que a página é aberta
+    if (!_mostrarDetalhes) {
+      _aplicarFiltros();
+    }
   }
 
   String _obterNomeFilialParaBusca(Map<String, dynamic> item) {
