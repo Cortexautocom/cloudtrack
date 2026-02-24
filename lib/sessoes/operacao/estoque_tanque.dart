@@ -183,7 +183,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
 
       final dataStr = _dataFiltro.toIso8601String().split('T')[0];
 
-      // Consulta com as 4 colunas da tabela movimentacoes_tanque
       final dados = await _supabase
           .from('movimentacoes_tanque')
           .select('''
@@ -200,28 +199,62 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           ''')
           .eq('tanque_id', widget.tanqueId)
           .gte('data_mov', '$dataStr 00:00:00')
-          .lte('data_mov', '$dataStr 23:59:59')
-          .order('data_mov', ascending: true);
+          .lte('data_mov', '$dataStr 23:59:59');
 
+      // ==============================
+      // 1) Ordenação exatamente como a UI precisa:
+      //    - Primeiro: sem CACL (cronológico)
+      //    - Depois: com CACL (cronológico) -> sempre por último
+      // ==============================
+      final List<Map<String, dynamic>> listaOrdenadaParaUI =
+          List<Map<String, dynamic>>.from(dados);
+
+      bool temCaclValido(Map<String, dynamic> m) {
+        final c = m['cacl_id']?.toString().trim();
+        return c != null && c.isNotEmpty && c.toLowerCase() != 'null';
+      }
+
+      listaOrdenadaParaUI.sort((a, b) {
+        final aTemCacl = temCaclValido(a);
+        final bTemCacl = temCaclValido(b);
+
+        // Quem tem CACL vai para o fim
+        if (aTemCacl && !bTemCacl) return 1;
+        if (!aTemCacl && bTemCacl) return -1;
+
+        // Dentro do mesmo grupo, ordena por data_mov e id (estável)
+        final da = DateTime.parse(a['data_mov']);
+        final db = DateTime.parse(b['data_mov']);
+        final c = da.compareTo(db);
+        if (c != 0) return c;
+
+        final ia = a['id'].toString();
+        final ib = b['id'].toString();
+        return ia.compareTo(ib);
+      });
+
+      // ==============================
+      // 2) Agora SIM calcula o saldo seguindo A ORDEM DA UI
+      // ==============================
       num saldoAmb = _estoqueInicial['amb'] ?? 0;
       num saldoVinte = _estoqueInicial['vinte'] ?? 0;
 
-      final List<Map<String, dynamic>> lista = [];
+      final List<Map<String, dynamic>> listaComSaldo = [];
 
-      for (final m in dados) {
+      for (final m in listaOrdenadaParaUI) {
         final num entradaAmb = (m['entrada_amb'] ?? 0) as num;
         final num entradaVinte = (m['entrada_vinte'] ?? 0) as num;
         final num saidaAmb = (m['saida_amb'] ?? 0) as num;
         final num saidaVinte = (m['saida_vinte'] ?? 0) as num;
+
         final String cliente = (m['cliente']?.toString().trim() ?? '');
         final String desc = (m['descricao']?.toString().trim() ?? '');
         final String descricao = cliente.isNotEmpty ? cliente : desc;
 
-        // Atualiza saldos: entrada soma, saída subtrai
         saldoAmb += entradaAmb - saidaAmb;
         saldoVinte += entradaVinte - saidaVinte;
 
-        lista.add({
+        listaComSaldo.add({
           'id': m['id'],
           'movimentacao_id': m['movimentacao_id'],
           'cacl_id': m['cacl_id'],
@@ -231,24 +264,21 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           'entrada_vinte': entradaVinte,
           'saida_amb': saidaAmb,
           'saida_vinte': saidaVinte,
-          'saldo_amb': saldoAmb,
-          'saldo_vinte': saldoVinte,
+          'saldo_amb': saldoAmb,       // saldo acumulado ATÉ ESTA LINHA (ordem da UI)
+          'saldo_vinte': saldoVinte,   // saldo acumulado ATÉ ESTA LINHA (ordem da UI)
         });
       }
 
-      _movs = lista;
-      _ordenar('data_mov', true);
+      _movs = List<Map<String, dynamic>>.from(listaComSaldo);
+      _movsOrdenadas = List<Map<String, dynamic>>.from(listaComSaldo);
 
       _estoqueFinal = {
-        'amb': _movsOrdenadas.isEmpty ? null : _movsOrdenadas.last['saldo_amb'],
-        'vinte': _movsOrdenadas.isEmpty
-            ? null
-            : _movsOrdenadas.last['saldo_vinte'],
+        'amb': _movs.isEmpty ? null : _movs.last['saldo_amb'],
+        'vinte': _movs.isEmpty ? null : _movs.last['saldo_vinte'],
       };
 
-      // Extrair sobra/perda somente se houver saldo_tanque_diario com data de hoje
-      if (_temSaldoDiarioHoje && dados.isNotEmpty) {
-        final ultimoReg = dados.last; // Mais recente por data_mov
+      if (_temSaldoDiarioHoje && listaOrdenadaParaUI.isNotEmpty) {
+        final ultimoReg = listaOrdenadaParaUI.last;
         final entradaVinte = (ultimoReg['entrada_vinte'] ?? 0) as num;
         final saidaVinte = (ultimoReg['saida_vinte'] ?? 0) as num;
 
