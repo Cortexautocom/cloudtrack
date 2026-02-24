@@ -1687,7 +1687,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         case 'criar_ordem':
           return _buildPaginaPadronizada(
             titulo: _sessaoAtual ?? '',
-            conteudo: const CriarOrdemPage(),
+            conteudo: CriarOrdemPage(
+              onCreated: () {
+                setState(() {
+                  _filhoSelecionadoTipo = null;
+                  _mostrarFilhosSessao = true;
+                  _sessaoAtual = 'Circuito';
+                  _filhosSessaoAtual = List.from(_filhosPorSessao['Circuito'] ?? []);
+                });
+              },
+            ),
             mostrarVoltar: true,
             onVoltar: () {
               setState(() {
