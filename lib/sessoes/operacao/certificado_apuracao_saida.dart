@@ -816,171 +816,166 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                           // ================= FORMULÁRIO =================
                           Opacity(
                             opacity: _carregandoDadosMovimentacao ? 0.5 : 1.0,
-                            child: AbsorbPointer(
-                              absorbing: _modoVisualizacao || _carregandoDadosMovimentacao,
-                              child: Column(
-                                children: [
-                                  // ================= NÚMERO DE CONTROLE =================
-                                  _linha([
-                                    Material(
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: TextFormField(
-                                        controller: campos['numeroControle'],
-                                        enabled: false,
-                                        decoration: _decoration('Nº Controle do Certificado').copyWith(
-                                          hintText: _modoVisualizacao ? '' : 'A ser gerado automaticamente',
-                                          filled: true,
-                                          fillColor: Colors.grey[200],
+                            child: Column(
+                              children: [
+                                AbsorbPointer(
+                                  absorbing: _modoVisualizacao || _carregandoDadosMovimentacao,
+                                  child: Column(
+                                    children: [
+                                      _linha([
+                                        Material(
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: TextFormField(
+                                            controller: campos['numeroControle'],
+                                            enabled: false,
+                                            decoration: _decoration('Nº Controle do Certificado').copyWith(
+                                              hintText: _modoVisualizacao ? '' : 'A ser gerado automaticamente',
+                                              filled: true,
+                                              fillColor: Colors.grey[200],
+                                            ),
+                                            style: const TextStyle(
+                                              fontStyle: FontStyle.italic,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
                                         ),
-                                        style: const TextStyle(
-                                          fontStyle: FontStyle.italic,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                    ),
-                                  ]),
-                                  const SizedBox(height: 12),
-                                  _linhaFlexivel([
-                                    {
-                                      'flex': 5,
-                                      'widget': TextFormField(
-                                                  controller: campos['notas'],
-                                                  keyboardType: TextInputType.number,
-                                                  onChanged: _modoVisualizacao ? null : (value) {
-                                                    final cursorPosition = campos['notas']!.selection.baseOffset;
-                                                    final maskedValue = _aplicarMascaraNotasFiscais(value);
+                                      ]),
+                                      const SizedBox(height: 12),
+                                      _linhaFlexivel([
+                                        {
+                                          'flex': 5,
+                                          'widget': TextFormField(
+                                            controller: campos['notas'],
+                                            keyboardType: TextInputType.number,
+                                            onChanged: _modoVisualizacao ? null : (value) {
+                                              final cursorPosition = campos['notas']!.selection.baseOffset;
+                                              final maskedValue = _aplicarMascaraNotasFiscais(value);
 
-                                                    if (maskedValue != value) {
-                                                      campos['notas']!.value = TextEditingValue(
-                                                        text: maskedValue,
-                                                        selection: TextSelection.collapsed(
-                                                          offset: cursorPosition + (maskedValue.length - value.length),
+                                              if (maskedValue != value) {
+                                                campos['notas']!.value = TextEditingValue(
+                                                  text: maskedValue,
+                                                  selection: TextSelection.collapsed(
+                                                    offset: cursorPosition + (maskedValue.length - value.length),
+                                                  ),
+                                                );
+                                              }
+                                            },
+                                            enabled: !_modoVisualizacao,
+                                            decoration: _decoration('Notas Fiscais').copyWith(
+                                              hintText: '',
+                                              fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
+                                            ),
+                                          ),
+                                        },
+                                        {
+                                          'flex': 5,
+                                          'widget': carregandoProdutos
+                                              ? const Center(
+                                                  child: SizedBox(
+                                                    width: 24,
+                                                    height: 24,
+                                                    child: CircularProgressIndicator(
+                                                      strokeWidth: 2.5,
+                                                      color: Color(0xFF0D47A1),
+                                                    ),
+                                                  ),
+                                                )
+                                              : DropdownButtonFormField<String>(
+                                                  value: produtoSelecionado,
+                                                  items: produtos
+                                                      .map(
+                                                        (p) => DropdownMenuItem(
+                                                          value: p,
+                                                          child: Text(p),
                                                         ),
-                                                      );
-                                                    }
-                                                  },
-                                                  enabled: !_modoVisualizacao,
-                                                  decoration: _decoration('Notas Fiscais').copyWith(
-                                                    hintText: '',
+                                                      )
+                                                      .toList(),
+                                                  onChanged: _modoVisualizacao
+                                                      ? null
+                                                      : (valor) {
+                                                          setState(() {
+                                                            produtoSelecionado = valor;
+                                                          });
+                                                          _calcularResultadosObtidos();
+                                                        },
+                                                  decoration: _decoration('Produto').copyWith(
                                                     fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
                                                   ),
                                                 ),
-                                    },
-                                    {
-                                      'flex': 5,
-                                      'widget': carregandoProdutos
-                                          ? const Center(
-                                              child: SizedBox(
-                                                width: 24,
-                                                height: 24,
-                                                child: CircularProgressIndicator(
-                                                  strokeWidth: 2.5,
-                                                  color: Color(0xFF0D47A1),
-                                                ),
-                                              ),
-                                            )
-                                          : DropdownButtonFormField<String>(
-                                              value: produtoSelecionado,
-                                              items: produtos
-                                                  .map(
-                                                    (p) => DropdownMenuItem(
-                                                      value: p,
-                                                      child: Text(p),
-                                                    ),
-                                                  )
-                                                  .toList(),
-                                              onChanged: _modoVisualizacao ? null : (valor) {
-                                                setState(() {
-                                                  produtoSelecionado = valor;
-                                                });
-                                                _calcularResultadosObtidos();
-                                              },
-                                              decoration: _decoration('Produto').copyWith(
-                                                fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
-                                              ),
+                                        },
+                                        {
+                                          'flex': 3,
+                                          'widget': _campo('Data', dataCtrl, enabled: false),
+                                        },
+                                        {
+                                          'flex': 2,
+                                          'widget': _campo('Hora', horaCtrl, enabled: false),
+                                        },
+                                      ]),
+                                      const SizedBox(height: 12),
+                                      _linhaFlexivel([
+                                        {
+                                          'flex': 10,
+                                          'widget': TextFormField(
+                                            controller: campos['motorista'],
+                                            maxLength: 50,
+                                            enabled: !_modoVisualizacao,
+                                            decoration: _decoration('Motorista').copyWith(
+                                              counterText: '',
+                                              fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
                                             ),
-                                    },
-                                    {
-                                      'flex': 3,
-                                      'widget': _campo('Data', dataCtrl, enabled: false),
-                                    },
-                                    {
-                                      'flex': 2,
-                                      'widget': _campo('Hora', horaCtrl, enabled: false),
-                                    },
-                                  ]),
-                                  const SizedBox(height: 12),
-                                  
-                                  _linhaFlexivel([
-                                    {
-                                      'flex': 10,
-                                      'widget': TextFormField(
-                                        controller: campos['motorista'],
-                                        maxLength: 50,
-                                        enabled: !_modoVisualizacao,
-                                        decoration: _decoration('Motorista').copyWith(
-                                          counterText: '',
-                                          fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
-                                        ),
-                                      ),
-                                    },
-                                    {
-                                      'flex': 10,
-                                      'widget': TextFormField(
-                                        controller: campos['transportadora'],
-                                        maxLength: 50,
-                                        enabled: !_modoVisualizacao,
-                                        decoration: _decoration('Transportadora').copyWith(
-                                          counterText: '',
-                                          fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
-                                        ),
-                                      ),
-                                    },
-                                  ]),
-                                  const SizedBox(height: 12),                                
-                                  // LINHA COM OS 3 CAMPOS DE PLACA - COM AUTOCOMPLETE
-                                  _linhaFlexivel([
-                                    {
-                                      'flex': 4,
-                                      'widget': PlacaAutocompleteField(
-                                        controller: campos['placaCavalo']!,
-                                        label: 'Placa do cavalo',
-                                        enabled: !_modoVisualizacao,
-                                      ),
-                                    },
-                                    {
-                                      'flex': 4,
-                                      'widget': PlacaAutocompleteField(
-                                        controller: campos['carreta1']!,
-                                        label: 'Carreta 1',
-                                        enabled: !_modoVisualizacao,
-                                      ),
-                                    },
-                                    {
-                                      'flex': 4,
-                                      'widget': PlacaAutocompleteField(
-                                        controller: campos['carreta2']!,
-                                        label: 'Carreta 2',
-                                        enabled: !_modoVisualizacao,
-                                      ),
-                                    },
-                                  ]),
-                                  const SizedBox(height: 20),
-                                  
-                                  // ======== CAMPOS REMOVIDOS - AGORA PREENCHIDOS NO DIALOG DE CADA TANQUE ========
-                                  // _secao('Coletas na presença do motorista'),
-                                  // _linha([... campos de temperatura, densidade, etc ...])
-                                  // _secao('Resultados obtidos'),
-                                  // _linha([... campos de densidade 20°C e FCV ...])
-                                  // ================================================================================
-                                  
-                                  _secao('Volumes apurados'),
-                                  _buildSecaoTanques(),
-                                  const SizedBox(height: 40),
-                                ],
-                              ),
+                                          ),
+                                        },
+                                        {
+                                          'flex': 10,
+                                          'widget': TextFormField(
+                                            controller: campos['transportadora'],
+                                            maxLength: 50,
+                                            enabled: !_modoVisualizacao,
+                                            decoration: _decoration('Transportadora').copyWith(
+                                              counterText: '',
+                                              fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
+                                            ),
+                                          ),
+                                        },
+                                      ]),
+                                      const SizedBox(height: 12),
+                                      _linhaFlexivel([
+                                        {
+                                          'flex': 4,
+                                          'widget': PlacaAutocompleteField(
+                                            controller: campos['placaCavalo']!,
+                                            label: 'Placa do cavalo',
+                                            enabled: !_modoVisualizacao,
+                                          ),
+                                        },
+                                        {
+                                          'flex': 4,
+                                          'widget': PlacaAutocompleteField(
+                                            controller: campos['carreta1']!,
+                                            label: 'Carreta 1',
+                                            enabled: !_modoVisualizacao,
+                                          ),
+                                        },
+                                        {
+                                          'flex': 4,
+                                          'widget': PlacaAutocompleteField(
+                                            controller: campos['carreta2']!,
+                                            label: 'Carreta 2',
+                                            enabled: !_modoVisualizacao,
+                                          ),
+                                        },
+                                      ]),
+                                      const SizedBox(height: 20),
+                                    ],
+                                  ),
+                                ),
+                                _secao('Volumes apurados'),
+                                _buildSecaoTanques(),
+                                const SizedBox(height: 40),
+                              ],
                             ),
                           ),
                           if (!_carregandoDadosMovimentacao)
@@ -1702,7 +1697,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
             ],
           ),
           const SizedBox(height: 8),
-          
           // Campos de volume e switch
           Row(
             children: [
@@ -1744,25 +1738,26 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                     IconButton(
                       icon: Icon(
                         Icons.science_outlined,
-                        color: tanque.tempAmostra != null ? Colors.green : Color(0xFF0D47A1),
+                        color: tanque.tempAmostra != null ? Colors.green : const Color(0xFF0D47A1),
                         size: 28,
                       ),
-                      tooltip: 'Dados da Coleta',
-                      onPressed: _modoVisualizacao ? null : () => _abrirDialogDadosColeta(tanque, numeroTanque),
+                      tooltip: _modoVisualizacao
+                          ? 'Visualizar dados da coleta'
+                          : 'Editar dados da coleta',
+                      onPressed: () => _abrirDialogDadosColeta(tanque, numeroTanque),
                     ),
                     Text(
                       'Dados da\nColeta',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 10,
-                        color: tanque.tempAmostra != null ? Colors.green : Color(0xFF0D47A1),
+                        color: tanque.tempAmostra != null ? Colors.green : const Color(0xFF0D47A1),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
-              
               Expanded(
                 flex: 2,
                 child: Padding(
@@ -1781,8 +1776,8 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                       ),
                       Switch(
                         value: tanque.buscarDoBanco,
-                        onChanged: _modoVisualizacao 
-                            ? null 
+                        onChanged: _modoVisualizacao
+                            ? null
                             : (valor) => _toggleBuscarDoBanco(tanque.id, valor),
                         activeColor: const Color(0xFF0D47A1),
                       ),
@@ -2536,30 +2531,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
             ),
           ),
           backgroundColor: Colors.white,
-          title: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0D47A1),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.warning_amber, color: Colors.white, size: 28),
-                const SizedBox(width: 12),
-                const Text(
-                  'Emitir Certificado',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
           content: SizedBox(
             width: 400,
             child: Column(
