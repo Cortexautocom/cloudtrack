@@ -84,9 +84,18 @@ class _AprovarUsuarioPageState extends State<AprovarUsuarioPage> {
       const url =
           "https://ikaxzlpaihdkqyjqrxyw.functions.supabase.co/aprovar-usuario";
 
+      final session = supabase.auth.currentSession;
+
+      if (session == null) {
+        throw Exception("Usuário não autenticado");
+      }
+
       final response = await http.post(
         Uri.parse(url),
-        headers: {"Content-Type": "application/json"},
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer ${session.accessToken}",
+        },
         body: jsonEncode({
           "nome": nome,
           "email": email,
