@@ -303,6 +303,41 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
     return 'Sem horário';
   }
 
+  String _formatarInicio(dynamic data, dynamic horarioInicial, [dynamic horarioFinal]) {
+    if (data == null) return 'Início: -';
+    try {
+      final d = DateTime.parse(data.toString());
+
+      final dataFmt =
+          '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+      String horaFmt = '';
+      if (horarioInicial != null) {
+        final h = horarioInicial.toString();
+        if (h.contains('T')) {
+          final dh = DateTime.parse(h);
+          horaFmt = '${dh.hour.toString().padLeft(2, '0')}:${dh.minute.toString().padLeft(2, '0')}';
+        } else {
+          horaFmt = h.length >= 5 ? h.substring(0, 5) : h;
+        }
+        return 'Início: $dataFmt, $horaFmt h';
+      } else if (horarioFinal != null) {
+        final h = horarioFinal.toString();
+        if (h.contains('T')) {
+          final dh = DateTime.parse(h);
+          horaFmt = '${dh.hour.toString().padLeft(2, '0')}:${dh.minute.toString().padLeft(2, '0')}';
+        } else {
+          horaFmt = h.length >= 5 ? h.substring(0, 5) : h;
+        }
+        return 'Fim: $dataFmt, $horaFmt h';
+      }
+
+      return 'Sem horário';
+    } catch (_) {
+      return 'Início: -';
+    }
+  }
+
   Color _getStatusColor(String? status) {
     switch (status?.toLowerCase()) {
       case 'emitido':
@@ -856,7 +891,8 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                     final produto =
                                         cacl['produto'] ?? 'Produto não informado';
                                     final data = _formatarData(cacl['data']);
-                                    final horario = _formatarHorario(
+                                    final horario = _formatarInicio(
+                                      cacl['data'],
                                       cacl['horario_inicial'],
                                       cacl['horario_final'],
                                     );
