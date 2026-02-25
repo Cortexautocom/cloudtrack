@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../gestao_de_frota/dialog_cadastro_placas.dart';
 
 class NovaVendaDialog extends StatefulWidget {
   final Function(bool sucesso, String? mensagem)? onSalvar;
@@ -103,8 +104,11 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     );
     
     tanque.produtoId = mov['produto_id']?.toString();
-    tanque.clienteController.text = mov['cliente']?.toString() ?? '';
+    tanque.clienteController.text = (mov['cliente']?.toString() ?? '').toUpperCase();
     tanque.pagamentoController.text = mov['forma_pagamento']?.toString() ?? '';
+
+    // Garantir que o texto carregado para edição apareça em maiúsculas
+    tanque.pagamentoController.text = (tanque.pagamentoController.text).toUpperCase();
     
     placa.tanques.add(tanque);
     _placasVenda.add(placa);
@@ -822,6 +826,8 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             child: TextFormField(
               controller: tanque.clienteController,
               style: const TextStyle(fontSize: 13),
+              textCapitalization: TextCapitalization.characters,
+              inputFormatters: [UpperCaseTextFormatter()],
               decoration: _inputDecoration('Cliente*', incompleto: incompleto && !clientePreenchido),
             ),
           ),
@@ -833,6 +839,8 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             child: TextFormField(
               controller: tanque.pagamentoController,
               style: const TextStyle(fontSize: 13),
+              textCapitalization: TextCapitalization.characters,
+              inputFormatters: [UpperCaseTextFormatter()],
               decoration: _inputDecoration('Forma de pagamento*', incompleto: incompleto && !pagamentoPreenchido),
             ),
           ),
@@ -1082,6 +1090,25 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                     onPressed: () => _removerPlaca(index),
                   ),
                 ),
+              const SizedBox(width: 8),
+              const Spacer(),
+              TextButton(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: true,
+                    builder: (context) => DialogCadastroPlacas(tipoCadastro: TipoCadastroVeiculo.terceiros),
+                  );
+                },
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'Cadastrar placa',
+                  style: TextStyle(fontSize: 14, decoration: TextDecoration.underline),
+                ),
+              ),
             ],
           ),
 
@@ -1342,5 +1369,24 @@ class _TanqueVenda {
   void dispose() {
     clienteController.dispose();
     pagamentoController.dispose();
+  }
+}
+
+// Formata entrada para maiúsculas enquanto o usuário digita
+class UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final upper = newValue.text.toUpperCase();
+    return TextEditingValue(
+      text: upper,
+      selection: newValue.selection.copyWith(
+        baseOffset: upper.length,
+        extentOffset: upper.length,
+      ),
+      composing: TextRange.empty,
+    );
   }
 }
