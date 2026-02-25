@@ -739,6 +739,21 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     setState(() {});
   }
 
+  bool _campoVolume20Valido(String texto) {
+    if (texto.isEmpty) return false;
+    final limpo = texto.replaceAll('.', '').replaceAll(',', '.');
+    final v = double.tryParse(limpo);
+    return v != null && v > 0;
+  }
+
+  bool _todosVolumes20Validos() {
+    if (_tanques.isEmpty) return false;
+    for (final t in _tanques) {
+      if (!_campoVolume20Valido(t.volume20CCtrl.text.trim())) return false;
+    }
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1027,7 +1042,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                               // BOTÃO EMITIR CERTIFICADO
                               if (!_modoVisualizacao)
                                 ElevatedButton.icon(
-                                  onPressed: _salvandoCertificado ? null : _confirmarEmissaoCertificado,
+                                  onPressed: (_salvandoCertificado || !_todosVolumes20Validos()) ? null : _confirmarEmissaoCertificado,
                                   icon: _salvandoCertificado 
                                       ? const SizedBox(
                                           width: 20,
@@ -1043,8 +1058,8 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                     style: const TextStyle(fontSize: 16),
                                   ),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green,
-                                    foregroundColor: Colors.white,
+                                    backgroundColor: (!_salvandoCertificado && _todosVolumes20Validos()) ? Colors.green : Colors.grey[300],
+                                    foregroundColor: (!_salvandoCertificado && _todosVolumes20Validos()) ? Colors.white : Colors.grey[600],
                                     padding:
                                         const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                                     shape: RoundedRectangleBorder(
@@ -1108,16 +1123,24 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
           novoTanque.volume20CCtrl.text = _mascaraMilharUI(tanqueInfo['saida_vinte'].toString());
         }
         
+        // Atualiza lista e adiciona listener para atualizar estado quando o volume 20°C mudar
+        novoTanque.volume20CCtrl.addListener(() {
+          if (mounted) setState(() {});
+        });
         _tanques.add(novoTanque);
       }
     } else {
       // Caso não tenha tanques da ordem, criar um padrão
-      _tanques.add(TanqueDados(
+      final novoTanque = TanqueDados(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         volumeAmbCtrl: TextEditingController(),
         volume20CCtrl: TextEditingController(),
         buscarDoBanco: false,
-      ));
+      );
+      novoTanque.volume20CCtrl.addListener(() {
+        if (mounted) setState(() {});
+      });
+      _tanques.add(novoTanque);
     }
   }
 
@@ -1224,9 +1247,11 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       if (index != -1) {
         _tanques[index].buscarDoBanco = valor;
         
-        // Se marcou o switch, buscar dados do banco
+        // Se marcou o switch, buscar dados do banco; se desmarcou, limpar volume a 20°C
         if (valor) {
           _buscarDadosColetaRecente(_tanques[index]);
+        } else {
+          _tanques[index].volume20CCtrl.text = '';
         }
       }
     });
@@ -1731,7 +1756,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
               ),
               // Ícone de dados da coleta
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
+                padding: const EdgeInsets.only(left: 65, right: 6),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -1750,7 +1775,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                       'Dados da\nColeta',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 12,
                         color: tanque.tempAmostra != null ? Colors.green : const Color(0xFF0D47A1),
                         fontWeight: FontWeight.w500,
                       ),
@@ -1759,27 +1784,33 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                 ),
               ),
               Expanded(
-                flex: 2,
+                flex: 3,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  padding: const EdgeInsets.only(left: 60, right: 6),
                   child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
-                        'Buscar do banco',
+                      Transform.scale(
+                        scale: 0.8,
+                        child: Switch(
+                          value: tanque.buscarDoBanco,
+                          onChanged: _modoVisualizacao
+                              ? null
+                              : (valor) => _toggleBuscarDoBanco(tanque.id, valor),
+                          activeColor: const Color(0xFF0D47A1),
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Calcular com dados disponíveis',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFF0D47A1),
+                          color: tanque.buscarDoBanco ? Colors.green : const Color(0xFF0D47A1),
                         ),
                         textAlign: TextAlign.center,
-                      ),
-                      Switch(
-                        value: tanque.buscarDoBanco,
-                        onChanged: _modoVisualizacao
-                            ? null
-                            : (valor) => _toggleBuscarDoBanco(tanque.id, valor),
-                        activeColor: const Color(0xFF0D47A1),
                       ),
                     ],
                   ),
