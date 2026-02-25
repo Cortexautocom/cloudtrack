@@ -54,21 +54,54 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
     setState(() => _carregandoProdutos = true);
     
     try {
+      // 1) Buscar grupo(s) de produtos associados à filial
+      final filialRes = await _supabase
+          .from('filiais')
+          .select('grupo_produtos')
+          .eq('id', widget.filialId)
+          .maybeSingle();
+
+      List<String> gruposFilial = [];
+      if (filialRes != null && filialRes['grupo_produtos'] != null) {
+        final gp = filialRes['grupo_produtos'];
+        if (gp is List) {
+          gruposFilial = gp.map((e) => e.toString()).toList();
+        } else {
+          gruposFilial = [gp.toString()];
+        }
+      }
+
+      // 2) Buscar todos os produtos e filtrar localmente pelos grupos da filial
       final dados = await _supabase
           .from('produtos')
-          .select('id, nome')
+          .select('id, nome, grupo')
           .order('nome');
-      
+
       final List<Map<String, dynamic>> produtos = [];
       for (var produto in dados) {
-        produtos.add({
-          'id': produto['id'].toString(),
-          'nome': produto['nome'].toString(),
-        });
+        final grupoProd = produto['grupo']?.toString() ?? '';
+
+        // incluir se o produto pertencer a um dos grupos da filial
+        // ou se o grupo for '3' (sempre exibido)
+        if (gruposFilial.isEmpty) {
+          if (grupoProd == '3') {
+            produtos.add({
+              'id': produto['id'].toString(),
+              'nome': produto['nome'].toString(),
+            });
+          }
+        } else {
+          if (gruposFilial.contains(grupoProd) || grupoProd == '3') {
+            produtos.add({
+              'id': produto['id'].toString(),
+              'nome': produto['nome'].toString(),
+            });
+          }
+        }
       }
-      
+
       final produtosOrdenados = _ordenarProdutosPorClasse(produtos);
-      
+
       setState(() {
         _produtosDisponiveis = [
           {'id': '', 'nome': '<selecione>'}
