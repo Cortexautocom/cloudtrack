@@ -37,6 +37,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
   int? _hoverIndex;
   
   final TextEditingController dataEmissaoController = TextEditingController();
+  final TextEditingController _filialController = TextEditingController();
 
   Map<String, dynamic>? _usuarioData;
 
@@ -53,6 +54,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     dataEmissaoController.dispose();
+    _filialController.dispose();
     super.dispose();
   }
 
@@ -159,6 +161,26 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
             .eq('id_filial', filialId)
             .order('referencia');
         tanquesDisponiveis = List<Map<String, dynamic>>.from(tanquesResponse);
+      }
+
+      // Se usuário não é admin, obter o nome da filial e pré-selecionar o campo
+      if (nivel != 3 && filialId != null) {
+        try {
+          final filialData = await supabase
+              .from('filiais')
+              .select('nome')
+              .eq('id', filialId)
+              .single();
+          final nome = filialData['nome']?.toString();
+          setState(() {
+            filialSelecionadaId = filialId;
+            _filialController.text = nome ?? '';
+          });
+        } catch (_) {
+          setState(() {
+              _filialController.text = '';
+            });
+        }
       }
       
       await _aplicarFiltros();
@@ -272,7 +294,10 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
   void _limparFiltros() {
     setState(() {
       dataEmissao = null;
-      filialSelecionadaId = null;
+      // Não limpar filial para usuários não-admin (nível 1/2)
+      if ((_usuarioData?['nivel'] ?? 0) == 3) {
+        filialSelecionadaId = null;
+      }
       tanqueSelecionadoId = null;
       produtoSelecionado = null;
       dataEmissaoController.clear();
@@ -290,17 +315,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
     } catch (_) {
       return data.toString();
     }
-  }
-
-  String _formatarHorario(dynamic horarioInicial, dynamic horarioFinal) {
-    if (horarioInicial != null && horarioFinal != null) {
-      return '$horarioInicial - $horarioFinal';
-    } else if (horarioInicial != null) {
-      return 'Início: $horarioInicial';
-    } else if (horarioFinal != null) {
-      return 'Fim: $horarioFinal';
-    }
-    return 'Sem horário';
   }
 
   String _formatarInicio(dynamic data, dynamic horarioInicial, [dynamic horarioFinal]) {
@@ -417,6 +431,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
     final isAdmin = nivel == 3;
     
     return Card(
+      color: const Color(0xFFFAFAFA),
       elevation: 2,
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: Padding(
@@ -547,14 +562,30 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                       });
                     },
                   ),
+                ) else Expanded(
+                  flex: 2,
+                  child: TextFormField(
+                    controller: _filialController,
+                    decoration: InputDecoration(
+                      labelText: 'Filial',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.business, size: 18),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      isDense: true,
+                    ),
+                    readOnly: true,
+                    enabled: true,
+                    style: const TextStyle(fontSize: 13, color: Colors.black87),
+                  ),
                 ),
                 
-                if (isAdmin) const SizedBox(width: 8),
+                const SizedBox(width: 8),
                 
                 Expanded(
                   flex: 3,
                   child: TextFormField(
                     controller: dataEmissaoController,
+                    style: const TextStyle(fontSize: 13, color: Colors.black87),
                     decoration: InputDecoration(
                       labelText: 'Data de emissão',
                       prefixIcon: const Icon(Icons.calendar_today, size: 18),
@@ -689,6 +720,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
 
   Widget _buildPaginacao() {
     return Card(
+      color: const Color(0xFFFAFAFA),
       elevation: 1,
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: Padding(
