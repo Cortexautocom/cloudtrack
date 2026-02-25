@@ -23,17 +23,11 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
     final supabase = Supabase.instance.client;
 
     try {
-      // 1️⃣ Chamar a Edge Function ÚNICA que faz tudo (buscar usuário + marcar flag + avisar admins)
-      final resposta = await supabase.functions.invoke(
-        'solicitar-redefinicao',
-        body: {
-          'email': email,
-        },
+      // 1️⃣ Disparar e-mail de redefinição direto pelo Supabase (usa SMTP configurado)
+      await supabase.auth.resetPasswordForEmail(
+        email,
+        redirectTo: 'https://powertankapp.com.br/',
       );
-
-      if (resposta.status != 200) {
-        throw Exception("Erro ao processar solicitação.");
-      }
 
       // 2️⃣ Sucesso
       setState(() => _emailSent = true);
@@ -50,13 +44,13 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
               Icon(Icons.check_circle, color: Colors.green, size: 56),
               SizedBox(height: 16),
               Text(
-                "Pedido de redefinição enviado com sucesso!",
+                "Link de redefinição enviado!",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
               SizedBox(height: 12),
               Text(
-                "Por segurança, um administrador irá validar o pedido e você receberá um link por email. Aguarde alguns instantes.",
+                "Você receberá um e-mail com o link para redefinir sua senha.",
                 style: TextStyle(fontSize: 14, color: Color.fromARGB(255, 97, 97, 97)),
                 textAlign: TextAlign.center,
               ),
@@ -66,7 +60,10 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
             Center(
               child: TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text("OK", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                child: const Text(
+                  "OK",
+                  style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                ),
               ),
             ),
           ],
@@ -79,7 +76,7 @@ class _EsqueciSenhaPageState extends State<EsqueciSenhaPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Erro: $error"),
+          content: Text("Erro ao enviar link de redefinição: $error"),
           backgroundColor: Colors.red,
         ),
       );

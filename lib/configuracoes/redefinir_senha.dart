@@ -29,13 +29,7 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
     setState(() => _isLoading = true);
     final supabase = Supabase.instance.client;
 
-    try {
-      final currentUrl = Uri.base.toString();
-      final token = _extrairTokenDaUrl(currentUrl);
-      if (token == null) {
-        throw AuthException('Link de recuperação inválido. Token não encontrado.');
-      }
-
+    try {      
       await supabase.auth.updateUser(
         UserAttributes(password: _novaSenhaController.text.trim()),
       );
@@ -75,19 +69,7 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  String? _extrairTokenDaUrl(String url) {
-    final uri = Uri.parse(url);
-    if (uri.queryParameters['token'] != null) {
-      return uri.queryParameters['token'];
-    }
-    if (uri.fragment.isNotEmpty) {
-      final frag = Uri.splitQueryString(uri.fragment);
-      return frag['access_token'] ?? frag['token'];
-    }
-    return null;
-  }
+  }  
 
   String? _validarForcaSenha(String? value) {
     if (value == null || value.isEmpty) {

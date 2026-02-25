@@ -13,75 +13,47 @@ serve(async (req: Request) => {
   }
 
   try {
-    // 📥 Lê dados enviados pelo app
     const { nova_senha } = await req.json();
-
-    // 🔐 Validação da senha
     if (!nova_senha || nova_senha.length < 6) {
       throw new Error("A nova senha deve ter pelo menos 6 caracteres");
     }
 
-    const supabaseUrl = Deno.env.get("PROJECT_URL")!;
-    const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const supabase = createClient(
+      Deno.env.get("PROJECT_URL")!,
+      Deno.env.get("SERVICE_ROLE_KEY")!,
+    );
 
-    // 🔹 Obtém o usuário atual do token JWT
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("Token de autenticação não encontrado");
-    }
+    if (!authHeader) throw new Error("Token de autenticação não encontrado");
 
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    
     if (userError || !user) {
-      throw new Error("Usuário não autenticado: " + (userError?.message || "Token inválido"));
+      throw new Error("Usuário não autenticado");
     }
 
-    const userId = user.id;
-
-    // 1️⃣ Atualiza a senha no Auth
     const { error: updateError } = await supabase.auth.admin.updateUserById(
-      userId,
+      user.id,
       { password: nova_senha }
     );
-
     if (updateError) {
       throw new Error("Erro ao atualizar senha: " + updateError.message);
     }
 
-    // 2️⃣ Atualiza a flag senha_temporaria para FALSE (se existir na sua tabela)
-    const { error: dbError } = await supabase
+    await supabase
       .from("usuarios")
       .update({ senha_temporaria: false })
-      .eq("id", userId);
+      .eq("id", user.id);
 
-    if (dbError) {
-      // Não lança erro, apenas loga, pois a atualização da senha já foi feita
-      console.log("Aviso: Não foi possível atualizar senha_temporaria:", dbError.message);
-    }
-
-    // ✅ Retorna sucesso
     return new Response(
-      JSON.stringify({
-        success: true,
-        message: "Senha alterada com sucesso!",
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
+      JSON.stringify({ success: true }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error("❌ Erro em alterar-senha:", errorMessage);
-
     return new Response(
       JSON.stringify({ success: false, error: errorMessage }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });

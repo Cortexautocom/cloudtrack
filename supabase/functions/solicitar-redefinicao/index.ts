@@ -53,46 +53,21 @@ serve(async (req: Request): Promise<Response> => {
       throw new Error("Erro ao buscar administradores.");
     }
 
-    const listaEmails = admins.map((a: any) => a.email);
-
-    // 4️⃣ Enviar email aos admins
-    const resendPayload = {
-      from: "PowerTank Suporte <suporte@powertankapp.com.br>",
-      to: listaEmails,
-      subject: "🔔 Solicitação de redefinição de senha",
-      html: `
-        <h2>🔔 Solicitação de redefinição de senha</h2>
-        <p>O usuário <strong>${usuario.nome}</strong> pediu redefinição de senha.</p>
-        <p>E-mail: <b>${usuario.email}</b></p>
-        <p style="margin: 24px 0;">
-          <a href="https://powertankapp.com.br/"
-            style="background-color:#0A4B78;
-            color:#fff;
-            padding:12px 20px;
-            border-radius:8px;
-            text-decoration:none;
-            font-weight:bold;">
-            Acessar o PowerTank
-          </a>
-        </p>
-        <hr>
-        <small>'PowerTank Terminais 2026, All rights reserved.',</small>
-      `,
-    };
-
-    const resendResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${Deno.env.get("RESEND_API_KEY")}`,
-        "Content-Type": "application/json",
+    // 4️⃣ Disparar e-mail de recuperação pelo Supabase (usa o SMTP configurado)
+    const { error: recoveryErr } = await supabase.auth.admin.generateLink({
+      type: "recovery",
+      email,
+      options: {
+        redirectTo: "https://powertankapp.com.br/",
       },
-      body: JSON.stringify(resendPayload),
     });
 
-    const resendText = await resendResponse.text();
-    if (!resendResponse.ok) {
-      throw new Error(`Erro ao enviar e-mail: ${resendText}`);
+    if (recoveryErr) {
+      throw new Error("Falha ao gerar e-mail de recuperação.");
     }
+
+    // 5️⃣ (Opcional) Registrar notificação interna para admins (sem envio de e-mail externo)
+    // Aqui você pode salvar logs/notificações no banco se quiser.
 
     return new Response(
       JSON.stringify({ success: true }),
