@@ -43,9 +43,9 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   bool _possuiCACL = false;
 
   num? _valorSobraPerda;
-  bool? _ehSobra; // true = sobra (entrada), false = perda (saída)
-  bool _temSaldoDiarioHoje = false;
+  bool? _ehSobra;
   bool _baixandoExcel = false;
+  String? _produtoNome;
 
   late DateTime _dataFiltro;
 
@@ -149,24 +149,67 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     }
   }
 
-  Future<void> _verificarSaldoDiarioHoje() async {
-    try {
-      final hoje = DateTime.now();
-      final hojeStr = hoje.toIso8601String().split('T')[0];
-      final inicioHoje = '$hojeStr 00:00:00';
-      final fimHoje = '$hojeStr 23:59:59';
+  
 
+  Future<void> buscarUltimaSobraPerdaDoTanque() async {
+    try {
       final response = await _supabase
-          .from('saldo_tanque_diario')
-          .select('id')
+          .from('movimentacoes_tanque')
+          .select('descricao, entrada_vinte, saida_vinte')
           .eq('tanque_id', widget.tanqueId)
-          .gte('data_mov', inicioHoje)
-          .lte('data_mov', fimHoje)
+          .or("descricao.ilike.Sobra CACL%,descricao.ilike.Perda CACL%")
+          .order('data_mov', ascending: false)
+          .limit(1)
           .maybeSingle();
 
-      _temSaldoDiarioHoje = response != null;
+      if (response != null) {
+        final String descricao = (response['descricao'] ?? '').toString().trim();
+        final num entradaVinte = (response['entrada_vinte'] ?? 0) as num;
+        final num saidaVinte = (response['saida_vinte'] ?? 0) as num;
+
+        if (descricao.startsWith('Sobra CACL')) {
+          _valorSobraPerda = entradaVinte;
+          _ehSobra = true;
+        } else if (descricao.startsWith('Perda CACL')) {
+          _valorSobraPerda = saidaVinte;
+          _ehSobra = false;
+        } else {
+          _valorSobraPerda = null;
+          _ehSobra = null;
+        }
+      } else {
+        _valorSobraPerda = null;
+        _ehSobra = null;
+      }
     } catch (e) {
-      _temSaldoDiarioHoje = false;
+      _valorSobraPerda = null;
+      _ehSobra = null;
+    }
+  }
+
+  Future<void> _carregarProdutoDoTanque() async {
+    try {
+      final resp = await _supabase
+          .from('tanques')
+          .select('produtos (nome)')
+          .eq('id', widget.tanqueId)
+          .maybeSingle();
+
+      if (resp != null) {
+        // resp may be a map containing 'produtos'
+        final produtoObj = resp['produtos'];
+        if (produtoObj is Map && produtoObj['nome'] != null) {
+          _produtoNome = produtoObj['nome'].toString();
+        } else if (resp['nome'] != null) {
+          _produtoNome = resp['nome'].toString();
+        } else {
+          _produtoNome = null;
+        }
+      } else {
+        _produtoNome = null;
+      }
+    } catch (_) {
+      _produtoNome = null;
     }
   }
 
@@ -179,7 +222,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     try {
       await _carregarEstoqueInicialDoBanco();
       await _verificarCACLExistente();
-      await _verificarSaldoDiarioHoje();
+      await _carregarProdutoDoTanque();
 
       final dataStr = _dataFiltro.toIso8601String().split('T')[0];
 
@@ -277,21 +320,8 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         'vinte': _movs.isEmpty ? null : _movs.last['saldo_vinte'],
       };
 
-      if (_temSaldoDiarioHoje && listaOrdenadaParaUI.isNotEmpty) {
-        final ultimoReg = listaOrdenadaParaUI.last;
-        final entradaVinte = (ultimoReg['entrada_vinte'] ?? 0) as num;
-        final saidaVinte = (ultimoReg['saida_vinte'] ?? 0) as num;
-
-        if (entradaVinte > 0) {
-          _valorSobraPerda = entradaVinte;
-          _ehSobra = true;
-        } else if (saidaVinte > 0) {
-          _valorSobraPerda = saidaVinte;
-          _ehSobra = false;
-        } else {
-          _valorSobraPerda = null;
-          _ehSobra = null;
-        }
+      if (_possuiCACL) {
+        await buscarUltimaSobraPerdaDoTanque();
       } else {
         _valorSobraPerda = null;
         _ehSobra = null;
@@ -586,7 +616,9 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Estoque do Tanque – ${widget.referenciaTanque}'),
+            Text(
+              "Estoque do Tanque – ${widget.referenciaTanque}${_produtoNome != null ? ' - ${_produtoNome!}' : ''}",
+            ),
             Text(
               '${widget.nomeFilial} | ${_fmtData(_dataFiltro.toIso8601String())}',
               style: const TextStyle(
