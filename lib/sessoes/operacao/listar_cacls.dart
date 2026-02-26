@@ -31,12 +31,15 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
   List<Map<String, dynamic>> _cacles = [];
   int? _nivelUsuario;
   int? _hoverIndex;
+  DateTime? _dataFiltro;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _carregarNivelUsuario();
+    // fixar data inicial
+    _dataFiltro = DateTime.now();
     _carregarCaclsSimples();
   }
 
@@ -106,7 +109,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
 
     try {
       final supabase = Supabase.instance.client;
-      final dataAtual = DateTime.now();
+      final dataAtual = _dataFiltro ?? DateTime.now();
       final dataFormatada =
           '${dataAtual.year}-${dataAtual.month.toString().padLeft(2, '0')}-${dataAtual.day.toString().padLeft(2, '0')}';
 
@@ -437,6 +440,79 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                   ),
                 ],
               ),
+            ),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 180,
+              child: Builder(builder: (context) {
+                final textoData = _dataFiltro != null
+                    ? '${_dataFiltro!.day.toString().padLeft(2, '0')}/${_dataFiltro!.month.toString().padLeft(2, '0')}/${_dataFiltro!.year}'
+                    : 'Data';
+
+                return InkWell(
+                  onTap: () async {
+                    final dataSelecionada = await showDatePicker(
+                      context: context,
+                      initialDate: _dataFiltro ?? DateTime.now(),
+                      firstDate: DateTime(2020, 1, 1),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                      helpText: 'Filtrar por data',
+                      cancelText: 'Cancelar',
+                      confirmText: 'Confirmar',
+                      builder: (context, child) {
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            colorScheme: const ColorScheme.light(
+                              primary: Color(0xFF0D47A1),
+                              onPrimary: Colors.white,
+                              surface: Colors.white,
+                              onSurface: Colors.black,
+                            ),
+                          ),
+                          child: child!,
+                        );
+                      },
+                    );
+
+                    if (dataSelecionada != null) {
+                      setState(() {
+                        _dataFiltro = DateTime(
+                          dataSelecionada.year,
+                          dataSelecionada.month,
+                          dataSelecionada.day,
+                        );
+                      });
+                      _refreshData();
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(4),
+                  child: Container(
+                    height: 40,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    alignment: Alignment.centerLeft,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFF0D47A1).withOpacity(0.5)),
+                      borderRadius: BorderRadius.circular(4),
+                      color: Colors.white,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            textoData,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF0D47A1),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
             ),
             IconButton(
               icon: const Icon(Icons.refresh, color: Color(0xFF0D47A1)),

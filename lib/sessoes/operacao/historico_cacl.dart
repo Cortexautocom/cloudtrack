@@ -583,44 +583,73 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                 
                 const SizedBox(width: 8),
                 
-                Expanded(
-                  flex: 3,
-                  child: TextFormField(
-                    controller: dataEmissaoController,
-                    style: const TextStyle(fontSize: 13, color: Colors.black87),
-                    decoration: InputDecoration(
-                      labelText: 'Data de emissão',
-                      prefixIcon: const Icon(Icons.calendar_today, size: 18),
-                      border: const OutlineInputBorder(),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      isDense: true,
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.clear, size: 16),
-                        onPressed: () {
+                SizedBox(
+                  width: 180,
+                  child: Builder(builder: (context) {
+                    final textoData = dataEmissao != null
+                        ? '${dataEmissao!.day.toString().padLeft(2, '0')}/${dataEmissao!.month.toString().padLeft(2, '0')}/${dataEmissao!.year}'
+                        : 'Data';
+
+                    return InkWell(
+                      onTap: () async {
+                        final data = await showDatePicker(
+                          context: context,
+                          initialDate: dataEmissao ?? DateTime.now(),
+                          firstDate: DateTime(2020, 1, 1),
+                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                          helpText: 'Filtrar por data',
+                          cancelText: 'Cancelar',
+                          confirmText: 'Confirmar',
+                          builder: (context, child) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: const ColorScheme.light(
+                                  primary: Color(0xFF0D47A1),
+                                  onPrimary: Colors.white,
+                                  surface: Colors.white,
+                                  onSurface: Colors.black,
+                                ),
+                              ),
+                              child: child!,
+                            );
+                          },
+                        );
+
+                        if (data != null) {
                           setState(() {
-                            dataEmissao = null;
-                            dataEmissaoController.clear();
+                            dataEmissao = data;
+                            dataEmissaoController.text = _formatarData(data);
                           });
-                        },
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        height: 40,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        alignment: Alignment.centerLeft,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFF0D47A1).withOpacity(0.5)),
+                          borderRadius: BorderRadius.circular(4),
+                          color: Colors.white,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                textoData,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFF0D47A1),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    readOnly: true,
-                    onTap: () async {
-                      final data = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now(),
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime.now(),
-                      );
-                      
-                      if (data != null) {
-                        setState(() {
-                          dataEmissao = data;
-                          dataEmissaoController.text = _formatarData(data);
-                        });
-                      }
-                    },
-                  ),
+                    );
+                  }),
                 ),
                 
                 const SizedBox(width: 8),
