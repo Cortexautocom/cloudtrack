@@ -782,14 +782,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                 icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
                 onPressed: _voltar,
               ),
-              const Text(
-                'Certificado de Apuração de Volumes',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0D47A1),
-                ),
-              ),
               if (_modoVisualizacao)
                 Container(
                   margin: const EdgeInsets.only(left: 12),
@@ -1353,6 +1345,12 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       builder: (BuildContext dialogContext) {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
+            // Verificar se estamos em modo visualização (embutido ou forçado)
+            final emVisualizacao = _modoVisualizacao || widget.modoSomenteVisualizacao;
+
+            // Debug: log estado do dialog para verificar por que botões não são ajustados
+            print('DEBUG [dialogDadosColeta] tanque=${tanque.id} emVisualizacao=$emVisualizacao fcv="${fcvCtrl.text}"');
+
             // Verificar se o FCV está calculado e é válido
             final fcvValido = fcvCtrl.text.isNotEmpty && 
                               fcvCtrl.text != '-' && 
@@ -1441,7 +1439,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                               builder: (context, setStateCheckbox) {
                                 return Checkbox(
                                   value: tanque.buscarDoBanco,
-                                  onChanged: (value) {
+                                  onChanged: emVisualizacao ? null : (value) {
                                     setState(() {
                                       tanque.buscarDoBanco = value ?? false;
                                     });
@@ -1493,6 +1491,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                       TextFormField(
                         controller: tempAmostraCtrl,
                         keyboardType: TextInputType.number,
+                        enabled: !emVisualizacao,
                         onChanged: (value) {
                           String masked = _aplicarMascaraTemperatura(value);
                           if (masked != value) {
@@ -1511,6 +1510,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                       TextFormField(
                         controller: densObsCtrl,
                         keyboardType: TextInputType.number,
+                        enabled: !emVisualizacao,
                         onChanged: (value) {
                           String masked = _aplicarMascaraDensidade(value);
                           if (masked != value) {
@@ -1529,6 +1529,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                       TextFormField(
                         controller: tempCTCtrl,
                         keyboardType: TextInputType.number,
+                        enabled: !emVisualizacao,
                         onChanged: (value) {
                           String masked = _aplicarMascaraTemperatura(value);
                           if (masked != value) {
@@ -1580,7 +1581,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                     children: [
                       // Botão Calcular - à esquerda
                       ElevatedButton.icon(
-                        onPressed: () => calcularResultados(setStateDialog),
+                        onPressed: emVisualizacao ? null : () => calcularResultados(setStateDialog),
                         icon: const Icon(Icons.calculate, size: 20),
                         label: const Text(
                           'Calcular',
@@ -1599,12 +1600,14 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                       // Botões Voltar e Salvar - à direita
                       Row(
                         children: [
-                          TextButton(
+                          // Voltar: sempre disponível; se estivermos em modo visualização, destacar em azul
+                          ElevatedButton(
                             onPressed: () {
                               Navigator.of(dialogContext).pop();
                             },
-                            style: TextButton.styleFrom(
-                              foregroundColor: Colors.grey[700],
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: emVisualizacao ? const Color(0xFF0D47A1) : Colors.grey[200],
+                              foregroundColor: emVisualizacao ? Colors.white : Colors.grey[800],
                               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
@@ -1618,7 +1621,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                           ),
                           const SizedBox(width: 12),
                           ElevatedButton(
-                            onPressed: !fcvValido ? null : () {
+                            onPressed: (!fcvValido || emVisualizacao) ? null : () {
                               // Validar campos obrigatórios
                               if (tempAmostraCtrl.text.isEmpty || 
                                   densObsCtrl.text.isEmpty || 
@@ -1666,8 +1669,8 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                               );
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: fcvValido ? Colors.green : Colors.grey[300],
-                              foregroundColor: fcvValido ? Colors.white : Colors.grey[600],
+                              backgroundColor: (!fcvValido || emVisualizacao) ? Colors.grey[300] : Colors.green,
+                              foregroundColor: (!fcvValido || emVisualizacao) ? Colors.grey[600] : Colors.white,
                               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
@@ -2560,8 +2563,12 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   // ================= BOTÃO VOLTAR =================
   void _voltar() {
     FocusScope.of(context).unfocus();
-    
-    Navigator.of(context).pop(true);
+    // Se um callback onVoltar foi fornecido, use-o (quando embutido); senão faça pop da rota
+    try {
+      widget.onVoltar();
+    } catch (_) {
+      Navigator.of(context).pop(true);
+    }
   }
 
   // Método para confirmar emissão do certificado

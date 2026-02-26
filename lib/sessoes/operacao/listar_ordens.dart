@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
-import 'ordem.dart';
+import 'certificado_apuracao_entrada.dart';
+import 'certificado_apuracao_saida.dart';
 
 class ListarOrdensAnalisesPage extends StatefulWidget {
   final VoidCallback onVoltar;
@@ -26,10 +27,12 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
   String _busca = '';
   int? _nivel;
 
-  int? _hoverIndex;
-  
-  // ===== NOVO ESTADO PARA NAVEGAÇÃO INLINE =====
+  // Estado da ordem selecionada para visualização
   bool _mostrandoCertificado = false;
+  String? _ordemSelecionadaId;
+  String? _ordemTipoOperacao;
+
+  int? _hoverIndex;
 
   @override
   void initState() {
@@ -109,13 +112,7 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
       _mostrandoCertificado = true;
     });
   }
-
-  void _abrirOrdemExistente() {
-    setState(() {
-      _mostrandoCertificado = true;
-    });
-  }
-
+  
   void _voltarParaLista() {
     setState(() {
       _mostrandoCertificado = false;
@@ -127,11 +124,24 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
   Widget build(BuildContext context) {
     // ===== SE ESTÁ MOSTRANDO CERTIFICADO =====
     if (_mostrandoCertificado) {
-      return Scaffold(
-        body: EmitirOrdemPage(
-          onVoltar: _voltarParaLista,
-        ),
-      );
+      // Mostrar a página adequada em modo somente visualização
+      if (_ordemTipoOperacao != null && _ordemTipoOperacao == 'entrada') {
+        return Scaffold(
+          body: EmitirCertificadoEntrada(
+            onVoltar: _voltarParaLista,
+            idAnaliseExistente: _ordemSelecionadaId,
+            modoSomenteVisualizacao: true,
+          ),
+        );
+      } else {
+        return Scaffold(
+          body: EmitirCertificadoPage(
+            onVoltar: _voltarParaLista,
+            idCertificado: _ordemSelecionadaId,
+            modoSomenteVisualizacao: true,
+          ),
+        );
+      }
     }
 
     // ===== SE ESTÁ MOSTRANDO A LISTA =====
@@ -277,7 +287,13 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
                           onEnter: (_) => setState(() => _hoverIndex = index),
                           onExit: (_) => setState(() => _hoverIndex = null),
                           child: GestureDetector(
-                            onTap: _abrirOrdemExistente,
+                            onTap: () {
+                              setState(() {
+                                _ordemSelecionadaId = o['id']?.toString();
+                                _ordemTipoOperacao = o['tipo_operacao']?.toString();
+                                _mostrandoCertificado = true;
+                              });
+                            },
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 180),
                               decoration: BoxDecoration(

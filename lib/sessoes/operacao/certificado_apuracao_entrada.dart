@@ -1985,7 +1985,12 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
 
   void _voltar() {
     FocusScope.of(context).unfocus();
-    Navigator.of(context).pop(true);
+    // Use the provided callback when embedded; otherwise pop the route
+    try {
+      widget.onVoltar();
+    } catch (_) {
+      Navigator.of(context).pop(true);
+    }
   }
 
   void _confirmarEmissaoCertificado() {
