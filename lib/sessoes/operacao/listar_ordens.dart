@@ -73,8 +73,8 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
         .select('''
           id,
           numero_controle,
-          criado_em,
-          tipo_operacao,
+          data_criacao,
+          tipo_analise,
           transportadora,
           motorista,
           placa_cavalo,
@@ -83,8 +83,8 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
           produto_nome
         ''')
         .eq('filial_id', _filialSelecionada!)
-        .gte('criado_em', hojeStr)
-        .order('criado_em', ascending: false);
+        .gte('data_criacao', hojeStr)
+        .order('data_criacao', ascending: false);
 
     setState(() {
       _ordens = List<Map<String, dynamic>>.from(dados);
@@ -107,11 +107,6 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
   }
 
   // ===== MÉTODOS PARA NAVEGAÇÃO INLINE =====
-  void _mostrarCertificado() {
-    setState(() {
-      _mostrandoCertificado = true;
-    });
-  }
   
   void _voltarParaLista() {
     setState(() {
@@ -168,29 +163,7 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
             ),
             const Spacer(),
 
-            // ===== BOTÃO DE EMITIR ORDEM (CENTRALIZADO) =====
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              child: ElevatedButton.icon(
-                onPressed: _mostrarCertificado,
-                icon: const Icon(Icons.add, size: 20),
-                label: const Text(
-                  'Emitir Ordem',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0D47A1),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ),
+            // (Emitir Ordem removed — criação de ordens não disponível aqui)
 
             if (_nivel == 3)
               SizedBox(
@@ -278,19 +251,20 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
                   : ListView.separated(
                       padding: const EdgeInsets.all(16),
                       itemCount: lista.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      separatorBuilder: (_, __) => const SizedBox(height: 16),
                       itemBuilder: (context, index) {
                         final o = lista[index];
                         final cor = const Color(0xFF0D47A1);
 
                         return MouseRegion(
+                          cursor: SystemMouseCursors.click,
                           onEnter: (_) => setState(() => _hoverIndex = index),
                           onExit: (_) => setState(() => _hoverIndex = null),
                           child: GestureDetector(
                             onTap: () {
                               setState(() {
                                 _ordemSelecionadaId = o['id']?.toString();
-                                _ordemTipoOperacao = o['tipo_operacao']?.toString();
+                                _ordemTipoOperacao = o['tipo_analise']?.toString();
                                 _mostrandoCertificado = true;
                               });
                             },
@@ -333,7 +307,7 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
                                         Text(
                                             'Placa: ${o['placa_cavalo'] ?? '-'}  ${o['carreta1'] ?? ''}'),
                                         Text(
-                                            'Data: ${_formatarData(o['criado_em'])}'),
+                                            'Data: ${_formatarData(o['data_criacao'])}'),
                                       ],
                                     ),
                                   ),
@@ -361,8 +335,8 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
         .select('''
           id,
           numero_controle,
-          criado_em,
-          tipo_operacao,
+          data_criacao,
+          tipo_analise,
           transportadora,
           motorista,
           placa_cavalo,
@@ -371,8 +345,8 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
           produto_nome,
           filial_id
         ''')
-        .gte('criado_em', hojeStr)
-        .order('criado_em', ascending: false);
+        .gte('data_criacao', hojeStr)
+        .order('data_criacao', ascending: false);
 
     setState(() {
       _ordens = List<Map<String, dynamic>>.from(dados);
