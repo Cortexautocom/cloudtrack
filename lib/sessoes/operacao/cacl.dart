@@ -2413,17 +2413,15 @@ class _CalcPageState extends State<CalcPage> {
   }) async {
     final supabase = Supabase.instance.client;
 
+    void log(String msg) => debugPrint('[DENS20] $msg');
+
     try {
-      if (temperaturaAmostra.isEmpty || densidadeObservada.isEmpty) return '-';
+      log('Entrada -> Temp: "$temperaturaAmostra" | DensObs: "$densidadeObservada"');
 
-      final nomeProdutoLower = produtoNome.toLowerCase().trim();
-      final bool usarViewAnidroHidratado =
-          nomeProdutoLower.contains('anidro') ||
-          nomeProdutoLower.contains('hidratado');
-
-      final String nomeView = usarViewAnidroHidratado
-          ? 'tcd_anidro_hidratado_vw'
-          : 'tcd_gasolina_diesel_vw';
+      if (temperaturaAmostra.isEmpty || densidadeObservada.isEmpty) {
+        log('Campos vazios');
+        return '-';
+      }
 
       final double? tempNum = double.tryParse(
         temperaturaAmostra
@@ -2433,17 +2431,20 @@ class _CalcPageState extends State<CalcPage> {
             .replaceAll(',', '.')
             .trim(),
       );
-      if (tempNum == null) return '-';
 
-      final double? densNum = double.tryParse(
-        densidadeObservada.replaceAll(',', '.').trim(),
-      );
-      if (densNum == null) return '-';
+      final double? densNum =
+          double.tryParse(densidadeObservada.replaceAll(',', '.').trim());
 
-      final int alvo = (densNum * 10000).round();
+      if (tempNum == null || densNum == null) {
+        log('Falha ao converter números');
+        return '-';
+      }
 
-      // Gera possíveis formatos de temperatura conforme seu banco
-      final tempsParaTentar = <String>{
+      // 🔥 CORREÇÃO: agora multiplicando por 1000 (não 10000)
+      final int alvo = (densNum * 1000).round();
+      log('Temp normalizada: $tempNum | Dens normalizada: $densNum | Alvo coluna: $alvo');
+
+      final temperaturasTeste = <String>{
         tempNum.toStringAsFixed(0).replaceAll('.', ','),
         tempNum.toStringAsFixed(1).replaceAll('.', ','),
         tempNum.toStringAsFixed(2).replaceAll('.', ','),
@@ -2453,61 +2454,68 @@ class _CalcPageState extends State<CalcPage> {
 
       Map<String, dynamic>? linha;
 
-      for (final tempStr in tempsParaTentar) {
+      for (final t in temperaturasTeste) {
+        log('Tentando temperatura_obs = "$t"');
         linha = await supabase
-            .from(nomeView)
+            .from('csv_table_1')
             .select('*')
-            .eq('temperatura_obs', tempStr)
+            .eq('temperatura_obs', t)
             .maybeSingle();
 
         if (linha != null) {
+          log('Linha encontrada para temperatura "$t"');
           break;
         }
       }
 
       if (linha == null) {
+        log('Nenhuma linha encontrada');
         return '-';
       }
 
       int? melhorDelta;
+      String? melhorColuna;
       dynamic melhorValor;
 
       for (final entry in linha.entries) {
-        final key = entry.key;
-        if (!key.startsWith('d_')) continue;
+        if (!entry.key.startsWith('d_')) continue;
+
+        final cod = int.tryParse(entry.key.replaceFirst('d_', ''));
+        if (cod == null) continue;
 
         final valor = entry.value;
         if (valor == null || valor.toString().trim().isEmpty) continue;
 
-        final cod = int.tryParse(key.replaceAll('d_', ''));
-        if (cod == null) continue;
-
         final delta = (cod - alvo).abs();
+
         if (melhorDelta == null || delta < melhorDelta) {
           melhorDelta = delta;
+          melhorColuna = entry.key;
           melhorValor = valor;
         }
       }
 
       if (melhorValor == null) {
+        log('Nenhuma coluna válida encontrada');
         return '-';
       }
 
-      String _formatarResultado(String valorBruto) {
-        String v = valorBruto.trim().replaceAll('.', ',');
-        if (!v.contains(',')) v = '$v,0';
-        final p = v.split(',');
-        String i = p[0];
-        String d = p.length > 1 ? p[1] : '0';
-        d = d.padRight(4, '0');
-        if (d.length > 4) d = d.substring(0, 4);
-        return '$i,$d';
-      }
+      log('Coluna escolhida: $melhorColuna | Delta: $melhorDelta | Valor bruto: $melhorValor');
 
-      final resultado = _formatarResultado(melhorValor.toString());
+      String valorFinal = melhorValor.toString().trim().replaceAll('.', ',');
+
+      if (!valorFinal.contains(',')) valorFinal = '$valorFinal,0';
+      final partes = valorFinal.split(',');
+      final parteInteira = partes[0];
+      String parteDecimal = partes.length > 1 ? partes[1] : '0';
+      parteDecimal = parteDecimal.padRight(4, '0').substring(0, 4);
+
+      final resultado = '$parteInteira,$parteDecimal';
+      log('Resultado final densidade20: $resultado');
+
       return resultado;
     } catch (e) {
-      print('🔴 DEBUG: Erro em _buscarDensidade20C: $e');
+      log('Erro: $e');
       return '-';
     }
   }
