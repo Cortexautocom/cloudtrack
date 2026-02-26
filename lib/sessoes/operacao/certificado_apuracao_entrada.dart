@@ -1220,7 +1220,9 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                             children: [
                               if (!_modoVisualizacao)
                                 ElevatedButton.icon(
-                                  onPressed: _salvandoCertificado ? null : _confirmarEmissaoCertificado,
+                                    onPressed: (_salvandoCertificado || (_converterParaInteiro(campos['origem20']!.text) ?? 0) <= 0)
+                                      ? null
+                                      : _confirmarEmissaoCertificado,
                                   icon: _salvandoCertificado 
                                       ? const SizedBox(
                                           width: 20,
