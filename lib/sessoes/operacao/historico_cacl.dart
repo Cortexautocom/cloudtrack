@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
 import 'cacl_historico.dart';
+import 'cacl.dart';
 
 class HistoricoCaclPage extends StatefulWidget {
   final VoidCallback onVoltar;
@@ -218,6 +219,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
 
       var query = supabase.from('cacl').select('''
         id,
+        tipo,
         data,
         base,
         produto,
@@ -958,17 +960,54 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
 
                                                 if (!context.mounted) return;
 
-                                                await Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (_) => CaclHistoricoPage(
-                                                      caclId: caclId,
-                                                      onVoltar: () {
-                                                        Navigator.pop(context);
+                                                // Tentamos ler o campo 'tipo' vindo da lista; se não existir, buscamos no Supabase
+                                                String? tipo = cacl['tipo']?.toString();
+                                                if (tipo == null) {
+                                                  try {
+                                                    final resp = await Supabase.instance.client
+                                                        .from('cacl')
+                                                        .select('tipo')
+                                                        .eq('id', caclId)
+                                                        .maybeSingle();
+                                                    tipo = resp?['tipo']?.toString();
+                                                  } catch (_) {
+                                                    tipo = null;
+                                                  }
+                                                }
+
+                                                if (tipo == 'verificacao') {
+                                                  // Abrir no layout de visualização de fechamento de tanque
+                                                  await Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (_) {
+                                                        final Map<String, dynamic> payload = <String, dynamic>{};
+                                                        payload['origem_estoque_tanque'] = true;
+                                                        return CalcPage(
+                                                          dadosFormulario: payload,
+                                                          modo: CaclModo.visualizacao,
+                                                          caclId: caclId,
+                                                          onVoltar: () {
+                                                            Navigator.pop(context);
+                                                          },
+                                                        );
                                                       },
                                                     ),
-                                                  ),
-                                                );
+                                                  );
+                                                } else {
+                                                  // Comportamento atual
+                                                  await Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (_) => CaclHistoricoPage(
+                                                        caclId: caclId,
+                                                        onVoltar: () {
+                                                          Navigator.pop(context);
+                                                        },
+                                                      ),
+                                                    ),
+                                                  );
+                                                }
 
                                                 _refreshData();
                                               },

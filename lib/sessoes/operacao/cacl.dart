@@ -1451,7 +1451,9 @@ class _CalcPageState extends State<CalcPage> {
 
   @override
   Widget build(BuildContext context) {
-    final medicoes = widget.dadosFormulario['medicoes'] ?? {};
+    final medicoes = Map<String, dynamic>.from(
+      (widget.dadosFormulario['medicoes'] ?? <String, dynamic>{}) as Map<dynamic, dynamic>
+    );
 
     return Scaffold(
       backgroundColor: Colors.white,
