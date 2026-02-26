@@ -542,9 +542,19 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
           if (coleta['volume_vinte'] != null) {
             tanque.volume20CCtrl.text = _mascaraMilharUI(coleta['volume_vinte'].toString());
           }
+          // Debug: log valores preenchidos para este tanque
+          print('DEBUG [carregarColetas] tanqueIndex=$i id=${tanque.id} tempAmostra=${tanque.tempAmostra} densidade=${tanque.densidadeObservada} tempCT=${tanque.tempCT} volumeAmb=${tanque.volumeAmbCtrl.text} volume20=${tanque.volume20CCtrl.text}');
         }
       });
       
+      // Após preencher os campos, tentar disparar cálculos de densidade/FCV/volume se estivermos no modo edição
+      if (!_modoVisualizacao) {
+        for (int i = 0; i < coletas.length && i < _tanques.length; i++) {
+          final tanque = _tanques[i];
+          // Não await para não bloquear; apenas disparar os cálculos
+          _calcularDensidade20CFCV(tanque);
+        }
+      }
       print('✓ Dados de ${coletas.length} tanque(s) carregados da tabela coletas_tanques');
     } catch (e) {
       print('Erro ao carregar dados das coletas: $e');
@@ -597,6 +607,12 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
           _tanques[0].volume20CCtrl.text =
               _mascaraMilharUI(destino20.toString());
         }
+          // Debug: log valores preenchidos no primeiro tanque a partir dos dados existentes
+          final t0 = _tanques[0];
+          print('DEBUG [preencherCampos] tanque0 id=${t0.id} tempAmostra=${t0.tempAmostra} densidade=${t0.densidadeObservada} tempCT=${t0.tempCT} densidade20=${t0.densidade20C} fcv=${t0.fatorCorrecao} volumeAmb=${t0.volumeAmbCtrl.text} volume20=${t0.volume20CCtrl.text}');
+          if (!_modoVisualizacao) {
+            _calcularDensidade20CFCV(t0);
+          }
       }
 
       if (_dadosExistentes!['data_analise'] != null) {
@@ -1205,36 +1221,40 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   }
 
   Future<void> _calcularDensidade20CFCV(TanqueDados tanque) async {
-    if (produtoSelecionado == null || 
-        tanque.tempAmostra == null || 
+    // Use produto do tanque quando disponível, senão fallback para produtoSelecionado
+    final produtoParaCalculo = tanque.produtoNome ?? produtoSelecionado;
+    if (produtoParaCalculo == null ||
+        tanque.tempAmostra == null ||
         tanque.densidadeObservada == null ||
         tanque.tempAmostra!.isEmpty ||
         tanque.densidadeObservada!.isEmpty) {
       return;
     }
 
-    // Calcular densidade 20°C
+    // Calcular densidade 20°C usando produto apropriado
     final dens20 = await _buscarDensidade20C(
       temperaturaAmostra: tanque.tempAmostra!,
       densidadeObservada: tanque.densidadeObservada!,
-      produtoNome: produtoSelecionado!,
+      produtoNome: produtoParaCalculo,
     );
 
     setState(() {
       tanque.densidade20C = dens20;
     });
+    print('DEBUG [_calcularDensidade20CFCV] tanque.id=${tanque.id} dens20=$dens20');
 
     if (dens20 != '-' && dens20.isNotEmpty && tanque.tempCT != null && tanque.tempCT!.isNotEmpty) {
       // Calcular FCV
       final fcv = await _buscarFCV(
         temperaturaTanque: tanque.tempCT!,
         densidade20C: dens20,
-        produtoNome: produtoSelecionado!,
+        produtoNome: produtoParaCalculo,
       );
 
       setState(() {
         tanque.fatorCorrecao = fcv;
       });
+      print('DEBUG [_calcularDensidade20CFCV] tanque.id=${tanque.id} fcv=$fcv -> recalculando volume 20C');
 
       // Recalcular volume 20°C
       _calcularVolume20CTanque(tanque);
@@ -1826,6 +1846,9 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   void _calcularVolume20CTanque(TanqueDados tanque) {
     if (_modoVisualizacao) return;
 
+    // Debug: log entrada para cálculo de volume 20°C
+    print('DEBUG [_calcularVolume20CTanque] tanque.id=${tanque.id} fatorCorrecao=${tanque.fatorCorrecao} volumeAmbCtrl=${tanque.volumeAmbCtrl.text}');
+
     // Usar o FCV específico deste tanque (do dialog de dados da coleta)
     final fcvText = tanque.fatorCorrecao;
     if (fcvText == null || fcvText.isEmpty || fcvText == '-') {
@@ -1842,9 +1865,13 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     final volumeAmb = double.tryParse(volumeAmbText.replaceAll('.', ''));
     final fcv = double.tryParse(fcvText.replaceAll(',', '.'));
 
-    if (volumeAmb == null || fcv == null) return;
+    if (volumeAmb == null || fcv == null) {
+      print('DEBUG [_calcularVolume20CTanque] parse falhou: volumeAmb=$volumeAmb fcv=$fcv');
+      return;
+    }
 
     final volume20C = volumeAmb * fcv;
+    print('DEBUG [_calcularVolume20CTanque] tanque.id=${tanque.id} parsed volumeAmb=$volumeAmb parsed fcv=$fcv result volume20C=$volume20C');
     tanque.volume20CCtrl.text = _formatarNumeroParaCampo(volume20C);
 
     setState(() {});
