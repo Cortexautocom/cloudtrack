@@ -3449,8 +3449,10 @@ class _CalcPageState extends State<CalcPage> {
     for (var campo in camposObrigatorios) {
       final valor = medicoes[campo]?.toString() ?? '';
 
-      // Se o campo estiver vazio, com "-" ou "0", considera incompleto
-      if (valor.isEmpty || valor == '-' || valor == '0') {
+      // Permite "0" apenas para mmFinal
+      final bool zeroEhValido = campo == 'mmFinal' && valor == '0';
+
+      if (valor.isEmpty || valor == '-' || (!zeroEhValido && valor == '0')) {
         return false; // Dados finais incompletos
       }
     }
