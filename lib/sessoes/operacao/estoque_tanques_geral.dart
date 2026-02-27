@@ -152,20 +152,20 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 2,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         title: const Text(
           'Estoque por Tanque',
           style: TextStyle(
-            color: Color(0xFF0D47A1),
+            color: Color(0xFF222B45),
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF222B45)),
           onPressed: () {
             if (widget.onVoltar != null) {
               widget.onVoltar!();
@@ -193,7 +193,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
   /// ===============================
   Widget _construirMenuTanques() {
     return Container(
-      color: Colors.white,
+      color: const Color(0xFFF8F9FA),
       child: Column(
         children: [
           SingleChildScrollView(
@@ -206,47 +206,50 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
 
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() => tanqueSelecionadoIndex = index);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? const Color(0xFF0D47A1)
-                            : Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isSelected
-                              ? const Color(0xFF0D47A1)
-                              : Colors.grey[300]!,
-                          width: 1.5,
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() => tanqueSelecionadoIndex = index);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
                         ),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            tanque.nome.split(' - ').first,
-                            style: TextStyle(
-                              color: isSelected ? Colors.white : Colors.black87,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color(0xFF222B45)
+                              : const Color(0xFFF0F1F6),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isSelected
+                                ? const Color(0xFF222B45)
+                                : const Color(0xFFE0E3EB),
+                            width: 1.5,
                           ),
-                          const SizedBox(height: 4),
-                          if (tanque.nome.contains(' - '))
+                        ),
+                        child: Column(
+                          children: [
                             Text(
-                              tanque.nome.split(' - ').last,
+                              tanque.nome.split(' - ').first,
                               style: TextStyle(
-                                color: isSelected ? Colors.white70 : Colors.grey,
-                                fontSize: 10,
+                                color: isSelected ? Color(0xFFF8F9FA) : Color(0xFF222B45),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                        ],
+                            const SizedBox(height: 4),
+                            if (tanque.nome.contains(' - '))
+                              Text(
+                                tanque.nome.split(' - ').last,
+                                style: TextStyle(
+                                  color: isSelected ? Color(0xFFBFC8E6) : Color(0xFF8F9BB3),
+                                  fontSize: 10,
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -256,7 +259,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
           ),
           Container(
             height: 1,
-            color: Colors.grey[200],
+            color: Color(0xFFE0E3EB),
           ),
         ],
       ),
@@ -297,11 +300,11 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Color(0xFFF8F9FA),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Color(0xFFBFC8E6).withOpacity(0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -318,7 +321,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF0D47A1),
+                  color: Color(0xFF222B45),
                 ),
               ),
               const SizedBox(height: 12),
@@ -327,19 +330,19 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                   _construirInfoMini(
                     'Estoque Atual',
                     '${tanque.estoqueAtual.toStringAsFixed(0)} L',
-                    Colors.blue,
+                    Color(0xFF3366FF),
                   ),
                   const SizedBox(width: 20),
                   _construirInfoMini(
                     'Capacidade',
                     '${tanque.capacidadeTotal.toStringAsFixed(0)} L',
-                    Colors.orange,
+                    Color(0xFFFFA000),
                   ),
                   const SizedBox(width: 20),
                   _construirInfoMini(
                     'Espaço Livre',
                     '${(tanque.capacidadeTotal - tanque.estoqueAtual).toStringAsFixed(0)} L',
-                    Colors.green,
+                    Color(0xFF00B686),
                   ),
                 ],
               ),
@@ -379,11 +382,11 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Color(0xFFF8F9FA),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Color(0xFFBFC8E6).withOpacity(0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -406,7 +409,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
             child: LinearProgressIndicator(
               value: percentual / 100,
               minHeight: 30,
-              backgroundColor: Colors.grey[200],
+              backgroundColor: Color(0xFFE0E3EB),
               valueColor: AlwaysStoppedAnimation<Color>(
                 _getCor(percentual),
               ),
@@ -420,7 +423,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                 '0 L',
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey[600] ?? Colors.grey,
+                  color: Color(0xFF8F9BB3),
                 ),
               ),
               Text(
@@ -428,14 +431,14 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF0D47A1),
+                  color: Color(0xFF222B45),
                 ),
               ),
               Text(
                 '${tanque.capacidadeTotal.toStringAsFixed(0)} L',
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey[600] ?? Colors.grey,
+                  color: Color(0xFF8F9BB3),
                 ),
               ),
             ],
@@ -451,11 +454,11 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
   Widget _construirTabelaDetalhes(DadosTanque tanque) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Color(0xFFF8F9FA),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Color(0xFFBFC8E6).withOpacity(0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -467,7 +470,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: const Color(0xFF0D47A1),
+              color: const Color(0xFF222B45),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
@@ -521,7 +524,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
             final isEntrada = detalhe.tipo == 'entrada';
 
             return Container(
-              color: isAlternado ? Colors.grey[50] : Colors.white,
+              color: isAlternado ? Color(0xFFF0F1F6) : Color(0xFFF8F9FA),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
@@ -535,7 +538,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
-                            color: Colors.black87,
+                            color: Color(0xFF222B45),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -543,7 +546,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                           isEntrada ? 'Entrada' : 'Saída',
                           style: TextStyle(
                             fontSize: 11,
-                            color: isEntrada ? Colors.green : Colors.red,
+                            color: isEntrada ? Color(0xFF00B686) : Color(0xFFFF3D71),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -557,7 +560,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
-                        color: isEntrada ? Colors.green : Colors.red,
+                        color: isEntrada ? Color(0xFF00B686) : Color(0xFFFF3D71),
                       ),
                       textAlign: TextAlign.right,
                     ),
@@ -578,7 +581,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                     alignment: Alignment.center,
                     child: Icon(
                       isEntrada ? Icons.arrow_downward : Icons.arrow_upward,
-                      color: isEntrada ? Colors.green : Colors.red,
+                      color: isEntrada ? Color(0xFF00B686) : Color(0xFFFF3D71),
                       size: 18,
                     ),
                   ),
@@ -600,9 +603,9 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 11,
-            color: Colors.grey[600],
+            color: Color(0xFF8F9BB3),
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -620,8 +623,8 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
   }
 
   Color _getCor(double percentual) {
-    if (percentual >= 80) return Colors.green;
-    if (percentual >= 50) return Colors.orange;
-    return Colors.red;
+    if (percentual >= 80) return const Color(0xFF00B686);
+    if (percentual >= 50) return const Color(0xFFFFA000);
+    return const Color(0xFFFF3D71);
   }
 }
