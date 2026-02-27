@@ -60,6 +60,7 @@ class EstoquePorTanquePage extends StatefulWidget {
 class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
   late List<DadosTanque> tanques;
   int tanqueSelecionadoIndex = 0;
+  int? _hoverIndex;
 
   @override
   void initState() {
@@ -189,13 +190,14 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
   }
 
   /// ===============================
-  /// MENU SUPERIOR DE NAVEGAÇÃO
+  /// MENU SUPERIOR DE NAVEGAÇÃO COM EFEITO HOVER
   /// ===============================
   Widget _construirMenuTanques() {
     return Container(
       color: const Color(0xFFF8F9FA),
       child: Column(
         children: [
+          // Adiciona padding vertical extra para evitar "empurrar" ao fazer hover
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -203,52 +205,95 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
               children: List.generate(tanques.length, (index) {
                 final tanque = tanques[index];
                 final isSelected = tanqueSelecionadoIndex == index;
+                final isHovered = _hoverIndex == index;
 
                 return Padding(
-                  padding: const EdgeInsets.only(right: 8),
+                  padding: EdgeInsets.only(right: index < tanques.length - 1 ? 12 : 0),
                   child: MouseRegion(
                     cursor: SystemMouseCursors.click,
+                    onEnter: (_) {
+                      setState(() {
+                        _hoverIndex = index;
+                      });
+                    },
+                    onExit: (_) {
+                      setState(() {
+                        _hoverIndex = null;
+                      });
+                    },
                     child: GestureDetector(
                       onTap: () {
-                        setState(() => tanqueSelecionadoIndex = index);
+                        setState(() {
+                          tanqueSelecionadoIndex = index;
+                        });
                       },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? const Color(0xFF222B45)
-                              : const Color(0xFFF0F1F6),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
+                      child: SizedBox(
+                        height: 62, // altura aumentada para acomodar o scale sem overflow
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          curve: Curves.easeOut,
+                            transform: isHovered && !isSelected
+                              ? (Matrix4.identity()..scale(1.0, 1.08))
+                              : Matrix4.identity(),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 9,
+                          ),
+                          decoration: BoxDecoration(
                             color: isSelected
                                 ? const Color(0xFF222B45)
-                                : const Color(0xFFE0E3EB),
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              tanque.nome.split(' - ').first,
-                              style: TextStyle(
-                                color: isSelected ? Color(0xFFF8F9FA) : Color(0xFF222B45),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
+                                : (isHovered
+                                    ? const Color(0xFFE8EAF2)
+                                    : const Color(0xFFF0F1F6)),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isSelected
+                                  ? const Color(0xFF222B45)
+                                  : (isHovered
+                                      ? const Color(0xFF3366FF)
+                                      : const Color(0xFFE0E3EB)),
+                              width: isHovered && !isSelected ? 2.0 : 1.5,
                             ),
-                            const SizedBox(height: 4),
-                            if (tanque.nome.contains(' - '))
+                            boxShadow: isHovered && !isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0xFF3366FF).withOpacity(0.2),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    )
+                                  ]
+                                : null,
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
                               Text(
-                                tanque.nome.split(' - ').last,
+                                tanque.nome.split(' - ').first,
                                 style: TextStyle(
-                                  color: isSelected ? Color(0xFFBFC8E6) : Color(0xFF8F9BB3),
-                                  fontSize: 10,
+                                  color: isSelected
+                                      ? const Color(0xFFF8F9FA)
+                                      : const Color(0xFF222B45),
+                                  fontSize: 12,
+                                  fontWeight:
+                                      isSelected || isHovered ? FontWeight.w600 : FontWeight.w500,
                                 ),
                               ),
-                          ],
+                              const SizedBox(height: 4),
+                              if (tanque.nome.contains(' - '))
+                                Text(
+                                  tanque.nome.split(' - ').last,
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? const Color(0xFFBFC8E6)
+                                        : (isHovered
+                                            ? const Color(0xFF3366FF)
+                                            : const Color(0xFF8F9BB3)),
+                                    fontSize: 10,
+                                    fontWeight: isHovered ? FontWeight.w600 : FontWeight.w400,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -257,9 +302,10 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
               }),
             ),
           ),
+          const SizedBox(height: 8), // Espaço entre botões e linha divisória
           Container(
             height: 1,
-            color: Color(0xFFE0E3EB),
+            color: const Color(0xFFE0E3EB),
           ),
         ],
       ),
@@ -300,11 +346,11 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Color(0xFFF8F9FA),
+        color: const Color(0xFFF8F9FA),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Color(0xFFBFC8E6).withOpacity(0.08),
+            color: const Color(0xFFBFC8E6).withOpacity(0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -330,19 +376,19 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                   _construirInfoMini(
                     'Estoque Atual',
                     '${tanque.estoqueAtual.toStringAsFixed(0)} L',
-                    Color(0xFF3366FF),
+                    const Color(0xFF3366FF),
                   ),
                   const SizedBox(width: 20),
                   _construirInfoMini(
                     'Capacidade',
                     '${tanque.capacidadeTotal.toStringAsFixed(0)} L',
-                    Color(0xFFFFA000),
+                    const Color(0xFFFFA000),
                   ),
                   const SizedBox(width: 20),
                   _construirInfoMini(
                     'Espaço Livre',
                     '${(tanque.capacidadeTotal - tanque.estoqueAtual).toStringAsFixed(0)} L',
-                    Color(0xFF00B686),
+                    const Color(0xFF00B686),
                   ),
                 ],
               ),
@@ -382,11 +428,11 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Color(0xFFF8F9FA),
+        color: const Color(0xFFF8F9FA),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Color(0xFFBFC8E6).withOpacity(0.08),
+            color: const Color(0xFFBFC8E6).withOpacity(0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -409,7 +455,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
             child: LinearProgressIndicator(
               value: percentual / 100,
               minHeight: 30,
-              backgroundColor: Color(0xFFE0E3EB),
+              backgroundColor: const Color(0xFFE0E3EB),
               valueColor: AlwaysStoppedAnimation<Color>(
                 _getCor(percentual),
               ),
@@ -423,7 +469,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                 '0 L',
                 style: TextStyle(
                   fontSize: 12,
-                  color: Color(0xFF8F9BB3),
+                  color: const Color(0xFF8F9BB3),
                 ),
               ),
               Text(
@@ -438,7 +484,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                 '${tanque.capacidadeTotal.toStringAsFixed(0)} L',
                 style: TextStyle(
                   fontSize: 12,
-                  color: Color(0xFF8F9BB3),
+                  color: const Color(0xFF8F9BB3),
                 ),
               ),
             ],
@@ -454,11 +500,11 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
   Widget _construirTabelaDetalhes(DadosTanque tanque) {
     return Container(
       decoration: BoxDecoration(
-        color: Color(0xFFF8F9FA),
+        color: const Color(0xFFF8F9FA),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Color(0xFFBFC8E6).withOpacity(0.08),
+            color: const Color(0xFFBFC8E6).withOpacity(0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -469,9 +515,9 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
           // Cabeçalho da tabela
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: const Color(0xFF222B45),
-              borderRadius: const BorderRadius.only(
+            decoration: const BoxDecoration(
+              color: Color(0xFF222B45),
+              borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
               ),
@@ -524,7 +570,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
             final isEntrada = detalhe.tipo == 'entrada';
 
             return Container(
-              color: isAlternado ? Color(0xFFF0F1F6) : Color(0xFFF8F9FA),
+              color: isAlternado ? const Color(0xFFF0F1F6) : const Color(0xFFF8F9FA),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
@@ -546,7 +592,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                           isEntrada ? 'Entrada' : 'Saída',
                           style: TextStyle(
                             fontSize: 11,
-                            color: isEntrada ? Color(0xFF00B686) : Color(0xFFFF3D71),
+                            color: isEntrada ? const Color(0xFF00B686) : const Color(0xFFFF3D71),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -560,7 +606,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
-                        color: isEntrada ? Color(0xFF00B686) : Color(0xFFFF3D71),
+                        color: isEntrada ? const Color(0xFF00B686) : const Color(0xFFFF3D71),
                       ),
                       textAlign: TextAlign.right,
                     ),
@@ -581,7 +627,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                     alignment: Alignment.center,
                     child: Icon(
                       isEntrada ? Icons.arrow_downward : Icons.arrow_upward,
-                      color: isEntrada ? Color(0xFF00B686) : Color(0xFFFF3D71),
+                      color: isEntrada ? const Color(0xFF00B686) : const Color(0xFFFF3D71),
                       size: 18,
                     ),
                   ),
