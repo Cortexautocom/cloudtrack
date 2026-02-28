@@ -46,6 +46,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
   String? _estoqueTanqueReferencia;
   String? _estoqueFilialId;
   String? _estoqueNomeFilial;
+  bool _filialEmiteCacl = false; // indica se a filial permite emitir CACL mov
 
   final List<String> _statusOptions = ['Em operação', 'Operação suspensa'];
   
@@ -170,6 +171,27 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
 
       final tanquesResponse = await query;
 
+      // Determina id da filial usada para checar permissões (admin usa filial selecionada)
+      final String? idFilialUsada = usuario.nivel == 3 ? widget.filialSelecionadaId : usuario.filialId;
+
+      // Busca indicador emite_cacl_mov da filial (se soubermos qual filial usar)
+      bool filialEmite = false;
+      if (idFilialUsada != null) {
+        try {
+          final filialResp = await supabase
+              .from('filiais')
+              .select('emite_cacl_mov')
+              .eq('id', idFilialUsada)
+              .maybeSingle();
+
+          if (filialResp != null) {
+            filialEmite = filialResp['emite_cacl_mov'] == true;
+          }
+        } catch (_) {
+          filialEmite = false;
+        }
+      }
+
       final List<Map<String, dynamic>> tanquesFormatados = [];
       
       for (final tanque in tanquesResponse) {
@@ -192,6 +214,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
           'lastro': tanque['lastro']?.toString(),
           'status': tanque['status']?.toString() ?? 'Em operação',
           'id_produto': tanque['id_produto'],
+          'id_filial': tanque['id_filial'] ?? idFilialUsada,
           // Adicionar nome da filial se for admin
           'filial': nomeFilial,
         });
@@ -210,6 +233,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
         tanques = tanquesFormatados;
         _carregando = false;
         _nomeFilial = nomeFilial;
+        _filialEmiteCacl = filialEmite;
       });
     } catch (e) {
       setState(() {
@@ -1142,6 +1166,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                     titulo: 'CACL Movimentação',
                     descricao: 'Emitir CACL Movimentação',
                     onTap: _abrirCACL,
+                    enabled: _filialEmiteCacl,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -1486,19 +1511,26 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
     required String titulo,
     required String descricao,
     required VoidCallback onTap,
+    bool enabled = true,
   }) {
+    final cardBg = enabled ? Colors.white : Colors.grey.shade50;
+    final innerBg = enabled ? _accent.withOpacity(0.1) : Colors.grey.shade200;
+    final iconColor = enabled ? _accent : Colors.grey.shade500;
+    final titleColor = enabled ? _ink : Colors.grey.shade600;
+    final descColor = enabled ? _muted : Colors.grey.shade500;
+
     return Material(
       elevation: 2,
-      color: Colors.white,
+      color: cardBg,
       borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.hardEdge,
       child: InkWell(
-        onTap: onTap,
-        hoverColor: _accent.withOpacity(0.1),
+        onTap: enabled ? onTap : null,
+        hoverColor: enabled ? _accent.withOpacity(0.1) : Colors.transparent,
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            border: Border.all(color: _line, width: 1.2),
+            border: Border.all(color: enabled ? _line : Colors.grey.shade300, width: 1.2),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Column(
@@ -1508,28 +1540,28 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
-                  color: _accent.withOpacity(0.1),
+                  color: innerBg,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _accent.withOpacity(0.3), width: 1.5),
+                  border: Border.all(color: enabled ? _accent.withOpacity(0.3) : Colors.grey.shade300, width: 1.5),
                 ),
-                child: Icon(icon, color: _accent, size: 32),
+                child: Icon(icon, color: iconColor, size: 32),
               ),
               const SizedBox(height: 16),
               Text(
                 titulo,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: _ink,
+                  color: titleColor,
                 ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
                 descricao,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
-                  color: _muted,
+                  color: descColor,
                 ),
                 textAlign: TextAlign.center,
               ),
