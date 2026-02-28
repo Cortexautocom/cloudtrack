@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 /// ===============================
 /// MODELO DE DADOS DO TANQUE
@@ -375,19 +376,19 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                 children: [
                   _construirInfoMini(
                     'Estoque Atual',
-                    '${tanque.estoqueAtual.toStringAsFixed(0)} L',
+                    '${formatNumber(tanque.estoqueAtual)} L',
                     const Color(0xFF3366FF),
                   ),
                   const SizedBox(width: 20),
                   _construirInfoMini(
                     'Capacidade',
-                    '${tanque.capacidadeTotal.toStringAsFixed(0)} L',
+                    '${formatNumber(tanque.capacidadeTotal)} L',
                     const Color(0xFFFFA000),
                   ),
                   const SizedBox(width: 20),
                   _construirInfoMini(
                     'Espaço Livre',
-                    '${(tanque.capacidadeTotal - tanque.estoqueAtual).toStringAsFixed(0)} L',
+                    '${formatNumber(tanque.capacidadeTotal - tanque.estoqueAtual)} L',
                     const Color(0xFF00B686),
                   ),
                 ],
@@ -407,7 +408,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
             ),
             child: Center(
               child: Text(
-                '${percentual.toStringAsFixed(1)}%',
+                '${formatPercent(percentual)}%',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -420,11 +421,18 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
       ),
     );
   }
-
-  /// ===============================
-  /// INDICADOR DE NÍVEL COM BARRA
-  /// ===============================
+  
   Widget _construirIndicadorNivel(DadosTanque tanque, double percentual) {
+    // Valores em litros (exemplo - estes valores devem vir do modelo de dados)
+    final double lastroMinimo = tanque.capacidadeTotal * 0.15; // 15% de lastro mínimo
+    final double produtoDisponivel = tanque.estoqueAtual - lastroMinimo;
+    final double espacoLivre = tanque.capacidadeTotal - tanque.estoqueAtual;
+    
+    // Cálculo das proporções para a barra
+    final double proporcaoLastro = (lastroMinimo / tanque.capacidadeTotal).clamp(0, 1);
+    final double proporcaoProduto = (produtoDisponivel / tanque.capacidadeTotal).clamp(0, 1);
+    final double proporcaoEspaco = (espacoLivre / tanque.capacidadeTotal).clamp(0, 1);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -450,47 +458,168 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
             ),
           ),
           const SizedBox(height: 12),
+          
+          // Barra de progresso personalizada com 3 cores
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: percentual / 100,
-              minHeight: 30,
-              backgroundColor: const Color(0xFFE0E3EB),
-              valueColor: AlwaysStoppedAnimation<Color>(
-                _getCor(percentual),
+            child: Container(
+              height: 30,
+              child: Row(
+                children: [
+                  // Lastro do tanque (vermelho)
+                  if (proporcaoLastro > 0)
+                    Expanded(
+                      flex: (proporcaoLastro * 1000).toInt(),
+                      child: Container(
+                        color: const Color(0xFFFF3D71), // Vermelho
+                        child: Center(
+                          child: Text(
+                            '${formatNumber(lastroMinimo)}L',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  
+                  // Produto disponível (azul)
+                  if (proporcaoProduto > 0)
+                    Expanded(
+                      flex: (proporcaoProduto * 1000).toInt(),
+                      child: Container(
+                        color: const Color(0xFF3366FF), // Azul
+                        child: Center(
+                          child: Text(
+                            '${formatNumber(produtoDisponivel)}L',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  
+                  // Espaço livre (cinza)
+                  if (proporcaoEspaco > 0)
+                    Expanded(
+                      flex: (proporcaoEspaco * 1000).toInt(),
+                      child: Container(
+                        color: const Color(0xFFE0E3EB), // Cinza
+                        child: Center(
+                          child: Text(
+                            '${formatNumber(espacoLivre)}L',
+                            style: const TextStyle(
+                              color: Color(0xFF222B45),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          
+          const SizedBox(height: 16),
+          
+          // Legenda das cores
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '0 L',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: const Color(0xFF8F9BB3),
-                ),
-              ),
-              Text(
-                '${percentual.toStringAsFixed(1)}% Preenchido',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF222B45),
-                ),
-              ),
-              Text(
-                '${tanque.capacidadeTotal.toStringAsFixed(0)} L',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: const Color(0xFF8F9BB3),
-                ),
-              ),
+              _construirLegenda('Lastro', const Color(0xFFFF3D71)),
+              const SizedBox(width: 16),
+              _construirLegenda('Produto', const Color(0xFF3366FF)),
+              const SizedBox(width: 16),
+              _construirLegenda('Livre', const Color(0xFFE0E3EB)),
             ],
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // Informações detalhadas
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F1F6),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _construirInfoBarra(
+                  'Lastro Mínimo',
+                  '${formatNumber(lastroMinimo)} L',
+                  const Color(0xFFFF3D71),
+                ),
+                _construirInfoBarra(
+                  'Produto Disponível',
+                  '${formatNumber(produtoDisponivel)} L',
+                  const Color(0xFF3366FF),
+                ),
+                _construirInfoBarra(
+                  'Espaço Livre',
+                  '${formatNumber(espacoLivre)} L',
+                  const Color(0xFF8F9BB3),
+                ),
+              ],
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  /// Widget auxiliar para legenda
+  Widget _construirLegenda(String texto, Color cor) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: cor,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          texto,
+          style: const TextStyle(
+            fontSize: 11,
+            color: Color(0xFF8F9BB3),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Widget auxiliar para informações da barra
+  Widget _construirInfoBarra(String label, String valor, Color cor) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            color: Color(0xFF8F9BB3),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          valor,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: cor,
+          ),
+        ),
+      ],
     );
   }
 
@@ -602,7 +731,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                   Expanded(
                     flex: 2,
                     child: Text(
-                      '${isEntrada ? '+' : ''} ${detalhe.litros.toStringAsFixed(0)}',
+                      '${isEntrada ? '+' : '-'} ${formatNumber(detalhe.litros.abs())}',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
@@ -674,3 +803,10 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     return const Color(0xFFFF3D71);
   }
 }
+
+// Helpers de formatação (ponto de milhar para pt_BR)
+final NumberFormat _fmtInteiro = NumberFormat('#,##0', 'pt_BR');
+final NumberFormat _fmtUmaCasa = NumberFormat('#,##0.0', 'pt_BR');
+
+String formatNumber(num value) => _fmtInteiro.format(value);
+String formatPercent(double value) => _fmtUmaCasa.format(value);
