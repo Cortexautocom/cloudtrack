@@ -22,6 +22,12 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
   final TextEditingController celularController = TextEditingController();
   final TextEditingController funcaoController = TextEditingController();
 
+  // Empresas
+  List<Map<String, dynamic>> empresas = [];
+  String? empresaSelecionadaNome;
+  String? empresaSelecionadaId;
+  bool carregandoEmpresas = true;
+
   // Filiais
   List<Map<String, dynamic>> filiais = [];
   String? filialSelecionadaNome;
@@ -39,6 +45,7 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
   void initState() {
     super.initState();
     _carregarFiliais();
+    _carregarEmpresas();
   }
 
   @override
@@ -76,6 +83,30 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
     }
   }
 
+  // 🔹 Carrega empresas do Supabase
+  Future<void> _carregarEmpresas() async {
+    try {
+      final response =
+          await supabase.from('empresas').select('id, nome_abrev').order('nome_abrev');
+
+      setState(() {
+        empresas = List<Map<String, dynamic>>.from(response);
+      });
+    } catch (e) {
+      debugPrint("❌ Erro ao carregar empresas: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Erro ao carregar empresas: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => carregandoEmpresas = false);
+    }
+  }
+
   // 🔹 Envia a solicitação de cadastro - CÓDIGO CORRIGIDO
   Future<void> _enviarCadastro() async {
     if (!_formKey.currentState!.validate()) return;
@@ -97,6 +128,7 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
       debugPrint("Celular: $celular");
       debugPrint("Função: $funcao");
       debugPrint("Filial ID: $filialSelecionadaId");
+      debugPrint("Empresa ID: $empresaSelecionadaId");
 
       // 1️⃣ Verifica se já existe um cadastro pendente
       final existe = await supabase
@@ -117,6 +149,7 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
         'celular': celular,
         'funcao': funcao,
         'id_filial': filialSelecionadaId,
+        'empresa_id': empresaSelecionadaId,
         'status': 'pendente',
       };
 
@@ -280,15 +313,75 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
                         decoration: _inputDecoration("Celular (com WhatsApp)"),
                       ),
                       const SizedBox(height: 16),
-
-                      // Função / Cargo
-                      TextFormField(
-                        controller: funcaoController,
-                        decoration: _inputDecoration("Função / Cargo"),
-                      ),
+                      // Empresa / Organização (lista real)
+                      if (carregandoEmpresas)
+                        const Center(
+                            child: CircularProgressIndicator(
+                                color: Color(0xFF0A4B78)))
+                      else
+                        DropdownButtonFormField<String>(
+                          value: empresaSelecionadaId,
+                          isExpanded: true,
+                          isDense: true,
+                          dropdownColor: Colors.white,
+                          iconEnabledColor: Colors.grey,
+                          style: const TextStyle(
+                            height: 1.0,
+                            fontSize: 14,
+                            color: Colors.black87,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'Empresa/Organização',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF0A4B78),
+                                width: 1.0,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF0A4B78),
+                                width: 1.0,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                                vertical: 10, horizontal: 12),
+                          ),
+                          hint: const Text('Selecione a empresa'),
+                          items: empresas.map((f) {
+                            final label = (f['nome_abrev'] ?? '').toString();
+                            final id = f['id']?.toString();
+                            return DropdownMenuItem<String>(
+                              value: id,
+                              child: Container(
+                                height: 34,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  label,
+                                  style: const TextStyle(height: 1.0),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (id) {
+                            setState(() {
+                              empresaSelecionadaId = id;
+                              empresaSelecionadaNome = empresas.firstWhere(
+                                (f) => f['id']?.toString() == id,
+                                orElse: () => {'nome_abrev': null},
+                              )['nome_abrev']?.toString();
+                            });
+                          },
+                          validator: (v) {
+                            if (v == null || v.isEmpty) return 'Selecione a empresa';
+                            return null;
+                          },
+                        ),
                       const SizedBox(height: 16),
 
-                      // Filial (lista real)
+                      // Filial (lista real) - permanece aqui, antes da função
                       if (carregandoFiliais)
                         const Center(
                             child: CircularProgressIndicator(
@@ -313,6 +406,14 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
                             });
                           },
                         ),
+                      const SizedBox(height: 16),
+
+                      // Função / Cargo (agora como último campo antes do botão)
+                      TextFormField(
+                        controller: funcaoController,
+                        decoration: _inputDecoration("Função / Cargo"),
+                      ),
+                      const SizedBox(height: 25),
                       const SizedBox(height: 25),
 
                       // Botão enviar
