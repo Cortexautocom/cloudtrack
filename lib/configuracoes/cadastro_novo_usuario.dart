@@ -44,8 +44,10 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
   @override
   void initState() {
     super.initState();
-    _carregarFiliais();
+    // carregue apenas empresas inicialmente; filiais serão carregadas
+    // após o usuário selecionar uma empresa
     _carregarEmpresas();
+    carregandoFiliais = false;
   }
 
   @override
@@ -57,19 +59,37 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
     celularController.dispose();
     funcaoController.dispose();
     super.dispose();
-  }
+  }  
 
-  // 🔹 Carrega filiais do Supabase
-  Future<void> _carregarFiliais() async {
+  // Carrega filiais filtrando pela empresa selecionada
+  Future<void> _carregarFiliaisPorEmpresa(String? empresaId) async {
+    setState(() {
+      carregandoFiliais = true;
+      filiais = [];
+      filialSelecionadaId = null;
+      filialSelecionadaNome = null;
+    });
+
+    if (empresaId == null) {
+      // sem empresa selecionada, apenas esvazia a lista
+      if (mounted) setState(() => carregandoFiliais = false);
+      return;
+    }
+
     try {
-      final response =
-          await supabase.from('filiais').select('id, nome').order('nome');
+      final response = await supabase
+          .from('filiais')
+          .select('id, nome')
+          .eq('empresa_id', empresaId)
+          .order('nome');
 
-      setState(() {
-        filiais = List<Map<String, dynamic>>.from(response);
-      });
+      if (mounted) {
+        setState(() {
+          filiais = List<Map<String, dynamic>>.from(response);
+        });
+      }
     } catch (e) {
-      debugPrint("❌ Erro ao carregar filiais: $e");
+      debugPrint("❌ Erro ao carregar filiais por empresa: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -165,26 +185,67 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (_) => AlertDialog(
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            title: const Text("Solicitação enviada"),
-            content: const Text(
-              "Seu cadastro foi enviado para análise.\n\n"
-              "Você receberá um e-mail assim que for aprovado.",
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const LoginPage()),
-                  );
-                },
-                child: const Text("OK"),
+          builder: (_) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: Container(
+              width: 350,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF0A4B78),
+                  width: 1.0,
+                ),
               ),
-            ],
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    "Solicitação enviada",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0A4B78),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    "Seu cadastro foi enviado para análise.\n\n"
+                    "Você receberá um e-mail assim que for aprovado.",
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 14),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0A4B78),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        minimumSize: const Size(80, 36),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        elevation: 0,
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (_) => const LoginPage()),
+                        );
+                      },
+                      child: const Text(
+                        'OK',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         );
       }
@@ -365,7 +426,8 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
                               ),
                             );
                           }).toList(),
-                          onChanged: (id) {
+                          onChanged: (id) async {
+                            // quando empresa muda, recarrega filiais relacionadas
                             setState(() {
                               empresaSelecionadaId = id;
                               empresaSelecionadaNome = empresas.firstWhere(
@@ -373,6 +435,7 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
                                 orElse: () => {'nome_abrev': null},
                               )['nome_abrev']?.toString();
                             });
+                            await _carregarFiliaisPorEmpresa(id);
                           },
                           validator: (v) {
                             if (v == null || v.isEmpty) return 'Selecione a empresa';
@@ -388,22 +451,70 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
                                 color: Color(0xFF0A4B78)))
                       else
                         DropdownButtonFormField<String>(
-                          value: filialSelecionadaNome,
-                          decoration: _inputDecoration("Filial"),
+                          value: filialSelecionadaId,
+                          isExpanded: true,
+                          isDense: true,
+                          dropdownColor: Colors.white,
+                          iconEnabledColor: Colors.grey,
+                          style: const TextStyle(
+                            height: 1.0,
+                            fontSize: 14,
+                            color: Colors.black87,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'Filial',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF0A4B78),
+                                width: 1.0,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF0A4B78),
+                                width: 1.0,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                                vertical: 10, horizontal: 12),
+                          ),
+                          hint: filiais.isEmpty
+                              ? const Text('Nenhuma filial para a empresa selecionada')
+                              : const Text('Selecione a filial'),
                           items: filiais.map((f) {
+                            final id = f['id']?.toString();
+                            final nome = f['nome']?.toString() ?? '';
                             return DropdownMenuItem<String>(
-                              value: f['nome'],
-                              child: Text(f['nome']),
+                              value: id,
+                              child: Container(
+                                height: 34,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  nome,
+                                  style: const TextStyle(height: 1.0),
+                                ),
+                              ),
                             );
                           }).toList(),
-                          onChanged: (valor) {
-                            setState(() {
-                              filialSelecionadaNome = valor;
-                              filialSelecionadaId = filiais.firstWhere(
-                                (f) => f['nome'] == valor,
-                                orElse: () => {'id': null},
-                              )['id']?.toString();
-                            });
+                          onChanged: filiais.isEmpty
+                              ? null
+                              : (id) {
+                                  setState(() {
+                                    filialSelecionadaId = id;
+                                    filialSelecionadaNome = filiais.firstWhere(
+                                      (f) => f['id']?.toString() == id,
+                                      orElse: () => {'nome': null},
+                                    )['nome']?.toString();
+                                  });
+                                },
+                          validator: (v) {
+                            // se não houver filiais para a empresa selecionada,
+                            // o campo não é obrigatório
+                            if (filiais.isEmpty) return null;
+                            if (v == null || v.isEmpty) return 'Selecione a filial';
+                            return null;
                           },
                         ),
                       const SizedBox(height: 16),
