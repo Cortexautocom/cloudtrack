@@ -1139,7 +1139,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                 Expanded(
                   child: _buildCardAcao(
                     icon: Icons.analytics,
-                    titulo: 'CACL',
+                    titulo: 'CACL Movimentação',
                     descricao: 'Emitir CACL Movimentação',
                     onTap: _abrirCACL,
                   ),
@@ -1148,8 +1148,8 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                 Expanded(
                   child: _buildCardAcao(
                     icon: Icons.inventory_2,
-                    titulo: 'Estoque tanque',
-                    descricao: 'Consultar estoque do tanque',
+                    titulo: 'Movimentação tanque',
+                    descricao: 'Consultar movimentação do tanque',
                     onTap: _abrirEstoqueTanque,
                   ),
                 ),

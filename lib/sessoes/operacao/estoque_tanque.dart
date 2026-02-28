@@ -617,7 +617,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "Estoque do Tanque – ${widget.referenciaTanque}${_produtoNome != null ? ' - ${_produtoNome!}' : ''}",
+              "Movimentação do Tanque – ${widget.referenciaTanque}${_produtoNome != null ? ' - ${_produtoNome!}' : ''}",
             ),
             Text(
               '${widget.nomeFilial} | ${_fmtData(_dataFiltro.toIso8601String())}',
