@@ -2555,10 +2555,19 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       empresaId: _empresaParaFiltroId,
       empresaNome: _empresaParaFiltroNome,
       onVoltar: () {
-        setState(() {
-          _mostrarFiltrosEstoque = false;
-          _mostrarCardsFilial = _empresaParaFiltroId != null;
-        });
+        if (_empresaParaFiltroId != null) {
+          setState(() {
+            _mostrarFiltrosEstoque = false;
+            _mostrarFiliaisDaEmpresa = true; // voltar para lista de filiais da empresa
+            _mostrarCardsFilial = false;
+          });
+        } else {
+          setState(() {
+            _mostrarFiltrosEstoque = false;
+            _mostrarCardsFilial = false;
+          });
+          _mostrarFilhosDaSessao('Estoques'); // voltar ao painel principal de cards de Estoques
+        }
       },
       onConsultarEstoque: ({
         required String filialId,
