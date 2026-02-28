@@ -288,7 +288,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
     _filhosPorSessao['Estoques'] = [
       {'id': 'fallback-geral', 'icon': Icons.hub, 'label': 'Estoque Geral', 'descricao': 'Visão consolidada dos estoques da base', 'tipo': 'estoque_geral', 'sessao_pai': 'Estoques'},
-      {'id': 'fallback-empresa', 'icon': Icons.business, 'label': 'Movimentação por empresa', 'descricao': 'Movimentações por empresa', 'tipo': 'estoque_por_empresa', 'sessao_pai': 'Estoques'},
+      {'id': 'fallback-empresa', 'icon': Icons.business, 'label': 'Movimentação por empresa', 'descricao': 'Movimentações por empresa', 'tipo': 'movimentacao_por_empresa', 'sessao_pai': 'Estoques'},
       {'id': 'fallback-mov', 'icon': Icons.swap_horiz, 'label': 'Movimentações', 'descricao': 'Acompanhar entradas e saídas em geral', 'tipo': 'movimentacoes', 'sessao_pai': 'Estoques'},
       {'id': 'fallback-transf', 'icon': Icons.compare_arrows, 'label': 'Transferências', 'descricao': 'Gerenciar transferências entre filiais', 'tipo': 'transferencias', 'sessao_pai': 'Estoques'},
     ];
@@ -637,10 +637,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       final usuario = UsuarioAtual.instance;
       if (usuario != null) {
         if (usuario.nivel <= 1) {
-          // Nível 1: Remove "estoque_por_empresa" e mantém "movimentacoes"
-          filhos = filhos.where((card) => card['tipo'] != 'estoque_por_empresa').toList();
+          // Nível 1: remover cards de empresa (empresa-level)
+          filhos = filhos.where((card) => card['tipo'] != 'estoque_por_empresa' && card['tipo'] != 'movimentacao_por_empresa').toList();
+        } else if (usuario.nivel == 2) {
+          // Nível 2: remover o card genérico de movimentações e também o card de movimentação por empresa (apenas nível 3)
+          filhos = filhos.where((card) => card['tipo'] != 'movimentacoes' && card['tipo'] != 'movimentacao_por_empresa').toList();
         } else {
-          // Nível 2-3: Remove "movimentacoes" e mantém "estoque_por_empresa"
+          // Nível 3: manter cards de empresa, remover o card genérico de movimentações
           filhos = filhos.where((card) => card['tipo'] != 'movimentacoes').toList();
         }
       }
