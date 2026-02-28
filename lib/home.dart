@@ -288,7 +288,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
     _filhosPorSessao['Estoques'] = [
       {'id': 'fallback-geral', 'icon': Icons.hub, 'label': 'Estoque Geral', 'descricao': 'Visão consolidada dos estoques da base', 'tipo': 'estoque_geral', 'sessao_pai': 'Estoques'},
-      {'id': 'fallback-empresa', 'icon': Icons.business, 'label': 'Estoque por empresa', 'descricao': 'Estoques separados por empresa', 'tipo': 'estoque_por_empresa', 'sessao_pai': 'Estoques'},
+      {'id': 'fallback-empresa', 'icon': Icons.business, 'label': 'Movimentação por empresa', 'descricao': 'Movimentações por empresa', 'tipo': 'estoque_por_empresa', 'sessao_pai': 'Estoques'},
       {'id': 'fallback-mov', 'icon': Icons.swap_horiz, 'label': 'Movimentações', 'descricao': 'Acompanhar entradas e saídas em geral', 'tipo': 'movimentacoes', 'sessao_pai': 'Estoques'},
       {'id': 'fallback-transf', 'icon': Icons.compare_arrows, 'label': 'Transferências', 'descricao': 'Gerenciar transferências entre filiais', 'tipo': 'transferencias', 'sessao_pai': 'Estoques'},
     ];
@@ -324,6 +324,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       'estoque_por_empresa': Icons.business,
       'estoque_por_tanque': Icons.water_drop,
       'movimentacoes': Icons.swap_horiz,
+      'movimentacao_por_empresa': Icons.business,
       'movimentaces': Icons.swap_horiz,
       'transferencias': Icons.compare_arrows,
       'acompanhar_ordem': Icons.directions_car,
@@ -349,9 +350,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       'temp_dens_media': 'Cálculo de temperatura e densidade média',
       'tanques': 'Gerenciamento de tanques',
       'estoque_geral': 'Visão consolidada dos estoques da base',
-      'estoque_por_empresa': 'Estoques separados por empresa',
+      'estoque_por_empresa': 'Movimentações por empresa',
       'estoque_por_tanque': 'Acompanhar estoques por tanque',
       'movimentacoes': 'Acompanhar entradas e saídas em geral',
+      'movimentacao_por_empresa': 'Movimentações por empresa',
       'movimentaces': 'Acompanhar entradas e saídas em geral',
       'transferencias': 'Gerenciar transferências entre filiais',
       'acompanhar_ordem': 'Acompanhar situação da ordem',
@@ -2086,6 +2088,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         );
         break;
       case 'estoque_por_empresa':
+        setState(() {
+          _mostrarEstoquePorEmpresa = true;
+          _carregarEmpresas();
+        });
+        break;
+      case 'movimentacao_por_empresa':
         setState(() {
           _mostrarEstoquePorEmpresa = true;
           _carregarEmpresas();
