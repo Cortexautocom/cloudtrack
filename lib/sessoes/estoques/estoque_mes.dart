@@ -1067,6 +1067,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0D47A1),
               foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
             child: const Text('Atualizar'),
           ),

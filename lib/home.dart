@@ -1932,7 +1932,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               _filialParaFiltroNome = filial['label'];
               _empresaParaFiltroId = _empresaSelecionadaId;
               _empresaParaFiltroNome = _empresaSelecionadaNome;
-              _mostrarCardsFilial = true;
+              _mostrarCardsFilial = false;
+              _mostrarFiltrosEstoque = true; // Navega diretamente para filtros de estoque
             });
           },
           hoverColor: _getCorPorSessao('Estoques').withOpacity(0.1),
