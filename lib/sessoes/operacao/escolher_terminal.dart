@@ -15,7 +15,7 @@ class EscolherFilialPage extends StatefulWidget {
     super.key,
     required this.onVoltar,
     required this.onSelecionarFilial,
-    this.titulo = 'Selecionar filial',
+    this.titulo = 'Selecionar terminal',
     this.corPrimaria, // ← NOVO
     this.corFundoItem, // ← NOVO
     this.corHover, // ← NOVO
@@ -32,7 +32,7 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
   static const Color _muted = Color(0xFF5A6B7A);
 
   bool carregando = true;
-  List<Map<String, dynamic>> filiais = [];
+  List<Map<String, dynamic>> filiais = []; // Na verdade armazenará terminais
 
   // Cor padrão caso não seja fornecida
   Color get _corPrimaria => widget.corPrimaria ?? _accent;
@@ -48,8 +48,8 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
     try {
       final supabase = Supabase.instance.client;
 
-      final response =
-          await supabase.from('filiais').select('id, nome, cidade').order('nome');
+        final response =
+          await supabase.from('terminais').select('id, nome, cidade').order('nome');
 
       setState(() {
         filiais = List<Map<String, dynamic>>.from(response);
@@ -94,10 +94,10 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    const Text(
-                      'Selecione a filial para continuar',
-                      style: TextStyle(fontSize: 12, color: _muted),
-                    ),
+                        const Text(
+                          'Selecione o terminal para continuar',
+                          style: TextStyle(fontSize: 12, color: _muted),
+                        ),
                   ],
                 ),
               ),
@@ -109,7 +109,7 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
                   border: Border.all(color: _corPrimaria.withOpacity(0.7), width: 1.2),
                 ),
                 child: Text(
-                  '${filiais.length} filiais',
+                      '${filiais.length} terminais',
                   style: const TextStyle(
                     color: _accent,
                     fontSize: 11,
@@ -131,10 +131,10 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
                     color: _corPrimaria,
                   ),
                 )
-              : filiais.isEmpty
+                  : filiais.isEmpty
                   ? Center(
-                      child: Text(
-                        "Nenhuma filial encontrada.",
+                    child: Text(
+                      "Nenhum terminal encontrado.",
                         style: const TextStyle(
                           color: _muted,
                           fontSize: 14,
@@ -150,7 +150,7 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
                         return _buildFilialListItem(
                           id: filial['id'].toString(),
                           nome: filial['nome'].toString(),
-                          cidade: filial['cidade'].toString(),
+                          cidade: filial['cidade']?.toString() ?? '',
                         );
                       },
                     ),

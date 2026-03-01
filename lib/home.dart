@@ -10,7 +10,7 @@ import 'sessoes/operacao/cacl.dart';
 import 'sessoes/gestao_de_frota/controle_documentos.dart';
 import 'sessoes/operacao/emitir_cacl.dart';
 import 'sessoes/operacao/tanques.dart';
-import 'sessoes/operacao/escolherfilial.dart';
+import 'sessoes/operacao/escolher_terminal.dart';
 import 'sessoes/vendas/programacao.dart'; 
 import 'sessoes/estoques/estoque_geral.dart';
 import 'sessoes/operacao/estoque_tanques_geral.dart';
@@ -113,6 +113,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   String? _usuarioFilialNome;
   Map<String, dynamic>? _dadosCalcGerado;
   String? _filialSelecionadaId;
+  String? _terminalSelecionadoId;
   String _contextoEscolhaFilial = '';
   String? _filialParaFiltroId;
   String? _filialParaFiltroNome;
@@ -1291,25 +1292,63 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           });
         },
         onSelecionarFilial: (idFilial) async {
+          final supabase = Supabase.instance.client;
           try {
-            final supabase = Supabase.instance.client;
+            // Tenta buscar filial primeiro
             final filialData = await supabase
                 .from('filiais')
                 .select('nome')
                 .eq('id', idFilial)
-                .single();
+                .maybeSingle();
 
+            if (filialData != null) {
+              setState(() {
+                _filialSelecionadaId = idFilial;
+                _filialSelecionadaNome = filialData['nome'];
+                _terminalSelecionadoId = null;
+                _mostrarEscolherFilial = false;
+
+                if (_contextoEscolhaFilial == 'cacl') {
+                  _mostrarListarCacls = true;
+                } else if (_contextoEscolhaFilial == 'tanques') {
+                  _mostrarTanques = true;
+                }
+
+                _contextoEscolhaFilial = '';
+              });
+              return;
+            }
+
+            // Se não encontrou filial, tenta buscar terminal
+            final terminalData = await supabase
+                .from('terminais')
+                .select('nome')
+                .eq('id', idFilial)
+                .maybeSingle();
+
+            if (terminalData != null) {
+              setState(() {
+                _terminalSelecionadoId = idFilial;
+                _filialSelecionadaId = null;
+                _filialSelecionadaNome = null;
+                _mostrarEscolherFilial = false;
+
+                if (_contextoEscolhaFilial == 'tanques') {
+                  _mostrarTanques = true;
+                }
+
+                _contextoEscolhaFilial = '';
+              });
+              return;
+            }
+
+            // Fallback: não encontrou nem filial nem terminal
             setState(() {
               _filialSelecionadaId = idFilial;
-              _filialSelecionadaNome = filialData['nome'];
+              _filialSelecionadaNome = 'Filial/Terminal';
               _mostrarEscolherFilial = false;
-
-              if (_contextoEscolhaFilial == 'cacl') {
-                _mostrarListarCacls = true;
-              } else if (_contextoEscolhaFilial == 'tanques') {
-                _mostrarTanques = true;
-              }
-
+              if (_contextoEscolhaFilial == 'cacl') _mostrarListarCacls = true;
+              if (_contextoEscolhaFilial == 'tanques') _mostrarTanques = true;
               _contextoEscolhaFilial = '';
             });
           } catch (e) {
@@ -1327,15 +1366,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           }
         },
         titulo: _contextoEscolhaFilial == 'cacl'
-            ? 'Selecionar filial para CACL:'
-            : 'Selecionar filial para gerenciar tanques:',
+          ? 'Selecionar filial para CACL:'
+          : 'Selecionar terminal para gerenciar tanques:',
       );
     }
 
     if (_mostrarMedicaoTanques) {
       return MedicaoTanquesPage(
         key: const ValueKey('medicao-tanques'),
-        filialSelecionadaId: _filialSelecionadaId,
+        filialSelecionadaId: _terminalSelecionadoId ?? _filialSelecionadaId,
         onVoltar: () {
           setState(() {
             _mostrarMedicaoTanques = false;
@@ -1352,7 +1391,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       );
     }
 
-    if (_mostrarTanques && _filialSelecionadaId != null) {
+    if (_mostrarTanques && (_filialSelecionadaId != null || _terminalSelecionadoId != null)) {
+      final filialIdParaGerenciamento = _terminalSelecionadoId ?? _filialSelecionadaId;
       return GerenciamentoTanquesPage(
         key: const ValueKey('gerenciamento-tanques'),
         onVoltar: () {
@@ -1360,6 +1400,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           setState(() {
             _mostrarTanques = false;
             _filialSelecionadaId = null;
+            _terminalSelecionadoId = null;
 
             if (usuario!.nivel == 3) {
               _mostrarEscolherFilial = true;
@@ -1369,7 +1410,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             }
           });
         },
-        filialSelecionadaId: _filialSelecionadaId,
+        filialSelecionadaId: filialIdParaGerenciamento,
         onAbrirCACL: (filialId) {
           setState(() {
             _voltarParaTanquesApoCACL = true; // ← RASTREIA QUE VEIO DE TANQUES

@@ -87,43 +87,55 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       });
 
       // ---------------------------
-      //   BUSCAR NOME DA FILIAL (SE FOR ADMIN)
+      //   DETERMINAR SE A SELEÇÃO É TERMINAL OU FILIAL E BUSCAR NOME
       // ---------------------------
       String? nomeFilial;
-      if (usuario.nivel == 3 && widget.filialSelecionadaId != null) {
-        final filialData = await supabase
-            .from('filiais')
-            .select('nome')
+      String? filtroTerminalId;
+      String? filtroFilialId;
+
+      if (widget.filialSelecionadaId != null) {
+        // Tenta identificar se o id passado é de um terminal
+        final terminalCheck = await supabase
+            .from('terminais')
+            .select('id, nome')
             .eq('id', widget.filialSelecionadaId!)
-            .single();
-        nomeFilial = filialData['nome'];
-      } else if (usuario.filialId != null) {
+            .maybeSingle();
+
+        if (terminalCheck != null) {
+          filtroTerminalId = widget.filialSelecionadaId!;
+          nomeFilial = terminalCheck['nome'];
+        } else {
+          // Se não for terminal, tenta tratar como filial
+          final filialCheck = await supabase
+              .from('filiais')
+              .select('id, nome')
+              .eq('id', widget.filialSelecionadaId!)
+              .maybeSingle();
+
+          if (filialCheck != null) {
+            filtroFilialId = widget.filialSelecionadaId!;
+            nomeFilial = filialCheck['nome'];
+          }
+        }
+      }
+
+      // Se não veio seleção explícita, usa a filial do usuário (quando houver)
+      if (nomeFilial == null && usuario.filialId != null) {
         final filialData = await supabase
             .from('filiais')
             .select('nome')
             .eq('id', usuario.filialId!)
-            .single();
-        nomeFilial = filialData['nome'];
+            .maybeSingle();
+        if (filialData != null) {
+          nomeFilial = filialData['nome'];
+        }
       }
 
       // Carrega tanques
       final PostgrestTransformBuilder<dynamic> query;
-      
-      // ---------------------------
-      //   ADMINISTRADOR (NÍVEL 3)
-      // ---------------------------
-      if (usuario.nivel == 3) {
-        // Verifica se tem filial selecionada
-        if (widget.filialSelecionadaId == null) {
-          print("ERRO: Admin não escolheu filial para visualizar tanques");
-          setState(() {
-            _carregando = false;
-            tanques = []; // Lista vazia
-            _nomeFilial = null;
-          });
-          return;
-        }
-        
+
+      // Se foi fornecido um terminal explicitamente (independente do nível do usuário), filtra por terminal_id
+      if (filtroTerminalId != null) {
         query = supabase
             .from('tanques')
             .select('''
@@ -135,15 +147,42 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
               id_produto,
               id_filial,
               produtos (nome),
-              filiais (nome)
+              terminais (nome)
             ''')
-            .eq('id_filial', widget.filialSelecionadaId!) // ← FILTRAR pela filial escolhida
+            .eq('terminal_id', filtroTerminalId)
             .order('referencia');
-      } 
-      // ---------------------------
-      //   USUÁRIO NORMAL
-      // ---------------------------
-      else {
+      }
+      // Caso contrário, segue comportamento por nível
+      else if (usuario.nivel == 3) {
+        // Administrador precisa selecionar um terminal
+        if (filtroFilialId != null) {
+          // Se foi passada uma filial, permite filtrar por filial
+          query = supabase
+              .from('tanques')
+              .select('''
+                id,
+                referencia,
+                capacidade,
+                lastro,
+                status,
+                id_produto,
+                id_filial,
+                produtos (nome),
+                terminais (nome)
+              ''')
+              .eq('id_filial', filtroFilialId)
+              .order('referencia');
+        } else {
+          print("ERRO: Admin não escolheu terminal para visualizar tanques");
+          setState(() {
+            _carregando = false;
+            tanques = []; // Lista vazia
+            _nomeFilial = null;
+          });
+          return;
+        }
+      } else {
+        // Usuário normal: usa a filial do próprio usuário
         final idFilial = usuario.filialId;
         if (idFilial == null) {
           print('Erro: ID da filial não encontrado para usuário não-admin');
@@ -153,7 +192,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
           });
           return;
         }
-        
+
         query = supabase
             .from('tanques')
             .select('''
@@ -171,17 +210,15 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
 
       final tanquesResponse = await query;
 
-      // Determina id da filial usada para checar permissões (admin usa filial selecionada)
-      final String? idFilialUsada = usuario.nivel == 3 ? widget.filialSelecionadaId : usuario.filialId;
-
-      // Busca indicador emite_cacl_mov da filial (se soubermos qual filial usar)
+      // Usar a filial do usuário para checar permissões de emissão CACL
       bool filialEmite = false;
-      if (idFilialUsada != null) {
+      final String? usuarioFilialId = usuario.filialId;
+      if (usuarioFilialId != null) {
         try {
           final filialResp = await supabase
               .from('filiais')
               .select('emite_cacl_mov')
-              .eq('id', idFilialUsada)
+              .eq('id', usuarioFilialId)
               .maybeSingle();
 
           if (filialResp != null) {
@@ -195,14 +232,13 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       final List<Map<String, dynamic>> tanquesFormatados = [];
       
       for (final tanque in tanquesResponse) {
-        // Corrigir o acesso ao nome da filial
-        String? nomeFilial;
+        // Corrigir o acesso ao nome do terminal ou da filial
+        String? nomeFilialTanque;
         if (usuario.nivel == 3) {
-          // Para admin, acessa o objeto aninhado filiais
-          if (tanque['filiais'] != null) {
-            nomeFilial = tanque['filiais'] is Map 
-                ? tanque['filiais']['nome']?.toString()
-                : tanque['filiais']?.toString();
+          if (tanque['terminais'] != null) {
+            nomeFilialTanque = tanque['terminais'] is Map
+                ? tanque['terminais']['nome']?.toString()
+                : tanque['terminais']?.toString();
           }
         }
 
@@ -214,9 +250,9 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
           'lastro': tanque['lastro']?.toString(),
           'status': tanque['status']?.toString() ?? 'Em operação',
           'id_produto': tanque['id_produto'],
-          'id_filial': tanque['id_filial'] ?? idFilialUsada,
-          // Adicionar nome da filial se for admin
-          'filial': nomeFilial,
+          'id_filial': tanque['id_filial'],
+          // Adicionar nome do terminal (ou filial) se for admin
+          'filial': nomeFilialTanque ?? nomeFilial,
         });
       }
 
@@ -464,7 +500,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
   }
 
   Future<void> _abrirCACL() async {
-    final filialId = widget.filialSelecionadaId ?? UsuarioAtual.instance!.filialId;
+    final filialId = _tanqueSelecionadoParaAcoes?['id_filial']?.toString() ?? widget.filialSelecionadaId ?? UsuarioAtual.instance!.filialId;
     final tanqueId = _tanqueSelecionadoParaAcoes?['id']?.toString();
     bool caclFinalizado = false;
 
@@ -516,7 +552,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       return;
     }
 
-    final filialId = widget.filialSelecionadaId ?? usuario.filialId;
+    final filialId = _tanqueSelecionadoParaAcoes?['id_filial']?.toString() ?? widget.filialSelecionadaId ?? usuario.filialId;
     if (filialId == null || filialId.isEmpty) {
       return;
     }
@@ -803,7 +839,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
             const SizedBox(height: 8),
             Text(
               widget.filialSelecionadaId != null && UsuarioAtual.instance!.nivel == 3
-                ? 'Não há tanques cadastrados para esta filial'
+                ? 'Não há tanques cadastrados para esta seleção'
                 : 'Não há tanques cadastrados',
               style: const TextStyle(fontSize: 14, color: _muted),
             ),
