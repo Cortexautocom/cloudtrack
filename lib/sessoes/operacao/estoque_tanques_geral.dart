@@ -48,10 +48,12 @@ class DetalheTanque {
 /// ===============================
 class EstoquePorTanquePage extends StatefulWidget {
   final VoidCallback? onVoltar;
+  final String? filialSelecionadaId; // aceita terminal ou filial
   
   const EstoquePorTanquePage({
     super.key,
     this.onVoltar,
+    this.filialSelecionadaId,
   });
 
   @override

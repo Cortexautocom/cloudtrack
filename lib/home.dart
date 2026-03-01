@@ -1312,6 +1312,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   _mostrarListarCacls = true;
                 } else if (_contextoEscolhaFilial == 'tanques') {
                   _mostrarTanques = true;
+                } else if (_contextoEscolhaFilial == 'estoque_por_tanque') {
+                  _mostrarEstoquePorTanque = true;
                 }
 
                 _contextoEscolhaFilial = '';
@@ -1335,6 +1337,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
                 if (_contextoEscolhaFilial == 'tanques') {
                   _mostrarTanques = true;
+                } else if (_contextoEscolhaFilial == 'estoque_por_tanque') {
+                  _mostrarEstoquePorTanque = true;
                 }
 
                 _contextoEscolhaFilial = '';
@@ -1347,8 +1351,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               _filialSelecionadaId = idFilial;
               _filialSelecionadaNome = 'Filial/Terminal';
               _mostrarEscolherFilial = false;
-              if (_contextoEscolhaFilial == 'cacl') _mostrarListarCacls = true;
-              if (_contextoEscolhaFilial == 'tanques') _mostrarTanques = true;
+                if (_contextoEscolhaFilial == 'cacl') _mostrarListarCacls = true;
+                if (_contextoEscolhaFilial == 'tanques') _mostrarTanques = true;
+                if (_contextoEscolhaFilial == 'estoque_por_tanque') _mostrarEstoquePorTanque = true;
               _contextoEscolhaFilial = '';
             });
           } catch (e) {
@@ -1435,9 +1440,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         margin: const EdgeInsets.only(left: 12),
         child: EstoquePorTanquePage(
           key: const ValueKey('estoque-por-tanque'),
+          filialSelecionadaId: _terminalSelecionadoId ?? _filialSelecionadaId,
           onVoltar: () {
             setState(() {
               _mostrarEstoquePorTanque = false;
+              // limpar seleção de terminal/filial usada para o fluxo
+              _terminalSelecionadoId = null;
+              _filialSelecionadaId = null;
+
               if (_estoquePorTanqueVemDaApuracao) {
                 _estoquePorTanqueVemDaApuracao = false;
                 _mostrarFilhosDaSessao('Operação');
@@ -2102,10 +2112,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         }
         break;
       case 'estoque_por_tanque':
-        setState(() {
-          _estoquePorTanqueVemDaApuracao = true;
-          _mostrarEstoquePorTanque = true;
-        });
+        final usuario = UsuarioAtual.instance;
+        if (usuario != null && usuario.nivel == 3) {
+          setState(() {
+            _mostrarEscolherFilial = true;
+            _contextoEscolhaFilial = 'estoque_por_tanque';
+            _estoquePorTanqueVemDaApuracao = true;
+          });
+        } else {
+          // usuários normais vão direto para a página com sua filial
+          _filialSelecionadaId = usuario?.filialId;
+          setState(() {
+            _estoquePorTanqueVemDaApuracao = true;
+            _mostrarEstoquePorTanque = true;
+          });
+        }
         break;
     }
   }
@@ -2135,10 +2156,20 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         });
         break;
       case 'estoque_por_tanque':
-        setState(() {
-          _estoquePorTanqueVemDaApuracao = false;
-          _mostrarEstoquePorTanque = true;
-        });
+        final usuario = UsuarioAtual.instance;
+        if (usuario != null && usuario.nivel == 3) {
+          setState(() {
+            _mostrarEscolherFilial = true;
+            _contextoEscolhaFilial = 'estoque_por_tanque';
+            _estoquePorTanqueVemDaApuracao = false;
+          });
+        } else {
+          _filialSelecionadaId = usuario?.filialId;
+          setState(() {
+            _estoquePorTanqueVemDaApuracao = false;
+            _mostrarEstoquePorTanque = true;
+          });
+        }
         break;
       case 'movimentacoes':
       case 'movimentaces':
