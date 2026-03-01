@@ -233,6 +233,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         final cardsObrigatorios = ['estoque_por_tanque'];
         final tipoRaw = card['tipo']?.toString() ?? '';
         final tipo = tipoRaw == 'movimentaces' ? 'movimentacoes' : tipoRaw;
+
+        // Remover card isolado de CACL: acesso passa a ser feito via Estoque por tanque
+        if (tipo == 'cacl') continue;
         
         if (usuario.nivel >= 3 || usuario.podeAcessarCard(cardId) || cardsObrigatorios.contains(tipo)) {
           todosCards.add({
@@ -277,7 +280,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   void _inicializarFilhosPorSessaoFallback() {
     _filhosPorSessao['Operação'] = [
-      {'id': 'fallback-cacl', 'icon': Icons.analytics, 'label': 'CACL', 'descricao': 'Emitir CACL', 'tipo': 'cacl', 'sessao_pai': 'Operação'},
       {'id': 'fallback-ordens', 'icon': Icons.assignment, 'label': 'Ordens / Análises', 'descricao': 'Geração e gestão de ordens', 'tipo': 'ordens_analise', 'sessao_pai': 'Operação'},
       {'id': 'fallback-historico', 'icon': Icons.history, 'label': 'Histórico de CACLs', 'descricao': 'Consultar histórico de CACLs emitidos', 'tipo': 'historico_cacl', 'sessao_pai': 'Operação'},
       {'id': 'fallback-tabelas', 'icon': Icons.table_chart, 'label': 'Tabelas de Conversão', 'descricao': 'Tabelas de conversão de densidade e temperatura', 'tipo': 'tabelas_conversao', 'sessao_pai': 'Operação'},
@@ -2023,18 +2025,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   void _navegarParaCardApuracao(String tipo, UsuarioAtual? usuario) {
     switch (tipo) {
-      case 'cacl':
-        setState(() {
-          if (usuario!.nivel == 3) {
-            _mostrarEscolherFilial = true;
-            _contextoEscolhaFilial = 'cacl';
-          } else {
-            _filialSelecionadaId = usuario.filialId;
-            _filialSelecionadaNome = null;
-            _mostrarListarCacls = true;
-          }
-        });
-        break;
       case 'ordens_analise':
         setState(() {
           _mostrarOrdensAnalise = true;
