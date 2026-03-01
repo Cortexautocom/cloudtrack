@@ -33,10 +33,9 @@ class _TemperaturaDensidadeMediaPageState
   void initState() {
     super.initState();
 
-    // Preencher campo de data com data atual ao abrir a página
-    final agora = DateTime.now();
-    _dataController.text =
-        '${agora.day.toString().padLeft(2, '0')}/${agora.month.toString().padLeft(2, '0')}/${agora.year}';
+    // Preencher campo de data com a data atual
+    final now = DateTime.now();
+    _dataController.text = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
 
     // não são necessários listeners horizontais para a tabela simples
 
@@ -106,7 +105,7 @@ class _TemperaturaDensidadeMediaPageState
       debugPrint('==============================');
       debugPrint('🚀 INÍCIO _carregarDados (SEM FILTROS)');
 
-      final resp = await _supabase
+      var query = _supabase
           .from('ordens_analises')
           .select('''
             id,
@@ -119,9 +118,31 @@ class _TemperaturaDensidadeMediaPageState
             placa_cavalo,
             terminais(nome),
             movimentacoes(cliente)
-          ''')
-          .order('data_criacao', ascending: false)
-          .limit(1000);
+          ''');
+
+      // Aplicar filtro por data (se preenchido). O campo `data_criacao` é timestamp
+      // no formato YYYY-MM-DD HH:MI:SS, então filtramos pela faixa do dia
+      // convertendo o texto 'DD/MM/YYYY' para DateTime e usando gte/lt.
+      if (_dataController.text.isNotEmpty) {
+        try {
+          final parts = _dataController.text.split('/');
+          if (parts.length == 3) {
+            final day = int.parse(parts[0]);
+            final month = int.parse(parts[1]);
+            final year = int.parse(parts[2]);
+            final start = DateTime(year, month, day);
+            final end = start.add(const Duration(days: 1));
+
+            // usar ISO strings para comparação com timestamp
+            query = query.gte('data_criacao', start.toIso8601String());
+            query = query.lt('data_criacao', end.toIso8601String());
+          }
+        } catch (e) {
+          debugPrint('Erro ao parsear data de filtro: ${_dataController.text} -> $e');
+        }
+      }
+
+      final resp = await query.order('data_criacao', ascending: false).limit(1000);
 
       debugPrint('📦 Total retornado: ${resp.length}');
 
@@ -311,7 +332,7 @@ class _TemperaturaDensidadeMediaPageState
             : 'Data';
 
         return InkWell(
-          onTap: () async {
+            onTap: () async {
             final now = DateTime.now();
             final data = await showDatePicker(
               context: context,
@@ -340,43 +361,29 @@ class _TemperaturaDensidadeMediaPageState
               setState(() {
                 _dataController.text = '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}';
               });
+              _carregarDados();
             }
           },
           borderRadius: BorderRadius.circular(4),
-          child: Container(
+            child: Container(
             height: 40,
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            alignment: Alignment.centerLeft,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
               border: Border.all(color: const Color(0xFF0D47A1).withOpacity(0.5)),
               borderRadius: BorderRadius.circular(4),
               color: Colors.white,
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Expanded(
-                  child: Text(
-                    textoData,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF0D47A1),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+            child: Center(
+              child: Text(
+                textoData,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF0D47A1),
+                  fontWeight: FontWeight.w500,
                 ),
-                if (_dataController.text.isNotEmpty)
-                  IconButton(
-                    icon: const Icon(Icons.clear, size: 18, color: Color(0xFF0D47A1)),
-                    onPressed: () {
-                      setState(() {
-                        _dataController.clear();
-                      });
-                    },
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 36),
-                  ),
-              ],
+              ),
             ),
           ),
         );
@@ -552,11 +559,6 @@ class _TemperaturaDensidadeMediaPageState
                   width: 200,
                   margin: const EdgeInsets.only(right: 12),
                   child: _buildTerminalDropdown(),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.refresh, color: Colors.black),
-                  onPressed: () => _carregarDados(),
-                  tooltip: 'Atualizar',
                 ),
               ],
             ),
