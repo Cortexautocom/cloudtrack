@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
-import 'dart:convert';
 
 class TemperaturaDensidadeMediaPage extends StatefulWidget {
   final VoidCallback? onVoltar;
@@ -24,51 +23,22 @@ class _TemperaturaDensidadeMediaPageState
   final TextEditingController _dataController = TextEditingController();
   final TextEditingController _placaController = TextEditingController();
 
-  final ScrollController _horizontalHeaderController = ScrollController();
-  final ScrollController _horizontalBodyController = ScrollController();
   final ScrollController _verticalScrollController = ScrollController();
 
-  // Larguras base (mínimas)
-  static const double baseHorario = 110;
-  static const double baseTq = 95; // 🆕 TQ operação
-  static const double basePlacas = 200;
-  static const double baseProduto = 180;
-  static const double baseEditavel = 85;
-
-  static const double margemLateral = 50;
-  
-  int _paginaAtual = 0;
-  final int _limitePorPagina = 50;
-  bool _temMaisPaginas = true;
-  bool _carregandoMais = false;
+  // apenas o controlador vertical é necessário para a nova tabela
 
   @override
   void initState() {
     super.initState();
 
-    _horizontalHeaderController.addListener(() {
-      if (_horizontalBodyController.hasClients &&
-          _horizontalBodyController.offset !=
-              _horizontalHeaderController.offset) {
-        _horizontalBodyController.jumpTo(_horizontalHeaderController.offset);
-      }
-    });
-
-    _horizontalBodyController.addListener(() {
-      if (_horizontalHeaderController.hasClients &&
-          _horizontalHeaderController.offset !=
-              _horizontalBodyController.offset) {
-        _horizontalHeaderController.jumpTo(_horizontalBodyController.offset);
-      }
-    });
+    // não são necessários listeners horizontais para a tabela simples
 
     _carregarDados();
   }
 
   @override
   void dispose() {
-    _horizontalHeaderController.dispose();
-    _horizontalBodyController.dispose();
+    // apenas dispose do controlador vertical
     _verticalScrollController.dispose();
     _dataController.dispose();
     _placaController.dispose();
@@ -76,23 +46,15 @@ class _TemperaturaDensidadeMediaPageState
   }
 
   Future<void> _carregarDados({bool carregarMais = false}) async {
-    if (carregarMais) {
-      if (!_temMaisPaginas || _carregandoMais) return;
-      setState(() => _carregandoMais = true);
-    } else {
-      setState(() {
-        _carregando = true;
-        _erro = false;
-        _paginaAtual = 0;
-        _temMaisPaginas = true;
-        if (!carregarMais) {
-          _registros = []; // Limpa registros ao recarregar
-        }
-      });
-    }
+    if (carregarMais) return;
+    setState(() {
+      _carregando = true;
+      _erro = false;
+      _registros = []; // Limpa registros ao recarregar
+    });
 
     try {
-      // Obter usuário atual da instância global
+      // Obter usuário atual da instância global (filial/empresa são opcionais aqui)
       final usuario = UsuarioAtual.instance;
       if (usuario == null) {
         throw Exception('Usuário não autenticado. Faça login novamente.');
@@ -100,10 +62,6 @@ class _TemperaturaDensidadeMediaPageState
 
       final filialId = usuario.filialId;
       final empresaId = usuario.empresaId;
-
-      if (filialId == null || filialId.isEmpty || empresaId == null || empresaId.isEmpty) {
-        throw Exception('Filial ou empresa não configurada para o usuário');
-      }
 
       debugPrint('🔍 Consultando para filial: $filialId, empresa: $empresaId');
 
@@ -133,124 +91,46 @@ class _TemperaturaDensidadeMediaPageState
 
       debugPrint('📅 Data consulta: ${dataInicio.toIso8601String()} até ${dataFim.toIso8601String()}');
 
-      // Consulta movimentações - ADICIONAR DEBUG
-      var query = _supabase
-          .from('movimentacoes')
-          .select('''
-            id,
-            data_carga,
-            placa,
-            produto_id,
-            tipo_mov_orig,
-            status_circuito_orig,
-            produtos!inner(nome)
-          ''')
-          .eq('filial_origem_id', filialId)
-          .eq('tipo_mov_orig', 'saida')
-          .eq('empresa_id', empresaId)
-          .inFilter('status_circuito_orig', ['4', '5'])
-          .gte('data_carga', dataInicio.toIso8601String())
-          .lte('data_carga', dataFim.toIso8601String())
-          .order('data_carga', ascending: true)
-          .range(
-            _paginaAtual * _limitePorPagina,
-            (_paginaAtual * _limitePorPagina) + _limitePorPagina - 1,
-          );
+      // Consulta simplificada: buscar ordens_analises com JOIN em movimentacoes
+        debugPrint('📋 Consultando ordens_analises (sem filtro de filial/empresa)');
 
-      debugPrint('📋 Query SQL: $query');
-      
-      final response = await query;
+          final resp = await _supabase
+            .from('ordens_analises')
+            .select('id, densidade_observada, temperatura_amostra, temperatura_ct, produto_nome, placa_cavalo, movimentacoes!inner(cliente)')
+            .order('id', ascending: false)
+            .limit(200);
 
-      debugPrint('📊 Resposta recebida: ${response.length} registros');
-      debugPrint('📊 Dados brutos: ${response.toString()}');
+      // resp deve ser uma lista de registros retornada pelo Supabase
+      final List<dynamic> lista = resp;
 
-      final List<Map<String, dynamic>> lista = List<Map<String, dynamic>>.from(response);
-
-      // Verificar se há mais páginas
-      final temMais = lista.length >= _limitePorPagina;
-
-      // Transformar os dados para o formato da página
-      final registrosTransformados = lista.map((mov) {
-        final dataCarga = mov['data_carga'] is String
-            ? DateTime.parse(mov['data_carga'])
-            : mov['data_carga'] as DateTime? ?? DateTime.now();
-        
-        debugPrint('📝 Processando movimentação: ${mov['id']}, data: $dataCarga');
-        
-        // Processar placas - COMO É ARRAY DE TEXTO, JÁ VEM COMO LIST
-        List<String> placas = [];
-        
-        if (mov['placa'] != null) {
-          debugPrint('🚗 Placa bruta: ${mov['placa']}, tipo: ${mov['placa'].runtimeType}');
-          
-          if (mov['placa'] is List) {
-            // Já é uma lista (array de texto do PostgreSQL)
-            final listaPlacas = mov['placa'] as List;
-            placas = listaPlacas
-                .where((placa) => placa.toString().isNotEmpty)
-                .map((placa) => placa.toString())
-                .toList();
-          } else if (mov['placa'] is String) {
-            // Pode ser uma string JSON (fallback)
-            final placaString = mov['placa'] as String;
-            try {
-              if (placaString.startsWith('[')) {
-                final dynamic parsed = jsonDecode(placaString);
-                if (parsed is List) {
-                  placas = parsed
-                      .where((placa) => placa.toString().isNotEmpty)
-                      .map((placa) => placa.toString())
-                      .toList();
-                }
-              } else {
-                if (placaString.isNotEmpty) {
-                  placas = [placaString];
-                }
-              }
-            } catch (e) {
-              if (placaString.isNotEmpty) {
-                placas = [placaString];
-              }
-            }
-          }
+      final registrosTransformados = lista.map<Map<String, dynamic>>((row) {
+        String descricao = '';
+        String placa = row['placa_cavalo']?.toString() ?? '';
+        final movs = row['movimentacoes'] as List?;
+        if (movs != null && movs.isNotEmpty) {
+          final m = movs.first;
+          descricao = m['cliente']?.toString() ?? '';
         }
 
-        // Garantir que temos pelo menos uma string vazia se não houver placas
-        if (placas.isEmpty) {
-          placas = [''];
-        }
-
-        final produtoNome = mov['produtos']?['nome']?.toString() ?? 'Produto não identificado';
-        debugPrint('✅ Registro processado: ${dataCarga.hour}:${dataCarga.minute}, placas: $placas, produto: $produtoNome');
+        final produto = row['produto_nome']?.toString() ?? '';
+        final densidade = row['densidade_observada'];
+        final tempAmostra = row['temperatura_amostra'];
+        final tempCt = row['temperatura_ct'];
 
         return {
-          'data_carga': dataCarga,
-          'placas': placas,
-          'produto': produtoNome,
-          'tanque_operacao': '', // Inicialmente vazio para usuário preencher
-          'movimentacao_id': mov['id'], // Guardar ID para referência futura
+          'descricao': descricao,
+          'placa': placa,
+          'produto': produto,
+          'densidade': densidade,
+          'temp_amostra': tempAmostra,
+          'temp_ct': tempCt,
         };
       }).toList();
 
-      debugPrint('🎯 Total registros transformados: ${registrosTransformados.length}');
-
       setState(() {
-        if (carregarMais) {
-          _registros.addAll(registrosTransformados);
-        } else {
-          _registros = registrosTransformados;
-        }
-        
-        _temMaisPaginas = temMais;
-        if (temMais && registrosTransformados.isNotEmpty) {
-          _paginaAtual++;
-        }
-        
+        _registros = registrosTransformados;
         _carregando = false;
-        _carregandoMais = false;
       });
-
-      debugPrint('📊 Estado final: ${_registros.length} registros na memória');
 
     } catch (e, stackTrace) {
       debugPrint("❌ Erro ao carregar temperatura e densidade média: $e");
@@ -260,7 +140,6 @@ class _TemperaturaDensidadeMediaPageState
         _erro = true;
         _mensagemErro = e.toString();
         _carregando = false;
-        _carregandoMais = false;
       });
       
       if (!carregarMais && mounted) {
@@ -278,190 +157,17 @@ class _TemperaturaDensidadeMediaPageState
 
   List<Map<String, dynamic>> get _registrosFiltrados {
     final placaFiltro = _placaController.text.trim().toLowerCase();
-    final dataFiltro = _dataController.text.trim();
 
     return _registros.where((r) {
-      bool ok = true;
-
       if (placaFiltro.isNotEmpty) {
-        final placas = (r['placas'] as List<String>? ?? []).join(' ').toLowerCase();
-        ok = placas.contains(placaFiltro);
+        final placa = r['placa']?.toString().toLowerCase() ?? '';
+        return placa.contains(placaFiltro);
       }
-
-      if (ok && dataFiltro.isNotEmpty) {
-        final dt = r['data_carga'] as DateTime?;
-        if (dt == null) return false;
-
-        final s1 =
-            '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
-        final s2 =
-            '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
-
-        ok = s1.contains(dataFiltro) || s2.contains(dataFiltro);
-      }
-
-      return ok;
+      return true;
     }).toList();
   }
 
-  // ----------------- CÁLCULO DINÂMICO DE LARGURAS -----------------
-
-  Map<String, double> _calcularLarguras(double larguraDisponivel) {
-    final larguraMinima =
-        baseHorario + baseTq + basePlacas + baseProduto + (baseEditavel * 4);
-
-    double horario = baseHorario;
-    double tq = baseTq;
-    double placas = basePlacas;
-    double produto = baseProduto;
-    double editavel = baseEditavel;
-
-    if (larguraDisponivel > larguraMinima) {
-      final sobra = larguraDisponivel - larguraMinima;
-
-      placas += sobra * 0.22;
-      produto += sobra * 0.18;
-      tq += sobra * 0.10;
-      editavel += (sobra * 0.50) / 4;
-    }
-
-    return {
-      'horario': horario,
-      'tq': tq,
-      'placas': placas,
-      'produto': produto,
-      'editavel': editavel,
-      'total': horario + tq + placas + produto + (editavel * 4),
-    };
-  }
-
-  // ----------------- AGRUPAMENTO -----------------
-
-  Map<String, List<Map<String, dynamic>>> _agruparPorHora(
-      List<Map<String, dynamic>> itens) {
-    final Map<String, List<Map<String, dynamic>>> grupos = {};
-    
-    // Períodos fixos das 7:00 às 21:00
-    final periodos = [
-      '07:00 - 08:00',
-      '08:00 - 09:00',
-      '09:00 - 10:00',
-      '10:00 - 11:00',
-      '11:00 - 12:00',
-      '12:00 - 13:00',
-      '13:00 - 14:00',
-      '14:00 - 15:00',
-      '15:00 - 16:00',
-      '16:00 - 17:00',
-      '17:00 - 18:00',
-      '18:00 - 19:00',
-      '19:00 - 20:00',
-      '20:00 - 21:00',
-    ];
-
-    // Inicializar todos os períodos
-    for (final periodo in periodos) {
-      grupos[periodo] = [];
-    }
-
-    // Distribuir itens pelos períodos
-    for (final r in itens) {
-      final dt = r['data_carga'] as DateTime?;
-      if (dt == null) continue;
-
-      final hora = dt.hour;
-      
-      // Encontrar período correspondente
-      String? periodoEncontrado;
-      for (final periodo in periodos) {
-        final horaIni = int.parse(periodo.substring(0, 2));
-        if (hora == horaIni) {
-          periodoEncontrado = periodo;
-          break;
-        }
-      }
-      
-      if (periodoEncontrado != null) {
-        grupos[periodoEncontrado]!.add(r);
-      }
-    }
-
-    // Ordenar itens dentro de cada período pela data_carga
-    for (final periodo in periodos) {
-      grupos[periodo]!.sort((a, b) {
-        final dtA = a['data_carga'] as DateTime;
-        final dtB = b['data_carga'] as DateTime;
-        return dtA.compareTo(dtB);
-      });
-    }
-
-    // Remover períodos vazios
-    final gruposFiltrados = Map<String, List<Map<String, dynamic>>>.fromEntries(
-      grupos.entries.where((entry) => entry.value.isNotEmpty)
-    );
-
-    return gruposFiltrados;
-  }
-
-  // ----------------- UI HELPERS -----------------
-
-  Widget _th(String texto, double largura) {
-    return SizedBox(
-      width: largura,
-      child: Center(
-        child: Text(
-          texto,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _cell(String texto, double largura) {
-    return SizedBox(
-      width: largura,
-      child: Center(
-        child: Text(texto, style: const TextStyle(fontSize: 12)),
-      ),
-    );
-  }
-
-  Widget _editableCell(double largura, String campo, int index, String faixa) {
-    return SizedBox(
-      width: largura,
-      child: ClipRect(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-          child: SizedBox(
-            width: largura,
-            height: 38,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.blue.shade700, width: 1.2),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: TextField(
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12),
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                ),
-                onChanged: (value) {
-                  // Aqui será implementada a lógica para salvar no banco
-                  // quando a integração dos campos editáveis for feita
-                },
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  // removed layout helpers no longer used by the simplified list view
 
   Widget _buildCarregando() {
     return const Center(
@@ -554,46 +260,84 @@ class _TemperaturaDensidadeMediaPageState
   // ----------------- WIDGET DE PESQUISA (IGUAL AO DA PROGRAMAÇÃO) -----------------
 
   Widget _buildSearchField() {
-    return Container(
+    return SizedBox(
       height: 40,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 12),
-          Icon(Icons.calendar_today, color: Colors.grey.shade600, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: _dataController,
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                hintText: 'DD/MM/AAAA',
-                hintStyle: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey.shade600,
+      child: Builder(builder: (context) {
+        final textoData = _dataController.text.isNotEmpty
+            ? _dataController.text
+            : 'Data';
+
+        return InkWell(
+          onTap: () async {
+            final now = DateTime.now();
+            final data = await showDatePicker(
+              context: context,
+              initialDate: now,
+              firstDate: DateTime(2000),
+              lastDate: DateTime(now.year + 1),
+              helpText: 'Filtrar por data',
+              cancelText: 'Cancelar',
+              confirmText: 'Confirmar',
+              builder: (context, child) {
+                return Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: const ColorScheme.light(
+                      primary: Color(0xFF0D47A1),
+                      onPrimary: Colors.white,
+                      surface: Colors.white,
+                      onSurface: Colors.black,
+                    ),
+                  ),
+                  child: child!,
+                );
+              },
+            );
+
+            if (data != null) {
+              setState(() {
+                _dataController.text = '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}';
+              });
+            }
+          },
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            alignment: Alignment.centerLeft,
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFF0D47A1).withOpacity(0.5)),
+              borderRadius: BorderRadius.circular(4),
+              color: Colors.white,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Expanded(
+                  child: Text(
+                    textoData,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF0D47A1),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-              ),
-              style: const TextStyle(fontSize: 13),
+                if (_dataController.text.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.clear, size: 18, color: Color(0xFF0D47A1)),
+                    onPressed: () {
+                      setState(() {
+                        _dataController.clear();
+                      });
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 36),
+                  ),
+              ],
             ),
           ),
-          if (_dataController.text.isNotEmpty)
-            IconButton(
-              icon: Icon(Icons.clear, color: Colors.grey.shade600, size: 20),
-              onPressed: () {
-                _dataController.clear();
-                setState(() {});
-              },
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 36),
-            ),
-        ],
-      ),
+        );
+      }),
     );
   }
 
@@ -651,10 +395,7 @@ class _TemperaturaDensidadeMediaPageState
     if (_erro && _registros.isEmpty) {
       return _buildErro();
     }
-
     final registros = _registrosFiltrados;
-    final grupos = _agruparPorHora(registros);
-    final chavesOrdenadas = grupos.keys.toList()..sort();
 
     return Scaffold(
       appBar: null,
@@ -720,45 +461,178 @@ class _TemperaturaDensidadeMediaPageState
           Expanded(
             child: registros.isEmpty
                 ? _buildVazio()
-                : _buildBodyContent(grupos, chavesOrdenadas),
+                : _buildTable(registros),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildBodyContent(
-    Map<String, List<Map<String, dynamic>>> grupos,
-    List<String> chavesOrdenadas,
-  ) {
+  Widget _buildTable(List<Map<String, dynamic>> registros) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final larguraDisponivel = constraints.maxWidth - (margemLateral * 2);
-        final larguras = _calcularLarguras(larguraDisponivel);
-
-        final colHorario = larguras['horario']!;
-        final colTq = larguras['tq']!;
-        final colPlacas = larguras['placas']!;
-        final colProduto = larguras['produto']!;
-        final colEditavel = larguras['editavel']!;
-        final larguraTabela = larguras['total']!;
-
         return Column(
           children: [
-            // Cabeçalho da tabela - FIXO
-            _buildFixedHeader(larguraTabela, colHorario, colTq, colPlacas, colProduto, colEditavel),
-            
-            // Corpo rolável da tabela
+            // Cabeçalho da tabela (mesmo estilo de estoque_tanques_geral)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: const BoxDecoration(
+                color: Color(0xFF222B45),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+              ),
+              child: Row(
+                children: const [
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      'Descrição',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      'Placa',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      'Produto',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      'Densidade Obs.',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      'Temp. da amostra',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      'Temp. do CT',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Linhas
             Expanded(
-              child: _buildScrollableTable(
-                grupos,
-                chavesOrdenadas,
-                larguraTabela,
-                colHorario,
-                colTq,
-                colPlacas,
-                colProduto,
-                colEditavel,
+              child: SingleChildScrollView(
+                controller: _verticalScrollController,
+                child: Column(
+                  children: List.generate(registros.length, (index) {
+                    final r = registros[index];
+                    final isEven = index.isEven;
+                    return Container(
+                      color: isEven ? const Color(0xFFF0F1F6) : const Color(0xFFF8F9FA),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  r['descricao']?.toString() ?? '',
+                                  style: const TextStyle(
+                                    color: Color(0xFF222B45),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              r['placa']?.toString() ?? '',
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              r['produto']?.toString() ?? '',
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              r['densidade']?.toString() ?? '',
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              r['temp_amostra']?.toString() ?? '',
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              r['temp_ct']?.toString() ?? '',
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ),
               ),
             ),
           ],
@@ -767,161 +641,5 @@ class _TemperaturaDensidadeMediaPageState
     );
   }
 
-  Widget _buildFixedHeader(
-    double larguraTabela,
-    double colHorario,
-    double colTq,
-    double colPlacas,
-    double colProduto,
-    double colEditavel,
-  ) {
-    return Scrollbar(
-      controller: _horizontalHeaderController,
-      thumbVisibility: true,
-      child: SingleChildScrollView(
-        controller: _horizontalHeaderController,
-        scrollDirection: Axis.horizontal,
-        child: SizedBox(
-          width: larguraTabela,
-          child: Container(
-            height: 40,
-            color: Colors.blue.shade900,
-            child: Row(
-              children: [
-                _th('Horário', colHorario),
-                _th('TQ operação', colTq),
-                _th('Placas', colPlacas),
-                _th('Produto', colProduto),
-                _th('Temp. CT', colEditavel),
-                _th('Dens. Amostra', colEditavel),
-                _th('Temp. Amostra', colEditavel),
-                _th('Dens. Amostra', colEditavel),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildScrollableTable(
-    Map<String, List<Map<String, dynamic>>> grupos,
-    List<String> chavesOrdenadas,
-    double larguraTabela,
-    double colHorario,
-    double colTq,
-    double colPlacas,
-    double colProduto,
-    double colEditavel,
-  ) {
-    return Scrollbar(
-      controller: _verticalScrollController,
-      thumbVisibility: true,
-      child: SingleChildScrollView(
-        controller: _verticalScrollController,
-        child: Scrollbar(
-          controller: _horizontalBodyController,
-          thumbVisibility: true,
-          child: SingleChildScrollView(
-            controller: _horizontalBodyController,
-            scrollDirection: Axis.horizontal,
-            child: SizedBox(
-              width: larguraTabela,
-              child: Column(
-                children: [
-                  ...chavesOrdenadas.expand((faixa) {
-                    final itens = grupos[faixa]!;
-                    return [
-                      Container(
-                        height: 34,
-                        width: larguraTabela,
-                        color: Colors.grey.shade300,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12),
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          faixa,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                      ...List.generate(itens.length, (i) {
-                        final r = itens[i];
-                        final dt = r['data_carga'] as DateTime;
-                        return Container(
-                          height: 46,
-                          color: Colors.white,
-                          child: Row(
-                            children: [
-                              _cell(
-                                '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}',
-                                colHorario,
-                              ),
-                              SizedBox(
-                                width: colTq,
-                                child: Center(
-                                  child: TextField(
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(fontSize: 12),
-                                    decoration: const InputDecoration(
-                                      border: InputBorder.none,
-                                      contentPadding: EdgeInsets.zero,
-                                      hintText: '',
-                                    ),
-                                    onChanged: (value) {
-                                      // Salvar TQ operação quando implementado
-                                    },
-                                  ),
-                                ),
-                              ),
-                              _cell(
-                                (r['placas'] as List<String>)
-                                    .join(' / '),
-                                colPlacas,
-                              ),
-                              _cell(
-                                r['produto'],
-                                colProduto,
-                              ),
-                              _editableCell(colEditavel, 'Temp. Tanque', i, faixa),
-                              _editableCell(colEditavel, 'Dens. Tanque', i, faixa),
-                              _editableCell(colEditavel, 'Temp. Amostra', i, faixa),
-                              _editableCell(colEditavel, 'Dens. Amostra', i, faixa),
-                            ],
-                          ),
-                        );
-                      }),
-                    ];
-                  }).toList(),
-                  if (_carregandoMais)
-                    Container(
-                      height: 60,
-                      color: Colors.white,
-                      child: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                    ),
-                  if (!_temMaisPaginas && _registrosFiltrados.isNotEmpty)
-                    Container(
-                      height: 40,
-                      color: Colors.grey.shade50,
-                      alignment: Alignment.center,
-                      child: Text(
-                        'Fim dos registros (${_registrosFiltrados.length} total)',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  // funções de agrupamento e tabela antiga removidas — mantemos apenas a tabela simples
 }
