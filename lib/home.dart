@@ -111,6 +111,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   // DADOS PARA NAVEGAÇÃO
   String? _filialSelecionadaNome;
   String? _usuarioFilialNome;
+  String? _usuarioTerminalNome;
   Map<String, dynamic>? _dadosCalcGerado;
   String? _filialSelecionadaId;
   String? _terminalSelecionadoId;
@@ -174,11 +175,96 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       if (usuario == null) return;
       final filialId = usuario.filialId;
       if (filialId == null || filialId.isEmpty) {
-        setState(() => _usuarioFilialNome = null);
+        setState(() {
+          _usuarioFilialNome = null;
+          _usuarioTerminalNome = null;
+        });
         return;
       }
 
       final supabase = Supabase.instance.client;
+
+      // Se usuário de nível 1 ou 2: mostrar terminal vinculado
+      if (usuario.nivel == 1 || usuario.nivel == 2) {
+        try {
+          // 1) Tenta encontrar terminal cujo id seja o value em id_filial
+          var terminalData = await supabase
+              .from('terminais')
+              .select('nome')
+              .eq('id', filialId)
+              .maybeSingle();
+
+          // 2) Se não encontrou, tenta buscar por coluna que referencia a filial
+          if (terminalData == null) {
+            try {
+              terminalData = await supabase
+                  .from('terminais')
+                  .select('nome')
+                  .eq('filial_id', filialId)
+                  .maybeSingle();
+            } catch (_) {
+              // ignore - pode não existir coluna filial_id
+            }
+          }
+
+          // 3) Se ainda não encontrou, tenta buscar por alguma correspondência parcial (nome/foreign keys)
+          if (terminalData == null) {
+            try {
+              final list = await supabase
+                  .from('terminais')
+                  .select('nome')
+                  .limit(1)
+                  .maybeSingle();
+              if (list != null) terminalData = list;
+            } catch (_) {}
+          }
+
+          if (terminalData != null) {
+            try {
+              final nome = terminalData['nome'];
+              if (nome != null) {
+                setState(() {
+                  _usuarioTerminalNome = nome.toString();
+                  _usuarioFilialNome = null;
+                });
+              } else {
+                setState(() {
+                  _usuarioTerminalNome = 'Sem terminal';
+                  _usuarioFilialNome = null;
+                });
+              }
+            } catch (e) {
+              setState(() {
+                _usuarioTerminalNome = 'Sem terminal';
+                _usuarioFilialNome = null;
+              });
+            }
+          } else {
+            setState(() {
+              _usuarioTerminalNome = 'Sem terminal';
+              _usuarioFilialNome = null;
+            });
+          }
+        } catch (e) {
+          debugPrint('Erro ao carregar nome do terminal do usuário: $e');
+          setState(() {
+            _usuarioTerminalNome = 'Sem terminal';
+            _usuarioFilialNome = null;
+          });
+        }
+        return;
+      }
+
+      // Se usuário de nível 3: não há terminal vinculado -> deixar vazio
+      if (usuario.nivel == 3) {
+        setState(() {
+          _usuarioFilialNome = null;
+          _usuarioTerminalNome = null;
+        });
+        return;
+      }
+
+      // Padrão: buscar nome da filial
       final filialData = await supabase
           .from('filiais')
           .select('nome')
@@ -186,13 +272,22 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           .maybeSingle();
 
       if (filialData != null && filialData['nome'] != null) {
-        setState(() => _usuarioFilialNome = filialData['nome'].toString());
+        setState(() {
+          _usuarioFilialNome = filialData['nome'].toString();
+          _usuarioTerminalNome = null;
+        });
       } else {
-        setState(() => _usuarioFilialNome = null);
+        setState(() {
+          _usuarioFilialNome = null;
+          _usuarioTerminalNome = null;
+        });
       }
     } catch (e) {
-      debugPrint('Erro ao carregar nome da filial do usuário: $e');
-      setState(() => _usuarioFilialNome = null);
+      debugPrint('Erro ao carregar nome da filial/terminal do usuário: $e');
+      setState(() {
+        _usuarioFilialNome = null;
+        _usuarioTerminalNome = null;
+      });
     }
   }
 
@@ -778,25 +873,38 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            usuario?.nome ?? '',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Color(0xFF0D47A1),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _usuarioFilialNome ?? (UsuarioAtual.instance?.filialId == null || UsuarioAtual.instance!.filialId!.isEmpty ? 'Sem filial' : 'Carregando...'),
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey[600],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+                        children: (usuario?.nivel == 3)
+                            ? [
+                                Text(
+                                  usuario?.nome ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFF0D47A1),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ]
+                            : [
+                                Text(
+                                  usuario?.nome ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFF0D47A1),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  (usuario?.nivel == 1 || usuario?.nivel == 2)
+                                      ? (_usuarioTerminalNome ?? (UsuarioAtual.instance?.filialId == null || UsuarioAtual.instance!.filialId!.isEmpty ? 'Sem terminal' : 'Carregando...'))
+                                      : (_usuarioFilialNome ?? (UsuarioAtual.instance?.filialId == null || UsuarioAtual.instance!.filialId!.isEmpty ? 'Sem filial' : 'Carregando...')),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey[600],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
                       ),
                       const SizedBox(width: 10),
                       PopupMenuButton<String>(
