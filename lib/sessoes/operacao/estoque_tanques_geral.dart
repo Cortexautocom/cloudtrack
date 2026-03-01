@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// ===============================
 /// MODELO DE DADOS DO TANQUE
@@ -61,7 +62,8 @@ class EstoquePorTanquePage extends StatefulWidget {
 }
 
 class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
-  late List<DadosTanque> tanques;
+  List<DadosTanque> tanques = [];
+  bool _carregando = true;
   int tanqueSelecionadoIndex = 0;
   int? _hoverIndex;
 
@@ -70,87 +72,176 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     super.initState();
     _carregarDadosTanques();
   }
+  Future<void> _carregarDadosTanques() async {
+    setState(() {
+      _carregando = true;
+    });
 
-  void _carregarDadosTanques() {
-    // Dados de exemplo - em produção, buscar do banco de dados
-    tanques = [
-      DadosTanque(
-        id: 'tanque_001',
-        nome: 'Tanque 1 - Diesel',
-        capacidadeTotal: 50000,
-        detalhes: [
-          DetalheTanque(
-            produto: 'Diesel S10',
-            litros: 42500,
-            data: '06/02/2025 14:30',
-            tipo: 'entrada',
-          ),
-          DetalheTanque(
-            produto: 'Saída para frota',
-            litros: -5000,
-            data: '05/02/2025 10:15',
-            tipo: 'saida',
-          ),
-        ],
-      ),
-      DadosTanque(
-        id: 'tanque_002',
-        nome: 'Tanque 2 - Gasolina',
-        capacidadeTotal: 30000,
-        detalhes: [
-          DetalheTanque(
-            produto: 'Gasolina Premium',
-            litros: 28750,
-            data: '06/02/2025 12:00',
-            tipo: 'entrada',
-          ),
-          DetalheTanque(
-            produto: 'Saída para distribuição',
-            litros: -1250,
-            data: '04/02/2025 16:45',
-            tipo: 'saida',
-          ),
-        ],
-      ),
-      DadosTanque(
-        id: 'tanque_003',
-        nome: 'Tanque 3 - Arla 32',
-        capacidadeTotal: 20000,
-        detalhes: [
-          DetalheTanque(
-            produto: 'Arla 32',
-            litros: 15200,
-            data: '01/02/2025 09:30',
-            tipo: 'entrada',
-          ),
-          DetalheTanque(
-            produto: 'Saída para manutenção',
-            litros: -4800,
-            data: '03/02/2025 14:20',
-            tipo: 'saida',
-          ),
-        ],
-      ),
-      DadosTanque(
-        id: 'tanque_004',
-        nome: 'Tanque 4 - Querosene',
-        capacidadeTotal: 25000,
-        detalhes: [
-          DetalheTanque(
-            produto: 'Querosene',
-            litros: 22100,
-            data: '06/02/2025 08:45',
-            tipo: 'entrada',
-          ),
-          DetalheTanque(
-            produto: 'Saída para clientes',
-            litros: -2900,
-            data: '05/02/2025 13:30',
-            tipo: 'saida',
-          ),
-        ],
-      ),
-    ];
+    // Se não recebeu um terminal_id, não carrega nada
+    if (widget.filialSelecionadaId == null) {
+      setState(() {
+        tanques = [];
+        _carregando = false;
+      });
+      return;
+    }
+
+    final SupabaseClient supabase = Supabase.instance.client;
+
+    try {
+      // Busca tanques que tenham terminal_id igual ao parâmetro
+        final resp = await supabase
+          .from('tanques')
+          .select('id, referencia, capacidade, id_produto, produtos (nome)')
+          .eq('terminal_id', widget.filialSelecionadaId!)
+          .order('referencia');
+
+      final List<DadosTanque> lista = [];
+
+      final today = DateTime.now();
+      final dataStr = DateFormat('yyyy-MM-dd').format(today);
+      final inicioDia = '$dataStr 00:00:00';
+      final agoraIso = DateTime.now().toIso8601String();
+
+      for (final t in List<Map<String, dynamic>>.from(resp)) {
+        final id = t['id']?.toString() ?? '';
+        final referencia = t['referencia']?.toString() ?? 'Tanque';
+        final capacidadeVal = num.tryParse(t['capacidade']?.toString() ?? '0')?.toDouble() ?? 0.0;
+        final produtoNome = (t['produtos'] is Map) ? (t['produtos']['nome']?.toString()) : null;
+
+        // Busca estoque inicial via função (ponto de partida)
+        double estoqueInicial = 0.0;
+        try {
+          final rpc = await supabase.rpc('fn_estoque_inicial_tanque', params: {
+            'p_tanque_id': id,
+            'p_data': dataStr,
+          });
+          if (rpc != null) {
+            estoqueInicial = (rpc as num).toDouble();
+          }
+        } catch (_) {
+          estoqueInicial = 0.0;
+        }
+
+        // Soma movimentações do dia (entrada_vinte - saida_vinte) até agora
+        double entradas = 0.0;
+        double saidas = 0.0;
+        try {
+          final movsAgg = await supabase
+              .from('movimentacoes_tanque')
+              .select('sum(entrada_vinte) as e, sum(saida_vinte) as s')
+              .eq('tanque_id', id)
+              .gte('data_mov', inicioDia)
+              .lte('data_mov', agoraIso)
+              .maybeSingle();
+
+          if (movsAgg != null) {
+            final eVal = movsAgg['e'];
+            final sVal = movsAgg['s'];
+
+            if (eVal is num) {
+              entradas = eVal.toDouble();
+            } else if (eVal != null) {
+              entradas = double.tryParse(eVal.toString()) ?? 0.0;
+            } else {
+              entradas = 0.0;
+            }
+
+            if (sVal is num) {
+              saidas = sVal.toDouble();
+            } else if (sVal != null) {
+              saidas = double.tryParse(sVal.toString()) ?? 0.0;
+            } else {
+              saidas = 0.0;
+            }
+          }
+        } catch (_) {
+          entradas = 0.0;
+          saidas = 0.0;
+        }
+
+        final estoqueAtualCalc = estoqueInicial + entradas - saidas;
+
+        // Buscar últimos movimentos para detalhes (limitar a 6)
+        final detalhesResp = await supabase
+            .from('movimentacoes_tanque')
+            .select('data_mov, descricao, cliente, entrada_vinte, saida_vinte')
+            .eq('tanque_id', id)
+            .order('data_mov', ascending: false)
+            .limit(6);
+
+        final List<DetalheTanque> detalhes = [];
+        // Adiciona detalhe sintético com saldo atual calculado (ajuda a mostrar estoque na UI)
+        detalhes.add(DetalheTanque(
+          produto: produtoNome ?? 'Saldo Atual',
+          litros: estoqueAtualCalc.toDouble(),
+          data: DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now()),
+          tipo: estoqueAtualCalc >= 0 ? 'entrada' : 'saida',
+        ));
+        for (final d in List<Map<String, dynamic>>.from(detalhesResp)) {
+          final eVal = d['entrada_vinte'];
+          final sVal = d['saida_vinte'];
+
+          double entrada = 0.0;
+          double saida = 0.0;
+
+          if (eVal is num) {
+            entrada = eVal.toDouble();
+          } else if (eVal != null) {
+            entrada = double.tryParse(eVal.toString()) ?? 0.0;
+          }
+
+          if (sVal is num) {
+            saida = sVal.toDouble();
+          } else if (sVal != null) {
+            saida = double.tryParse(sVal.toString()) ?? 0.0;
+          }
+
+          final isEntrada = entrada > 0;
+          final litros = isEntrada ? entrada : -saida;
+          final descricao = (d['cliente']?.toString().isNotEmpty == true)
+              ? d['cliente'].toString()
+              : (d['descricao']?.toString() ?? '');
+
+          final dataFmt = () {
+            try {
+              final dt = DateTime.parse(d['data_mov']);
+              return DateFormat('dd/MM/yyyy HH:mm').format(dt);
+            } catch (_) {
+              return d['data_mov']?.toString() ?? '';
+            }
+          }();
+
+          detalhes.add(DetalheTanque(
+            produto: descricao,
+            litros: litros.toDouble(),
+            data: dataFmt,
+            tipo: isEntrada ? 'entrada' : 'saida',
+          ));
+        }
+
+        lista.add(DadosTanque(
+          id: id,
+          nome: '$referencia${produtoNome != null ? ' - $produtoNome' : ''}',
+          capacidadeTotal: capacidadeVal,
+          detalhes: detalhes,
+        ));
+      }
+
+      setState(() {
+        tanques = lista;
+        // garante índice válido
+        if (tanqueSelecionadoIndex >= tanques.length) tanqueSelecionadoIndex = 0;
+        _carregando = false;
+      });
+    } catch (e) {
+      // Em caso de erro, mantemos lista vazia
+      setState(() {
+        tanques = [];
+        _carregando = false;
+      });
+      debugPrint('Erro ao carregar tanques: $e');
+    }
   }
 
   @override
@@ -179,16 +270,39 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
           },
         ),
       ),
-      body: Column(
-        children: [
-          // Menu de navegação superior com os tanques
-          _construirMenuTanques(),
-          // Conteúdo principal com detalhes do tanque selecionado
-          Expanded(
-            child: _construirDetalheTanque(),
-          ),
-        ],
-      ),
+      body: _carregando
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24.0),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          : (tanques.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.storage, size: 64, color: Color(0xFF8F9BB3)),
+                        SizedBox(height: 12),
+                        Text('Nenhum tanque encontrado', style: TextStyle(fontSize: 16, color: Color(0xFF222B45))),
+                        SizedBox(height: 6),
+                        Text('Verifique a seleção do terminal ou tente recarregar.', style: TextStyle(fontSize: 13, color: Color(0xFF8F9BB3))),
+                      ],
+                    ),
+                  ),
+                )
+              : Column(
+                  children: [
+                    // Menu de navegação superior com os tanques
+                    _construirMenuTanques(),
+                    // Conteúdo principal com detalhes do tanque selecionado
+                    Expanded(
+                      child: _construirDetalheTanque(),
+                    ),
+                  ],
+                )),
     );
   }
 
