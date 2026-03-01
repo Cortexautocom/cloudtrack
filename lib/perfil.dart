@@ -15,7 +15,7 @@ class _PerfilPageState extends State<PerfilPage> {
 
   String email = "";
   String nivelTexto = "";
-  String filialNome = "";
+  String terminalNome = "";
   bool carregando = true;
 
   @override
@@ -35,31 +35,38 @@ class _PerfilPageState extends State<PerfilPage> {
     try {
       final dados = await supabase
           .from('usuarios')
-          .select('email, nivel, id_filial')
+          .select('email, nivel, terminal_id')
           .eq('id', usuario.id)
           .maybeSingle();
 
       if (dados != null) {
         email = dados['email'] ?? "";
-        nivelTexto = _traduzirNivel(dados['nivel'] ?? 1);
+        final nivel = dados['nivel'] ?? 1;
+        nivelTexto = _traduzirNivel(nivel);
 
-        final filialId = dados['id_filial'];
+        final terminalId = dados['terminal_id'];
 
-        if (filialId != null) {
-          final fil = await supabase
-              .from('filiais')
-              .select('nome')
-              .eq('id', filialId)
-              .maybeSingle();
+        // Apenas para usuários nível 1 ou 2 mostramos o terminal
+        if (nivel == 1 || nivel == 2) {
+          if (terminalId != null) {
+            final fil = await supabase
+                .from('terminais')
+                .select('nome')
+                .eq('id', terminalId)
+                .maybeSingle();
 
-          filialNome = fil?['nome'] ?? "Não encontrada";
+            terminalNome = fil?['nome'] ?? "Não encontrada";
+          } else {
+            terminalNome = "Nenhuma";
+          }
         } else {
-          filialNome = "Nenhuma";
+          // Nível 3: não mostrar campo
+          terminalNome = "";
         }
       }
     } catch (e) {
       debugPrint("❌ Erro ao carregar perfil: $e");
-      filialNome = "Erro ao carregar";
+      terminalNome = "Erro ao carregar";
     }
 
     if (mounted) {
@@ -144,7 +151,8 @@ class _PerfilPageState extends State<PerfilPage> {
                     const SizedBox(height: 25),
 
                     _infoBox("Nível de acesso", nivelTexto),
-                    _infoBox("Filial", filialNome),
+                    if ((usuario?.nivel ?? 0) == 1 || (usuario?.nivel ?? 0) == 2)
+                      _infoBox("Terminal", terminalNome),
 
                     const SizedBox(height: 30),
 
@@ -248,8 +256,8 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
   final celular = TextEditingController();
   final funcao = TextEditingController();
 
-  List<Map<String, dynamic>> filiais = [];
-  String? filialSelecionada;
+  List<Map<String, dynamic>> terminais = [];
+  String? terminalSelecionada;
 
   bool carregando = true;
 
@@ -268,7 +276,7 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
       // ----------------------------------------------------------
       final dados = await supabase
           .from('usuarios')
-          .select('nome, email, celular, funcao, id_filial')
+          .select('nome, email, celular, funcao, terminal_id')
           .eq('id', usuario.id)
           .maybeSingle();
 
@@ -279,23 +287,23 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
         celular.text = dados['celular'] ?? "";
         funcao.text = dados['funcao'] ?? "";
 
-        // 🔹 Convertendo id_filial para String
-        filialSelecionada = dados['id_filial']?.toString();
+        // 🔹 Convertendo terminal_id para String
+        terminalSelecionada = dados['terminal_id']?.toString();
       }
 
       // ----------------------------------------------------------
-      // 2️⃣ Buscar LISTA DE FILIAIS
+      // 2️⃣ Buscar LISTA DE TERMINAIS (quando aplicável)
       // ----------------------------------------------------------
-      final lista = await supabase.from("filiais").select("id, nome");
-      filiais = List<Map<String, dynamic>>.from(lista);
+      final lista = await supabase.from("terminais").select("id, nome");
+      terminais = List<Map<String, dynamic>>.from(lista);
 
       // ----------------------------------------------------------
-      // 3️⃣ Se a filial do usuário existir, garantir que ela apareça selecionada
+      // 3️⃣ Se o terminal do usuário existir, garantir que ele apareça selecionado
       // ----------------------------------------------------------
-      if (filialSelecionada != null) {
-        final existe = filiais.any((f) => f['id'].toString() == filialSelecionada);
+      if (terminalSelecionada != null) {
+        final existe = terminais.any((f) => f['id'].toString() == terminalSelecionada);
         if (!existe) {
-          filialSelecionada = null; // evita erro no dropdown
+          terminalSelecionada = null; // evita erro no dropdown
         }
       }
 
@@ -315,7 +323,7 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
         'email': email.text,
         'celular': celular.text,
         'funcao': funcao.text,
-        'id_filial': filialSelecionada,
+        'terminal_id': terminalSelecionada,
       }).eq('id', usuario.id);
 
       if (mounted) {
@@ -380,7 +388,9 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
                     _campoTexto("Função", funcao, widget.readOnly),
 
                     const SizedBox(height: 10),
-                    _dropFiliais(),
+                    // Mostrar seleção de terminal apenas para níveis 1 e 2
+                    if (UsuarioAtual.instance != null && (UsuarioAtual.instance!.nivel == 1 || UsuarioAtual.instance!.nivel == 2))
+                      _dropFiliais(),
 
                     const SizedBox(height: 25),
 
@@ -450,22 +460,22 @@ class _EditarPerfilPageState extends State<EditarPerfilPage> {
 
   Widget _dropFiliais() {
     return DropdownButtonFormField<String>(
-      initialValue: filialSelecionada,
+      initialValue: terminalSelecionada,
       decoration: InputDecoration(
-        labelText: "Filial",
+        labelText: "Terminal",
         filled: widget.readOnly,
         fillColor: widget.readOnly ? const Color.fromARGB(255, 245, 245, 245) : null,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
         ),
       ),
-      items: filiais.map((f) {
+      items: terminais.map((f) {
         return DropdownMenuItem<String>(
           value: f['id'].toString(),
           child: Text(f['nome'].toString()),
         );
       }).toList(),
-      onChanged: widget.readOnly ? null : (v) => setState(() => filialSelecionada = v),
+      onChanged: widget.readOnly ? null : (v) => setState(() => terminalSelecionada = v),
     );
   }
 }
