@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../login_page.dart';
 
 class TemperaturaDensidadeMediaPage extends StatefulWidget {
   final VoidCallback? onVoltar;
@@ -19,6 +18,9 @@ class _TemperaturaDensidadeMediaPageState
   bool _carregando = true;
   bool _erro = false;
   String _mensagemErro = '';
+  List<Map<String, dynamic>> _terminais = [];
+  String? _selectedTerminalId;
+  bool _carregandoTerminais = true;
   
   final TextEditingController _dataController = TextEditingController();
   final TextEditingController _placaController = TextEditingController();
@@ -31,9 +33,15 @@ class _TemperaturaDensidadeMediaPageState
   void initState() {
     super.initState();
 
+    // Preencher campo de data com data atual ao abrir a página
+    final agora = DateTime.now();
+    _dataController.text =
+        '${agora.day.toString().padLeft(2, '0')}/${agora.month.toString().padLeft(2, '0')}/${agora.year}';
+
     // não são necessários listeners horizontais para a tabela simples
 
-    _carregarDados();
+    // carregar lista de terminais para o dropdown
+    _carregarTerminais();
   }
 
   @override
@@ -45,85 +53,112 @@ class _TemperaturaDensidadeMediaPageState
     super.dispose();
   }
 
-  Future<void> _carregarDados({bool carregarMais = false}) async {
-    if (carregarMais) return;
+  Future<void> _carregarTerminais() async {
     setState(() {
-      _carregando = true;
-      _erro = false;
-      _registros = []; // Limpa registros ao recarregar
+      _carregandoTerminais = true;
     });
 
     try {
-      // Obter usuário atual da instância global (filial/empresa são opcionais aqui)
-      final usuario = UsuarioAtual.instance;
-      if (usuario == null) {
-        throw Exception('Usuário não autenticado. Faça login novamente.');
-      }
+      final resp = await _supabase
+          .from('terminais')
+          .select('id,nome')
+          .order('nome', ascending: true)
+          .limit(1000);
 
-      final filialId = usuario.filialId;
-      final empresaId = usuario.empresaId;
-
-      debugPrint('🔍 Consultando para filial: $filialId, empresa: $empresaId');
-
-      // Converter filtro de data
-      DateTime? dataFiltro;
-      if (_dataController.text.trim().isNotEmpty) {
-        try {
-          final partes = _dataController.text.trim().split('/');
-          if (partes.length == 3) {
-            dataFiltro = DateTime(
-              int.parse(partes[2]),
-              int.parse(partes[1]),
-              int.parse(partes[0]),
-            );
-          } else if (_dataController.text.trim().contains('-')) {
-            dataFiltro = DateTime.parse(_dataController.text.trim());
-          }
-        } catch (e) {
-          debugPrint("Erro ao converter data: $e");
-        }
-      }
-      
-      // Se não houver filtro de data, usa data atual
-      dataFiltro ??= DateTime.now();
-      final dataInicio = DateTime(dataFiltro.year, dataFiltro.month, dataFiltro.day);
-      final dataFim = DateTime(dataFiltro.year, dataFiltro.month, dataFiltro.day, 23, 59, 59);
-
-      debugPrint('📅 Data consulta: ${dataInicio.toIso8601String()} até ${dataFim.toIso8601String()}');
-
-      // Consulta simplificada: buscar ordens_analises com JOIN em movimentacoes
-        debugPrint('📋 Consultando ordens_analises (sem filtro de filial/empresa)');
-
-          final resp = await _supabase
-            .from('ordens_analises')
-            .select('id, densidade_observada, temperatura_amostra, temperatura_ct, produto_nome, placa_cavalo, movimentacoes!inner(cliente)')
-            .order('id', ascending: false)
-            .limit(200);
-
-      // resp deve ser uma lista de registros retornada pelo Supabase
       final List<dynamic> lista = resp;
 
-      final registrosTransformados = lista.map<Map<String, dynamic>>((row) {
-        String descricao = '';
-        String placa = row['placa_cavalo']?.toString() ?? '';
-        final movs = row['movimentacoes'] as List?;
-        if (movs != null && movs.isNotEmpty) {
-          final m = movs.first;
-          descricao = m['cliente']?.toString() ?? '';
+      setState(() {
+        _terminais = lista.map<Map<String, dynamic>>((t) {
+          return {
+            'id': t['id']?.toString() ?? '',
+            'nome': t['nome']?.toString() ?? '',
+          };
+        }).toList();
+
+        // Selecionar automaticamente o primeiro terminal, se houver
+        if (_terminais.isNotEmpty) {
+          _selectedTerminalId = _terminais.first['id']?.toString();
         }
 
-        final produto = row['produto_nome']?.toString() ?? '';
-        final densidade = row['densidade_observada'];
-        final tempAmostra = row['temperatura_amostra'];
-        final tempCt = row['temperatura_ct'];
+        _carregandoTerminais = false;
+      });
+
+      // Carregar dados usando o terminal selecionado (ou sem filtro se nenhum)
+      _carregarDados();
+    } catch (e) {
+      debugPrint('❌ Erro ao carregar terminais: $e');
+      setState(() {
+        _carregandoTerminais = false;
+      });
+    }
+  }
+
+  Future<void> _carregarDados({bool carregarMais = false}) async {
+    if (carregarMais) return;
+
+    setState(() {
+      _carregando = true;
+      _erro = false;
+      _registros = [];
+    });
+
+    try {
+      debugPrint('==============================');
+      debugPrint('🚀 INÍCIO _carregarDados (SEM FILTROS)');
+
+      final resp = await _supabase
+          .from('ordens_analises')
+          .select('''
+            id,
+            terminal_id,
+            data_criacao,
+            densidade_observada,
+            temperatura_amostra,
+            temperatura_ct,
+            produto_nome,
+            placa_cavalo,
+            terminais(nome),
+            movimentacoes(cliente)
+          ''')
+          .order('data_criacao', ascending: false)
+          .limit(1000);
+
+      debugPrint('📦 Total retornado: ${resp.length}');
+
+      final List<dynamic> lista = resp;
+
+      final registrosTransformados =
+          lista.map<Map<String, dynamic>>((row) {
+
+        String descricao = '';
+        String placa = row['placa_cavalo']?.toString() ?? '';
+
+        // ===== CORREÇÃO AQUI =====
+        final movs = row['movimentacoes'];
+
+        if (movs is List && movs.isNotEmpty) {
+          descricao = movs.first['cliente']?.toString() ?? '';
+        } 
+        else if (movs is Map<String, dynamic>) {
+          descricao = movs['cliente']?.toString() ?? '';
+        }
+
+        String terminalNome = '';
+        final term = row['terminais'];
+
+        if (term is Map<String, dynamic>) {
+          terminalNome = term['nome']?.toString() ?? '';
+        }
 
         return {
           'descricao': descricao,
           'placa': placa,
-          'produto': produto,
-          'densidade': densidade,
-          'temp_amostra': tempAmostra,
-          'temp_ct': tempCt,
+          'produto': row['produto_nome'],
+          'densidade': row['densidade_observada'],
+          'temp_amostra': row['temperatura_amostra'],
+          'temp_ct': row['temperatura_ct'],
+          'terminal': terminalNome,
+          'terminal_id': row['terminal_id'],
         };
       }).toList();
 
@@ -133,15 +168,16 @@ class _TemperaturaDensidadeMediaPageState
       });
 
     } catch (e, stackTrace) {
-      debugPrint("❌ Erro ao carregar temperatura e densidade média: $e");
-      debugPrint("📝 Stack trace: $stackTrace");
-      
+      debugPrint('❌ ERRO NA CONSULTA');
+      debugPrint(e.toString());
+      debugPrint(stackTrace.toString());
+
       setState(() {
         _erro = true;
         _mensagemErro = e.toString();
         _carregando = false;
       });
-      
+
       if (!carregarMais && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -157,12 +193,19 @@ class _TemperaturaDensidadeMediaPageState
 
   List<Map<String, dynamic>> get _registrosFiltrados {
     final placaFiltro = _placaController.text.trim().toLowerCase();
+    final terminalFiltro = _selectedTerminalId;
 
     return _registros.where((r) {
       if (placaFiltro.isNotEmpty) {
         final placa = r['placa']?.toString().toLowerCase() ?? '';
-        return placa.contains(placaFiltro);
+        if (!placa.contains(placaFiltro)) return false;
       }
+
+      if (terminalFiltro != null && terminalFiltro.isNotEmpty) {
+        final recTerminalId = r['terminal_id']?.toString() ?? '';
+        if (recTerminalId != terminalFiltro) return false;
+      }
+
       return true;
     }).toList();
   }
@@ -386,6 +429,67 @@ class _TemperaturaDensidadeMediaPageState
     );
   }
 
+  Widget _buildTerminalDropdown() {
+    return Container(
+      width: 200,
+      height: 40,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        children: [
+          const SizedBox(width: 4),
+          Icon(Icons.store, color: Colors.grey.shade600, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _carregandoTerminais
+                ? const SizedBox(
+                    height: 20,
+                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                  )
+                : DropdownButtonHideUnderline(
+                    child: DropdownButton<String?>(
+                      isExpanded: true,
+                      value: _selectedTerminalId,
+                      hint: const Text('Terminal', style: TextStyle(fontSize: 13)),
+                      items: _terminais.map((t) {
+                        return DropdownMenuItem<String?>(
+                          value: t['id']?.toString(),
+                          child: Text(
+                            t['nome']?.toString() ?? '',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (v) {
+                        setState(() {
+                          _selectedTerminalId = v;
+                        });
+                        _carregarDados();
+                      },
+                    ),
+                  ),
+          ),
+          if (_selectedTerminalId != null && _selectedTerminalId!.isNotEmpty)
+            IconButton(
+              icon: Icon(Icons.clear, color: Colors.grey.shade600, size: 20),
+              onPressed: () {
+                setState(() {
+                  _selectedTerminalId = null;
+                });
+                _carregarDados();
+              },
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_carregando && _registros.isEmpty) {
@@ -444,6 +548,11 @@ class _TemperaturaDensidadeMediaPageState
                   margin: const EdgeInsets.only(right: 12),
                   child: _buildPlacaSearchField(),
                 ),
+                Container(
+                  width: 200,
+                  margin: const EdgeInsets.only(right: 12),
+                  child: _buildTerminalDropdown(),
+                ),
                 IconButton(
                   icon: const Icon(Icons.refresh, color: Colors.black),
                   onPressed: () => _carregarDados(),
@@ -471,8 +580,10 @@ class _TemperaturaDensidadeMediaPageState
   Widget _buildTable(List<Map<String, dynamic>> registros) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        return Column(
-          children: [
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(30, 10, 30, 0),
+          child: Column(
+            children: [
             // Cabeçalho da tabela (mesmo estilo de estoque_tanques_geral)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -635,7 +746,8 @@ class _TemperaturaDensidadeMediaPageState
                 ),
               ),
             ),
-          ],
+            ],
+          ),
         );
       },
     );
