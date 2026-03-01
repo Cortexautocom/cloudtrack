@@ -228,8 +228,10 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
         ));
       }
 
+      // Inverter ordem para que os tanques apareçam em ordem crescente
+      final ordered = lista.reversed.toList();
       setState(() {
-        tanques = lista;
+        tanques = ordered;
         // garante índice válido
         if (tanqueSelecionadoIndex >= tanques.length) tanqueSelecionadoIndex = 0;
         _carregando = false;
