@@ -605,6 +605,7 @@ class _TemperaturaDensidadeMediaPageState
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
                   Expanded(
@@ -616,7 +617,7 @@ class _TemperaturaDensidadeMediaPageState
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
-                      textAlign: TextAlign.right,
+                      textAlign: TextAlign.center,
                     ),
                   ),
                   Expanded(
@@ -628,7 +629,7 @@ class _TemperaturaDensidadeMediaPageState
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
-                      textAlign: TextAlign.right,
+                      textAlign: TextAlign.center,
                     ),
                   ),
                   Expanded(
@@ -640,7 +641,7 @@ class _TemperaturaDensidadeMediaPageState
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
-                      textAlign: TextAlign.right,
+                      textAlign: TextAlign.center,
                     ),
                   ),
                   Expanded(
@@ -652,7 +653,7 @@ class _TemperaturaDensidadeMediaPageState
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
-                      textAlign: TextAlign.right,
+                      textAlign: TextAlign.center,
                     ),
                   ),
                   Expanded(
@@ -664,7 +665,7 @@ class _TemperaturaDensidadeMediaPageState
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
-                      textAlign: TextAlign.right,
+                      textAlign: TextAlign.center,
                     ),
                   ),
                 ],
@@ -686,24 +687,22 @@ class _TemperaturaDensidadeMediaPageState
                         children: [
                           Expanded(
                             flex: 3,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  r['descricao']?.toString() ?? '',
-                                  style: const TextStyle(
-                                    color: Color(0xFF222B45),
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                            child: Center(
+                              child: Text(
+                                r['descricao']?.toString() ?? '',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: Color(0xFF222B45),
+                                  fontWeight: FontWeight.bold,
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                           Expanded(
                             flex: 2,
                             child: Text(
                               r['placa']?.toString() ?? '',
-                              textAlign: TextAlign.right,
+                              textAlign: TextAlign.center,
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
@@ -711,7 +710,7 @@ class _TemperaturaDensidadeMediaPageState
                             flex: 2,
                             child: Text(
                               r['produto']?.toString() ?? '',
-                              textAlign: TextAlign.right,
+                              textAlign: TextAlign.center,
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
@@ -719,7 +718,7 @@ class _TemperaturaDensidadeMediaPageState
                             flex: 2,
                             child: Text(
                               r['densidade']?.toString() ?? '',
-                              textAlign: TextAlign.right,
+                              textAlign: TextAlign.center,
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
@@ -727,7 +726,7 @@ class _TemperaturaDensidadeMediaPageState
                             flex: 2,
                             child: Text(
                               r['temp_amostra']?.toString() ?? '',
-                              textAlign: TextAlign.right,
+                              textAlign: TextAlign.center,
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
@@ -735,7 +734,7 @@ class _TemperaturaDensidadeMediaPageState
                             flex: 2,
                             child: Text(
                               r['temp_ct']?.toString() ?? '',
-                              textAlign: TextAlign.right,
+                              textAlign: TextAlign.center,
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
