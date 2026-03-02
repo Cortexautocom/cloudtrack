@@ -494,19 +494,19 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                 children: [
                   _construirInfoMini(
                     'Estoque Atual',
-                    '${formatNumber(tanque.estoqueAtual)} L',
+                    '${formatNumber(tanque.estoqueAtual * 1000)} L',
                     const Color(0xFF3366FF),
                   ),
                   const SizedBox(width: 20),
                   _construirInfoMini(
                     'Capacidade',
-                    '${formatNumber(tanque.capacidadeTotal)} L',
+                    '${formatNumber(tanque.capacidadeTotal * 1000)} L',
                     const Color(0xFFFFA000),
                   ),
                   const SizedBox(width: 20),
                   _construirInfoMini(
                     'Espaço Livre',
-                    '${formatNumber(tanque.capacidadeTotal - tanque.estoqueAtual)} L',
+                    '${formatNumber((tanque.capacidadeTotal - tanque.estoqueAtual) * 1000)} L',
                     const Color(0xFF00B686),
                   ),
                 ],
@@ -590,9 +590,9 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                       flex: (proporcaoLastro * 1000).toInt(),
                       child: Container(
                         color: const Color(0xFFFF3D71), // Vermelho
-                        child: Center(
+                          child: Center(
                           child: Text(
-                            '${formatNumber(lastroMinimo)}L',
+                            '${formatNumber(lastroMinimo * 1000)} L',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 11,
@@ -609,9 +609,9 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                       flex: (proporcaoProduto * 1000).toInt(),
                       child: Container(
                         color: const Color(0xFF3366FF), // Azul
-                        child: Center(
+                          child: Center(
                           child: Text(
-                            '${formatNumber(produtoDisponivel)}L',
+                            '${formatNumber(produtoDisponivel * 1000)} L',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 11,
@@ -628,9 +628,9 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                       flex: (proporcaoEspaco * 1000).toInt(),
                       child: Container(
                         color: const Color(0xFFE0E3EB), // Cinza
-                        child: Center(
+                          child: Center(
                           child: Text(
-                            '${formatNumber(espacoLivre)}L',
+                            '${formatNumber(espacoLivre * 1000)} L',
                             style: const TextStyle(
                               color: Color(0xFF222B45),
                               fontSize: 11,
@@ -672,17 +672,17 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
               children: [
                 _construirInfoBarra(
                   'Lastro Mínimo',
-                  '${formatNumber(lastroMinimo)} L',
+                  '${formatNumber(lastroMinimo * 1000)} L',
                   const Color(0xFFFF3D71),
                 ),
                 _construirInfoBarra(
                   'Produto Disponível',
-                  '${formatNumber(produtoDisponivel)} L',
+                  '${formatNumber(produtoDisponivel * 1000)} L',
                   const Color(0xFF3366FF),
                 ),
                 _construirInfoBarra(
                   'Espaço Livre',
-                  '${formatNumber(espacoLivre)} L',
+                  '${formatNumber(espacoLivre * 1000)} L',
                   const Color(0xFF8F9BB3),
                 ),
               ],
@@ -740,10 +740,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
       ],
     );
   }
-
-  /// ===============================
-  /// TABELA COM DETALHES
-  /// ===============================
+  
   Widget _construirTabelaDetalhes(DadosTanque tanque) {
     return Container(
       decoration: BoxDecoration(
@@ -785,7 +782,19 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                 Expanded(
                   flex: 2,
                   child: Text(
-                    'Volume (L)',
+                    'Entrada',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Saída',
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -815,6 +824,20 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
             final detalhe = tanque.detalhes[index];
             final isAlternado = index.isEven;
             final isEntrada = detalhe.tipo == 'entrada';
+            final isAbertura = index == 0;
+
+            // Define o texto da descrição
+            String textoDescricao;
+            String textoTipo;
+
+            if (isAbertura) {
+              // Primeira linha (saldo atual) - mostra "Abertura" e sem tipo
+              textoDescricao = "Abertura";
+              textoTipo = "";
+            } else {
+              textoDescricao = detalhe.produto;
+              textoTipo = isEntrada ? 'Entrada' : 'Saída';
+            }
 
             return Container(
               color: isAlternado ? const Color(0xFFF0F1F6) : const Color(0xFFF8F9FA),
@@ -826,34 +849,65 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          detalhe.produto,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                            color: Color(0xFF222B45),
+                        isAbertura
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF7F8FA),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFF00B686)),
+                                ),
+                                child: Text(
+                                  textoDescricao,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                    color: Color(0xFF00B686),
+                                  ),
+                                ),
+                              )
+                            : Text(
+                                textoDescricao,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: Color(0xFF222B45),
+                                ),
+                              ),
+                        if (textoTipo.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            textoTipo,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isEntrada ? const Color(0xFF00B686) : const Color(0xFFFF3D71),
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          isEntrada ? 'Entrada' : 'Saída',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: isEntrada ? const Color(0xFF00B686) : const Color(0xFFFF3D71),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
                   Expanded(
                     flex: 2,
                     child: Text(
-                      '${isEntrada ? '+' : '-'} ${formatNumber(detalhe.litros.abs())}',
+                      isEntrada ? '+ ${formatNumber(detalhe.litros.abs())}' : '',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
-                        color: isEntrada ? const Color(0xFF00B686) : const Color(0xFFFF3D71),
+                        color: const Color(0xFF00B686),
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      !isEntrada ? '${formatNumber(detalhe.litros.abs())}' : '',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: const Color(0xFFFF3D71),
                       ),
                       textAlign: TextAlign.right,
                     ),
