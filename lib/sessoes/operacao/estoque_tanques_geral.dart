@@ -152,7 +152,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
 
       setState(() {
         tanques = lista;
-        tanqueSelecionadoIndex = 0;
+        tanqueSelecionadoIndex = lista.isNotEmpty ? lista.length - 1 : 0;
         _carregando = false;
       });
     } catch (e) {
@@ -386,7 +386,17 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
   /// ===============================
   /// CARD COM INFORMAÇÕES PRINCIPAIS
   /// ===============================
-  Widget _construirCardInformacoesAlterar(DadosTanque tanque, double percentual) {
+  Widget _construirCardInformacoesAlterar(
+      DadosTanque tanque, double percentual) {
+
+    final double capacidade = tanque.capacidadeTotal;
+    final double estoqueAtual = tanque.estoqueAtual.clamp(0, capacidade);
+    final double lastro = tanque.lastro.clamp(0, capacidade);
+    final double estoqueDisponivel =
+        (estoqueAtual - lastro).clamp(0, capacidade);
+    final double espacoLivre =
+        (capacidade - estoqueAtual).clamp(0, capacidade);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -415,29 +425,45 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                 ),
               ),
               const SizedBox(height: 12),
-              Row(
+
+              Wrap(
+                spacing: 20,
+                runSpacing: 8,
                 children: [
-                    _construirInfoMini(
-                    'Estoque Atual',
-                    '${formatNumber(tanque.estoqueAtual)} L',
-                    const Color(0xFF3366FF),
-                  ),
-                  const SizedBox(width: 20),
-                  _construirInfoMini(
-                    'Capacidade',
-                    '${formatNumber(tanque.capacidadeTotal)} L',
-                    const Color(0xFFFFA000),
-                  ),
-                  const SizedBox(width: 20),
-                  _construirInfoMini(
-                    'Espaço Livre',
-                    '${formatNumber((tanque.capacidadeTotal - tanque.estoqueAtual))} L',
-                    const Color(0xFF00B686),
-                  ),
+
+                      // 🟡 CAPACIDADE (mover para primeiro)
+                      _construirInfoMini(
+                        'Capacidade',
+                        '${formatNumber(capacidade)} L',
+                        const Color.fromARGB(255, 69, 69, 69),
+                      ),
+
+                      // 🟣 ESTOQUE ATUAL
+                      _construirInfoMini(
+                        'Estoque Atual',
+                        '${formatNumber(estoqueAtual)} L',
+                        const Color(0xFF6A1B9A), // Roxo
+                      ),
+
+                      // 🟢 ESTOQUE DISPONÍVEL (agora verde)
+                      _construirInfoMini(
+                        'Estoque Disponível',
+                        '${formatNumber(estoqueDisponivel)} L',
+                        const Color(0xFF00B686), // Verde normal
+                      ),
+
+                      // ⚫ ESPAÇO LIVRE
+                      _construirInfoMini(
+                        'Espaço Livre',
+                        '${formatNumber(espacoLivre)} L',
+                        const Color(0xFF424242), // Cinza escuro
+                      ),
                 ],
               ),
             ],
           ),
+
+          // CÍRCULO DE PERCENTUAL
           Container(
             width: 80,
             height: 80,
@@ -542,7 +568,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                     Expanded(
                       flex: (propProduto * 1000).toInt(),
                       child: Container(
-                        color: const Color(0xFF3366FF),
+                        color: const Color(0xFF00B686),
                         alignment: Alignment.center,
                         child: Text(
                           formatNumber(produtoDisponivel),
@@ -584,7 +610,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
             children: [
               _legendaItem(const Color(0xFFFF3D71), "Lastro"),
               const SizedBox(width: 14),
-              _legendaItem(const Color(0xFF3366FF), "Estoque Disponível"),
+              _legendaItem(const Color(0xFF00B686), "Estoque Disponível"),
               const SizedBox(width: 14),
               _legendaItem(const Color(0xFFE0E3EB), "Espaço Livre"),
             ],
@@ -822,10 +848,11 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
   /// ===============================
   Widget _construirInfoMini(String label, String valor, Color cor) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
           label,
+          textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: 11,
             color: Color(0xFF8F9BB3),
@@ -835,6 +862,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
         const SizedBox(height: 4),
         Text(
           valor,
+          textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
