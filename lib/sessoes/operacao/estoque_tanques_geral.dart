@@ -19,11 +19,9 @@ class DadosTanque {
   });
 
   double get estoqueAtual {
-    double total = 0;
-    for (var detalhe in detalhes) {
-      total += detalhe.litros;
-    }
-    return total.clamp(0, capacidadeTotal);
+    if (detalhes.isEmpty) return 0;
+    // A primeira posição sempre é a Abertura (saldo real calculado)
+    return detalhes.first.litros.clamp(0, capacidadeTotal);
   }
   
   double get percentualPreenchimento =>
@@ -74,9 +72,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
   }
 
   Future<void> _carregarDadosTanques() async {
-    setState(() {
-      _carregando = true;
-    });
+    setState(() => _carregando = true);
 
     if (widget.filialSelecionadaId == null) {
       setState(() {
@@ -86,156 +82,80 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
       return;
     }
 
-    final SupabaseClient supabase = Supabase.instance.client;
+    final supabase = Supabase.instance.client;
 
     try {
       final resp = await supabase
           .from('tanques')
-          .select('id, referencia, capacidade, id_produto, produtos (nome)')
+          .select('id, referencia, capacidade, produtos (nome)')
           .eq('terminal_id', widget.filialSelecionadaId!)
           .order('referencia');
 
       final List<DadosTanque> lista = [];
 
       final now = DateTime.now();
-      final inicioDia = DateTime(now.year, now.month, now.day);
-      final inicioDiaIso = inicioDia.toIso8601String();
-      final agoraIso = now.toIso8601String();
       final dataStr = DateFormat('yyyy-MM-dd').format(now);
 
+      debugPrint("\n===== INÍCIO CARGA TANQUES =====");
+
       for (final t in List<Map<String, dynamic>>.from(resp)) {
-        final id = t['id']?.toString() ?? '';
+        final id = t['id'].toString();
         final referencia = t['referencia']?.toString() ?? 'Tanque';
-        final capacidadeVal =
-            num.tryParse(t['capacidade']?.toString() ?? '0')?.toDouble() ?? 0.0;
-        final produtoNome =
-            (t['produtos'] is Map) ? (t['produtos']['nome']?.toString()) : null;
+
+        // 🔥 Agora vem como numeric direto
+        final capacidadeVal = (t['capacidade'] as num).toDouble();
+
+        debugPrint("\n--- TANQUE $referencia ---");
+        debugPrint("Capacidade (numeric): $capacidadeVal L");
 
         double estoqueInicial = 0.0;
-        try {
-          final rpc = await supabase.rpc('fn_estoque_inicial_tanque', params: {
-            'p_tanque_id': id,
-            'p_data': dataStr,
-          });
-          if (rpc != null) {
-            estoqueInicial = (rpc as num).toDouble();
-          }
-        } catch (_) {
-          estoqueInicial = 0.0;
-        }
-
-        double entradas = 0.0;
-        double saidas = 0.0;
 
         try {
-          final movsAgg = await supabase
-              .from('movimentacoes_tanque')
-              .select('sum(entrada_vinte) as e, sum(saida_vinte) as s')
-              .eq('tanque_id', id)
-              .gte('data_mov', inicioDiaIso)
-              .lte('data_mov', agoraIso)
-              .maybeSingle();
+          final rpc = await supabase.rpc(
+            'fn_estoque_inicial_tanque',
+            params: {
+              'p_tanque_id': id,
+              'p_data': dataStr,
+            },
+          );
 
-          if (movsAgg != null) {
-            final eVal = movsAgg['e'];
-            final sVal = movsAgg['s'];
-
-            entradas = eVal is num
-                ? eVal.toDouble()
-                : double.tryParse(eVal?.toString() ?? '0') ?? 0.0;
-
-            saidas = sVal is num
-                ? sVal.toDouble()
-                : double.tryParse(sVal?.toString() ?? '0') ?? 0.0;
-          }
-        } catch (_) {
-          entradas = 0.0;
-          saidas = 0.0;
+          estoqueInicial = (rpc as num?)?.toDouble() ?? 0.0;
+        } catch (e) {
+          debugPrint("Erro RPC estoque inicial: $e");
         }
 
-        final estoqueAtualCalc = estoqueInicial + entradas - saidas;
+        debugPrint("Estoque Inicial: $estoqueInicial L");
 
-        // 🔹 Agora filtra no próprio Supabase apenas movimentações do dia atual
-        final detalhesResp = await supabase
-            .from('movimentacoes_tanque')
-            .select(
-                'data_mov, descricao, cliente, entrada_vinte, saida_vinte')
-            .eq('tanque_id', id)
-            .gte('data_mov', inicioDiaIso)
-            .lte('data_mov', agoraIso)
-            .order('data_mov', ascending: false)
-            .limit(20);
-
-        final List<DetalheTanque> detalhes = [];
-
-        // Abertura permanece igual
-        detalhes.add(DetalheTanque(
-          produto: produtoNome ?? 'Saldo Atual',
-          litros: estoqueAtualCalc,
-          data: DateFormat('dd/MM/yyyy HH:mm').format(now),
-          tipo: estoqueAtualCalc >= 0 ? 'entrada' : 'saida',
-        ));
-
-        for (final d in List<Map<String, dynamic>>.from(detalhesResp)) {
-          final eVal = d['entrada_vinte'];
-          final sVal = d['saida_vinte'];
-
-          double entrada = eVal is num
-              ? eVal.toDouble()
-              : double.tryParse(eVal?.toString() ?? '0') ?? 0.0;
-
-          double saida = sVal is num
-              ? sVal.toDouble()
-              : double.tryParse(sVal?.toString() ?? '0') ?? 0.0;
-
-          final isEntrada = entrada > 0;
-          final litros = isEntrada ? entrada : -saida;
-
-          final descricao = (d['cliente']?.toString().isNotEmpty == true)
-              ? d['cliente'].toString()
-              : (d['descricao']?.toString() ?? '');
-
-          final dataFmt = () {
-            try {
-              final dt = DateTime.parse(d['data_mov']);
-              return DateFormat('dd/MM/yyyy HH:mm').format(dt);
-            } catch (_) {
-              return d['data_mov']?.toString() ?? '';
-            }
-          }();
-
-          detalhes.add(DetalheTanque(
-            produto: descricao,
-            litros: litros,
-            data: dataFmt,
-            tipo: isEntrada ? 'entrada' : 'saida',
-          ));
-        }
+        final detalhes = [
+          DetalheTanque(
+            produto: "Saldo Atual",
+            litros: estoqueInicial,
+            data: DateFormat('dd/MM/yyyy HH:mm').format(now),
+            tipo: estoqueInicial >= 0 ? 'entrada' : 'saida',
+          ),
+        ];
 
         lista.add(DadosTanque(
           id: id,
-          nome:
-              '$referencia${produtoNome != null ? ' - $produtoNome' : ''}',
+          nome: referencia,
           capacidadeTotal: capacidadeVal,
           detalhes: detalhes,
         ));
       }
 
-      final ordered = lista.reversed.toList();
+      debugPrint("\n===== FIM CARGA TANQUES =====\n");
 
       setState(() {
-        tanques = ordered;
-        if (tanqueSelecionadoIndex >= tanques.length) {
-          tanqueSelecionadoIndex = 0;
-        }
+        tanques = lista;
+        tanqueSelecionadoIndex = 0;
         _carregando = false;
       });
     } catch (e) {
+      debugPrint("ERRO GERAL: $e");
       setState(() {
         tanques = [];
         _carregando = false;
       });
-      debugPrint('Erro ao carregar tanques: $e');
     }
   }
 
@@ -301,31 +221,34 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     );
   }
 
-  /// ===============================
-  /// MENU SUPERIOR DE NAVEGAÇÃO COM EFEITO HOVER
-  /// ===============================
   Widget _construirMenuTanques() {
+    final tanquesInvertidos = tanques.reversed.toList();
+
     return Container(
       color: const Color(0xFFF8F9FA),
       child: Column(
         children: [
-          // Adiciona padding vertical extra para evitar "empurrar" ao fazer hover
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
-              children: List.generate(tanques.length, (index) {
-                final tanque = tanques[index];
-                final isSelected = tanqueSelecionadoIndex == index;
-                final isHovered = _hoverIndex == index;
+              children: List.generate(tanquesInvertidos.length, (index) {
+                final tanque = tanquesInvertidos[index];
+
+                // 🔥 Precisamos mapear o índice invertido para o índice real
+                final realIndex = tanques.length - 1 - index;
+
+                final isSelected = tanqueSelecionadoIndex == realIndex;
+                final isHovered = _hoverIndex == realIndex;
 
                 return Padding(
-                  padding: EdgeInsets.only(right: index < tanques.length - 1 ? 12 : 0),
+                  padding: EdgeInsets.only(
+                      right: index < tanquesInvertidos.length - 1 ? 12 : 0),
                   child: MouseRegion(
                     cursor: SystemMouseCursors.click,
                     onEnter: (_) {
                       setState(() {
-                        _hoverIndex = index;
+                        _hoverIndex = realIndex;
                       });
                     },
                     onExit: (_) {
@@ -336,15 +259,15 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                     child: GestureDetector(
                       onTap: () {
                         setState(() {
-                          tanqueSelecionadoIndex = index;
+                          tanqueSelecionadoIndex = realIndex;
                         });
                       },
                       child: SizedBox(
-                        height: 62, // altura aumentada para acomodar o scale sem overflow
+                        height: 62,
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 180),
                           curve: Curves.easeOut,
-                            transform: isHovered && !isSelected
+                          transform: isHovered && !isSelected
                               ? (Matrix4.identity()..scale(1.0, 1.08))
                               : Matrix4.identity(),
                           padding: const EdgeInsets.symmetric(
@@ -369,7 +292,8 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                             boxShadow: isHovered && !isSelected
                                 ? [
                                     BoxShadow(
-                                      color: const Color(0xFF3366FF).withOpacity(0.2),
+                                      color: const Color(0xFF3366FF)
+                                          .withOpacity(0.2),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     )
@@ -386,8 +310,9 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                                       ? const Color(0xFFF8F9FA)
                                       : const Color(0xFF222B45),
                                   fontSize: 12,
-                                  fontWeight:
-                                      isSelected || isHovered ? FontWeight.w600 : FontWeight.w500,
+                                  fontWeight: isSelected || isHovered
+                                      ? FontWeight.w600
+                                      : FontWeight.w500,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -401,7 +326,9 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                                             ? const Color(0xFF3366FF)
                                             : const Color(0xFF8F9BB3)),
                                     fontSize: 10,
-                                    fontWeight: isHovered ? FontWeight.w600 : FontWeight.w400,
+                                    fontWeight: isHovered
+                                        ? FontWeight.w600
+                                        : FontWeight.w400,
                                   ),
                                 ),
                             ],
@@ -414,7 +341,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
               }),
             ),
           ),
-          const SizedBox(height: 8), // Espaço entre botões e linha divisória
+          const SizedBox(height: 8),
           Container(
             height: 1,
             color: const Color(0xFFE0E3EB),
