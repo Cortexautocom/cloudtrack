@@ -72,12 +72,12 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     super.initState();
     _carregarDadosTanques();
   }
+
   Future<void> _carregarDadosTanques() async {
     setState(() {
       _carregando = true;
     });
 
-    // Se não recebeu um terminal_id, não carrega nada
     if (widget.filialSelecionadaId == null) {
       setState(() {
         tanques = [];
@@ -89,8 +89,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     final SupabaseClient supabase = Supabase.instance.client;
 
     try {
-      // Busca tanques que tenham terminal_id igual ao parâmetro
-        final resp = await supabase
+      final resp = await supabase
           .from('tanques')
           .select('id, referencia, capacidade, id_produto, produtos (nome)')
           .eq('terminal_id', widget.filialSelecionadaId!)
@@ -98,18 +97,20 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
 
       final List<DadosTanque> lista = [];
 
-      final today = DateTime.now();
-      final dataStr = DateFormat('yyyy-MM-dd').format(today);
-      final inicioDia = '$dataStr 00:00:00';
-      final agoraIso = DateTime.now().toIso8601String();
+      final now = DateTime.now();
+      final inicioDia = DateTime(now.year, now.month, now.day);
+      final inicioDiaIso = inicioDia.toIso8601String();
+      final agoraIso = now.toIso8601String();
+      final dataStr = DateFormat('yyyy-MM-dd').format(now);
 
       for (final t in List<Map<String, dynamic>>.from(resp)) {
         final id = t['id']?.toString() ?? '';
         final referencia = t['referencia']?.toString() ?? 'Tanque';
-        final capacidadeVal = num.tryParse(t['capacidade']?.toString() ?? '0')?.toDouble() ?? 0.0;
-        final produtoNome = (t['produtos'] is Map) ? (t['produtos']['nome']?.toString()) : null;
+        final capacidadeVal =
+            num.tryParse(t['capacidade']?.toString() ?? '0')?.toDouble() ?? 0.0;
+        final produtoNome =
+            (t['produtos'] is Map) ? (t['produtos']['nome']?.toString()) : null;
 
-        // Busca estoque inicial via função (ponto de partida)
         double estoqueInicial = 0.0;
         try {
           final rpc = await supabase.rpc('fn_estoque_inicial_tanque', params: {
@@ -123,15 +124,15 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
           estoqueInicial = 0.0;
         }
 
-        // Soma movimentações do dia (entrada_vinte - saida_vinte) até agora
         double entradas = 0.0;
         double saidas = 0.0;
+
         try {
           final movsAgg = await supabase
               .from('movimentacoes_tanque')
               .select('sum(entrada_vinte) as e, sum(saida_vinte) as s')
               .eq('tanque_id', id)
-              .gte('data_mov', inicioDia)
+              .gte('data_mov', inicioDiaIso)
               .lte('data_mov', agoraIso)
               .maybeSingle();
 
@@ -139,21 +140,13 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
             final eVal = movsAgg['e'];
             final sVal = movsAgg['s'];
 
-            if (eVal is num) {
-              entradas = eVal.toDouble();
-            } else if (eVal != null) {
-              entradas = double.tryParse(eVal.toString()) ?? 0.0;
-            } else {
-              entradas = 0.0;
-            }
+            entradas = eVal is num
+                ? eVal.toDouble()
+                : double.tryParse(eVal?.toString() ?? '0') ?? 0.0;
 
-            if (sVal is num) {
-              saidas = sVal.toDouble();
-            } else if (sVal != null) {
-              saidas = double.tryParse(sVal.toString()) ?? 0.0;
-            } else {
-              saidas = 0.0;
-            }
+            saidas = sVal is num
+                ? sVal.toDouble()
+                : double.tryParse(sVal?.toString() ?? '0') ?? 0.0;
           }
         } catch (_) {
           entradas = 0.0;
@@ -162,43 +155,42 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
 
         final estoqueAtualCalc = estoqueInicial + entradas - saidas;
 
-        // Buscar últimos movimentos para detalhes (limitar a 6)
+        // 🔹 Agora filtra no próprio Supabase apenas movimentações do dia atual
         final detalhesResp = await supabase
             .from('movimentacoes_tanque')
-            .select('data_mov, descricao, cliente, entrada_vinte, saida_vinte')
+            .select(
+                'data_mov, descricao, cliente, entrada_vinte, saida_vinte')
             .eq('tanque_id', id)
+            .gte('data_mov', inicioDiaIso)
+            .lte('data_mov', agoraIso)
             .order('data_mov', ascending: false)
-            .limit(6);
+            .limit(20);
 
         final List<DetalheTanque> detalhes = [];
-        // Adiciona detalhe sintético com saldo atual calculado (ajuda a mostrar estoque na UI)
+
+        // Abertura permanece igual
         detalhes.add(DetalheTanque(
           produto: produtoNome ?? 'Saldo Atual',
-          litros: estoqueAtualCalc.toDouble(),
-          data: DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now()),
+          litros: estoqueAtualCalc,
+          data: DateFormat('dd/MM/yyyy HH:mm').format(now),
           tipo: estoqueAtualCalc >= 0 ? 'entrada' : 'saida',
         ));
+
         for (final d in List<Map<String, dynamic>>.from(detalhesResp)) {
           final eVal = d['entrada_vinte'];
           final sVal = d['saida_vinte'];
 
-          double entrada = 0.0;
-          double saida = 0.0;
+          double entrada = eVal is num
+              ? eVal.toDouble()
+              : double.tryParse(eVal?.toString() ?? '0') ?? 0.0;
 
-          if (eVal is num) {
-            entrada = eVal.toDouble();
-          } else if (eVal != null) {
-            entrada = double.tryParse(eVal.toString()) ?? 0.0;
-          }
-
-          if (sVal is num) {
-            saida = sVal.toDouble();
-          } else if (sVal != null) {
-            saida = double.tryParse(sVal.toString()) ?? 0.0;
-          }
+          double saida = sVal is num
+              ? sVal.toDouble()
+              : double.tryParse(sVal?.toString() ?? '0') ?? 0.0;
 
           final isEntrada = entrada > 0;
           final litros = isEntrada ? entrada : -saida;
+
           final descricao = (d['cliente']?.toString().isNotEmpty == true)
               ? d['cliente'].toString()
               : (d['descricao']?.toString() ?? '');
@@ -214,7 +206,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
 
           detalhes.add(DetalheTanque(
             produto: descricao,
-            litros: litros.toDouble(),
+            litros: litros,
             data: dataFmt,
             tipo: isEntrada ? 'entrada' : 'saida',
           ));
@@ -222,22 +214,23 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
 
         lista.add(DadosTanque(
           id: id,
-          nome: '$referencia${produtoNome != null ? ' - $produtoNome' : ''}',
+          nome:
+              '$referencia${produtoNome != null ? ' - $produtoNome' : ''}',
           capacidadeTotal: capacidadeVal,
           detalhes: detalhes,
         ));
       }
 
-      // Inverter ordem para que os tanques apareçam em ordem crescente
       final ordered = lista.reversed.toList();
+
       setState(() {
         tanques = ordered;
-        // garante índice válido
-        if (tanqueSelecionadoIndex >= tanques.length) tanqueSelecionadoIndex = 0;
+        if (tanqueSelecionadoIndex >= tanques.length) {
+          tanqueSelecionadoIndex = 0;
+        }
         _carregando = false;
       });
     } catch (e) {
-      // Em caso de erro, mantemos lista vazia
       setState(() {
         tanques = [];
         _carregando = false;
