@@ -470,7 +470,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     final double estoque = tanque.estoqueAtual.clamp(0, capacidade);
     final double lastro = tanque.lastro.clamp(0, capacidade);
 
-    final double produtoUtilizavel =
+    final double produtoDisponivel =
         (estoque - lastro).clamp(0, capacidade);
 
     final double espacoLivre =
@@ -480,7 +480,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
         capacidade > 0 ? (lastro / capacidade).clamp(0, 1) : 0;
 
     final double propProduto =
-        capacidade > 0 ? (produtoUtilizavel / capacidade).clamp(0, 1) : 0;
+        capacidade > 0 ? (produtoDisponivel / capacidade).clamp(0, 1) : 0;
 
     final double propEspaco =
         capacidade > 0 ? (espacoLivre / capacidade).clamp(0, 1) : 0;
@@ -511,50 +511,112 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
           ),
           const SizedBox(height: 12),
 
+          // ===== BARRA COM VALORES =====
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: SizedBox(
-              height: 32,
+              height: 34,
               child: Row(
                 children: [
 
-                  // 🔴 LASTRO (vermelho)
+                  // 🔴 LASTRO
                   if (propLastro > 0)
                     Expanded(
                       flex: (propLastro * 1000).toInt(),
                       child: Container(
                         color: const Color(0xFFFF3D71),
+                        alignment: Alignment.center,
+                        child: Text(
+                          formatNumber(lastro),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
 
-                  // 🔵 PRODUTO UTILIZÁVEL (azul)
+                  // 🔵 PRODUTO DISPONÍVEL
                   if (propProduto > 0)
                     Expanded(
                       flex: (propProduto * 1000).toInt(),
                       child: Container(
                         color: const Color(0xFF3366FF),
+                        alignment: Alignment.center,
+                        child: Text(
+                          formatNumber(produtoDisponivel),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
 
-                  // ⚪ ESPAÇO LIVRE (cinza)
+                  // ⚪ ESPAÇO LIVRE
                   if (propEspaco > 0)
                     Expanded(
                       flex: (propEspaco * 1000).toInt(),
                       child: Container(
                         color: const Color(0xFFE0E3EB),
+                        alignment: Alignment.center,
+                        child: Text(
+                          formatNumber(espacoLivre),
+                          style: const TextStyle(
+                            color: Color(0xFF222B45),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
                 ],
               ),
             ),
           ),
+
+          const SizedBox(height: 8),
+
+          // ===== LEGENDA =====
+          Row(
+            children: [
+              _legendaItem(const Color(0xFFFF3D71), "Lastro"),
+              const SizedBox(width: 14),
+              _legendaItem(const Color(0xFF3366FF), "Estoque Disponível"),
+              const SizedBox(width: 14),
+              _legendaItem(const Color(0xFFE0E3EB), "Espaço Livre"),
+            ],
+          ),
         ],
       ),
     );
   }
   
-  
-  
+  Widget _legendaItem(Color cor, String texto) {
+    return Row(
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(
+            color: cor,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          texto,
+          style: const TextStyle(
+            fontSize: 11,
+            color: Color(0xFF8F9BB3),
+          ),
+        ),
+      ],
+    );
+  }
+    
   Widget _construirTabelaDetalhes(DadosTanque tanque) {
     return Container(
       decoration: BoxDecoration(
