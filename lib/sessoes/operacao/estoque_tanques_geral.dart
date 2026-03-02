@@ -9,12 +9,14 @@ class DadosTanque {
   final String id;
   final String nome;
   final double capacidadeTotal;
+  final double lastro;
   final List<DetalheTanque> detalhes;
 
   DadosTanque({
     required this.id,
     required this.nome,
     required this.capacidadeTotal,
+    required this.lastro,
     required this.detalhes,
   });
 
@@ -87,7 +89,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     try {
       final resp = await supabase
           .from('tanques')
-          .select('id, referencia, capacidade, produtos (nome)')
+          .select('id, referencia, capacidade, lastro, produtos (nome)')
           .eq('terminal_id', widget.filialSelecionadaId!)
           .order('referencia');
 
@@ -135,10 +137,13 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
           ),
         ];
 
+        final lastroVal = (t['lastro'] as num?)?.toDouble() ?? 0.0;
+            
         lista.add(DadosTanque(
           id: id,
           nome: referencia,
           capacidadeTotal: capacidadeVal,
+          lastro: lastroVal,
           detalhes: detalhes,
         ));
       }
@@ -461,14 +466,23 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
   }
   
   Widget _construirIndicadorNivel(DadosTanque tanque, double percentual) {
-    final double estoque = tanque.estoqueAtual.clamp(0, tanque.capacidadeTotal);
     final double capacidade = tanque.capacidadeTotal;
-    final double espacoLivre = (capacidade - estoque).clamp(0, capacidade);
+    final double estoque = tanque.estoqueAtual.clamp(0, capacidade);
+    final double lastro = tanque.lastro.clamp(0, capacidade);
 
-    final double proporcaoEstoque =
-        capacidade > 0 ? (estoque / capacidade).clamp(0, 1) : 0;
+    final double produtoUtilizavel =
+        (estoque - lastro).clamp(0, capacidade);
 
-    final double proporcaoEspaco =
+    final double espacoLivre =
+        (capacidade - estoque).clamp(0, capacidade);
+
+    final double propLastro =
+        capacidade > 0 ? (lastro / capacidade).clamp(0, 1) : 0;
+
+    final double propProduto =
+        capacidade > 0 ? (produtoUtilizavel / capacidade).clamp(0, 1) : 0;
+
+    final double propEspaco =
         capacidade > 0 ? (espacoLivre / capacidade).clamp(0, 1) : 0;
 
     return Container(
@@ -503,70 +517,35 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
               height: 32,
               child: Row(
                 children: [
-                  if (proporcaoEstoque > 0)
+
+                  // 🔴 LASTRO (vermelho)
+                  if (propLastro > 0)
                     Expanded(
-                      flex: (proporcaoEstoque * 1000).toInt(),
+                      flex: (propLastro * 1000).toInt(),
                       child: Container(
-                        color: _getCor(percentual),
-                        alignment: Alignment.center,
-                          child: Text(
-                          '${formatNumber(estoque)} L',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        color: const Color(0xFFFF3D71),
                       ),
                     ),
-                  if (proporcaoEspaco > 0)
+
+                  // 🔵 PRODUTO UTILIZÁVEL (azul)
+                  if (propProduto > 0)
                     Expanded(
-                      flex: (proporcaoEspaco * 1000).toInt(),
+                      flex: (propProduto * 1000).toInt(),
+                      child: Container(
+                        color: const Color(0xFF3366FF),
+                      ),
+                    ),
+
+                  // ⚪ ESPAÇO LIVRE (cinza)
+                  if (propEspaco > 0)
+                    Expanded(
+                      flex: (propEspaco * 1000).toInt(),
                       child: Container(
                         color: const Color(0xFFE0E3EB),
-                        alignment: Alignment.center,
-                          child: Text(
-                          '${formatNumber(espacoLivre)} L',
-                          style: const TextStyle(
-                            color: Color(0xFF222B45),
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
                       ),
                     ),
                 ],
               ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0F1F6),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _construirInfoBarra(
-                  'Estoque Atual',
-                  '${formatNumber(estoque)} L',
-                  _getCor(percentual),
-                ),
-                _construirInfoBarra(
-                  'Capacidade Total',
-                  '${formatNumber(capacidade)} L',
-                  const Color(0xFFFFA000),
-                ),
-                _construirInfoBarra(
-                  'Espaço Livre',
-                  '${formatNumber(espacoLivre)} L',
-                  const Color(0xFF8F9BB3),
-                ),
-              ],
             ),
           ),
         ],
@@ -574,28 +553,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     );
   }
   
-  Widget _construirInfoBarra(String label, String valor, Color cor) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 10,
-            color: Color(0xFF8F9BB3),
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          valor,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: cor,
-          ),
-        ),
-      ],
-    );
-  }
+  
   
   Widget _construirTabelaDetalhes(DadosTanque tanque) {
     return Container(
