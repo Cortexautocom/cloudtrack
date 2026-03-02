@@ -485,21 +485,21 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  _construirInfoMini(
+                    _construirInfoMini(
                     'Estoque Atual',
-                    '${formatNumber(tanque.estoqueAtual * 1000)} L',
+                    '${formatNumber(tanque.estoqueAtual)} L',
                     const Color(0xFF3366FF),
                   ),
                   const SizedBox(width: 20),
                   _construirInfoMini(
                     'Capacidade',
-                    '${formatNumber(tanque.capacidadeTotal * 1000)} L',
+                    '${formatNumber(tanque.capacidadeTotal)} L',
                     const Color(0xFFFFA000),
                   ),
                   const SizedBox(width: 20),
                   _construirInfoMini(
                     'Espaço Livre',
-                    '${formatNumber((tanque.capacidadeTotal - tanque.estoqueAtual) * 1000)} L',
+                    '${formatNumber((tanque.capacidadeTotal - tanque.estoqueAtual))} L',
                     const Color(0xFF00B686),
                   ),
                 ],
@@ -534,15 +534,15 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
   }
   
   Widget _construirIndicadorNivel(DadosTanque tanque, double percentual) {
-    // Valores em litros (exemplo - estes valores devem vir do modelo de dados)
-    final double lastroMinimo = tanque.capacidadeTotal * 0.15; // 15% de lastro mínimo
-    final double produtoDisponivel = tanque.estoqueAtual - lastroMinimo;
-    final double espacoLivre = tanque.capacidadeTotal - tanque.estoqueAtual;
-    
-    // Cálculo das proporções para a barra
-    final double proporcaoLastro = (lastroMinimo / tanque.capacidadeTotal).clamp(0, 1);
-    final double proporcaoProduto = (produtoDisponivel / tanque.capacidadeTotal).clamp(0, 1);
-    final double proporcaoEspaco = (espacoLivre / tanque.capacidadeTotal).clamp(0, 1);
+    final double estoque = tanque.estoqueAtual.clamp(0, tanque.capacidadeTotal);
+    final double capacidade = tanque.capacidadeTotal;
+    final double espacoLivre = (capacidade - estoque).clamp(0, capacidade);
+
+    final double proporcaoEstoque =
+        capacidade > 0 ? (estoque / capacidade).clamp(0, 1) : 0;
+
+    final double proporcaoEspaco =
+        capacidade > 0 ? (espacoLivre / capacidade).clamp(0, 1) : 0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -561,7 +561,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Nível do Tanque',
+            'Nível Real do Tanque',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -569,66 +569,41 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
             ),
           ),
           const SizedBox(height: 12),
-          
-          // Barra de progresso personalizada com 3 cores
+
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: Container(
-              height: 30,
+            child: SizedBox(
+              height: 32,
               child: Row(
                 children: [
-                  // Lastro do tanque (vermelho)
-                  if (proporcaoLastro > 0)
+                  if (proporcaoEstoque > 0)
                     Expanded(
-                      flex: (proporcaoLastro * 1000).toInt(),
+                      flex: (proporcaoEstoque * 1000).toInt(),
                       child: Container(
-                        color: const Color(0xFFFF3D71), // Vermelho
-                          child: Center(
+                        color: _getCor(percentual),
+                        alignment: Alignment.center,
                           child: Text(
-                            '${formatNumber(lastroMinimo * 1000)} L',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          '${formatNumber(estoque)} L',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
                     ),
-                  
-                  // Produto disponível (azul)
-                  if (proporcaoProduto > 0)
-                    Expanded(
-                      flex: (proporcaoProduto * 1000).toInt(),
-                      child: Container(
-                        color: const Color(0xFF3366FF), // Azul
-                          child: Center(
-                          child: Text(
-                            '${formatNumber(produtoDisponivel * 1000)} L',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  
-                  // Espaço livre (cinza)
                   if (proporcaoEspaco > 0)
                     Expanded(
                       flex: (proporcaoEspaco * 1000).toInt(),
                       child: Container(
-                        color: const Color(0xFFE0E3EB), // Cinza
-                          child: Center(
+                        color: const Color(0xFFE0E3EB),
+                        alignment: Alignment.center,
                           child: Text(
-                            '${formatNumber(espacoLivre * 1000)} L',
-                            style: const TextStyle(
-                              color: Color(0xFF222B45),
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          '${formatNumber(espacoLivre)} L',
+                          style: const TextStyle(
+                            color: Color(0xFF222B45),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -637,23 +612,9 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
               ),
             ),
           ),
-          
+
           const SizedBox(height: 16),
-          
-          // Legenda das cores
-          Row(
-            children: [
-              _construirLegenda('Lastro', const Color(0xFFFF3D71)),
-              const SizedBox(width: 16),
-              _construirLegenda('Produto', const Color(0xFF3366FF)),
-              const SizedBox(width: 16),
-              _construirLegenda('Livre', const Color(0xFFE0E3EB)),
-            ],
-          ),
-          
-          const SizedBox(height: 12),
-          
-          // Informações detalhadas
+
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -664,18 +625,18 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _construirInfoBarra(
-                  'Lastro Mínimo',
-                  '${formatNumber(lastroMinimo * 1000)} L',
-                  const Color(0xFFFF3D71),
+                  'Estoque Atual',
+                  '${formatNumber(estoque)} L',
+                  _getCor(percentual),
                 ),
                 _construirInfoBarra(
-                  'Produto Disponível',
-                  '${formatNumber(produtoDisponivel * 1000)} L',
-                  const Color(0xFF3366FF),
+                  'Capacidade Total',
+                  '${formatNumber(capacidade)} L',
+                  const Color(0xFFFFA000),
                 ),
                 _construirInfoBarra(
                   'Espaço Livre',
-                  '${formatNumber(espacoLivre * 1000)} L',
+                  '${formatNumber(espacoLivre)} L',
                   const Color(0xFF8F9BB3),
                 ),
               ],
@@ -685,32 +646,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
       ),
     );
   }
-
-  /// Widget auxiliar para legenda
-  Widget _construirLegenda(String texto, Color cor) {
-    return Row(
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            color: cor,
-            borderRadius: BorderRadius.circular(3),
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          texto,
-          style: const TextStyle(
-            fontSize: 11,
-            color: Color(0xFF8F9BB3),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Widget auxiliar para informações da barra
+  
   Widget _construirInfoBarra(String label, String valor, Color cor) {
     return Column(
       children: [
