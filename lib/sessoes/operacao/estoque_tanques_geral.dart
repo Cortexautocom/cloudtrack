@@ -463,28 +463,42 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
             ],
           ),
 
-          // CÍRCULO DE PERCENTUAL
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _getCor(percentual).withOpacity(0.1),
-              border: Border.all(
-                color: _getCor(percentual),
-                width: 3,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                '${formatPercent(percentual)}%',
+          // RÓTULO E CÍRCULO DE PERCENTUAL
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Percentual ocupado',
                 style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: _getCor(percentual),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF8F9BB3),
                 ),
               ),
-            ),
+              const SizedBox(height: 8),
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _getCor(percentual).withOpacity(0.1),
+                  border: Border.all(
+                    color: _getCor(percentual),
+                    width: 3,
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    '${formatPercent(percentual)}%',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: _getCor(percentual),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -542,64 +556,77 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
             borderRadius: BorderRadius.circular(8),
             child: SizedBox(
               height: 34,
-              child: Row(
-                children: [
+              child: Builder(builder: (context) {
+                // calcula os flex inteiros e só mostra o número se o segmento tiver espaço suficiente
+                const int scale = 1000;
+                final int flexLastro = (propLastro * scale).toInt();
+                final int flexProduto = (propProduto * scale).toInt();
+                final int flexEspaco = (propEspaco * scale).toInt();
 
-                  // 🔴 LASTRO
-                  if (propLastro > 0)
-                    Expanded(
-                      flex: (propLastro * 1000).toInt(),
-                      child: Container(
-                        color: const Color(0xFFFF3D71),
-                        alignment: Alignment.center,
-                        child: Text(
-                          formatNumber(lastro),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
+                // limiar mínimo de flex para exibir o número (aprox. 2% -> 20/1000)
+                const int minFlexToShow = 20;
+
+                return Row(
+                  children: [
+                    if (propLastro > 0)
+                      Expanded(
+                        flex: flexLastro,
+                        child: Container(
+                          color: const Color(0xFFFF3D71),
+                          alignment: Alignment.center,
+                          child: flexLastro >= minFlexToShow
+                              ? Text(
+                                  formatNumber(lastro),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
                         ),
                       ),
-                    ),
 
-                  // 🔵 PRODUTO DISPONÍVEL
-                  if (propProduto > 0)
-                    Expanded(
-                      flex: (propProduto * 1000).toInt(),
-                      child: Container(
-                        color: const Color(0xFF00B686),
-                        alignment: Alignment.center,
-                        child: Text(
-                          formatNumber(produtoDisponivel),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
+                    if (propProduto > 0)
+                      Expanded(
+                        flex: flexProduto,
+                        child: Container(
+                          color: const Color(0xFF00B686),
+                          alignment: Alignment.center,
+                          child: flexProduto >= minFlexToShow
+                              ? Text(
+                                  formatNumber(produtoDisponivel),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
                         ),
                       ),
-                    ),
 
-                  // ⚪ ESPAÇO LIVRE
-                  if (propEspaco > 0)
-                    Expanded(
-                      flex: (propEspaco * 1000).toInt(),
-                      child: Container(
-                        color: const Color(0xFFE0E3EB),
-                        alignment: Alignment.center,
-                        child: Text(
-                          formatNumber(espacoLivre),
-                          style: const TextStyle(
-                            color: Color(0xFF222B45),
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
+                    if (propEspaco > 0)
+                      Expanded(
+                        flex: flexEspaco,
+                        child: Container(
+                          color: const Color(0xFFE0E3EB),
+                          alignment: Alignment.center,
+                          child: flexEspaco >= minFlexToShow
+                              ? Text(
+                                  formatNumber(espacoLivre),
+                                  style: const TextStyle(
+                                    color: Color(0xFF222B45),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
                         ),
                       ),
-                    ),
-                ],
-              ),
+                  ],
+                );
+              }),
             ),
           ),
 
