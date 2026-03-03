@@ -2320,7 +2320,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   void _navegarParaCardCircuito(String tipo) {
-    final usuario = UsuarioAtual.instance;
     switch (tipo) {
       case 'acompanhar_ordem':
         // Acompanhamento de ordens agora usa terminal_id; não exigir filial vinculada

@@ -2762,82 +2762,103 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         throw Exception('Usuário sem filial vinculada');
       }
 
-      // ========== VERIFICAÇÃO CRÍTICA ==========
-      // Se veio de uma movimentação, verifica se já existe certificado de ORIGEM
+      // ===== VERIFICA SE JÁ EXISTE CERTIFICADO DE ORIGEM =====
       if (widget.idMovimentacao != null && widget.idMovimentacao!.isNotEmpty) {
         final certificadoExistente = await supabase
             .from('ordens_analises')
             .select('id, numero_controle, tipo_analise')
             .eq('movimentacao_id', widget.idMovimentacao!)
-            .eq('tipo_analise', 'origem') // ← Filtra apenas certificados de origem
+            .eq('tipo_analise', 'origem')
             .maybeSingle();
 
-        if (certificadoExistente != null && 
+        if (certificadoExistente != null &&
             certificadoExistente['id'] != null &&
             certificadoExistente['tipo_analise'] == 'origem') {
-          // Já existe certificado de ORIGEM para esta movimentação!
           if (!mounted) return;
-          
+
           setState(() {
             _salvandoCertificado = false;
-            _modoVisualizacao = true; // Força modo visualização
+            _modoVisualizacao = true;
           });
-          
-          // Carrega os dados do certificado de origem existente
-          await _carregarDadosCertificado(certificadoExistente['id'].toString());
-          
+
+          await _carregarDadosCertificado(
+            certificadoExistente['id'].toString(),
+          );
+
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('⚠️ Já existe um certificado de ORIGEM para esta movimentação (Nº ${certificadoExistente['numero_controle'] ?? '--'})!'),
+                content: Text(
+                    '⚠️ Já existe certificado de ORIGEM (Nº ${certificadoExistente['numero_controle'] ?? '--'})!'),
                 backgroundColor: Colors.orange,
-                duration: const Duration(seconds: 5),
               ),
             );
           }
-          return; // Não prossegue com a criação
+          return;
         }
       }
-      // =========================================
+
+      if (produtoSelecionado == null) {
+        throw Exception('Selecione um produto!');
+      }
 
       final produtoId = await _resolverProdutoId(produtoSelecionado!);
 
-      // Validar que pelo menos o primeiro tanque tem dados da coleta
       if (_tanques.isEmpty || _tanques[0].tempAmostra == null) {
-        throw Exception('Preencha os dados da coleta do tanque antes de emitir o certificado!');
+        throw Exception(
+            'Preencha os dados da coleta do tanque antes de emitir o certificado!');
       }
 
-      // Usar dados do primeiro tanque para o certificado
       final tanquePrincipal = _tanques[0];
 
-      // Dados do certificado - ADICIONA tipo_analise = 'origem'
+      // ===== TIMESTAMP SÃO PAULO (UTC-3) =====
+      final agoraUtc = DateTime.now().toUtc();
+      final agoraSaoPaulo =
+          agoraUtc.subtract(const Duration(hours: 3));
+
+      // ===== DADOS CONFORME ESQUEMA ATUAL =====
       final dadosOrdem = {
-        'data_analise': _formatarDataParaBanco(dataCtrl.text),
-        'hora_analise': horaCtrl.text,
-        'data_conclusao': DateTime.now().toIso8601String(),
-        'movimentacao_id': widget.idMovimentacao,
-        'tipo_analise': 'origem', // ← ADICIONADO: define como análise de origem
+        // numero_controle é gerado pelo trigger
+
+        'data_criacao': agoraSaoPaulo.toIso8601String(),
+
         'transportadora': campos['transportadora']!.text,
         'motorista': campos['motorista']!.text,
         'notas_fiscais': campos['notas']!.text,
         'placa_cavalo': campos['placaCavalo']!.text,
         'carreta1': campos['carreta1']!.text,
         'carreta2': campos['carreta2']!.text,
+
         'produto_id': produtoId,
         'produto_nome': produtoSelecionado,
-        // Usar dados do dialog de coleta do tanque principal
-        'temperatura_amostra': _converterParaDecimal(tanquePrincipal.tempAmostra),
-        'densidade_observada': _converterParaDecimal(tanquePrincipal.densidadeObservada),
-        'temperatura_ct': _converterParaDecimal(tanquePrincipal.tempCT),
-        'densidade_20c': _converterParaDecimal(tanquePrincipal.densidade20C),
-        'fator_correcao': _converterParaDecimal(tanquePrincipal.fatorCorrecao),
-        'origem_ambiente': _converterParaInteiro(tanquePrincipal.volumeAmbCtrl.text),
-        'destino_20c': _converterParaInteiro(tanquePrincipal.volume20CCtrl.text),
+
+        'temperatura_amostra':
+            _converterParaDecimal(tanquePrincipal.tempAmostra),
+        'densidade_observada':
+            _converterParaDecimal(tanquePrincipal.densidadeObservada),
+        'temperatura_ct':
+            _converterParaDecimal(tanquePrincipal.tempCT),
+        'densidade_20c':
+            _converterParaDecimal(tanquePrincipal.densidade20C),
+        'fator_correcao':
+            _converterParaDecimal(tanquePrincipal.fatorCorrecao),
+
+        'origem_ambiente':
+            _converterParaInteiro(tanquePrincipal.volumeAmbCtrl.text),
+        'destino_ambiente': null,
+        'origem_20c': null,
+        'destino_20c':
+            _converterParaInteiro(tanquePrincipal.volume20CCtrl.text),
+
         'usuario_id': user.id,
         'filial_id': usuario.filialId,
+        'movimentacao_id': widget.idMovimentacao,
+        'tipo_analise': 'origem',
+
+        // Ajuste aqui se você tiver terminal_id disponível
+        'terminal_id': null,
       };
 
-      // INSERIR o certificado
       final response = await supabase
           .from('ordens_analises')
           .insert(dadosOrdem)
@@ -2849,71 +2870,13 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       campos['numeroControle']!.text =
           response['numero_controle'].toString();
 
-      // ========== INSERIR DADOS DE COLETA POR TANQUE ==========
-      // Montar array de placas (sem valores vazios)
-      final placas = [
-        campos['placaCavalo']!.text,
-        campos['carreta1']!.text,
-        campos['carreta2']!.text,
-      ].where((p) => p.isNotEmpty).toList();
-
-      // Criar lista de dados de coleta para todos os tanques
-      final dadosColetas = <Map<String, dynamic>>[];
-      
-      for (int i = 0; i < _tanques.length; i++) {
-        final tanque = _tanques[i];
-        
-        // Usar produto_id do tanque (veio da página de detalhes)
-        // Se não tiver, tenta resolver pelo produto selecionado
-        String produtoIdTanque;
-        if (tanque.produtoId != null && tanque.produtoId!.isNotEmpty) {
-          produtoIdTanque = tanque.produtoId!;
-        } else {
-          // Fallback: usar o produto selecionado globalmente
-          produtoIdTanque = produtoId;
-        }
-        
-        // Adicionar dados do tanque (somente se tiver dados da coleta)
-        if (tanque.tempAmostra != null || tanque.densidadeObservada != null || tanque.tempCT != null) {
-          dadosColetas.add({
-            'movimentacao_id': widget.idMovimentacao,
-            'produto_id': produtoIdTanque,
-            'tanque_numero': i + 1,
-            'placas': placas,
-            'temperatura_amostra': _converterParaDecimal(tanque.tempAmostra),
-            'densidade_observada': _converterParaDecimal(tanque.densidadeObservada),
-            'temperatura_ct': _converterParaDecimal(tanque.tempCT),
-            'volume_amb': _converterParaInteiro(tanque.volumeAmbCtrl.text),
-            'volume_vinte': _converterParaInteiro(tanque.volume20CCtrl.text),
-            'filial_id': usuario.filialId, // ← ADICIONADO: salva a filial do usuário
-          });
-        }
-      }
-      
-      // Inserir todos os tanques em batch (operação crítica)
-      if (dadosColetas.isNotEmpty) {
-        try {
-          await supabase
-              .from('coletas_tanques')
-              .insert(dadosColetas);
-          
-          print('✓ ${dadosColetas.length} coleta(s) de tanque inserida(s) com sucesso (filial_id=${usuario.filialId})');
-        } catch (e) {
-          // Se falhar a inserção das coletas, toda a operação deve falhar
-          print('✗ ERRO CRÍTICO ao inserir coletas_tanques: $e');
-          throw Exception('Falha ao registrar dados de coleta dos tanques: $e');
-        }
-      }
-      // ========================================================
-
-      // Atualizar TODAS as movimentações da ordem (volumes por tanque + data_carga/status)
-      if (widget.idMovimentacao != null && widget.idMovimentacao!.isNotEmpty) {
+      // ===== AQUI ESTÁ A CHAMADA QUE VOCÊ AINDA PRECISA =====
+      if (widget.idMovimentacao != null &&
+          widget.idMovimentacao!.isNotEmpty) {
         await _atualizarMovimentacoesDaOrdem(
           movimentacaoReferenciaId: widget.idMovimentacao!,
         );
       }
-
-      if (!mounted) return;
 
       setState(() {
         _modoVisualizacao = true;
@@ -2923,21 +2886,17 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✓ Certificado de ORIGEM emitido com sucesso!'),
+            content: Text('✓ Certificado emitido com sucesso!'),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 1),
           ),
         );
       }
-
     } catch (e) {
-      print('Erro ao emitir certificado: $e');
-      
       if (mounted) {
         setState(() {
           _salvandoCertificado = false;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erro ao emitir certificado: $e'),
@@ -3031,20 +2990,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       tanque.dispose();
     }
     super.dispose();
-  }
-
-  String _formatarDataParaBanco(String data) {
-    if (data.isEmpty) return '';
-    
-    try {
-      final partes = data.split('/');
-      if (partes.length == 3) {
-        return '${partes[2]}-${partes[1]}-${partes[0]}';
-      }
-      return '';
-    } catch (e) {
-      return '';
-    }
   }
 
   double? _converterParaDecimal(String? texto) {
