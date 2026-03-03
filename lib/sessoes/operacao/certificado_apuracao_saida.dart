@@ -1686,14 +1686,45 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                               
                               // Recalcular volume 20°C com o novo FCV
                               _calcularVolume20CTanque(tanque);
-                              
+
+                              // Propagar os mesmos valores para os demais tanques
+                              // que possuam o mesmo produto (preferindo produtoId se disponível)
+                              int propagados = 0;
+                              final prodId = tanque.produtoId;
+                              final prodNome = tanque.produtoNome;
+
+                              for (final outro in _tanques) {
+                                if (identical(outro, tanque)) continue;
+                                bool mesmoProduto = false;
+                                if (prodId != null) {
+                                  mesmoProduto = outro.produtoId == prodId;
+                                } else if (prodNome != null) {
+                                  mesmoProduto = outro.produtoNome == prodNome;
+                                }
+                                if (!mesmoProduto) continue;
+
+                                outro.tempAmostra = tanque.tempAmostra;
+                                outro.densidadeObservada = tanque.densidadeObservada;
+                                outro.tempCT = tanque.tempCT;
+                                outro.densidade20C = tanque.densidade20C;
+                                outro.fatorCorrecao = tanque.fatorCorrecao;
+                                // Atualizar o controller do volume apurado a 20°C para manter a UI consistente
+                                outro.volume20CCtrl.text = tanque.volume20CCtrl.text;
+
+                                _calcularVolume20CTanque(outro);
+                                propagados++;
+                              }
+
+                              // Forçar atualização visual se algo foi propagado
+                              if (propagados > 0) setState(() {});
+
                               Navigator.of(dialogContext).pop();
-                              
+
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('✓ Dados da coleta salvos para Tanque $numeroTanque!'),
+                                  content: Text('✓ Dados da coleta salvos para Tanque $numeroTanque${propagados > 0 ? " — aplicados a $propagados tanques adicionais" : ""}!'),
                                   backgroundColor: Colors.green,
-                                  duration: Duration(seconds: 1),
+                                  duration: Duration(seconds: 2),
                                 ),
                               );
                             },
