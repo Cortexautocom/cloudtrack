@@ -79,8 +79,8 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
         _dadosFormulario['produto'] = resultado['produto']?.toString();
       }
       
-      if (resultado['filial_id'] != null) {
-        _dadosFormulario['filial_id'] = resultado['filial_id']?.toString();
+      if (resultado['terminal_id'] != null) {
+        _dadosFormulario['terminal_id'] = resultado['terminal_id']?.toString();
       }
       
       if (resultado['tipo'] != null) {

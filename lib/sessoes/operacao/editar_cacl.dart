@@ -32,7 +32,7 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
   bool _carregandoCacl = true;
   bool _botaoHabilitado = false;
   String? _nomeFilial;
-  String? _filialId;
+  String? _terminalId;
   
   // Checkboxes (carregar do CACL se existirem)
   bool _caclVerificacao = false;
@@ -94,7 +94,7 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
           .from('cacl')
           .select('''
             *,
-            filiais (nome),
+            terminais (nome),
             tanques ( 
               referencia,
               capacidade,
@@ -110,7 +110,7 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
       }
       
       _caclData = cacl;
-      _filialId = cacl['filial_id']?.toString();
+      _terminalId = cacl['terminal_id']?.toString();
       
       // 2. Buscar informações do tanque da relação
       if (cacl['tanques'] != null) {
@@ -161,9 +161,9 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
       // 3. Preencher dados da interface
       await _preencherDadosInterface();
       
-      // 4. Carregar nome da filial
-      if (cacl['filiais'] != null) {
-        _nomeFilial = cacl['filiais']['nome']?.toString();
+      // 4. Carregar nome do terminal
+      if (cacl['terminais'] != null) {
+        _nomeFilial = cacl['terminais']['nome']?.toString();
       } else {
         _nomeFilial = cacl['base']?.toString();
       }
@@ -483,7 +483,7 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
       'tanque': _tanqueInfo['numero'] ?? '', // Agora vem de tanques.referencia
       'responsavel': UsuarioAtual.instance?.nome ?? 'Usuário',
       'medicoes': dadosMedicoes,
-      'filial_id': _filialId ?? _caclData['filial_id'],
+      'terminal_id': _terminalId ?? _caclData['terminal_id'],
       'tanque_id': _caclData['tanque_id'], // Incluir o ID do tanque
       'cacl_verificacao': _caclVerificacao,
       'cacl_movimentacao': _caclMovimentacao,

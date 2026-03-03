@@ -83,19 +83,19 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
 
       String? nomeFilial;
       if (usuario.nivel == 3 && widget.filialSelecionadaId != null) {
-        final filialData = await supabase
-            .from('filiais')
+        final terminalData = await supabase
+            .from('terminais')
             .select('nome')
             .eq('id', widget.filialSelecionadaId!)
-            .single();
-        nomeFilial = filialData['nome'];
-      } else if (usuario.filialId != null) {
-        final filialData = await supabase
-            .from('filiais')
+            .maybeSingle();
+        nomeFilial = terminalData?['nome']?.toString();
+      } else if (usuario.terminalId != null) {
+        final terminalData = await supabase
+            .from('terminais')
             .select('nome')
-            .eq('id', usuario.filialId!)
-            .single();
-        nomeFilial = filialData['nome'];
+            .eq('id', usuario.terminalId!)
+            .maybeSingle();
+        nomeFilial = terminalData?['nome']?.toString();
       }
 
       if (mounted) {
@@ -119,12 +119,12 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               id_produto,
               produtos (nome)
             ''')
-            .eq('id_filial', widget.filialSelecionadaId!)
+            .eq('terminal_id', widget.filialSelecionadaId!)
             .order('referencia', ascending: true);
       } else {
-        final idFilial = usuario.filialId;
+        final idTerminal = usuario.terminalId;
 
-        if (idFilial == null) {
+        if (idTerminal == null) {
           setState(() => _carregando = false);
           return;
         }
@@ -138,7 +138,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
               id_produto,
               produtos (nome)
             ''')
-            .eq('id_filial', idFilial)
+            .eq('terminal_id', idTerminal)
             .order('referencia', ascending: true);
       }
 
@@ -424,11 +424,11 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'movimentacao_id_referencia': widget.movimentacaoIdReferencia,
       'responsavel': UsuarioAtual.instance?.nome ?? 'Usuário',
       'medicoes': dadosMedicoes,
-      'filial_id':
+      'terminal_id':
           UsuarioAtual.instance!.nivel == 3 &&
               widget.filialSelecionadaId != null
           ? widget.filialSelecionadaId
-          : UsuarioAtual.instance!.filialId,
+          : UsuarioAtual.instance!.terminalId,
       'cacl_verificacao': _caclVerificacao,
       'cacl_movimentacao': _caclMovimentacao,
     };

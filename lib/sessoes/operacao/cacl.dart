@@ -182,19 +182,19 @@ class _CalcPageState extends State<CalcPage> {
 
   Future<void> _irParaEstoqueTanqueAposEmissao() async {
     final tanqueId = _obterTanqueId();
-    final filialId = widget.dadosFormulario['filial_id']?.toString();
+    final terminalId = widget.dadosFormulario['terminal_id']?.toString();
 
     if (tanqueId == null ||
         tanqueId.isEmpty ||
-        filialId == null ||
-        filialId.isEmpty) {
+        terminalId == null ||
+        terminalId.isEmpty) {
       _navigatorState?.pop({'status': 'cacl_emitido'});
       return;
     }
 
     String referenciaTanque =
         widget.dadosFormulario['tanque']?.toString() ?? 'Tanque';
-    String nomeFilial = widget.dadosFormulario['base']?.toString() ?? 'Filial';
+    String nomeTerminal = widget.dadosFormulario['base']?.toString() ?? 'Terminal';
 
     try {
       final supabase = Supabase.instance.client;
@@ -208,13 +208,13 @@ class _CalcPageState extends State<CalcPage> {
         referenciaTanque = tanque['referencia'].toString();
       }
 
-      final filial = await supabase
-          .from('filiais')
+      final terminal = await supabase
+          .from('terminais')
           .select('nome')
-          .eq('id', filialId)
+          .eq('id', terminalId)
           .maybeSingle();
-      if (filial != null && filial['nome'] != null) {
-        nomeFilial = filial['nome'].toString();
+      if (terminal != null && terminal['nome'] != null) {
+        nomeTerminal = terminal['nome'].toString();
       }
     } catch (_) {}
 
@@ -225,8 +225,8 @@ class _CalcPageState extends State<CalcPage> {
         builder: (_) => EstoqueTanquePage(
           tanqueId: tanqueId,
           referenciaTanque: referenciaTanque,
-          filialId: filialId,
-          nomeFilial: nomeFilial,
+          filialId: terminalId,
+          nomeFilial: nomeTerminal,
           data: _obterDataParaEstoque(),
           onVoltar: () {
             _navigatorState?.maybePop();
@@ -307,8 +307,8 @@ class _CalcPageState extends State<CalcPage> {
               widget.dadosFormulario['produto'] = resultado['produto']
                   ?.toString();
             }
-            if (resultado['filial_id'] != null) {
-              widget.dadosFormulario['filial_id'] = resultado['filial_id']
+            if (resultado['terminal_id'] != null) {
+              widget.dadosFormulario['terminal_id'] = resultado['terminal_id']
                   ?.toString();
             }
             if (resultado['tipo'] != null) {
@@ -804,11 +804,12 @@ class _CalcPageState extends State<CalcPage> {
     final intCm = int.tryParse(cm) ?? 0;
     final intMm = int.tryParse(mm ?? '0') ?? 0;
 
-    final String? filialId = widget.dadosFormulario['filial_id']?.toString();
+    final String? terminalId = widget.dadosFormulario['terminal_id']?.toString();
 
-    // ✅ REGRA: se for Janaúba, usa arqueacao_janauba
+    // ✅ REGRA: se for o terminal de Janaúba, usa arqueacao_janauba
+    // TODO: substituir o UUID abaixo pelo terminal_id correspondente ao terminal de Janaúba
     final String nomeTabela =
-        (filialId == 'bcc92c8e-bd40-4d26-acb0-87acdd2ce2b7')
+        (terminalId == '198c2b9b-2708-420e-8992-3b2c9ae3ed6a')
         ? 'arqueacao_janauba'
         : 'arqueacao_jequie';
 
@@ -938,7 +939,7 @@ class _CalcPageState extends State<CalcPage> {
         'base': widget.dadosFormulario['base']?.toString(),
         'produto': widget.dadosFormulario['produto']?.toString(),
         'tanque_id': tanqueIdParaSalvar,
-        'filial_id': widget.dadosFormulario['filial_id']?.toString(),
+        'terminal_id': widget.dadosFormulario['terminal_id']?.toString(),
         'status': 'emitido',
         'tipo': tipoCACL,
 
@@ -1195,7 +1196,7 @@ class _CalcPageState extends State<CalcPage> {
       }
 
       final tipoCACL = dadosCacl['tipo']?.toString();
-      final filialId = dadosCacl['filial_id']?.toString();
+      final terminalId = dadosCacl['terminal_id']?.toString();
       final tanqueId = dadosCacl['tanque_id']?.toString();
 
       if (tipoCACL != 'movimentacao') {
@@ -1206,7 +1207,7 @@ class _CalcPageState extends State<CalcPage> {
         return;
       }
 
-      if (filialId == null || filialId.isEmpty) {
+      if (terminalId == null || terminalId.isEmpty) {
         return;
       }
 
@@ -1265,7 +1266,7 @@ class _CalcPageState extends State<CalcPage> {
       final timestampBrasilia = _obterTimestampBrasiliaComDataReferencia();
 
       final dadosMovimentacao = <String, dynamic>{
-        'filial_id': filialId,
+        'terminal_id': terminalId,
         'empresa_id': usuario.empresaId,
         'data_mov': timestampBrasilia,
         'ts_mov': timestampBrasilia,
@@ -1278,7 +1279,7 @@ class _CalcPageState extends State<CalcPage> {
         'produto_id': produtoId,
         'cacl_id': caclId,
         'usuario_id': usuario.id,
-        'filial_origem_id': filialId,
+        'filial_origem_id': terminalId,
         'tipo_mov_orig': 'entrada',
         'tipo_mov': '',
         'tipo_op': 'cacl',
@@ -3317,7 +3318,7 @@ class _CalcPageState extends State<CalcPage> {
         'base': widget.dadosFormulario['base']?.toString(),
         'produto': widget.dadosFormulario['produto']?.toString(),
         'tanque_id': _obterTanqueId(),
-        'filial_id': widget.dadosFormulario['filial_id']?.toString(),
+        'terminal_id': widget.dadosFormulario['terminal_id']?.toString(),
         'status': 'pendente',
         'tipo': tipoCACL,
 
