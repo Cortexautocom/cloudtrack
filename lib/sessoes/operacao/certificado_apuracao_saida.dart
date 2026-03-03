@@ -1288,7 +1288,10 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     
     // Função local para calcular densidade 20°C e FCV
     Future<void> calcularResultados(void Function(void Function()) setStateDialog) async {
-      if (produtoSelecionado == null) {
+      // Prioriza o produto específico do tanque; fallback para o produto global
+      final produtoParaCalculo = tanque.produtoNome ?? produtoSelecionado;
+
+      if (produtoParaCalculo == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Selecione um produto primeiro!'),
@@ -1317,11 +1320,11 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         fcvCtrl.text = 'Calculando...';
       });
       
-      // Buscar densidade 20°C
+      // Buscar densidade 20°C usando o produto correto do tanque
       final dens20 = await _buscarDensidade20C(
         temperaturaAmostra: tempAmostra,
         densidadeObservada: densObs,
-        produtoNome: produtoSelecionado!,
+        produtoNome: produtoParaCalculo,
       );
       
       setStateDialog(() {
@@ -1335,11 +1338,11 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         return;
       }
       
-      // Buscar FCV
+      // Buscar FCV usando o produto correto do tanque
       final fcv = await _buscarFCV(
         temperaturaTanque: tempCT,
         densidade20C: dens20,
-        produtoNome: produtoSelecionado!,
+        produtoNome: produtoParaCalculo,
       );
       
       setStateDialog(() {
@@ -2869,6 +2872,12 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       campos['numeroControle']!.text =
           response['numero_controle'].toString();
 
+      // ===== SALVAR COLETAS DE CADA TANQUE =====
+      await _salvarColetasTanques(
+        produtoIdFallback: produtoId,
+        terminalId: usuario.terminalId!,
+      );
+
       // ===== AQUI ESTÁ A CHAMADA QUE VOCÊ AINDA PRECISA =====
       if (widget.idMovimentacao != null &&
           widget.idMovimentacao!.isNotEmpty) {
@@ -2902,6 +2911,79 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
             backgroundColor: Colors.red,
           ),
         );
+      }
+    }
+  }
+
+  // ===== SALVAR COLETAS POR TANQUE =====
+  Future<void> _salvarColetasTanques({
+    required String produtoIdFallback,
+    required String terminalId,
+  }) async {
+    final supabase = Supabase.instance.client;
+
+    // Monta lista de placas não vazias
+    final placas = [
+      campos['placaCavalo']!.text.trim(),
+      campos['carreta1']!.text.trim(),
+      campos['carreta2']!.text.trim(),
+    ].where((p) => p.isNotEmpty).toList();
+
+    for (int i = 0; i < _tanques.length; i++) {
+      final tanque = _tanques[i];
+
+      // tanque.id é o movimentacao_id deste tanque
+      final movimentacaoId = tanque.id;
+
+      // Usar produto do tanque quando disponível, senão usar o produto principal da ordem
+      String? produtoId = tanque.produtoId;
+      if (produtoId == null || produtoId.isEmpty) {
+        if (tanque.produtoNome != null && tanque.produtoNome!.isNotEmpty) {
+          try {
+            produtoId = await _resolverProdutoId(tanque.produtoNome!);
+          } catch (_) {
+            produtoId = produtoIdFallback;
+          }
+        } else {
+          produtoId = produtoIdFallback;
+        }
+      }
+
+      final tempAmostra = _converterParaDecimal(tanque.tempAmostra);
+      final densObs = _converterParaDecimal(tanque.densidadeObservada);
+      final tempCT = _converterParaDecimal(tanque.tempCT);
+
+      // Campos obrigatórios: pular este tanque se dados mínimos ausentes
+      if (tempAmostra == null || densObs == null || tempCT == null) {
+        print('ℹ️ Tanque ${i + 1} sem dados de coleta — registro coletas_tanques ignorado.');
+        continue;
+      }
+
+      final registro = {
+        'movimentacao_id': movimentacaoId,
+        'produto_id': produtoId,
+        'tanque_numero': i + 1,
+        'placas': placas,
+        'temperatura_amostra': tempAmostra,
+        'densidade_observada': densObs,
+        'temperatura_ct': tempCT,
+        'volume_amb': _converterParaInteiro(tanque.volumeAmbCtrl.text),
+        'volume_vinte': _converterParaInteiro(tanque.volume20CCtrl.text),
+        'terminal_id': terminalId,
+      };
+
+      try {
+        await supabase
+            .from('coletas_tanques')
+            .upsert(
+              registro,
+              onConflict: 'movimentacao_id,tanque_numero',
+              ignoreDuplicates: false,
+            );
+        print('✓ coletas_tanques salvo: movimentacao_id=$movimentacaoId tanque=${i + 1}');
+      } catch (e) {
+        print('✗ Erro ao salvar coleta tanque ${i + 1}: $e');
+        // Não interrompe — continua para os demais tanques
       }
     }
   }
