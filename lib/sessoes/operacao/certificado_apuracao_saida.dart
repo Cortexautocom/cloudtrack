@@ -2758,8 +2758,8 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       if (user == null) throw Exception('Usuário não autenticado');
 
       final usuario = UsuarioAtual.instance;
-      if (usuario == null || usuario.filialId == null) {
-        throw Exception('Usuário sem filial vinculada');
+      if (usuario == null || usuario.terminalId == null || usuario.terminalId!.isEmpty) {
+        throw Exception('Usuário sem terminal vinculado');
       }
 
       // ===== VERIFICA SE JÁ EXISTE CERTIFICADO DE ORIGEM =====
@@ -2855,8 +2855,8 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         'movimentacao_id': widget.idMovimentacao,
         'tipo_analise': 'origem',
 
-        // Ajuste aqui se você tiver terminal_id disponível
-        'terminal_id': null,
+        // Envia o terminal do usuário para a coluna `terminal_id` se disponível
+        'terminal_id': usuario.terminalId,
       };
 
       final response = await supabase

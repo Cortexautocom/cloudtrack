@@ -116,6 +116,7 @@ class _LoginPageState extends State<LoginPage> {
             nivel,
             id_filial,
             empresa_id,
+            terminal_id,
             senha_temporaria
           ''')
           .eq('id', user.id)
