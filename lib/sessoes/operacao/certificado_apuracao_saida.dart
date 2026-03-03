@@ -1162,17 +1162,17 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       final supabase = Supabase.instance.client;
       final usuario = UsuarioAtual.instance;
       
-      if (usuario == null || usuario.filialId == null) {
-        print('Usuário sem filial vinculada');
+      if (usuario == null || usuario.terminalId == null) {
+        print('Usuário sem terminal vinculado');
         return;
       }
 
-      // Buscar a coleta mais recente para este produto e filial
+      // Buscar a coleta mais recente para este produto e terminal
       final coletaRecente = await supabase
           .from('coletas_tanques')
           .select('*')
           .eq('produto_id', tanque.produtoId!)
-          .eq('filial_id', usuario.filialId!)
+          .eq('terminal_id', usuario.terminalId!)
           .order('created_at', ascending: false)
           .limit(1)
           .maybeSingle();
@@ -1503,7 +1503,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                     ),
                                   ),
                                   Text(
-                                    'para este produto e filial',
+                                    'para este produto e terminal',
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: Colors.grey[600],
@@ -2851,7 +2851,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
             _converterParaInteiro(tanquePrincipal.volume20CCtrl.text),
 
         'usuario_id': user.id,
-        'filial_id': usuario.filialId,
         'movimentacao_id': widget.idMovimentacao,
         'tipo_analise': 'origem',
 
