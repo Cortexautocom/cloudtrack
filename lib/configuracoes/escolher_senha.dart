@@ -61,6 +61,7 @@ class _EscolherSenhaPageState extends State<EscolherSenhaPage> {
             nivel: UsuarioAtual.instance!.nivel,
             filialId: UsuarioAtual.instance!.filialId,
             empresaId: UsuarioAtual.instance!.empresaId,
+            terminalId: UsuarioAtual.instance!.terminalId,
             cardsPermitidosIds: UsuarioAtual.instance!.cardsPermitidosIds,
             senhaTemporaria: false,
           );

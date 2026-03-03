@@ -16,6 +16,7 @@ class UsuarioAtual {
   /// IDs SEMPRE String (Flutter Web safe)
   final String? filialId;
   final String? empresaId;
+  final String? terminalId;
 
   /// CONTROLE REAL DE ACESSO (CARD-CENTRIC)
   final List<String> cardsPermitidosIds;
@@ -27,6 +28,7 @@ class UsuarioAtual {
     required this.nivel,
     required this.filialId,
     required this.empresaId,
+    required this.terminalId,
     required this.cardsPermitidosIds,
     required this.senhaTemporaria,
   });
@@ -128,6 +130,7 @@ class _LoginPageState extends State<LoginPage> {
       final int nivel = usuarioData['nivel'] as int;
       final String? filialId = usuarioData['id_filial']?.toString();
       final String? empresaId = usuarioData['empresa_id']?.toString();
+      final String? terminalId = usuarioData['terminal_id']?.toString();
 
       /// 3️⃣ Permissões reais (cards)
       final cardsPermitidosIds = await _carregarPermissoesCards(user.id);
@@ -157,6 +160,7 @@ class _LoginPageState extends State<LoginPage> {
         nivel: nivel,
         filialId: filialId,
         empresaId: empresaId,
+        terminalId: terminalId,
         cardsPermitidosIds: cardsPermitidosIds,
         senhaTemporaria: usuarioData['senha_temporaria'] == true,
       );

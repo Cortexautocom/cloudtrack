@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
+import '../operacao/escolher_terminal.dart';
 import 'detalhes_ordem.dart';
 
 // Formatador de máscara para data dd/mm/aaaa
@@ -66,6 +67,10 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   bool _mostrarDetalhes = false;
   Map<String, dynamic>? _ordemSelecionada;
 
+  // Novo: controle para escolha de terminal (nível 3)
+  bool _mostrarEscolherTerminal = false;
+  String? _terminalSelecionadoId;
+
   // Controladores para os filtros (para reset)
   late TextEditingController _dataInicioController;
   late TextEditingController _dataFimController;
@@ -84,13 +89,27 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     _tipoFiltro = 'saida';
     _filialFiltroId = UsuarioAtual.instance?.filialId;
 
+    // Determina se devemos mostrar o chooser IMEDIATAMENTE para evitar
+    // que a página principal apareça antes do chooser.
+    final usuarioSync = UsuarioAtual.instance;
+    if (usuarioSync != null && usuarioSync.nivel == 3 &&
+        (usuarioSync.terminalId == null || usuarioSync.terminalId!.isEmpty)) {
+      _mostrarEscolherTerminal = true;
+      _carregando = false;
+    } else {
+      // Para níveis 1 e 2, pré-popula terminal selecionado se existir
+      _terminalSelecionadoId = usuarioSync?.terminalId;
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+
+      // Se já estamos mostrando o chooser, não prossiga com carregamentos
+      if (_mostrarEscolherTerminal) return;
+
       await _carregarFiliais();
       await _aplicarFiltros();
-      setState(() {
-        _carregando = false;
-      });
+      if (mounted) setState(() { _carregando = false; });
     });
   }
 
@@ -190,7 +209,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         dataInicio = DateTime(dataFim.year, dataFim.month, dataFim.day, 0, 0, 0);
       }
 
-      var query = _supabase
+        var query = _supabase
           .from('movimentacoes')
           .select('''
             id,
@@ -216,6 +235,19 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             ordem_id
           ''')
           .eq('empresa_id', _empresaId!);
+
+      // Aplica filtro por terminal quando disponível
+      final usuarioParaFiltro = UsuarioAtual.instance;
+      String? terminalParaFiltro;
+      if (usuarioParaFiltro != null && (usuarioParaFiltro.nivel == 1 || usuarioParaFiltro.nivel == 2)) {
+        terminalParaFiltro = usuarioParaFiltro.terminalId ?? _terminalSelecionadoId;
+      } else if (usuarioParaFiltro != null && usuarioParaFiltro.nivel == 3) {
+        terminalParaFiltro = _terminalSelecionadoId;
+      }
+
+      if (terminalParaFiltro != null && terminalParaFiltro.isNotEmpty) {
+        query = query.eq('terminal_id', terminalParaFiltro);
+      }
 
       // Aplica filtro de data no banco de dados
       if (dataInicio != null) {
@@ -554,6 +586,16 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       _mostrarDetalhes = false;
     });
     // Garante atualização ao voltar para a lista
+    _aplicarFiltros();
+  }
+
+  // Chamado quando o usuário nível 3 seleciona um terminal
+  void _onTerminalSelecionado(String id) {
+    setState(() {
+      _terminalSelecionadoId = id;
+      _mostrarEscolherTerminal = false;
+      _carregando = true;
+    });
     _aplicarFiltros();
   }
   @override
@@ -1484,28 +1526,40 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                 ordem: _ordemSelecionada!,
                 filialAtualId: _filialAtualId,
               )
-            : Column(
-                children: [
-                  _buildFiltros(),
-                  Expanded(
-                    child: _carregando
-                        ? _buildCarregando()
-                        : _erro
-                            ? _buildErro()
-                            : _ordensFiltradas.isEmpty
-                                ? _buildSemDados()
-                                : ListView.builder(
-                                    itemCount: _ordensFiltradas.length,
-                                    itemBuilder: (context, index) {
-                                      return _buildItemOrdem(
-                                        _ordensFiltradas[index],
-                                        index,
-                                      );
-                                    },
-                                  ),
+            : _mostrarEscolherTerminal
+                ? EscolherFilialPage(
+                    onVoltar: () {
+                      setState(() {
+                        _mostrarEscolherTerminal = false;
+                      });
+                      widget.onVoltar();
+                    },
+                    onSelecionarFilial: (id) => _onTerminalSelecionado(id),
+                    titulo: 'Selecionar terminal',
+                    corPrimaria: const Color(0xFF0D47A1),
+                  )
+                : Column(
+                    children: [
+                      _buildFiltros(),
+                      Expanded(
+                        child: _carregando
+                            ? _buildCarregando()
+                            : _erro
+                                ? _buildErro()
+                                : _ordensFiltradas.isEmpty
+                                    ? _buildSemDados()
+                                    : ListView.builder(
+                                        itemCount: _ordensFiltradas.length,
+                                        itemBuilder: (context, index) {
+                                          return _buildItemOrdem(
+                                            _ordensFiltradas[index],
+                                            index,
+                                          );
+                                        },
+                                      ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
       ),
     );
   }

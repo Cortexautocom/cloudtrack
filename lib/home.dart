@@ -2323,16 +2323,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final usuario = UsuarioAtual.instance;
     switch (tipo) {
       case 'acompanhar_ordem':
-        if (usuario?.filialId == null || usuario!.filialId!.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Você precisa ter uma filial vinculada para acessar esta funcionalidade.'),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 3),
-            ),
-          );
-          return;
-        }
+        // Acompanhamento de ordens agora usa terminal_id; não exigir filial vinculada
         setState(() {
           _mostrarAcompanhamentoOrdens = true;
         });
