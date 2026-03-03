@@ -44,10 +44,13 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
   final FocusNode _qtdAmbFocus = FocusNode();
   final FocusNode _qtd20Focus = FocusNode();
   final FocusNode _produtoFocus = FocusNode();
+  final FocusNode _terminalFocus = FocusNode();
   final FocusNode _valorUnitFocus = FocusNode();
 
   String? _produtoSelecionado;
   List<Map<String, dynamic>> _produtos = [];
+  String? _terminalSelecionado;
+  List<Map<String, dynamic>> _terminais = [];
 
   final supabase = Supabase.instance.client;
   bool _dateAlertShown = false;
@@ -57,8 +60,20 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
   void initState() {
     super.initState();
     _carregarProdutos();
+    _carregarTerminais();
+    final usuarioInit = UsuarioAtual.instance;
+    if (usuarioInit != null && usuarioInit.nivel != 3) {
+      _terminalSelecionado = usuarioInit.terminalId;
+    }
     _qtd20Ctrl.addListener(_atualizarValorNf);
     _valorUnitCtrl.addListener(_atualizarValorNf);
+  }
+
+  Future<void> _carregarTerminais() async {
+    final res = await supabase.from('terminais').select('id, nome').order('nome');
+    setState(() {
+      _terminais = List<Map<String, dynamic>>.from(res);
+    });
   }
 
   void _atualizarValorNf() {
@@ -113,6 +128,7 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
     _qtdAmbFocus.dispose();
     _qtd20Focus.dispose();
     _produtoFocus.dispose();
+    _terminalFocus.dispose();
     _valorUnitFocus.dispose();
     super.dispose();
   }
@@ -238,6 +254,7 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
         'empresa_id': usuario!.empresaId,
         'filial_id': usuario.filialId,
         'usuario_id': usuario.id,
+        'terminal_id': _terminalSelecionado,
         'data_ordem': dataEmissao.toUtc().toIso8601String(),
       }).select().single();
 
@@ -299,6 +316,7 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
 
   @override
   Widget build(BuildContext context) {
+    final usuario = UsuarioAtual.instance;
     return Scaffold(
       backgroundColor: Colors.white,
       body: Align(
@@ -336,6 +354,30 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
                       spacing: 20,
                       runSpacing: 14,
                       children: [
+                        if (usuario?.nivel == 3)
+                          SizedBox(
+                            width: 540,
+                            child: DropdownButtonFormField<String>(
+                              focusNode: _terminalFocus,
+                              value: _terminalSelecionado,
+                              decoration: _decoracaoSlim('Terminal'),
+                              style: const TextStyle(fontSize: 14, color: Colors.black87),
+                              items: _terminais
+                                  .map<DropdownMenuItem<String>>(
+                                    (t) => DropdownMenuItem<String>(
+                                      value: t['id']?.toString(),
+                                      child: Text(
+                                        t['nome'] ?? '',
+                                        style: const TextStyle(fontSize: 14),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (v) => setState(() => _terminalSelecionado = v),
+                              validator: (v) => v == null ? 'Obrigatório' : null,
+                            ),
+                          ),
+
                         _campo('Origem', _origemCtrl, maiusculo: true, max: 50, letrasOnly: true, focusNode: _origemFocus, nextFocus: _notaFocus),
                         Shortcuts(
                           shortcuts: <LogicalKeySet, Intent>{
