@@ -122,58 +122,59 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       final PostgrestTransformBuilder<dynamic> query;
 
       // Se foi fornecido um terminal explicitamente (independente do nível do usuário), filtra por terminal_id
+      // No arquivo tanques.dart, função _carregarDados()
       if (filtroTerminalId != null) {
-        query = supabase
-            .from('tanques')
-            .select('''
-              id,
-              referencia,
-              capacidade,
-              lastro,
-              status,
-              id_produto,
-              id_filial,
-              produtos (nome),
-              terminais (nome)
-            ''')
-            .eq('terminal_id', filtroTerminalId)
-            .order('referencia');
+          query = supabase
+              .from('tanques')
+              .select('''
+                id,
+                referencia,
+                capacidade,
+                lastro,
+                status,
+                id_produto,
+                id_filial,
+                produtos (nome),
+                terminais (nome)
+              ''')
+              .eq('terminal_id', filtroTerminalId)
+              .order('referencia');
       }
       // Caso não tenha sido passado terminal, segue comportamento por nível
       else if (usuario.nivel == 3) {
-        // Administrador precisa selecionar um terminal
-        print("ERRO: Admin não escolheu terminal para visualizar tanques");
-        setState(() {
-          _carregando = false;
-          tanques = []; // Lista vazia
-          _nomeFilial = null;
-        });
-        return;
-      } else {
-        // Usuário normal: usa a filial do próprio usuário
-        final idFilial = usuario.filialId;
-        if (idFilial == null) {
-          print('Erro: ID da filial não encontrado para usuário não-admin');
+          // Administrador precisa selecionar um terminal
+          print("ERRO: Admin não escolheu terminal para visualizar tanques");
           setState(() {
             _carregando = false;
+            tanques = []; // Lista vazia
             _nomeFilial = null;
           });
           return;
-        }
+      } else {
+          // Usuário normal: usa o terminal do próprio usuário
+          final terminalId = usuario.terminalId;
+          if (terminalId == null || terminalId.isEmpty) {
+              print('Erro: ID do terminal não encontrado para usuário não-admin');
+              setState(() {
+                _carregando = false;
+                _nomeFilial = null;
+              });
+              return;
+          }
 
-        query = supabase
-            .from('tanques')
-            .select('''
-              id,
-              referencia,
-              capacidade,
-              lastro,
-              status,
-              id_produto,
-              produtos (nome)
-            ''')
-            .eq('id_filial', idFilial)
-            .order('referencia');
+          query = supabase
+              .from('tanques')
+              .select('''
+                id,
+                referencia,
+                capacidade,
+                lastro,
+                status,
+                id_produto,
+                produtos (nome)
+              ''')
+              .eq('terminal_id', terminalId)  // ← CORRIGIDO: usando terminal_id
+              .order('referencia');
       }
 
       final tanquesResponse = await query;

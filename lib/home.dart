@@ -2167,8 +2167,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             _contextoEscolhaFilial = 'tanques';
           });
         } else {
-          // Nível 1 e 2: vai direto para tanques da filial vinculada
-          _filialSelecionadaId = usuario.filialId;
+          // Nível 1 e 2: vai direto para tanques usando o terminalId vinculado
+          _terminalSelecionadoId = usuario.terminalId;
           setState(() {
             _mostrarTanques = true;
           });
