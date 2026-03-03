@@ -1263,7 +1263,15 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         if (valor) {
           _buscarDadosColetaRecente(_tanques[index]);
         } else {
-          _tanques[index].volume20CCtrl.text = '';
+          // Limpa o volume apurado e também os campos de coleta
+          // para que, ao abrir o dialog, estes apareçam zerados.
+          final tanque = _tanques[index];
+          tanque.volume20CCtrl.text = '';
+          tanque.tempAmostra = '';
+          tanque.densidadeObservada = '';
+          tanque.tempCT = '';
+          tanque.densidade20C = '';
+          tanque.fatorCorrecao = '';
         }
       }
     });
@@ -1440,15 +1448,19 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                 return Checkbox(
                                   value: tanque.buscarDoBanco,
                                   onChanged: emVisualizacao ? null : (value) {
+                                    final novo = value ?? false;
+
+                                    // Atualiza estado do objeto tanque na página pai
                                     setState(() {
-                                      tanque.buscarDoBanco = value ?? false;
+                                      tanque.buscarDoBanco = novo;
                                     });
+
+                                    // Atualiza checkbox local
                                     setStateCheckbox(() {});
-                                    
-                                    // Se marcou, buscar dados do banco
-                                    if (value == true) {
+
+                                    if (novo) {
+                                      // Se marcou, buscar dados do banco e propagar para controllers
                                       _buscarDadosColetaRecente(tanque).then((_) {
-                                        // Atualizar controllers com os novos dados
                                         tempAmostraCtrl.text = tanque.tempAmostra ?? '';
                                         densObsCtrl.text = tanque.densidadeObservada ?? '';
                                         tempCTCtrl.text = tanque.tempCT ?? '';
@@ -1456,6 +1468,23 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                         fcvCtrl.text = tanque.fatorCorrecao ?? '';
                                         setStateDialog(() {});
                                       });
+                                    } else {
+                                      // Se desmarcou, limpar imediatamente os campos do tanque e do dialog
+                                      setState(() {
+                                        tanque.volume20CCtrl.text = '';
+                                        tanque.tempAmostra = '';
+                                        tanque.densidadeObservada = '';
+                                        tanque.tempCT = '';
+                                        tanque.densidade20C = '';
+                                        tanque.fatorCorrecao = '';
+                                      });
+
+                                      tempAmostraCtrl.text = '';
+                                      densObsCtrl.text = '';
+                                      tempCTCtrl.text = '';
+                                      dens20Ctrl.text = '';
+                                      fcvCtrl.text = '';
+                                      setStateDialog(() {});
                                     }
                                   },
                                 );

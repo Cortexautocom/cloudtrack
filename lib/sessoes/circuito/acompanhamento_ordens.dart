@@ -601,8 +601,12 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Garante atualização sempre que a página é aberta
-    if (!_mostrarDetalhes) {
+    // Evita chamada duplicada de carregamento ao abrir a página.
+    // O carregamento inicial já é tratado em initState via
+    // addPostFrameCallback. Aqui só aplicamos filtros quando a
+    // página não está carregando e não possui ordens (casos
+    // excepcionais ou retorno de navegação).
+    if (!_mostrarDetalhes && !_carregando && _ordens.isEmpty) {
       _aplicarFiltros();
     }
   }
