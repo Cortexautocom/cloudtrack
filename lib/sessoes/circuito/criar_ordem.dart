@@ -20,7 +20,8 @@ class _FocusPrecoIntent extends Intent {
 
 class CriarOrdemPage extends StatefulWidget {
   final VoidCallback? onCreated;
-  const CriarOrdemPage({super.key, this.onCreated});
+  final VoidCallback? onVoltar;
+  const CriarOrdemPage({super.key, this.onCreated, this.onVoltar});
 
   @override
   State<CriarOrdemPage> createState() => _CriarOrdemPageState();
@@ -316,9 +317,17 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
   @override
   Widget build(BuildContext context) {
     final usuario = UsuarioAtual.instance;
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Align(
+    return WillPopScope(
+      onWillPop: () async {
+        if (widget.onVoltar != null) {
+          widget.onVoltar!();
+          return false; // handled by parent, don't pop the route
+        }
+        return true; // fallback: allow normal pop
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: Align(
         alignment: Alignment.topLeft,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
@@ -470,7 +479,13 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
                     SizedBox(
                       height: 36,
                       child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () {
+                          if (widget.onVoltar != null) {
+                            widget.onVoltar!();
+                          } else {
+                            Navigator.pop(context);
+                          }
+                        },
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           textStyle: const TextStyle(fontSize: 13),
@@ -498,7 +513,7 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
           ),
         ),
       ),
-    );
+    ));
   }
 
   Widget _campo(

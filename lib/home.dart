@@ -167,6 +167,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     _carregarFilialParaProgramacao();
     _carregarCardsDoBanco();
     _carregarNomeFilialUsuario();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map && args['openSessao'] == 'Operação') {
+        setState(() {
+          selectedIndex = menuItems.indexOf('Operação');
+        });
+        _mostrarFilhosDaSessao('Operação');
+      }
+    });
   }
 
   Future<void> _carregarNomeFilialUsuario() async {
@@ -1826,6 +1835,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   _mostrarFilhosSessao = true;
                   _sessaoAtual = 'Circuito';
                   _filhosSessaoAtual = List.from(_filhosPorSessao['Circuito'] ?? []);
+                });
+              },
+              onVoltar: () {
+                setState(() {
+                  _filhoSelecionadoTipo = null;
                 });
               },
             ),
