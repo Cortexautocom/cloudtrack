@@ -543,13 +543,28 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
   // =======================
   // PROCESSAMENTO DO SALVAMENTO (NOVA VENDA)
   // =======================
+  // =======================
+  // PROCESSAMENTO DO SALVAMENTO (NOVA VENDA)
+  // =======================
   Future<void> _processarSalvamentoVenda() async {
     setState(() => _salvando = true);
-    
+  
     debugPrint('🔵 ===== INICIANDO PROCESSO DE SALVAMENTO =====');
     debugPrint('🔵 Modo: Criação de nova venda');
     debugPrint('🔵 Filial ID: ${widget.filialId}');
-    debugPrint('🔵 Terminal ID: ${widget.terminalId}');
+    debugPrint('🔵 Terminal ID recebido no widget: ${widget.terminalId}');
+    debugPrint('🔵 Terminal ID tipo: ${widget.terminalId.runtimeType}');
+    debugPrint('🔵 Terminal ID is null? ${widget.terminalId == null}');
+    debugPrint('🔵 Terminal ID isEmpty? ${widget.terminalId?.isEmpty}');
+
+    // VALIDAÇÃO DO TERMINAL
+    if (widget.terminalId == null || widget.terminalId!.isEmpty) {
+      debugPrint('❌ ERRO CRÍTICO: terminalId está null ou vazio!');
+      debugPrint('❌ Isso explica porque não está salvando no banco');
+      _mostrarErro('Terminal não informado. Contate o suporte.');
+      setState(() => _salvando = false);
+      return;
+    }
 
     try {
       final supabase = Supabase.instance.client;
@@ -579,7 +594,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       final dataMov = hoje.toIso8601String();
       debugPrint('🔵 PASSO 3 - Data/hora: $dataMov');
 
-      // PASSO 4: INSERIR NA TABELA ORDENS (AQUI É ONDE PODE ESTAR O PROBLEMA)
+      // PASSO 4: INSERIR NA TABELA ORDENS
       debugPrint('🔵 PASSO 4: Inserindo na tabela ORDENS...');
       debugPrint('🔵 Dados da ordem:');
       debugPrint('   - empresa_id: $empresaId');
@@ -624,16 +639,17 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
           final capacidadeMCubicos = double.tryParse(tanque.capacidade) ?? 0.0;
           final capacidadeLitros = capacidadeMCubicos * 1000.0;
           
-          debugPrint('🔵 Inserindo movimentação para tanque:');
+          debugPrint('🔵 Preparando movimentação para tanque:');
           debugPrint('   - produto_id: ${tanque.produtoId}');
           debugPrint('   - cliente: ${tanque.clienteController.text}');
           debugPrint('   - capacidade: $capacidadeLitros L');
+          debugPrint('   - terminal_orig_id: ${widget.terminalId} (ANTES DE MONTAR O MAP)');
 
           final Map<String, dynamic> movimentacao = {
             'ordem_id': ordemId,
             'filial_id': widget.filialId,
             'filial_origem_id': widget.filialId,
-            'terminal_orig_id': widget.terminalId,
+            'terminal_orig_id': widget.terminalId, // AQUI ESTÁ SENDO PASSADO
             'empresa_id': empresaId,
             'usuario_id': user.id,
             'produto_id': tanque.produtoId,
@@ -655,9 +671,28 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             'saida_vinte': 0,
           };
 
+          // DEBUG: Mostrar o objeto completo antes do insert
+          debugPrint('🔵 OBJETO COMPLETO QUE SERÁ INSERIDO:');
+          movimentacao.forEach((key, value) {
+            debugPrint('   - $key: $value (${value.runtimeType})');
+          });
+          
+          debugPrint('🔵 Verificação específica do terminal_orig_id no objeto:');
+          debugPrint('   - Chave "terminal_orig_id" existe? ${movimentacao.containsKey('terminal_orig_id')}');
+          debugPrint('   - Valor de terminal_orig_id: ${movimentacao['terminal_orig_id']}');
+          debugPrint('   - Tipo: ${movimentacao['terminal_orig_id'].runtimeType}');
+
           debugPrint('🔵 Enviando INSERT para movimentacoes...');
-          await supabase.from('movimentacoes').insert(movimentacao);
-          debugPrint('✅ Movimentação inserida com sucesso');
+          
+          try {
+            final result = await supabase.from('movimentacoes').insert(movimentacao);
+            debugPrint('✅ Movimentação inserida com sucesso');
+            debugPrint('🔵 Resultado do insert: $result');
+          } catch (insertError) {
+            debugPrint('❌ ERRO NO INSERT: $insertError');
+            debugPrint('❌ Tipo do erro: ${insertError.runtimeType}');
+            rethrow;
+          }
           
           tanquesProcessados++;
         }
@@ -671,6 +706,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       debugPrint('🎉 ===== PROCESSO CONCLUÍDO COM SUCESSO =====');
       debugPrint('✅ Tanques processados: $tanquesProcessados');
       debugPrint('✅ Tanques ignorados: $tanquesIgnorados');
+      debugPrint('✅ terminal_orig_id utilizado: ${widget.terminalId}');
 
       widget.onSalvar(true, 'Venda registrada com sucesso! ($tanquesProcessados tanque(s) processado(s))');
       if (mounted) Navigator.of(context).pop(true);

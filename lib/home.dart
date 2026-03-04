@@ -449,14 +449,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final supabase = Supabase.instance.client;
     
     try {
-      // Busca todas as filiais ativas
-        final filiaisData = await supabase
+      // Busca todas as filiais — terminal_id_1 é apenas parâmetro, não critério
+      final filiaisData = await supabase
           .from('filiais')
-          .select('id, nome, nome_dois')
-          // .eq('ativo', true)  // Descomente se existir campo 'ativo'
+          .select('id, nome, nome_dois, terminal_id_1')
           .order('nome');
 
-      // Se não encontrou nenhuma filial
       if (filiaisData.isEmpty) {
         setState(() {
           _filiaisProgramacao = [];
@@ -464,32 +462,46 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         return;
       }
 
+      final List<Map<String, dynamic>> filiaisProcessadas = [];
+
+      for (var filial in filiaisData) {
+        final filialId = filial['id'];
+        final filialNome = filial['nome'] ?? 'Sem nome';
+        final filialNomeDois = filial['nome_dois'] ?? filialNome;
+        final terminalId = filial['terminal_id_1']; // pode ser null
+
+        filiaisProcessadas.add({
+          'id': filialId.toString(),
+          'label': filialNomeDois,
+          'descricao': '',
+          'tipo': 'programacao_filial',
+          'filial_id': filialId,
+          'filial_nome': filialNome,
+          'filial_nome_dois': filialNomeDois,
+          'terminal_id': terminalId,
+          'icon': Icons.local_gas_station,
+          'sessao_pai': 'Vendas',
+        });
+      }
+
+      filiaisProcessadas.sort((a, b) {
+        final nomeA = a['label']?.toString() ?? '';
+        final nomeB = b['label']?.toString() ?? '';
+        return nomeA.compareTo(nomeB);
+      });
+
       setState(() {
-        _filiaisProgramacao = filiaisData.map((filial) {
-          final nomeFilial = filial['nome_dois'] ?? filial['nome'];
-          return {
-            'id': filial['id'],
-            'label': nomeFilial,
-            'descricao': '',
-            'tipo': 'programacao_filial',
-            'filial_id': filial['id'],
-            'filial_nome': filial['nome'],
-            'filial_nome_dois': nomeFilial,
-            // 'terminal_id' removed: filiais table does not have this column
-            'icon': Icons.local_gas_station,
-            'sessao_pai': 'Vendas',
-          };
-        }).toList();
+        _filiaisProgramacao = filiaisProcessadas;
       });
       
     } catch (e) {
-      debugPrint('❌ Erro ao carregar filiais: $e');
+      debugPrint('❌ ERRO ao carregar filiais: $e');
+      debugPrint('❌ Stack trace: ${StackTrace.current}');
       
-      // Mostra mensagem de erro amigável
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erro ao carregar filiais. Tente novamente.'),
+            content: Text('Erro ao carregar filiais: ${e.toString()}'),
             backgroundColor: Colors.orange,
           ),
         );
@@ -1774,80 +1786,117 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildFilhosSessaoPage() {
+    debugPrint('\n🔵 ===== _buildFilhosSessaoPage INICIADO =====');
+    debugPrint('🔵 _sessaoAtual: $_sessaoAtual');
+    debugPrint('🔵 _filhosSessaoAtual length: ${_filhosSessaoAtual.length}');
+    
+    // Mostrar todos os cards recebidos
+    debugPrint('🔵 Cards recebidos em _filhosSessaoAtual:');
+    for (var i = 0; i < _filhosSessaoAtual.length; i++) {
+      final card = _filhosSessaoAtual[i];
+      debugPrint('   [$i] ID: ${card['id']}, Label: ${card['label']}, Tipo: ${card['tipo']}');
+    }
+    
     // Se não houver cards para mostrar
     if (_filhosSessaoAtual.isEmpty) {
+      debugPrint('⚠️ _filhosSessaoAtual está vazio - mostrando página sem permissão');
       return _buildSemPermissaoPage();
     }
 
     // Filtrar apenas os cards que o usuário tem permissão
     final usuario = UsuarioAtual.instance;
-    final cardsPermitidos = _filhosSessaoAtual.where((card) {
+    debugPrint('🔵 Usuário atual:');
+    debugPrint('   - Nome: ${usuario?.nome}');
+    debugPrint('   - Nível: ${usuario?.nivel}');
+    debugPrint('   - ID: ${usuario?.id}');
+    
+    if (usuario != null) {
+      debugPrint('   - Cards que o usuário tem permissão:');
+      // Se existir método para listar permissões, mostre aqui
+    }
+    
+    final cardsPermitidos = <Map<String, dynamic>>[];
+    
+    for (var card in _filhosSessaoAtual) {
       final cardId = card['id']?.toString();
       final tipo = card['tipo']?.toString();
-      if (tipo == 'transportadoras') return true;
-      if (usuario == null || cardId == null) return false;
-      return usuario.podeAcessarCard(cardId);
-    }).toList();
+      final label = card['label']?.toString() ?? 'Sem label';
+      
+      debugPrint('\n🔍 Analisando card: "$label"');
+      debugPrint('   - cardId: $cardId');
+      debugPrint('   - tipo: $tipo');
+      
+      // Cards de transportadoras são sempre permitidos
+      if (tipo == 'transportadoras') {
+        debugPrint('   ✅ Card transportadoras - sempre permitido');
+        cardsPermitidos.add(card);
+        continue;
+      }
+      
+      // Se não tem usuário, não permite (exceto transportadoras que já foi tratado)
+      if (usuario == null) {
+        debugPrint('   ❌ Usuário null - negado');
+        continue;
+      }
+      
+      // Se não tem cardId, não permite
+      if (cardId == null || cardId.isEmpty) {
+        debugPrint('   ❌ cardId null ou vazio - negado');
+        continue;
+      }
+      
+      // VERIFICAÇÃO ESPECIAL PARA CARDS DE VENDA
+      // Se for card de venda (tipo 'programacao_filial'), permitir automaticamente
+      if (tipo == 'programacao_filial') {
+        debugPrint('   ✅ Card de venda (programacao_filial) - permitido automaticamente');
+        cardsPermitidos.add(card);
+        continue;
+      }
+      
+      // Para os demais cards, verificar permissão normal
+      try {
+        final temPermissao = usuario.podeAcessarCard(cardId);
+        debugPrint('   🔍 Verificando permissão para cardId: $cardId');
+        debugPrint('   🔍 usuário.podeAcessarCard() retornou: $temPermissao');
+        
+        if (temPermissao) {
+          debugPrint('   ✅ Card permitido');
+          cardsPermitidos.add(card);
+        } else {
+          debugPrint('   ❌ Card negado (sem permissão)');
+        }
+      } catch (e) {
+        debugPrint('   ❌ ERRO ao verificar permissão: $e');
+        // Em caso de erro, não permitir o card
+      }
+    }
+
+    debugPrint('\n🔵 RESULTADO FINAL:');
+    debugPrint('   - Total cards originais: ${_filhosSessaoAtual.length}');
+    debugPrint('   - Cards permitidos: ${cardsPermitidos.length}');
 
     // Se não houver nenhum card permitido
     if (cardsPermitidos.isEmpty) {
-      return _buildPaginaPadronizada(
-        titulo: _sessaoAtual ?? '',
-        conteudo: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.lock_outline,
-                size: 80,
-                color: Colors.grey[400],
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Não autorizado.',
-                style: TextStyle(
-                  fontSize: 24,
-                  color: Colors.grey,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 40),
-                child: Text(
-                  'Você não tem permissão para acessar nenhum card nesta sessão.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.arrow_back),
-                label: const Text('Voltar para o menu'),
-                onPressed: _voltarParaCardsPai,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0D47A1),
-                  foregroundColor: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
-        mostrarVoltar: false, // NÃO MOSTRA SETA NA PRIMEIRA PÁGINA
-      );
+      debugPrint('⚠️ Nenhum card permitido encontrado');
+      debugPrint('🔵 Motivos possíveis:');
+      debugPrint('   1. Usuário não tem permissão para nenhum card');
+      debugPrint('   2. IDs dos cards não existem no banco de dados');
+      debugPrint('   3. Cards de venda podem estar sendo bloqueados');
+      
+      return _buildSemPermissaoPage();
     }
 
-    // Se houver um card filho selecionado, exibe seu conteúdo no espaço dos cards
+    // Se houver um card filho selecionado, exibe seu conteúdo
     if (_filhoSelecionadoTipo != null) {
+      debugPrint('🔵 Card filho selecionado: $_filhoSelecionadoTipo');
+      
       switch (_filhoSelecionadoTipo) {
         case 'criar_ordem':
           return _buildPaginaPadronizada(
             titulo: _sessaoAtual ?? '',
             conteudo: CriarOrdemPage(
               onCreated: () {
+                debugPrint('🔵 Ordem criada, voltando para cards');
                 setState(() {
                   _filhoSelecionadoTipo = null;
                   _mostrarFilhosSessao = true;
@@ -1856,6 +1905,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 });
               },
               onVoltar: () {
+                debugPrint('🔵 Voltando de criar ordem');
                 setState(() {
                   _filhoSelecionadoTipo = null;
                 });
@@ -1863,17 +1913,20 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             ),
             mostrarVoltar: true,
             onVoltar: () {
+              debugPrint('🔵 Voltando via botão voltar');
               setState(() {
                 _filhoSelecionadoTipo = null;
               });
             },
           );
         default:
-          // fallback para voltar à lista de cards
+          debugPrint('⚠️ Tipo de card filho não reconhecido: $_filhoSelecionadoTipo');
           break;
       }
     }
 
+    debugPrint('🔵 Renderizando grid com ${cardsPermitidos.length} cards');
+    
     return _buildPaginaPadronizada(
       titulo: _sessaoAtual ?? '',
       conteudo: SingleChildScrollView(
@@ -1884,6 +1937,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             runSpacing: 15,
             alignment: WrapAlignment.start,
             children: cardsPermitidos.map((card) {
+              debugPrint('🔵 Renderizando card: ${card['label']}');
               return SizedBox(
                 width: 140,
                 height: 170,
@@ -1893,7 +1947,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
         ),
       ),
-      mostrarVoltar: false, // NÃO MOSTRA SETA NA PRIMEIRA PÁGINA
+      mostrarVoltar: false,
     );
   }
 

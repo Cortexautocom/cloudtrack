@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../login_page.dart';
 
 class FiltroEstoquePage extends StatefulWidget {
   final String? filialId;
@@ -39,9 +40,12 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
   final SupabaseClient _supabase = Supabase.instance.client;
   DateTime? _mesSelecionado;
   String? _produtoSelecionado;
+  String? _filialSelecionadaId;
   String _tipoRelatorio = 'sintetico';
   List<Map<String, dynamic>> _produtosDisponiveis = [];
+  List<Map<String, dynamic>> _filiaisDisponiveis = [];
   bool _carregandoProdutos = false;
+  bool _carregandoFiliais = false;
   bool _carregando = false;
   bool _intraday = false;
   DateTime _dataSelecionada = DateTime.now();
@@ -50,7 +54,49 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
   void initState() {
     super.initState();
     _mesSelecionado = DateTime.now();
+    _filialSelecionadaId = widget.filialId ?? UsuarioAtual.instance?.filialId ?? '';
+    _carregarFiliaisDisponiveis();
     _carregarProdutosDisponiveis();
+  }
+
+  Future<void> _carregarFiliaisDisponiveis() async {
+    setState(() => _carregandoFiliais = true);
+
+    try {
+      final dados = await _supabase
+          .from('filiais')
+          .select('id, nome, nome_dois')
+          .order('nome');
+
+      final List<Map<String, dynamic>> filiais = [];
+      for (var filial in dados) {
+        final nome = filial['nome_dois'] ?? filial['nome'] ?? '';
+        filiais.add({
+          'id': filial['id'].toString(),
+          'nome': nome.toString(),
+        });
+      }
+
+      setState(() {
+        _filiaisDisponiveis = [
+          {'id': '', 'nome': '<selecione>'}
+        ];
+        _filiaisDisponiveis.addAll(filiais);
+        // If initial filial was provided but not present in list, keep as-is
+        if ((_filialSelecionadaId == null || _filialSelecionadaId!.isEmpty) && _filiaisDisponiveis.length > 1) {
+          // leave empty selection
+        }
+      });
+    } catch (e) {
+      debugPrint('❌ Erro ao carregar filiais: $e');
+      setState(() {
+        _filiaisDisponiveis = [
+          {'id': '', 'nome': '<selecione>'}
+        ];
+      });
+    } finally {
+      setState(() => _carregandoFiliais = false);
+    }
   }
 
   Future<void> _carregarProdutosDisponiveis() async {
@@ -190,9 +236,12 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
       );
       return;
     }
+    final String? filialToPass = (_filialSelecionadaId != null && _filialSelecionadaId!.isNotEmpty)
+        ? _filialSelecionadaId
+        : (widget.filialId != null && widget.filialId!.isNotEmpty ? widget.filialId : null);
 
     widget.onConsultarEstoque(
-      filialId: widget.filialId,
+      filialId: filialToPass,
       terminalId: widget.terminalId,
       nomeFilial: widget.nomeFilial,
       empresaId: widget.empresaId,
@@ -346,6 +395,83 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
           // Linha com os filtros
           Row(
             children: [
+              // Campo Mês de Referência ou Data Específica
+              // Campo Filial
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Filial',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0D47A1),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    if (_carregandoFiliais)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: Colors.grey.shade400, width: 1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Center(
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              color: const Color(0xFF0D47A1),
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: Colors.grey.shade400, width: 1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _filialSelecionadaId,
+                            isExpanded: true,
+                            icon: const Icon(Icons.arrow_drop_down, size: 20),
+                            style: const TextStyle(fontSize: 13, color: Colors.black),
+                            onChanged: (String? novoValor) {
+                              setState(() {
+                                _filialSelecionadaId = novoValor;
+                              });
+                            },
+                            items: _filiaisDisponiveis.map<DropdownMenuItem<String>>((filial) {
+                              return DropdownMenuItem<String>(
+                                value: filial['id']!,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  child: Text(
+                                    filial['nome']!,
+                                    style: TextStyle(
+                                      color: filial['id']!.isEmpty
+                                          ? Colors.grey.shade600
+                                          : Colors.black,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 16),
+
               // Campo Mês de Referência ou Data Específica
               Expanded(
                 child: Column(
