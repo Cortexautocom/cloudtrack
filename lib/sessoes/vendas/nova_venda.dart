@@ -633,7 +633,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             'ordem_id': ordemId,
             'filial_id': widget.filialId,
             'filial_origem_id': widget.filialId,
-            'terminal_orig_id': widget.terminalId ?? widget.filialId,
+            'terminal_orig_id': widget.terminalId,
             'empresa_id': empresaId,
             'usuario_id': user.id,
             'produto_id': tanque.produtoId,
