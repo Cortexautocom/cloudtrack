@@ -303,13 +303,14 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
                     child: SingleChildScrollView(
                       controller: headerController,
                       scrollDirection: Axis.horizontal,
-                      child: SizedBox(
-                        width: 1350,
+                        child: SizedBox(
+                        width: 1390,
                         child: Container(
                           height: 40,
                           color: const Color(0xFF0D47A1),
                           child: Row(
                             children: [
+                              _th("", 40),
                               _th("Data", 80),
                               _th("Placa", 100),
                               _th("Motorista", 140),
@@ -333,8 +334,8 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
                     child: SingleChildScrollView(
                       controller: bodyController,
                       scrollDirection: Axis.horizontal,
-                      child: SizedBox(
-                        width: 1350,
+                        child: SizedBox(
+                        width: 1390,
                         child: ListView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
@@ -380,6 +381,133 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
                               ),
                               child: Row(
                                 children: [
+                                  Container(
+                                    width: 36,
+                                    alignment: Alignment.center,
+                                    child: PopupMenuButton<String>(
+                                      color: Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      icon: Icon(Icons.more_vert, size: 18, color: Colors.grey.shade700),
+                                      onSelected: (value) async {
+                                        if (value == 'cancel') {
+                                          final confirm = await showDialog<bool>(
+                                            context: context,
+                                            builder: (ctx) => Dialog(
+                                              backgroundColor: Colors.white,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(10),
+                                                side: const BorderSide(color: Color(0xFF0D47A1), width: 1),
+                                              ),
+                                              child: SizedBox(
+                                                width: 420,
+                                                child: Column(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    // Header
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                                      decoration: const BoxDecoration(
+                                                        color: Color(0xFF0D47A1),
+                                                        borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
+                                                      ),
+                                                      child: Row(
+                                                        children: const [
+                                                          Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+                                                          SizedBox(width: 8),
+                                                          Text(
+                                                            'Cancelar transferência',
+                                                            style: TextStyle(
+                                                              fontSize: 15,
+                                                              fontWeight: FontWeight.w600,
+                                                              color: Colors.white,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+
+                                                    // Content
+                                                    Padding(
+                                                      padding: const EdgeInsets.all(20),
+                                                      child: RichText(
+                                                        textAlign: TextAlign.center,
+                                                        text: const TextSpan(
+                                                          style: TextStyle(
+                                                            fontSize: 14,
+                                                            height: 1.4,
+                                                            color: Colors.black,
+                                                          ),
+                                                          children: [
+                                                            TextSpan(text: 'Tem certeza que deseja cancelar a transferência?\n'),
+                                                            TextSpan(text: 'Essa ação é irreversível.', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+
+                                                    // Footer
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.grey.shade50,
+                                                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(9)),
+                                                        border: Border(
+                                                          top: BorderSide(color: Colors.grey.shade300, width: 1),
+                                                        ),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisAlignment: MainAxisAlignment.center,
+                                                        children: [
+                                                          SizedBox(
+                                                            width: 120,
+                                                            child: OutlinedButton(
+                                                              onPressed: () => Navigator.of(ctx).pop(false),
+                                                              style: OutlinedButton.styleFrom(
+                                                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                                                side: BorderSide(color: Colors.grey.shade400),
+                                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                                              ),
+                                                              child: const Text('Voltar', style: TextStyle(fontSize: 13)),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 12),
+                                                          SizedBox(
+                                                            width: 120,
+                                                            child: ElevatedButton(
+                                                              onPressed: () => Navigator.of(ctx).pop(true),
+                                                              style: ElevatedButton.styleFrom(
+                                                                backgroundColor: Colors.red,
+                                                                foregroundColor: Colors.white,
+                                                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                                              ),
+                                                              child: const Text('Sim, cancelar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          );
+
+                                          if (confirm == true) {
+                                            await _executarCancelarTransferencia(t);
+                                          }
+                                        }
+                                      },
+                                      itemBuilder: (ctx) => [
+                                        PopupMenuItem<String>(
+                                          value: 'cancel',
+                                          height: 36,
+                                          child: Text('Cancelar transferência', style: TextStyle(fontSize: 13)),
+                                        ),
+                                      ],
+                                      offset: const Offset(0, 36),
+                                    ),
+                                  ),
                                   _cell(
                                       '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}',
                                       80),
@@ -457,6 +585,44 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
         overflow: TextOverflow.ellipsis,
       ),
     );
+  }
+
+  Future<void> _executarCancelarTransferencia(Map<String, dynamic> t) async {
+    final ordemId = t['ordem_id'];
+    if (ordemId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Ordem não encontrada para esta transferência.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      final supabase = Supabase.instance.client;
+
+      await supabase.from('ordens').delete().eq('id', ordemId);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ordem cancelada com sucesso.')),
+      );
+
+      // Recarrega listas
+      await carregarHoje();
+      await carregarHistorico(reset: true);
+    } catch (e) {
+      debugPrint('Erro ao cancelar ordem: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao cancelar ordem: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   void _mostrarDialogNovaTransferencia() async {
