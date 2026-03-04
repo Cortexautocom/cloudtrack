@@ -1194,8 +1194,8 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
     for (var mov in _movimentacoes) {
       final produtoNome = mov['produtos']?['nome_dois']?.toString() ?? 'desconhecido';
 
-      final terminalDestinoId = mov['filial_destino_id']?.toString();
-      final terminalOrigemId = mov['filial_origem_id']?.toString();
+      final terminalDestinoId = mov['terminal_dest_id']?.toString();
+      final terminalOrigemId = mov['terminal_orig_id']?.toString();
       final terminalId = mov['terminal_id']?.toString();
 
       final entradaAmb = (mov['entrada_amb'] ?? 0) as num;

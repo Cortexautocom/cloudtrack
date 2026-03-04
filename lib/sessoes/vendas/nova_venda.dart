@@ -545,26 +545,48 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
   // =======================
   Future<void> _processarSalvamentoVenda() async {
     setState(() => _salvando = true);
+    
+    debugPrint('🔵 ===== INICIANDO PROCESSO DE SALVAMENTO =====');
+    debugPrint('🔵 Modo: Criação de nova venda');
+    debugPrint('🔵 Filial ID: ${widget.filialId}');
+    debugPrint('🔵 Terminal ID: ${widget.terminalId}');
 
     try {
       final supabase = Supabase.instance.client;
+      debugPrint('🔵 Conectado ao Supabase');
 
+      // PASSO 1: Buscar empresa_id da filial
+      debugPrint('🔵 PASSO 1: Buscando empresa_id da filial ${widget.filialId}');
       final filialResponse = await supabase
           .from('filiais')
           .select('empresa_id')
           .eq('id', widget.filialId)
           .single();
-
+      
       final empresaId = filialResponse['empresa_id'];
+      debugPrint('✅ PASSO 1 OK - empresa_id encontrado: $empresaId');
 
+      // PASSO 2: Verificar usuário autenticado
       final user = supabase.auth.currentUser;
       if (user == null) {
+        debugPrint('❌ ERRO: Usuário não autenticado');
         throw Exception('Usuário não autenticado');
       }
+      debugPrint('✅ PASSO 2 OK - Usuário: ${user.id}');
 
-      // Garante que use o horário de Brasília (GMT -3)
+      // PASSO 3: Gerar timestamp
       final hoje = _getHorarioBrasilia();
       final dataMov = hoje.toIso8601String();
+      debugPrint('🔵 PASSO 3 - Data/hora: $dataMov');
+
+      // PASSO 4: INSERIR NA TABELA ORDENS (AQUI É ONDE PODE ESTAR O PROBLEMA)
+      debugPrint('🔵 PASSO 4: Inserindo na tabela ORDENS...');
+      debugPrint('🔵 Dados da ordem:');
+      debugPrint('   - empresa_id: $empresaId');
+      debugPrint('   - filial_id: ${widget.filialId}');
+      debugPrint('   - usuario_id: ${user.id}');
+      debugPrint('   - tipo: venda');
+      debugPrint('   - data_ordem: $dataMov');
 
       final ordemResponse = await supabase
           .from('ordens')
@@ -579,27 +601,39 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
           .single();
 
       final ordemId = ordemResponse['id'];
+      debugPrint('✅ PASSO 4 OK - Ordem criada com ID: $ordemId');
 
+      // PASSO 5: Processar tanques
       int tanquesProcessados = 0;
+      int tanquesIgnorados = 0;
       
       for (final placaVenda in _placasVenda) {
+        debugPrint('🔵 PASSO 5 - Processando placa: ${placaVenda.controller.text}');
+        
         for (final tanque in placaVenda.tanques) {
           final produtoPreenchido = tanque.produtoId != null && tanque.produtoId!.isNotEmpty;
           final clientePreenchido = tanque.clienteController.text.trim().isNotEmpty;
           final pagamentoPreenchido = tanque.pagamentoController.text.trim().isNotEmpty;
           
           if (!(produtoPreenchido && clientePreenchido && pagamentoPreenchido)) {
+            tanquesIgnorados++;
+            debugPrint('⚠️ Tanque ignorado - incompleto: produto=$produtoPreenchido, cliente=$clientePreenchido, pagamento=$pagamentoPreenchido');
             continue;
           }
 
-          final capacidadeMCubicos =
-              double.tryParse(tanque.capacidade) ?? 0.0;
+          final capacidadeMCubicos = double.tryParse(tanque.capacidade) ?? 0.0;
           final capacidadeLitros = capacidadeMCubicos * 1000.0;
+          
+          debugPrint('🔵 Inserindo movimentação para tanque:');
+          debugPrint('   - produto_id: ${tanque.produtoId}');
+          debugPrint('   - cliente: ${tanque.clienteController.text}');
+          debugPrint('   - capacidade: $capacidadeLitros L');
 
           final Map<String, dynamic> movimentacao = {
             'ordem_id': ordemId,
             'filial_id': widget.filialId,
             'filial_origem_id': widget.filialId,
+            'terminal_orig_id': widget.terminalId ?? widget.filialId,
             'empresa_id': empresaId,
             'usuario_id': user.id,
             'produto_id': tanque.produtoId,
@@ -621,23 +655,38 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             'saida_vinte': 0,
           };
 
+          debugPrint('🔵 Enviando INSERT para movimentacoes...');
           await supabase.from('movimentacoes').insert(movimentacao);
+          debugPrint('✅ Movimentação inserida com sucesso');
+          
           tanquesProcessados++;
         }
       }
 
       if (tanquesProcessados == 0) {
+        debugPrint('❌ ERRO: Nenhum tanque completo para processar');
         throw Exception('Nenhum tanque completo para processar');
       }
 
+      debugPrint('🎉 ===== PROCESSO CONCLUÍDO COM SUCESSO =====');
+      debugPrint('✅ Tanques processados: $tanquesProcessados');
+      debugPrint('✅ Tanques ignorados: $tanquesIgnorados');
+
       widget.onSalvar(true, 'Venda registrada com sucesso! ($tanquesProcessados tanque(s) processado(s))');
       if (mounted) Navigator.of(context).pop(true);
+      
     } catch (e) {
+      debugPrint('❌ ===== ERRO NO PROCESSAMENTO =====');
+      debugPrint('❌ Tipo do erro: ${e.runtimeType}');
+      debugPrint('❌ Mensagem: ${e.toString()}');
+      debugPrint('❌ Stack trace: ${StackTrace.current}');
+      
       _mostrarErro('Erro ao salvar venda: ${e.toString()}');
     } finally {
       if (mounted) {
         setState(() => _salvando = false);
       }
+      debugPrint('🔵 ===== FIM DO PROCESSO =====');
     }
   }
   

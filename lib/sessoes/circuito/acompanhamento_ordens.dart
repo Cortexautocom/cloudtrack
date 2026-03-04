@@ -223,15 +223,15 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
               status_circuito_orig,
               status_circuito_dest,
               data_mov,
-              terminal_id,
+              terminal_orig_id,
+              terminal_dest_id,
               empresa_id,
               tipo_op,
-              filial_origem_id,
-              filial_destino_id,
+              terminal_orig_id,
+              terminal_dest_id,
               produtos!produto_id(id, nome_dois),
-              terminais!movimentacoes_terminal_id_fkey(id, nome),
-              terminal_origem:filiais!movimentacoes_filial_origem_id_fkey(id, nome),
-              terminal_destino:filiais!movimentacoes_filial_destino_id_fkey(id, nome),
+              terminal_origem:terminais!movimentacoes_terminal_orig_id_fkey(id, nome),
+              terminal_destino:terminais!movimentacoes_terminal_dest_id_fkey(id, nome),
               ordem_id
           ''')
           .eq('empresa_id', _empresaId!);
@@ -239,20 +239,27 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       // Aplica filtro por terminal quando disponível
       final usuarioParaFiltro = UsuarioAtual.instance;
       String? terminalParaFiltro;
-      if (usuarioParaFiltro != null && (usuarioParaFiltro.nivel == 1 || usuarioParaFiltro.nivel == 2)) {
-        terminalParaFiltro = usuarioParaFiltro.terminalId ?? _terminalSelecionadoId;
+
+      if (usuarioParaFiltro != null &&
+          (usuarioParaFiltro.nivel == 1 || usuarioParaFiltro.nivel == 2)) {
+        terminalParaFiltro =
+            usuarioParaFiltro.terminalId ?? _terminalSelecionadoId;
       } else if (usuarioParaFiltro != null && usuarioParaFiltro.nivel == 3) {
         terminalParaFiltro = _terminalSelecionadoId;
       }
 
+      // FILTRO CORRETO DE TERMINAL
       if (terminalParaFiltro != null && terminalParaFiltro.isNotEmpty) {
-        query = query.eq('terminal_id', terminalParaFiltro);
+        query = query.or(
+          'terminal_orig_id.eq.$terminalParaFiltro,terminal_dest_id.eq.$terminalParaFiltro'
+        );
       }
 
       // Aplica filtro de data no banco de dados
       if (dataInicio != null) {
         query = query.gte('data_mov', dataInicio.toIso8601String());
       }
+
       if (dataFim != null) {
         query = query.lte('data_mov', dataFim.toIso8601String());
       }
@@ -260,9 +267,8 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       query.order('data_mov', ascending: false);
 
       final dados = await query;
-      
-      List<Map<String, dynamic>> movimentacoesFiltradas = [];
 
+      List<Map<String, dynamic>> movimentacoesFiltradas = [];
       // Filtra por terminal baseado no nível do usuário
       String? terminalAtualId;
       if (usuario.nivel < 3) {
@@ -274,9 +280,8 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       if (terminalAtualId != null && terminalAtualId.isNotEmpty) {
         movimentacoesFiltradas = dados.where((item) {
           final tipoOp = (item['tipo_op']?.toString() ?? 'venda').toLowerCase();
-          final terminalId = item['terminal_id']?.toString();
-          final terminalOrigemId = item['filial_origem_id']?.toString();
-          final terminalDestinoId = item['filial_destino_id']?.toString();
+          final terminalOrigemId = item['terminal_orig_id']?.toString();
+          final terminalDestinoId = item['terminal_dest_id']?.toString();
 
           // Filtro de tipo (entrada/saida)
           if (_tipoFiltro == 'entrada') {
@@ -293,7 +298,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             } else if (tipoOp == 'transf') {
               return terminalOrigemId == terminalAtualId;
             } else if (tipoOp == 'venda') {
-              return terminalId == terminalAtualId;
+              return terminalOrigemId == terminalAtualId;
             }
             return false;
           } else {
@@ -303,7 +308,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             } else if (tipoOp == 'transf') {
               return terminalOrigemId == terminalAtualId || terminalDestinoId == terminalAtualId;
             } else if (tipoOp == 'venda') {
-              return terminalId == terminalAtualId;
+              return terminalOrigemId == terminalAtualId;
             }
             return false;
           }
@@ -355,8 +360,8 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
           'status_circuito_orig': primeiraMov['status_circuito_orig'],
           'status_circuito_dest': primeiraMov['status_circuito_dest'],
           'tipo_op': primeiraMov['tipo_op'],
-          'terminal_origem_id': primeiraMov['filial_origem_id'],
-          'terminal_destino_id': primeiraMov['filial_destino_id'],
+          'terminal_origem_id': primeiraMov['terminal_orig_id'],
+          'terminal_destino_id': primeiraMov['terminal_dest_id'],
           'placas': placasSet.toList(),
           'quantidade_total': quantidadeTotal,
           'produtos_agrupados': produtosAgrupados,
@@ -524,9 +529,8 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       final nome = produto['nome_dois']?.toString();
       if (nome == null) continue;
 
-      final terminalDestinoId = mov['filial_destino_id']?.toString();
-      final terminalOrigemId = mov['filial_origem_id']?.toString();
-      final terminalId = mov['terminal_id']?.toString();
+      final terminalDestinoId = mov['terminal_dest_id']?.toString();
+      final terminalOrigemId = mov['terminal_orig_id']?.toString();      
 
       final entradaAmb = (mov['entrada_amb'] ?? 0) as num;
       final saidaAmb = (mov['saida_amb'] ?? 0) as num;
@@ -535,7 +539,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       if (terminalAtualId.isNotEmpty && terminalDestinoId == terminalAtualId) {
         quantidade = entradaAmb;
       } else if (terminalAtualId.isNotEmpty &&
-          (terminalOrigemId == terminalAtualId || terminalId == terminalAtualId)) {
+          terminalOrigemId == terminalAtualId) {
         quantidade = saidaAmb;
       } else {
         quantidade = saidaAmb > 0 ? saidaAmb : entradaAmb;
