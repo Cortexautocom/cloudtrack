@@ -450,9 +450,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     
     try {
       // Busca todas as filiais ativas
-      final filiaisData = await supabase
+        final filiaisData = await supabase
           .from('filiais')
-          .select('id, nome, nome_dois, terminal_id')
+          .select('id, nome, nome_dois')
           // .eq('ativo', true)  // Descomente se existir campo 'ativo'
           .order('nome');
 
@@ -475,7 +475,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             'filial_id': filial['id'],
             'filial_nome': filial['nome'],
             'filial_nome_dois': nomeFilial,
-            'terminal_id': filial['terminal_id'],
+            // 'terminal_id' removed: filiais table does not have this column
             'icon': Icons.local_gas_station,
             'sessao_pai': 'Vendas',
           };

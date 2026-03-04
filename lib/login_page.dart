@@ -114,7 +114,6 @@ class _LoginPageState extends State<LoginPage> {
             nome,
             Nome_apelido,
             nivel,
-            id_filial,
             empresa_id,
             terminal_id,
             senha_temporaria
@@ -129,7 +128,6 @@ class _LoginPageState extends State<LoginPage> {
       final usuarioData = Map<String, dynamic>.from(raw as Map);
 
       final int nivel = usuarioData['nivel'] as int;
-      final String? filialId = usuarioData['id_filial']?.toString();
       final String? empresaId = usuarioData['empresa_id']?.toString();
       final String? terminalId = usuarioData['terminal_id']?.toString();
 
@@ -159,7 +157,7 @@ class _LoginPageState extends State<LoginPage> {
         id: usuarioData['id'].toString(),
         nome: (usuarioData['Nome_apelido'] ?? usuarioData['nome']).toString(),
         nivel: nivel,
-        filialId: filialId,
+        filialId: null,
         empresaId: empresaId,
         terminalId: terminalId,
         cardsPermitidosIds: cardsPermitidosIds,
