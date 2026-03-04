@@ -3,16 +3,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'nova_venda.dart';
 import 'dart:async';
 
-// ==============================================================
-//                PÁGINA DE PROGRAMAÇÃO DE VENDAS
-// ==============================================================
-
 class ProgramacaoPage extends StatefulWidget {
   final VoidCallback onVoltar;
   final String? filialId;
   final String? filialNome;
   final String? filialNomeDois;
-  final String? terminalId; // NOVO: campo para o terminal_id
+  final String? terminalId;
 
   const ProgramacaoPage({
     super.key, 
@@ -20,7 +16,7 @@ class ProgramacaoPage extends StatefulWidget {
     this.filialId,
     this.filialNome,
     this.filialNomeDois,
-    this.terminalId, // NOVO
+    this.terminalId,
   });
 
   @override
@@ -109,40 +105,25 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
           """)
           .eq("tipo_op", "venda");
 
-      // Filtrar por filial se disponível
       if (widget.filialId != null && widget.filialId!.isNotEmpty) {
         query = query.eq("filial_id", widget.filialId!);
       }
       
-      // Filtrar por terminal se disponível (caso a tabela movimentacoes tenha terminal_id)
-      if (widget.terminalId != null && widget.terminalId!.isNotEmpty) {
-        // Descomente a linha abaixo se a tabela movimentacoes tiver campo terminal_id
-        // query = query.eq("terminal_id", widget.terminalId!);
-        
-        debugPrint('🔹 Terminal ID disponível para filtro: ${widget.terminalId}');
-      }
-
-      // Formatar datas para filtro
       final dataFormatada = _dataFiltro.toIso8601String().split('T')[0];
       final dataInicio = '$dataFormatada 00:00:00';
       final dataFim = '$dataFormatada 23:59:59';
       
-      // Aplicar filtro de data
       query = query
           .gte('data_mov', dataInicio)
           .lte('data_mov', dataFim);
 
-      // Ordenar por data e hora
       final response = await query.order('data_mov', ascending: true);
 
-      // Processar os dados recebidos
       List<Map<String, dynamic>> dadosProcessados = [];
 
-      // Garantir que temos uma lista de mapas e evitar checagem de tipo redundante
       final listaResponse = List<Map<String, dynamic>>.from(response);
 
       for (final item in listaResponse) {
-        // Extrair informações do produto, quando disponíveis
         final produtos = item['produtos'];
         if (produtos is Map<String, dynamic>) {
           item['produto_nome'] = produtos['nome'];
@@ -154,11 +135,9 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
       setState(() {
         movimentacoes = dadosProcessados;
         _gerarCoresParaOrdens();
-        debugPrint('✅ Carregadas ${movimentacoes.length} movimentações para ${widget.filialNomeDois ?? widget.filialNome}');
       });
       
     } catch (e) {
-      debugPrint('❌ Erro ao carregar movimentações: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -249,7 +228,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
         },
         filialId: widget.filialId!,
         filialNome: widget.filialNome,
-        terminalId: widget.terminalId, // AGORA FUNCIONA!
+        terminalId: widget.terminalId,
       ),
     );
 
@@ -359,11 +338,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     }
   }
 
-  // ============================================================
-  //          FUNÇÃO DE EDIÇÃO DE ORDEM (CORRIGIDA)
-  // ============================================================
   Future<void> _editarOrdem(Map<String, dynamic> movimentacao) async {
-    // Verificar status_circuito_orig
     final statusOrig = int.tryParse(movimentacao['status_circuito_orig']?.toString() ?? '1') ?? 1;
     
     if (statusOrig > 2) {
@@ -371,7 +346,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
       return;
     }
 
-    // Verificar se tem ordem_id
     final ordemId = movimentacao['ordem_id']?.toString();
     if (ordemId == null || ordemId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -383,7 +357,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
       return;
     }
 
-    // Abrir diálogo de edição
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => NovaVendaDialog(
@@ -407,7 +380,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
         },
         filialId: widget.filialId!,
         filialNome: widget.filialNome,
-        terminalId: widget.terminalId, // ADICIONAR AQUI TAMBÉM
+        terminalId: widget.terminalId,
         movimentacaoParaEdicao: movimentacao,
         ordemId: ordemId,
       ),
@@ -418,9 +391,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     }
   }
 
-  // ============================================================
-  //          DIÁLOGO DE BLOQUEIO PARA EDIÇÃO/EXCLUSÃO
-  // ============================================================
   Future<void> _mostrarDialogBloqueioEdicao() async {
     return showDialog(
       context: context,
@@ -435,7 +405,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Header
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: const BoxDecoration(
@@ -457,8 +426,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
                   ],
                 ),
               ),
-              
-              // Content
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Text(
@@ -473,8 +440,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
                   textAlign: TextAlign.center,
                 ),
               ),
-              
-              // Footer
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
@@ -529,7 +494,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Header
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: const BoxDecoration(
@@ -551,8 +515,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
                   ],
                 ),
               ),
-              
-              // Content
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Text(
@@ -567,8 +529,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
                   textAlign: TextAlign.center,
                 ),
               ),
-              
-              // Footer
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
@@ -609,11 +569,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     );
   }
 
-  // ============================================================
-  //          FUNÇÃO DE EXCLUSÃO DE ORDEM
-  // ============================================================
   Future<void> _excluirOrdem(Map<String, dynamic> movimentacao) async {
-    // Verificar status_circuito_orig
     final statusOrig = int.tryParse(movimentacao['status_circuito_orig']?.toString() ?? '1') ?? 1;
     
     if (statusOrig > 2) {
@@ -633,7 +589,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
       return;
     }
 
-    // Confirmar exclusão
     final confirmado = await showDialog<bool>(
       context: context,
       builder: (context) => Dialog(
@@ -647,7 +602,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Header
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: const BoxDecoration(
@@ -669,8 +623,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
                   ],
                 ),
               ),
-              
-              // Content
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: RichText(
@@ -696,8 +648,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
                   ),
                 ),
               ),
-              
-              // Footer
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
@@ -1229,9 +1179,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     );
   }
 
-  // ============================================================
-  //          MENU DE TRÊS PONTOS COM OPÇÕES
-  // ============================================================
   Widget _buildMenuButton(BuildContext context, Map<String, dynamic> item) {
     return Container(
       width: 50,

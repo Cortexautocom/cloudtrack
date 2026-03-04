@@ -7,7 +7,7 @@ class NovaVendaDialog extends StatefulWidget {
   final Function(bool, String?) onSalvar;
   final String filialId;
   final String? filialNome;
-  final String? terminalId; // NOVO: adicionar este parâmetro
+  final String? terminalId;
   final Map<String, dynamic>? movimentacaoParaEdicao;
   final String? ordemId;
 
@@ -16,7 +16,7 @@ class NovaVendaDialog extends StatefulWidget {
     required this.onSalvar,
     required this.filialId,
     this.filialNome,
-    this.terminalId, // NOVO
+    this.terminalId,
     this.movimentacaoParaEdicao,
     this.ordemId,
   });
@@ -26,9 +26,6 @@ class NovaVendaDialog extends StatefulWidget {
 }
 
 class _NovaVendaDialogState extends State<NovaVendaDialog> {
-  // =======================
-  // MODELOS INTERNOS
-  // =======================
   final List<_PlacaVenda> _placasVenda = [];
   final ScrollController _scrollController = ScrollController();
 
@@ -36,10 +33,8 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
   bool _carregandoProdutos = false;
   bool _salvando = false;
   
-  // Controle da data para edição
   DateTime? _dataSelecionada;
   
-  // Flag para modo edição
   bool get _modoEdicao => widget.movimentacaoParaEdicao != null;
 
   @override
@@ -63,20 +58,13 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     super.dispose();
   }
 
-  // =======================
-  // FUNÇÃO PARA OBTER HORÁRIO BRASÍLIA (GMT-3)
-  // =======================
   DateTime _getHorarioBrasilia() {
     return DateTime.now().toUtc().subtract(const Duration(hours: 3));
   }
 
-  // =======================
-  // CARREGAR DADOS PARA EDIÇÃO
-  // =======================
   void _carregarDadosParaEdicao() {
     final mov = widget.movimentacaoParaEdicao!;
     
-    // Carregar a data do ts_mov
     if (mov['ts_mov'] != null) {
       try {
         _dataSelecionada = DateTime.parse(mov['ts_mov'].toString());
@@ -87,10 +75,8 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       _dataSelecionada = _getHorarioBrasilia();
     }
     
-    // Criar uma placa
     final placa = _PlacaVenda();
     
-    // Extrair placa (pode ser String ou List)
     final placasData = mov['placa'];
     if (placasData is List && placasData.isNotEmpty) {
       placa.controller.text = placasData.first.toString();
@@ -98,7 +84,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       placa.controller.text = placasData;
     }
     
-    // Criar um tanque com os dados da movimentação
     final tanque = _TanqueVenda(
       capacidade: _calcularCapacidade(mov['saida_amb']?.toString() ?? '0'),
     );
@@ -106,8 +91,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     tanque.produtoId = mov['produto_id']?.toString();
     tanque.clienteController.text = (mov['cliente']?.toString() ?? '').toUpperCase();
     tanque.pagamentoController.text = mov['forma_pagamento']?.toString() ?? '';
-
-    // Garantir que o texto carregado para edição apareça em maiúsculas
     tanque.pagamentoController.text = (tanque.pagamentoController.text).toUpperCase();
     
     placa.tanques.add(tanque);
@@ -143,9 +126,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     }
   }
 
-  // =======================
-  // PLACAS
-  // =======================
   void _adicionarPlaca() {
     setState(() {
       _placasVenda.add(_PlacaVenda());
@@ -331,7 +311,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       return;
     }
 
-    // Se for edição, não perguntar sobre carregamento parcial
     if (!_modoEdicao && tanquesVazios > 0 && tanquesCompletos < totalTanques) {
       final bool? resultado = await _mostrarDialogCarregamentoParcial(
         tanquesCompletos,
@@ -384,7 +363,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // HEADER
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         decoration: const BoxDecoration(
@@ -406,8 +384,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                           ],
                         ),
                       ),
-
-                      // CONTENT
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
                         child: Column(
@@ -422,7 +398,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                               ),
                             ),
                             const SizedBox(height: 12),
-
                             _infoLinha('Tanques disponíveis', total.toString()),
                             const SizedBox(height: 6),
                             _infoLinha(
@@ -430,11 +405,9 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                               preenchidos.toString(),
                               destaque: true,
                             ),
-
                             const SizedBox(height: 14),
                             Divider(color: Colors.grey.shade300, height: 1),
                             const SizedBox(height: 14),
-
                             Text(
                               'Deseja continuar com carregamento parcial?',
                               style: TextStyle(
@@ -445,8 +418,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                           ],
                         ),
                       ),
-
-                      // ACTIONS
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
@@ -478,9 +449,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                                 ),
                               ),
                             ),
-
                             const SizedBox(width: 12),
-
                             SizedBox(
                               width: 140,
                               child: ElevatedButton(
@@ -540,27 +509,10 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     );
   }
 
-  // =======================
-  // PROCESSAMENTO DO SALVAMENTO (NOVA VENDA)
-  // =======================
-  // =======================
-  // PROCESSAMENTO DO SALVAMENTO (NOVA VENDA)
-  // =======================
   Future<void> _processarSalvamentoVenda() async {
     setState(() => _salvando = true);
-  
-    debugPrint('🔵 ===== INICIANDO PROCESSO DE SALVAMENTO =====');
-    debugPrint('🔵 Modo: Criação de nova venda');
-    debugPrint('🔵 Filial ID: ${widget.filialId}');
-    debugPrint('🔵 Terminal ID recebido no widget: ${widget.terminalId}');
-    debugPrint('🔵 Terminal ID tipo: ${widget.terminalId.runtimeType}');
-    debugPrint('🔵 Terminal ID is null? ${widget.terminalId == null}');
-    debugPrint('🔵 Terminal ID isEmpty? ${widget.terminalId?.isEmpty}');
 
-    // VALIDAÇÃO DO TERMINAL
     if (widget.terminalId == null || widget.terminalId!.isEmpty) {
-      debugPrint('❌ ERRO CRÍTICO: terminalId está null ou vazio!');
-      debugPrint('❌ Isso explica porque não está salvando no banco');
       _mostrarErro('Terminal não informado. Contate o suporte.');
       setState(() => _salvando = false);
       return;
@@ -568,10 +520,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
 
     try {
       final supabase = Supabase.instance.client;
-      debugPrint('🔵 Conectado ao Supabase');
 
-      // PASSO 1: Buscar empresa_id da filial
-      debugPrint('🔵 PASSO 1: Buscando empresa_id da filial ${widget.filialId}');
       final filialResponse = await supabase
           .from('filiais')
           .select('empresa_id')
@@ -579,29 +528,14 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
           .single();
       
       final empresaId = filialResponse['empresa_id'];
-      debugPrint('✅ PASSO 1 OK - empresa_id encontrado: $empresaId');
 
-      // PASSO 2: Verificar usuário autenticado
       final user = supabase.auth.currentUser;
       if (user == null) {
-        debugPrint('❌ ERRO: Usuário não autenticado');
         throw Exception('Usuário não autenticado');
       }
-      debugPrint('✅ PASSO 2 OK - Usuário: ${user.id}');
 
-      // PASSO 3: Gerar timestamp
       final hoje = _getHorarioBrasilia();
       final dataMov = hoje.toIso8601String();
-      debugPrint('🔵 PASSO 3 - Data/hora: $dataMov');
-
-      // PASSO 4: INSERIR NA TABELA ORDENS
-      debugPrint('🔵 PASSO 4: Inserindo na tabela ORDENS...');
-      debugPrint('🔵 Dados da ordem:');
-      debugPrint('   - empresa_id: $empresaId');
-      debugPrint('   - filial_id: ${widget.filialId}');
-      debugPrint('   - usuario_id: ${user.id}');
-      debugPrint('   - tipo: venda');
-      debugPrint('   - data_ordem: $dataMov');
 
       final ordemResponse = await supabase
           .from('ordens')
@@ -616,40 +550,27 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
           .single();
 
       final ordemId = ordemResponse['id'];
-      debugPrint('✅ PASSO 4 OK - Ordem criada com ID: $ordemId');
 
-      // PASSO 5: Processar tanques
       int tanquesProcessados = 0;
-      int tanquesIgnorados = 0;
       
       for (final placaVenda in _placasVenda) {
-        debugPrint('🔵 PASSO 5 - Processando placa: ${placaVenda.controller.text}');
-        
         for (final tanque in placaVenda.tanques) {
           final produtoPreenchido = tanque.produtoId != null && tanque.produtoId!.isNotEmpty;
           final clientePreenchido = tanque.clienteController.text.trim().isNotEmpty;
           final pagamentoPreenchido = tanque.pagamentoController.text.trim().isNotEmpty;
           
           if (!(produtoPreenchido && clientePreenchido && pagamentoPreenchido)) {
-            tanquesIgnorados++;
-            debugPrint('⚠️ Tanque ignorado - incompleto: produto=$produtoPreenchido, cliente=$clientePreenchido, pagamento=$pagamentoPreenchido');
             continue;
           }
 
           final capacidadeMCubicos = double.tryParse(tanque.capacidade) ?? 0.0;
           final capacidadeLitros = capacidadeMCubicos * 1000.0;
-          
-          debugPrint('🔵 Preparando movimentação para tanque:');
-          debugPrint('   - produto_id: ${tanque.produtoId}');
-          debugPrint('   - cliente: ${tanque.clienteController.text}');
-          debugPrint('   - capacidade: $capacidadeLitros L');
-          debugPrint('   - terminal_orig_id: ${widget.terminalId} (ANTES DE MONTAR O MAP)');
 
           final Map<String, dynamic> movimentacao = {
             'ordem_id': ordemId,
             'filial_id': widget.filialId,
             'filial_origem_id': widget.filialId,
-            'terminal_orig_id': widget.terminalId, // AQUI ESTÁ SENDO PASSADO
+            'terminal_orig_id': widget.terminalId,
             'empresa_id': empresaId,
             'usuario_id': user.id,
             'produto_id': tanque.produtoId,
@@ -671,58 +592,25 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             'saida_vinte': 0,
           };
 
-          // DEBUG: Mostrar o objeto completo antes do insert
-          debugPrint('🔵 OBJETO COMPLETO QUE SERÁ INSERIDO:');
-          movimentacao.forEach((key, value) {
-            debugPrint('   - $key: $value (${value.runtimeType})');
-          });
-          
-          debugPrint('🔵 Verificação específica do terminal_orig_id no objeto:');
-          debugPrint('   - Chave "terminal_orig_id" existe? ${movimentacao.containsKey('terminal_orig_id')}');
-          debugPrint('   - Valor de terminal_orig_id: ${movimentacao['terminal_orig_id']}');
-          debugPrint('   - Tipo: ${movimentacao['terminal_orig_id'].runtimeType}');
-
-          debugPrint('🔵 Enviando INSERT para movimentacoes...');
-          
-          try {
-            final result = await supabase.from('movimentacoes').insert(movimentacao);
-            debugPrint('✅ Movimentação inserida com sucesso');
-            debugPrint('🔵 Resultado do insert: $result');
-          } catch (insertError) {
-            debugPrint('❌ ERRO NO INSERT: $insertError');
-            debugPrint('❌ Tipo do erro: ${insertError.runtimeType}');
-            rethrow;
-          }
+          await supabase.from('movimentacoes').insert(movimentacao);
           
           tanquesProcessados++;
         }
       }
 
       if (tanquesProcessados == 0) {
-        debugPrint('❌ ERRO: Nenhum tanque completo para processar');
         throw Exception('Nenhum tanque completo para processar');
       }
-
-      debugPrint('🎉 ===== PROCESSO CONCLUÍDO COM SUCESSO =====');
-      debugPrint('✅ Tanques processados: $tanquesProcessados');
-      debugPrint('✅ Tanques ignorados: $tanquesIgnorados');
-      debugPrint('✅ terminal_orig_id utilizado: ${widget.terminalId}');
 
       widget.onSalvar(true, 'Venda registrada com sucesso! ($tanquesProcessados tanque(s) processado(s))');
       if (mounted) Navigator.of(context).pop(true);
       
     } catch (e) {
-      debugPrint('❌ ===== ERRO NO PROCESSAMENTO =====');
-      debugPrint('❌ Tipo do erro: ${e.runtimeType}');
-      debugPrint('❌ Mensagem: ${e.toString()}');
-      debugPrint('❌ Stack trace: ${StackTrace.current}');
-      
       _mostrarErro('Erro ao salvar venda: ${e.toString()}');
     } finally {
       if (mounted) {
         setState(() => _salvando = false);
       }
-      debugPrint('🔵 ===== FIM DO PROCESSO =====');
     }
   }
   
@@ -737,7 +625,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
         throw Exception('Usuário não autenticado');
       }
 
-      // Só deve haver uma placa e um tanque na edição
       if (_placasVenda.isEmpty || _placasVenda.first.tanques.isEmpty) {
         throw Exception('Dados inválidos para edição');
       }
@@ -748,54 +635,44 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       final capacidadeMCubicos = double.tryParse(tanque.capacidade) ?? 0.0;
       final capacidadeLitros = capacidadeMCubicos * 1000.0;
 
-      // Obter o ordem_id da movimentação que está sendo editada
       final ordemId = widget.movimentacaoParaEdicao!['ordem_id']?.toString();
       
       if (ordemId == null || ordemId.isEmpty) {
         throw Exception('Ordem ID não encontrado para esta movimentação');
       }
 
-      // Determinar o timestamp a ser usado (data selecionada ou atual)
       DateTime timestampParaSalvar;
       
       if (_dataSelecionada != null) {
-        // Usar a data selecionada, mantendo o horário como 00:00:00 para consistência
         timestampParaSalvar = DateTime(
           _dataSelecionada!.year,
           _dataSelecionada!.month,
           _dataSelecionada!.day,
-          0, 0, 0, // Hora zero
+          0, 0, 0,
         );
       } else {
-        // Se não selecionou data, usar o horário atual (GMT-3)
         timestampParaSalvar = _getHorarioBrasilia();
       }
 
-      // Formatar a data para data_mov e data_ordem (apenas a data)
       final dataMov = 
           '${timestampParaSalvar.year}-${timestampParaSalvar.month.toString().padLeft(2, '0')}-${timestampParaSalvar.day.toString().padLeft(2, '0')}';
 
-      // 1. ATUALIZAR A ORDEM (tabela ordens)
       await supabase
           .from('ordens')
           .update({'data_ordem': dataMov})
           .eq('id', ordemId);
 
-      // 2. ATUALIZAR TODAS AS MOVIMENTAÇÕES COM ESTE ordem_id
-      // Preparar dados base para update das movimentações
       final Map<String, dynamic> dadosBaseMovimentacao = {
         'data_mov': dataMov,
         'ts_mov': timestampParaSalvar.toIso8601String(),
         'updated_at': _getHorarioBrasilia().toIso8601String(),
       };
 
-      // Atualizar todas as movimentações com o mesmo ordem_id
       await supabase
           .from('movimentacoes')
           .update(dadosBaseMovimentacao)
           .eq('ordem_id', ordemId);
 
-      // 3. ATUALIZAR A MOVIMENTAÇÃO ESPECÍFICA (com os dados do formulário)
       final Map<String, dynamic> dadosMovimentacaoEspecifica = {
         'produto_id': tanque.produtoId,
         'placa': [placaVenda.controller.text.trim().toUpperCase()],
@@ -803,6 +680,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
         'forma_pagamento': tanque.pagamentoController.text.trim(),
         'quantidade': capacidadeLitros,
         'saida_amb': capacidadeLitros,
+        'terminal_orig_id': widget.terminalId,
       };
 
       await supabase
@@ -823,7 +701,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
   }
 
   void _mostrarErro(String mensagem) {
-    print('ERRO: $mensagem');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(mensagem),
@@ -834,9 +711,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     setState(() => _salvando = false);
   }
 
-  // =======================
-  // UI
-  // =======================
   Widget _buildTanqueLinha(_TanqueVenda tanque) {
     final produtoPreenchido = tanque.produtoId != null && tanque.produtoId!.isNotEmpty;
     final clientePreenchido = tanque.clienteController.text.trim().isNotEmpty;
@@ -1059,7 +933,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
 
   Widget _buildPlaca(_PlacaVenda placa, {bool primeira = false}) {
     final index = _placasVenda.indexOf(placa);
-    final mostrarRemover = !primeira && !_modoEdicao; // Não mostrar remover no modo edição
+    final mostrarRemover = !primeira && !_modoEdicao;
     
     return Container(
       key: ValueKey<int>(index),
@@ -1088,7 +962,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                       controller: placa.controller,
                       onChanged: (v) => _buscarPlacas(placa, v),
                       style: const TextStyle(fontSize: 13),
-                      enabled: !_modoEdicao, // Desabilitar edição de placa no modo edição
+                      enabled: !_modoEdicao,
                       decoration: InputDecoration(
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 10,
@@ -1274,9 +1148,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
     );
   }
 
-  // =======================
-  // BUILD
-  // =======================
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -1291,7 +1162,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // HEADER
             Container(
               padding: const EdgeInsets.all(14),
               decoration: const BoxDecoration(
@@ -1316,17 +1186,13 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                 ],
               ),
             ),
-
-            // CONTEÚDO
             Flexible(
               child: SingleChildScrollView(
                 controller: _scrollController,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 child: Column(
                   children: [
-                    // Campo de data (aparece apenas no modo edição)
                     _buildCampoData(),
-                    // Lista de placas
                     ...List.generate(
                       _placasVenda.length,
                       (i) => _buildPlaca(
@@ -1338,8 +1204,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                 ),
               ),
             ),
-
-            // FOOTER
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
@@ -1350,7 +1214,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // BOTÃO CANCELAR
                   SizedBox(
                     width: 150,
                     child: OutlinedButton(
@@ -1379,7 +1242,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
                   
                   const SizedBox(width: 12),
                   
-                  // BOTÃO SALVAR (texto dinâmico)
                   SizedBox(
                     width: 150,
                     child: ElevatedButton(
@@ -1417,9 +1279,6 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
   }
 }
 
-// =======================
-// CLASSES AUXILIARES
-// =======================
 class _PlacaVenda {
   final TextEditingController controller = TextEditingController();
 
@@ -1457,7 +1316,6 @@ class _TanqueVenda {
   }
 }
 
-// Formata entrada para maiúsculas enquanto o usuário digita
 class UpperCaseTextFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(

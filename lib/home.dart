@@ -997,7 +997,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   decoration: BoxDecoration(
                                     color: isSelected
                                         ? Colors.white
-                                        : const Color(0xFFF5F5F5),
+                                        : (_hoveredMenuIndex == index
+                                            ? const Color(0xFFFAFBFF)
+                                            : const Color(0xFFF5F5F5)),
                                     border: Border(
                                       left: BorderSide(
                                         color: isSelected
@@ -1021,8 +1023,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                       Expanded( // Adiciona Expanded para melhor controle
                                         child: AnimatedContainer(
                                           duration: const Duration(milliseconds: 200),
-                                          transform: Matrix4.translationValues(
-                                              _hoveredMenuIndex == index ? 8.0 : 0.0, 0, 0),
+                                            transform: Matrix4.translationValues(
+                                              _hoveredMenuIndex == index ? 6.0 : 0.0, 0, 0),
                                           child: AnimatedDefaultTextStyle(
                                             duration: const Duration(milliseconds: 200),
                                             style: TextStyle(
