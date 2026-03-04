@@ -120,6 +120,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   String? _filialParaFiltroNome;
   String? _empresaParaFiltroId;
   String? _empresaParaFiltroNome;
+  String? _terminalParaFiltroId;
+  String? _terminalParaFiltroNome;
   
   // LISTAS DE DADOS
   List<Map<String, dynamic>> sessoes = [];
@@ -297,7 +299,19 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         // Remover card isolado de CACL: acesso passa a ser feito via Estoque por tanque
         if (tipo == 'cacl') continue;
         
-        if (usuario.nivel >= 3 || usuario.podeAcessarCard(cardId) || cardsObrigatorios.contains(tipo)) {
+        // Para usuários de nível 1 e 2, permitir acesso a cards de movimentacoes
+        if (usuario.nivel <= 2 && tipo == 'movimentacoes') {
+          todosCards.add({
+            'id': cardId,
+            'label': card['nome'],
+            'tipo': tipo,
+            'sessao_pai': sessaoPai,
+            'icon': _definirIconePorTipo(tipo),
+            'descricao': _definirDescricaoPorTipo(tipo),
+          });
+        }
+        // Para os demais casos, manter a lógica original
+        else if (usuario.nivel >= 3 || usuario.podeAcessarCard(cardId) || cardsObrigatorios.contains(tipo)) {
           todosCards.add({
             'id': cardId,
             'label': card['nome'],
@@ -653,7 +667,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarTempDensMedia = false;
       _mostrarMenuAjuda = false;
       _mostrarSuporte = false;
-      _voltarParaTanquesApoCACL = false; // ← RESET DA FLAG
+      _voltarParaTanquesApoCACL = false;
       _resetarTodasFlagsGestaoFrota();
       _mostrarFilhosSessao = false;
       _sessaoAtual = null;
@@ -665,6 +679,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _contextoEscolhaTerminal = '';
       _filialParaFiltroId = null;
       _filialParaFiltroNome = null;
+      _terminalParaFiltroId = null;        // ← ADICIONAR
+      _terminalParaFiltroNome = null;      // ← ADICIONAR
       _empresaParaFiltroId = null;
       _empresaParaFiltroNome = null;
       _empresaSelecionadaId = null;
@@ -713,8 +729,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           // Nível 1: remover cards de empresa (empresa-level)
           filhos = filhos.where((card) => card['tipo'] != 'estoque_por_empresa' && card['tipo'] != 'movimentacao_por_empresa').toList();
         } else if (usuario.nivel == 2) {
-          // Nível 2: remover o card genérico de movimentações e também o card de movimentação por empresa (apenas nível 3)
-          filhos = filhos.where((card) => card['tipo'] != 'movimentacoes' && card['tipo'] != 'movimentacao_por_empresa').toList();
+          // Nível 2: remover apenas cards de empresa, manter movimentacoes
+          filhos = filhos.where((card) => card['tipo'] != 'estoque_por_empresa' && card['tipo'] != 'movimentacao_por_empresa').toList();
         } else {
           // Nível 3: manter cards de empresa, remover o card genérico de movimentações
           filhos = filhos.where((card) => card['tipo'] != 'movimentacoes').toList();
@@ -796,6 +812,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _contextoEscolhaTerminal = '';
       _filialParaFiltroId = null;
       _filialParaFiltroNome = null;
+      _terminalParaFiltroId = null;        // ← ADICIONAR
+      _terminalParaFiltroNome = null;      // ← ADICIONAR
       _empresaParaFiltroId = null;
       _empresaParaFiltroNome = null;
       _empresaSelecionadaId = null;
@@ -1279,7 +1297,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       return _buildCardsFilialPage();
     }
 
-    if (_mostrarFiltrosEstoque && _filialParaFiltroId != null) {
+    if (_mostrarFiltrosEstoque && (_filialParaFiltroId != null || _terminalParaFiltroId != null)) {
       return _buildFiltrosEstoquePage();
     }
 
@@ -2231,18 +2249,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
         );
         break;
+        
       case 'estoque_por_empresa':
         setState(() {
           _mostrarEstoquePorEmpresa = true;
           _carregarEmpresas();
         });
         break;
+        
       case 'movimentacao_por_empresa':
         setState(() {
           _mostrarEstoquePorEmpresa = true;
           _carregarEmpresas();
         });
         break;
+        
       case 'estoque_por_tanque':
         final usuario = UsuarioAtual.instance;
         if (usuario != null && usuario.nivel == 3) {
@@ -2259,29 +2280,64 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           });
         }
         break;
+        
       case 'movimentacoes':
       case 'movimentaces':
-        // NOVO: Todos os usuários (nível 1-2 e 3) devem ter filial vinculada
-        if (usuario == null || usuario.filialId == null || usuario.filialId!.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Usuário sem filial vinculada'),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 3),
-            ),
-          );
+        // Validar se usuário tem filial OU terminal vinculado
+        if (usuario == null) return;
+        
+        // Para nível 1 e 2, usar terminal_id
+        if (usuario.nivel == 1 || usuario.nivel == 2) {
+          if (usuario.terminalId == null || usuario.terminalId!.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Usuário sem terminal vinculado'),
+                backgroundColor: Colors.red,
+                duration: Duration(seconds: 3),
+              ),
+            );
+            return;
+          }
+          
+          setState(() {
+            _terminalParaFiltroId = usuario.terminalId;
+            _terminalParaFiltroNome = _usuarioTerminalNome ?? 'Seu Terminal';
+            _filialParaFiltroId = null;
+            _filialParaFiltroNome = null;
+            _empresaParaFiltroId = null;
+            _empresaParaFiltroNome = null;
+            _mostrarFiltrosEstoque = true;
+            _mostrarCardsFilial = false;
+            _mostrarFiliaisDaEmpresa = false;
+          });
           return;
         }
-
-        setState(() {
-          _filialParaFiltroId = usuario.filialId;
-          _filialParaFiltroNome = _usuarioFilialNome ?? 'Sua Filial';
-          _empresaParaFiltroId = null;
-          _empresaParaFiltroNome = null;
-          _mostrarFiltrosEstoque = true;
-          _mostrarCardsFilial = false;
-          _mostrarFiliaisDaEmpresa = false;
-        });
+        
+        // Para nível 3, usar filial_id
+        if (usuario.nivel == 3) {
+          if (usuario.filialId == null || usuario.filialId!.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Usuário sem filial vinculada'),
+                backgroundColor: Colors.red,
+                duration: Duration(seconds: 3),
+              ),
+            );
+            return;
+          }
+          
+          setState(() {
+            _filialParaFiltroId = usuario.filialId;
+            _filialParaFiltroNome = _usuarioFilialNome ?? 'Sua Filial';
+            _terminalParaFiltroId = null;
+            _terminalParaFiltroNome = null;
+            _empresaParaFiltroId = null;
+            _empresaParaFiltroNome = null;
+            _mostrarFiltrosEstoque = true;
+            _mostrarCardsFilial = false;
+            _mostrarFiliaisDaEmpresa = false;
+          });
+        }
         break;
         
       case 'transferencias':
@@ -2295,6 +2351,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             ),
           ),
         );
+        break;
+        
+      default:
+        debugPrint('Tipo de card de estoques não reconhecido: $tipo');
         break;
     }
   }
@@ -2694,16 +2754,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   Widget _buildFiltrosEstoquePage() {
     return FiltroEstoquePage(
-      key: ValueKey('filtros-$_filialParaFiltroId'),
-      filialId: _filialParaFiltroId!,
-      nomeFilial: _filialParaFiltroNome!,
+      key: ValueKey('filtros-${_terminalParaFiltroId ?? _filialParaFiltroId}'),
+      filialId: _filialParaFiltroId,
+      terminalId: _terminalParaFiltroId,
+      nomeFilial: _terminalParaFiltroNome ?? _filialParaFiltroNome ?? 'Local',
       empresaId: _empresaParaFiltroId,
       empresaNome: _empresaParaFiltroNome,
       onVoltar: () {
         if (_empresaParaFiltroId != null) {
           setState(() {
             _mostrarFiltrosEstoque = false;
-            _mostrarFiliaisDaEmpresa = true; // voltar para lista de filiais da empresa
+            _mostrarFiliaisDaEmpresa = true;
             _mostrarCardsFilial = false;
           });
         } else {
@@ -2711,11 +2772,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             _mostrarFiltrosEstoque = false;
             _mostrarCardsFilial = false;
           });
-          _mostrarFilhosDaSessao('Estoques'); // voltar ao painel principal de cards de Estoques
+          _mostrarFilhosDaSessao('Estoques');
         }
       },
       onConsultarEstoque: ({
-        required String filialId,
+        required String? filialId,
+        required String? terminalId,
         required String nomeFilial,
         String? empresaId,
         DateTime? mesFiltro,
@@ -2729,6 +2791,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           MaterialPageRoute(
             builder: (_) => EstoqueMesPage(
               filialId: filialId,
+              terminalId: terminalId,
               nomeFilial: nomeFilial,
               empresaId: empresaId,
               mesFiltro: mesFiltro,

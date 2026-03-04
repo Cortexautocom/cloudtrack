@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class EstoqueMesPage extends StatefulWidget {
-  final String filialId;
+  final String? filialId;
+  final String? terminalId;
   final String nomeFilial;
   final String? empresaId;
   final DateTime? mesFiltro;
@@ -16,7 +17,8 @@ class EstoqueMesPage extends StatefulWidget {
 
   const EstoqueMesPage({
     super.key,
-    required this.filialId,
+    this.filialId,
+    this.terminalId,
     required this.nomeFilial,
     this.empresaId,
     this.mesFiltro,
@@ -35,6 +37,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   List<Map<String, dynamic>> _movimentacoes = [];
   List<Map<String, dynamic>> _movimentacoesOrdenadas = [];
   String? _empresaId;
+  String? _filialIdUsar;
   bool _carregando = true;
   bool _erro = false;
   String _mensagemErro = '';
@@ -134,20 +137,44 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     });
 
     try {
-      if (widget.empresaId == null) {
-        final filialData = await _supabase
-            .from('filiais')
-            .select('empresa_id')
-            .eq('id', widget.filialId)
-            .single();
+      // Se for terminal, buscar a filial e empresa associadas
+      if (widget.terminalId != null) {
+        final terminalData = await _supabase
+            .from('terminais')
+            .select('filial_id, empresa_id')
+            .eq('id', widget.terminalId!)
+            .maybeSingle();
 
-        _empresaId = filialData['empresa_id']?.toString();
+        if (terminalData != null) {
+          _filialIdUsar = terminalData['filial_id']?.toString();
+          _empresaId = terminalData['empresa_id']?.toString();
+        } else {
+          throw Exception('Terminal não encontrado');
+        }
       } else {
-        _empresaId = widget.empresaId;
+        _filialIdUsar = widget.filialId;
+        
+        if (widget.empresaId == null && _filialIdUsar != null) {
+          final filialData = await _supabase
+              .from('filiais')
+              .select('empresa_id')
+              .eq('id', _filialIdUsar!)
+              .maybeSingle();
+
+          if (filialData != null) {
+            _empresaId = filialData['empresa_id']?.toString();
+          }
+        } else {
+          _empresaId = widget.empresaId;
+        }
       }
 
       if (_empresaId == null || _empresaId!.isEmpty) {
-        throw Exception('Não foi possível identificar a empresa da filial');
+        throw Exception('Não foi possível identificar a empresa');
+      }
+
+      if (_filialIdUsar == null || _filialIdUsar!.isEmpty) {
+        throw Exception('Não foi possível identificar a filial');
       }
 
       if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
@@ -160,7 +187,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         _nomeProdutoSelecionado = produtoData?['nome']?.toString();
       }
 
-      // Carregar estoque inicial (do final do mês anterior)
+      // Carregar estoque inicial (do final do período anterior)
       await _carregarEstoqueInicial();
 
       await _carregarDadosAnalitico();
@@ -204,7 +231,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
               saida_amb,
               saida_vinte
             ''')
-            .or('filial_id.eq.${widget.filialId},filial_destino_id.eq.${widget.filialId},filial_origem_id.eq.${widget.filialId}')
+            .or('filial_id.eq.$_filialIdUsar,filial_destino_id.eq.$_filialIdUsar,filial_origem_id.eq.$_filialIdUsar')
             .eq('empresa_id', _empresaId!)
             .lte('data_mov', diaAnterior.toIso8601String().split('T')[0]);
 
@@ -217,7 +244,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                 saida_amb,
                 saida_vinte
               ''')
-              .or('filial_id.eq.${widget.filialId},filial_destino_id.eq.${widget.filialId},filial_origem_id.eq.${widget.filialId}')
+              .or('filial_id.eq.$_filialIdUsar,filial_destino_id.eq.$_filialIdUsar,filial_origem_id.eq.$_filialIdUsar')
               .eq('empresa_id', _empresaId!)
               .eq('produto_id', widget.produtoFiltro!)
               .lte('data_mov', diaAnterior.toIso8601String().split('T')[0]);
@@ -272,7 +299,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             saida_amb,
             saida_vinte
           ''')
-          .or('filial_id.eq.${widget.filialId},filial_destino_id.eq.${widget.filialId},filial_origem_id.eq.${widget.filialId}')
+          .or('filial_id.eq.$_filialIdUsar,filial_destino_id.eq.$_filialIdUsar,filial_origem_id.eq.$_filialIdUsar')
           .eq('empresa_id', _empresaId!)
           .lte('data_mov', ultimoDiaMesAnterior.toIso8601String());
 
@@ -286,7 +313,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
               saida_amb,
               saida_vinte
             ''')
-            .or('filial_id.eq.${widget.filialId},filial_destino_id.eq.${widget.filialId},filial_origem_id.eq.${widget.filialId}')
+            .or('filial_id.eq.$_filialIdUsar,filial_destino_id.eq.$_filialIdUsar,filial_origem_id.eq.$_filialIdUsar')
             .eq('empresa_id', _empresaId!)
             .eq('produto_id', widget.produtoFiltro!)
             .lte('data_mov', ultimoDiaMesAnterior.toIso8601String());
@@ -429,7 +456,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
               nome
             )
           ''')
-          .or('filial_id.eq.${widget.filialId},filial_destino_id.eq.${widget.filialId},filial_origem_id.eq.${widget.filialId}')
+          .or('filial_id.eq.$_filialIdUsar,filial_destino_id.eq.$_filialIdUsar,filial_origem_id.eq.$_filialIdUsar')
           .eq('empresa_id', _empresaId!);
 
       // Filtro de data: Intraday ou Mensal
@@ -463,7 +490,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       for (var mov in dados) {
         final normalizado = _normalizarMovimentacao(
           mov,
-          widget.filialId,
+          _filialIdUsar!,
         );
 
         final produto = mov['produtos'] as Map<String, dynamic>?;
@@ -618,7 +645,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       );
 
       final requestData = {
-        'filialId': widget.filialId,
+        'filialId': _filialIdUsar,
+        'terminalId': widget.terminalId,
         'nomeFilial': widget.nomeFilial,
         'empresaId': widget.empresaId,
         'isIntraday': widget.isIntraday,
