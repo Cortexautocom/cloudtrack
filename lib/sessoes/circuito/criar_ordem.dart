@@ -266,8 +266,8 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
         'quantidade_amb': _qtdAmbCtrl.text.replaceAll('.', ''),
         'quantidade_20': _qtd20Ctrl.text.replaceAll('.', ''),
         'produto_id': _produtoSelecionado,
-        'valor_unit': _valorUnitCtrl.text.replaceAll(RegExp(r'[^0-9]'), ''),
-        'valor_nf': _valorNfCtrl.text.replaceAll(RegExp(r'[^0-9]'), ''),
+        'valor_unit': _valorUnitCtrl.text.trim().isEmpty ? null : _valorUnitCtrl.text.replaceAll(RegExp(r'[^0-9]'), ''),
+        'valor_nf': _valorNfCtrl.text.trim().isEmpty ? null : _valorNfCtrl.text.replaceAll(RegExp(r'[^0-9]'), ''),
       });
 
       if (!mounted) return;
@@ -569,7 +569,7 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
           }
         },
         validator: (v) {
-          if (label != 'Origem' && (v == null || v.isEmpty)) {
+          if (label != 'Origem' && label != 'Preço' && label != 'Valor NF' && (v == null || v.isEmpty)) {
             return 'Obrigatório';
           }
           return null;
