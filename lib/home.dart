@@ -421,21 +421,25 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     };
     return mapaDescricoes[tipo] ?? '';
   }
-
+  
   Future<void> _carregarFilialParaProgramacao() async {
-    // Buscar as filiais do banco de dados com seus terminais
     final supabase = Supabase.instance.client;
     
     try {
+      // Busca todas as filiais ativas
       final filiaisData = await supabase
           .from('filiais')
           .select('id, nome, nome_dois, terminal_id')
-          .inFilter('id', [
-            '9d476aa0-11fe-4470-8881-2699cb528690',
-            'b4225bea-63f1-4e0f-b04f-ae936d8ccda8',
-            'bcc92c8e-bd40-4d26-acb0-87acdd2ce2b7',
-            'ff09efd0-b71f-40ce-8bbb-0fa3b738e73e',
-          ]);
+          // .eq('ativo', true)  // Descomente se existir campo 'ativo'
+          .order('nome');
+
+      // Se não encontrou nenhuma filial
+      if (filiaisData.isEmpty) {
+        setState(() {
+          _filiaisProgramacao = [];
+        });
+        return;
+      }
 
       setState(() {
         _filiaisProgramacao = filiaisData.map((filial) {
@@ -448,68 +452,30 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             'filial_id': filial['id'],
             'filial_nome': filial['nome'],
             'filial_nome_dois': nomeFilial,
-            'terminal_id': filial['terminal_id'], // NOVO: adiciona o terminal_id
+            'terminal_id': filial['terminal_id'],
             'icon': Icons.local_gas_station,
             'sessao_pai': 'Vendas',
           };
         }).toList();
       });
       
-      debugPrint("✅ Cards fixos de vendas carregados: ${_filiaisProgramacao.length} filiais");
-      
     } catch (e) {
-      debugPrint('❌ Erro ao carregar filiais com terminais: $e');
-      // Fallback para dados fixos se a consulta falhar
-      _carregarFilialParaProgramacaoFallback();
-    }
-  }
-
-  // Método de fallback caso a consulta ao banco falhe
-  void _carregarFilialParaProgramacaoFallback() {
-    final filiaisFixas = [
-      {
-        'id': '9d476aa0-11fe-4470-8881-2699cb528690',
-        'nome': 'Petroserra Jequié',
-        'nome_dois': 'Jequié',
-        'terminal_id': null, // Você pode definir valores padrão aqui se necessário
-      },
-      {
-        'id': 'b4225bea-63f1-4e0f-b04f-ae936d8ccda8',
-        'nome': 'Petroserra Candeias',
-        'nome_dois': 'PHL',
-        'terminal_id': null,
-      },
-      {
-        'id': 'bcc92c8e-bd40-4d26-acb0-87acdd2ce2b7',
-        'nome': 'PetroserraJanaúba',
-        'nome_dois': 'Janaúba',
-        'terminal_id': null,
-      },
-      {
-        'id': 'ff09efd0-b71f-40ce-8bbb-0fa3b738e73e',
-        'nome': 'Petroserra Feira',
-        'nome_dois': 'Sidel Terminais',
-        'terminal_id': null,
+      debugPrint('❌ Erro ao carregar filiais: $e');
+      
+      // Mostra mensagem de erro amigável
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar filiais. Tente novamente.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
       }
-    ];
-
-    setState(() {
-      _filiaisProgramacao = filiaisFixas.map((filial) {
-        final nomeFilial = filial['nome_dois'] ?? filial['nome'];
-        return {
-          'id': filial['id'],
-          'label': nomeFilial,
-          'descricao': '',
-          'tipo': 'programacao_filial',
-          'filial_id': filial['id'],
-          'filial_nome': filial['nome'],
-          'filial_nome_dois': nomeFilial,
-          'terminal_id': filial['terminal_id'], // NOVO
-          'icon': Icons.local_gas_station,
-          'sessao_pai': 'Vendas',
-        };
-      }).toList();
-    });
+      
+      setState(() {
+        _filiaisProgramacao = [];
+      });
+    }
   }
 
   Future<void> _carregarEmpresas() async {
