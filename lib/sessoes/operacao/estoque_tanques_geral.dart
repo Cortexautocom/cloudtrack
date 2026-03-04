@@ -49,12 +49,12 @@ class DetalheTanque {
 /// ===============================
 class EstoquePorTanquePage extends StatefulWidget {
   final VoidCallback? onVoltar;
-  final String? filialSelecionadaId; // aceita terminal ou filial
+  final String? terminalSelecionadoId;
   
   const EstoquePorTanquePage({
     super.key,
     this.onVoltar,
-    this.filialSelecionadaId,
+    this.terminalSelecionadoId,
   });
 
   @override
@@ -76,7 +76,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
   Future<void> _carregarDadosTanques() async {
     setState(() => _carregando = true);
 
-    if (widget.filialSelecionadaId == null) {
+    if (widget.terminalSelecionadoId == null) {
       setState(() {
         tanques = [];
         _carregando = false;
@@ -90,7 +90,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
       final resp = await supabase
           .from('tanques')
           .select('id, referencia, capacidade, lastro, produtos (nome)')
-          .eq('terminal_id', widget.filialSelecionadaId!)
+          .eq('terminal_id', widget.terminalSelecionadoId!)
           .order('referencia');
 
       final List<DadosTanque> lista = [];

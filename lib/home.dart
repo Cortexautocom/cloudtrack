@@ -1523,7 +1523,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         margin: const EdgeInsets.only(left: 12),
         child: EstoquePorTanquePage(
           key: const ValueKey('estoque-por-tanque'),
-          filialSelecionadaId: _terminalSelecionadoId ?? _filialSelecionadaId,
+          terminalSelecionadoId: _terminalSelecionadoId ?? _filialSelecionadaId,
           onVoltar: () {
             setState(() {
               _mostrarEstoquePorTanque = false;
@@ -2209,7 +2209,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           });
         } else {
           // usuários normais vão direto para a página com sua filial
-          _filialSelecionadaId = usuario?.filialId;
+          _terminalSelecionadoId = usuario?.terminalId;
           setState(() {
             _estoquePorTanqueVemDaApuracao = true;
             _mostrarEstoquePorTanque = true;
