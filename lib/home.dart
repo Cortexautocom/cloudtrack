@@ -1023,20 +1023,23 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                           duration: const Duration(milliseconds: 200),
                                           transform: Matrix4.translationValues(
                                               _hoveredMenuIndex == index ? 8.0 : 0.0, 0, 0),
-                                          child: Text(
-                                            nomeFormatado,
+                                          child: AnimatedDefaultTextStyle(
+                                            duration: const Duration(milliseconds: 200),
                                             style: TextStyle(
-                                              fontWeight: isSelected
+                                              fontWeight: (isSelected || _hoveredMenuIndex == index)
                                                   ? FontWeight.bold
                                                   : FontWeight.w500,
                                               color: isSelected
                                                   ? _getCorPorSessao(nomeItem)
                                                   : Colors.grey[800],
-                                              fontSize: 13, // Pode ajustar se necessário
-                                              height: 1.1, // Controla espaçamento entre linhas
+                                              fontSize: 13,
+                                              height: 1.1,
                                             ),
-                                            maxLines: 2, // Permite até 2 linhas
-                                            overflow: TextOverflow.visible, // Não corta o texto
+                                            child: Text(
+                                              nomeFormatado,
+                                              maxLines: 2,
+                                              overflow: TextOverflow.visible,
+                                            ),
                                           ),
                                         ),
                                       ),
