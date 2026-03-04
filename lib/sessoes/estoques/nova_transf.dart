@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// ==============================================================
-//                COMPONENTE AUTOCOMPLETE REUTILIZÁVEL
-// ==============================================================
 class AutocompleteField<T extends Object> extends StatefulWidget {
   final TextEditingController controller;
   final Future<List<T>> Function(String) buscarItens;
@@ -127,11 +124,8 @@ class NovaTransferenciaDialog extends StatefulWidget {
 class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
   DateTime _dataSelecionada = DateTime.now();
   bool _salvando = false;
-  
-  // NOVO FLAG DE CONTROLE (PASSO 1)
   bool _preenchimentoAutomaticoAtivo = false;
   
-  // Controllers para os campos
   final TextEditingController _motoristaController = TextEditingController();
   final TextEditingController _quantidadeController = TextEditingController();
   final TextEditingController _transportadoraController = TextEditingController();
@@ -139,7 +133,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
   final TextEditingController _reboque1Controller = TextEditingController();
   final TextEditingController _reboque2Controller = TextEditingController();
   
-  // IDs para salvar no banco
   String? _motoristaId;
   String? _produtoId;
   String? _transportadoraId;
@@ -148,18 +141,15 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
   String? _empresaId;
   String? _usuarioId;
   
-  // Listas para dropdowns
   List<Map<String, dynamic>> _produtos = [];
   List<Map<String, dynamic>> _filiais = [];
   List<String> _datasFormatadas = [];
   List<DateTime> _datasDisponiveis = [];
   
-  // Valores selecionados
   String? _produtoSelecionado;
   String? _origemSelecionada;
   String? _destinoSelecionado;
   
-  // Estados para autocomplete das placas
   bool _mostrarSugestoesCavalo = false;
   bool _carregandoPlacasCavalo = false;
   List<Map<String, dynamic>> _placasCavaloEncontradas = [];
@@ -172,7 +162,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
   bool _carregandoPlacasReboque2 = false;
   List<Map<String, dynamic>> _placasReboque2Encontradas = [];
   
-  // Focus nodes para controlar o fechamento das sugestões
   final FocusNode _cavaloFocusNode = FocusNode();
   final FocusNode _reboque1FocusNode = FocusNode();
   final FocusNode _reboque2FocusNode = FocusNode();
@@ -185,7 +174,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     _carregarFiliais();
     _gerarDatasDisponiveis();
     
-    // Configurar focus nodes para fechar sugestões
     _cavaloFocusNode.addListener(() {
       if (!_cavaloFocusNode.hasFocus) {
         Future.delayed(const Duration(milliseconds: 200), () {
@@ -234,12 +222,10 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
   void _gerarDatasDisponiveis() {
     final hoje = DateTime.now();
     final inicio = hoje.subtract(const Duration(days: 5));
-    // Gera 10 datas: 5 dias antes até 4 dias após hoje
     _datasDisponiveis = List.generate(10, (i) => inicio.add(Duration(days: i)));
     _datasFormatadas = _datasDisponiveis.map(_formatarData).toList();
   }
 
-  // PASSO 7: FUNÇÃO PARA APLICAR MÁSCARA DE PLACA ABC-1234
   String _aplicarMascaraPlaca(String texto) {
     final limpo = texto
         .toUpperCase()
@@ -253,7 +239,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     return '$letras-$numeros';
   }
 
-  // PASSO 8: FUNÇÃO DE INVALIDAÇÃO AO EDITAR PLACA MANUALMENTE
   void _onEdicaoManualPlaca(String texto, TextEditingController controller) {
     if (_preenchimentoAutomaticoAtivo) {
       _preenchimentoAutomaticoAtivo = false;
@@ -268,46 +253,33 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     );
   }
 
-  // PASSO 3: FUNÇÃO PARA LIMPAR MOTORISTA E PLACAS
   void _limparMotoristaEPlacas() {
     setState(() {
       _motoristaController.clear();
       _motoristaId = null;
-
       _cavaloController.clear();
       _reboque1Controller.clear();
       _reboque2Controller.clear();
-      
-      // NOVO: Também limpar a transportadora
       _transportadoraController.clear();
       _transportadoraId = null;
-      
-      // ALTERAÇÃO: Limpar também a quantidade
       _quantidadeController.clear();
     });
   }
 
-  // PASSO 4: FUNÇÃO PARA APLICAR O CONJUNTO NOS CAMPOS
   void _aplicarConjuntoNosCampos(Map<String, dynamic> conjunto) {
     setState(() {
       _preenchimentoAutomaticoAtivo = true;
-
       _cavaloController.text = _aplicarMascaraPlaca(conjunto['cavalo'] ?? '');
       _reboque1Controller.text = _aplicarMascaraPlaca(conjunto['reboque_um'] ?? '');
       _reboque2Controller.text = _aplicarMascaraPlaca(conjunto['reboque_dois'] ?? '');
       
-      // ALTERAÇÃO: Preencher quantidade automaticamente
       if (conjunto['capac'] != null) {
-        // Converter metros cúbicos para litros (1 m³ = 1000 litros)
         final capacidadeM3 = double.tryParse(conjunto['capac'].toString()) ?? 0;
         final capacidadeLitros = (capacidadeM3 * 1000).toInt();
         _quantidadeController.text = _aplicarMascaraQuantidade(capacidadeLitros.toString());
       }
       
-      // Definir transportadora como "Petroserra" automaticamente
       _transportadoraController.text = 'Petroserra';
-      
-      // Vamos também buscar o ID da transportadora Petroserra
       _buscarIdTransportadoraPetroserra();
     });
   }
@@ -331,7 +303,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     }
   }
 
-  // PASSO 2: FUNÇÃO PARA BUSCAR UM CONJUNTO PELO MOTORISTA
   Future<Map<String, dynamic>?> _buscarConjuntoPorMotorista(String motoristaId) async {
     try {
       final supabase = Supabase.instance.client;
@@ -358,7 +329,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       if (user != null) {
         _usuarioId = user.id;
         
-        // Buscar empresa_id do usuário
         final usuarioData = await supabase
             .from('usuarios')
             .select('empresa_id')
@@ -387,7 +357,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Label acima do campo (padronizado)
           Text(
             label,
             style: const TextStyle(
@@ -398,7 +367,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
           ),
           const SizedBox(height: 4),
           
-          // Campo de autocomplete
           AutocompleteField<T>(
             controller: controller,
             buscarItens: buscarItens,
@@ -422,16 +390,16 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       final produtos = List<Map<String, dynamic>>.from(response);
 
       const ordemPorId = {
-        '82c348c8-efa1-4d1a-953a-ee384d5780fc': 1,  // Gasolina Comum
-        '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 2,  // Gasolina Aditivada
-        'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': 3,  // Diesel S500
-        '58ce20cf-f252-4291-9ef6-f4821f22c29e': 4,  // Diesel S10
-        '66ca957a-5698-4a02-8c9e-987770b6a151': 5,  // Etanol
-        'f8e95435-471a-424c-947f-def8809053a0': 6,  // Gasolina A
-        '4da89784-301f-4abe-b97e-c48729969e3d': 7,  // S500 A
-        '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 8,  // S10 A
-        'cecab8eb-297a-4640-81ae-e88335b88d8b': 9,  // Anidro
-        'ecd91066-e763-42e3-8a0e-d982ea6da535': 10, // B100
+        '82c348c8-efa1-4d1a-953a-ee384d5780fc': 1,
+        '93686e9d-6ef5-4f7c-a97d-b058b3c2c693': 2,
+        'c77a6e31-52f0-4fe1-bdc8-685dff83f3a1': 3,
+        '58ce20cf-f252-4291-9ef6-f4821f22c29e': 4,
+        '66ca957a-5698-4a02-8c9e-987770b6a151': 5,
+        'f8e95435-471a-424c-947f-def8809053a0': 6,
+        '4da89784-301f-4abe-b97e-c48729969e3d': 7,
+        '3c26a7e5-8f3a-4429-a8c7-2e0e72f1b80a': 8,
+        'cecab8eb-297a-4640-81ae-e88335b88d8b': 9,
+        'ecd91066-e763-42e3-8a0e-d982ea6da535': 10,
       };
 
       produtos.sort((a, b) {
@@ -458,7 +426,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       final supabase = Supabase.instance.client;
       final response = await supabase
           .from('filiais')
-          .select('id, nome_dois')
+          .select('id, nome_dois, terminal_id_1')
           .order('nome_dois');
       
       setState(() {
@@ -469,7 +437,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     }
   }
 
-  // Funções para buscar dados (apenas para autocomplete)
   Future<List<Map<String, dynamic>>> _buscarMotoristas(String texto) async {
     if (texto.length < 3) return [];
     
@@ -478,12 +445,11 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       final response = await supabase
           .from('conjuntos')
           .select('motorista, motorista_id')
-          .not('reboque_um', 'is', null)  // Filtra apenas conjuntos com reboque_um não nulo
+          .not('reboque_um', 'is', null)
           .ilike('motorista', '%$texto%')
           .order('motorista')
           .limit(10);
       
-      // Remover duplicados baseado no motorista_id
       final lista = List<Map<String, dynamic>>.from(response);
       final Map<String, Map<String, dynamic>> uniqueMap = {};
       
@@ -645,19 +611,15 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     });
   }
 
-  // Formatar quantidade no formato "999.999"
   String _aplicarMascaraQuantidade(String texto) {
-    // Remove tudo que não é número
     String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
 
-    // Limita a 6 dígitos (999.999)
     if (apenasNumeros.length > 6) {
       apenasNumeros = apenasNumeros.substring(0, 6);
     }
 
     if (apenasNumeros.isEmpty) return '';
 
-    // Aplica máscara 999.999
     if (apenasNumeros.length > 3) {
       String parteMilhar = apenasNumeros.substring(0, apenasNumeros.length - 3);
       String parteCentena = apenasNumeros.substring(apenasNumeros.length - 3);
@@ -666,8 +628,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
 
     return apenasNumeros;
   }  
-
-
 
   Future<void> _salvar() async {
     if (_produtoId == null ||
@@ -708,16 +668,25 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     try {
       final supabase = Supabase.instance.client;
 
-      // Buscar empresa_id da filial de origem para a ordem
-      final filialResponse = await supabase
+      // Buscar dados da filial de origem
+      final filialOrigemResponse = await supabase
           .from('filiais')
-          .select('empresa_id')
+          .select('empresa_id, terminal_id_1')
           .eq('id', _origemId!)
           .single();
 
-      final empresaIdOrdem = filialResponse['empresa_id'];
+      final empresaIdOrdem = filialOrigemResponse['empresa_id'];
+      final terminalOrigId = filialOrigemResponse['terminal_id_1']?.toString();
 
-      // Criar ordem primeiro
+      // Buscar terminal_id_1 da filial de destino
+      final filialDestinoResponse = await supabase
+          .from('filiais')
+          .select('terminal_id_1')
+          .eq('id', _destinoId!)
+          .single();
+
+      final terminalDestId = filialDestinoResponse['terminal_id_1']?.toString();
+
       final hoje = DateTime.now();
       final dataMov = '${hoje.year}-${hoje.month.toString().padLeft(2, '0')}-${hoje.day.toString().padLeft(2, '0')}';
 
@@ -725,7 +694,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
           .from('ordens')
           .insert({
             'empresa_id': empresaIdOrdem,
-            'filial_id': _origemId,  // Filial de origem
+            'filial_id': _origemId,
             'usuario_id': _usuarioId,
             'tipo': 'transferencia',
             'data_ordem': dataMov,
@@ -735,10 +704,8 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
 
       final ordemId = ordemResponse['id'];
 
-      final quantidade =
-          int.parse(_quantidadeController.text.replaceAll('.', ''));
+      final quantidade = int.parse(_quantidadeController.text.replaceAll('.', ''));
       
-      // Buscar nomes das filiais para a descrição
       final origemNome = _filiais
         .firstWhere(
           (f) => f['id']?.toString() == _origemId,
@@ -755,20 +722,18 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         ?.toString() ??
         '';
 
-      // placas
       final placas = <String>[];
       if (_cavaloController.text.isNotEmpty) placas.add(_cavaloController.text);
       if (_reboque1Controller.text.isNotEmpty) placas.add(_reboque1Controller.text);
       if (_reboque2Controller.text.isNotEmpty) placas.add(_reboque2Controller.text);
 
-      // Criar registro de transferência com saida_amb e entrada_amb
       final transferencia = {
         'ordem_id': ordemId,
         'tipo_op': 'transf',
         'produto_id': _produtoId,
         'quantidade': quantidade,
-        'saida_amb': quantidade,  // Quantidade ambiente para saída
-        'entrada_amb': quantidade, // Quantidade ambiente para entrada
+        'saida_amb': quantidade,
+        'entrada_amb': quantidade,
         'descricao': '$origemNome → $destinoNome',
         'placa': placas.isNotEmpty ? placas : null,
         'usuario_id': _usuarioId,
@@ -779,14 +744,14 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         'filial_origem_id': _origemId,
         'filial_destino_id': _destinoId,
         'updated_at': DateTime.now().toIso8601String(),
-        // Campos específicos para transferência
         'filial_id': null,
         'tipo_mov': null,
         'tipo_mov_orig': 'saida',
         'tipo_mov_dest': 'entrada',
+        'terminal_orig_id': terminalOrigId,
+        'terminal_dest_id': terminalDestId,  // <-- NOVO CAMPO ADICIONADO
       };
 
-      // Inserir registro de transferência
       await supabase.from('movimentacoes').insert([transferencia]);
 
       if (mounted) {
@@ -817,7 +782,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     return '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}';
   }
 
-  // Widget para campo de placa com autocomplete
   Widget _buildCampoPlaca({
     required TextEditingController controller,
     required FocusNode focusNode,
@@ -958,7 +922,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Header
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               decoration: const BoxDecoration(
@@ -988,16 +951,13 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
               ),
             ),
             
-            // Conteúdo
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    // ALTERAÇÃO 1: Linha 1 - Data, Produto, Motorista
                     Row(
                       children: [
-                        // Campo Data
                         Expanded(
                           flex: 1,
                           child: Column(
@@ -1050,7 +1010,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                         
                         const SizedBox(width: 16),
                         
-                        // Campo Produto
                         Expanded(
                           flex: 2,
                           child: Column(
@@ -1105,7 +1064,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                         
                         const SizedBox(width: 16),
                         
-                        // Campo Motorista (autocomplete)
                         Expanded(
                           flex: 2,
                           child: _buildCampoAutocomplete<Map<String, dynamic>>(
@@ -1135,10 +1093,8 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                     
                     const SizedBox(height: 20),
                     
-                    // ALTERAÇÃO 1: Linha 2 - Quantidade, Cavalo, Reboque 1, Reboque 2
                     Row(
                       children: [
-                        // Campo Quantidade
                         Expanded(
                           flex: 1,
                           child: Column(
@@ -1204,7 +1160,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                         
                         const SizedBox(width: 16),
                         
-                        // Campo Cavalo (autocomplete melhorado)
                         Expanded(
                           flex: 1,
                           child: _buildCampoPlaca(
@@ -1224,7 +1179,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                         
                         const SizedBox(width: 16),
                         
-                        // Campo Reboque 1
                         Expanded(
                           flex: 1,
                           child: _buildCampoPlaca(
@@ -1244,7 +1198,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                         
                         const SizedBox(width: 16),
                         
-                        // Campo Reboque 2
                         Expanded(
                           flex: 1,
                           child: _buildCampoPlaca(
@@ -1266,10 +1219,8 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                     
                     const SizedBox(height: 20),
                     
-                    // Linha 3: Transportadora, Origem, Destino (sem alteração)
                     Row(
                       children: [
-                        // Campo Transportadora (autocomplete)
                         Expanded(
                           flex: 2,
                           child: _buildCampoAutocomplete<Map<String, dynamic>>(
@@ -1285,7 +1236,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                         
                         const SizedBox(width: 16),
                         
-                        // Campo Origem
                         Expanded(
                           flex: 1,
                           child: Column(
@@ -1340,7 +1290,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                         
                         const SizedBox(width: 16),
                         
-                        // Campo Destino
                         Expanded(
                           flex: 1,
                           child: Column(
@@ -1397,7 +1346,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                     
                     const SizedBox(height: 24),
                     
-                    // Aviso de campos obrigatórios
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -1426,7 +1374,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
               ),
             ),
             
-            // Footer com botões
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
@@ -1438,7 +1385,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  // Botão Cancelar
                   SizedBox(
                     width: 120,
                     height: 36,
@@ -1463,7 +1409,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                   
                   const SizedBox(width: 12),
                   
-                  // Botão Criar Ordem
                   SizedBox(
                     width: 140,
                     height: 36,

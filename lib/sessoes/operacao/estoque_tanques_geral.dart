@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// ===============================
-/// MODELO DE DADOS DO TANQUE
-/// ===============================
 class DadosTanque {
   final String id;
   final String nome;
@@ -22,7 +19,6 @@ class DadosTanque {
 
   double get estoqueAtual {
     if (detalhes.isEmpty) return 0;
-    // A primeira posição sempre é a Abertura (saldo real calculado)
     return detalhes.first.litros.clamp(0, capacidadeTotal);
   }
   
@@ -34,7 +30,7 @@ class DetalheTanque {
   final String produto;
   final double litros;
   final String data;
-  final String tipo; // 'entrada' ou 'saida'
+  final String tipo;
 
   DetalheTanque({
     required this.produto,
@@ -44,9 +40,6 @@ class DetalheTanque {
   });
 }
 
-/// ===============================
-/// PÁGINA PRINCIPAL - ESTOQUE POR TANQUE
-/// ===============================
 class EstoquePorTanquePage extends StatefulWidget {
   final VoidCallback? onVoltar;
   final String? terminalSelecionadoId;
@@ -94,21 +87,13 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
           .order('referencia');
 
       final List<DadosTanque> lista = [];
-
       final now = DateTime.now();
       final dataStr = DateFormat('yyyy-MM-dd').format(now);
-
-      debugPrint("\n===== INÍCIO CARGA TANQUES =====");
 
       for (final t in List<Map<String, dynamic>>.from(resp)) {
         final id = t['id'].toString();
         final referencia = t['referencia']?.toString() ?? 'Tanque';
-
-        // 🔥 Agora vem como numeric direto
         final capacidadeVal = (t['capacidade'] as num).toDouble();
-
-        debugPrint("\n--- TANQUE $referencia ---");
-        debugPrint("Capacidade (numeric): $capacidadeVal L");
 
         double estoqueInicial = 0.0;
 
@@ -120,13 +105,10 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
               'p_data': dataStr,
             },
           );
-
           estoqueInicial = (rpc as num?)?.toDouble() ?? 0.0;
         } catch (e) {
-          debugPrint("Erro RPC estoque inicial: $e");
+          estoqueInicial = 0.0;
         }
-
-        debugPrint("Estoque Inicial: $estoqueInicial L");
 
         final detalhes = [
           DetalheTanque(
@@ -148,15 +130,12 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
         ));
       }
 
-      debugPrint("\n===== FIM CARGA TANQUES =====\n");
-
       setState(() {
         tanques = lista;
         tanqueSelecionadoIndex = lista.isNotEmpty ? lista.length - 1 : 0;
         _carregando = false;
       });
     } catch (e) {
-      debugPrint("ERRO GERAL: $e");
       setState(() {
         tanques = [];
         _carregando = false;
@@ -215,9 +194,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                 )
               : Column(
                   children: [
-                    // Menu de navegação superior com os tanques
                     _construirMenuTanques(),
-                    // Conteúdo principal com detalhes do tanque selecionado
                     Expanded(
                       child: _construirDetalheTanque(),
                     ),
@@ -239,10 +216,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
             child: Row(
               children: List.generate(tanquesInvertidos.length, (index) {
                 final tanque = tanquesInvertidos[index];
-
-                // 🔥 Precisamos mapear o índice invertido para o índice real
                 final realIndex = tanques.length - 1 - index;
-
                 final isSelected = tanqueSelecionadoIndex == realIndex;
                 final isHovered = _hoverIndex == realIndex;
 
@@ -356,9 +330,6 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     );
   }
 
-  /// ===============================
-  /// DETALHE DO TANQUE SELECIONADO
-  /// ===============================
   Widget _construirDetalheTanque() {
     final tanque = tanques[tanqueSelecionadoIndex];
     final percentual = tanque.percentualPreenchimento;
@@ -368,24 +339,16 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Card com informações principais
           _construirCardInformacoesAlterar(tanque, percentual),
           const SizedBox(height: 20),
-
-          // Indicador de nível com barra de progresso
           _construirIndicadorNivel(tanque, percentual),
           const SizedBox(height: 20),
-
-          // Tabela com histórico/detalhes
           _construirTabelaDetalhes(tanque),
         ],
       ),
     );
   }
 
-  /// ===============================
-  /// CARD COM INFORMAÇÕES PRINCIPAIS
-  /// ===============================
   Widget _construirCardInformacoesAlterar(
       DadosTanque tanque, double percentual) {
 
@@ -430,40 +393,31 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                 spacing: 20,
                 runSpacing: 8,
                 children: [
-
-                      // 🟡 CAPACIDADE (mover para primeiro)
                       _construirInfoMini(
                         'Capacidade',
                         '${formatNumber(capacidade)} L',
                         const Color.fromARGB(255, 69, 69, 69),
                       ),
-
-                      // 🟣 ESTOQUE ATUAL
                       _construirInfoMini(
                         'Estoque Atual',
                         '${formatNumber(estoqueAtual)} L',
-                        const Color(0xFF6A1B9A), // Roxo
+                        const Color(0xFF6A1B9A),
                       ),
-
-                      // 🟢 ESTOQUE DISPONÍVEL (agora verde)
                       _construirInfoMini(
                         'Estoque Disponível',
                         '${formatNumber(estoqueDisponivel)} L',
-                        const Color(0xFF00B686), // Verde normal
+                        const Color(0xFF00B686),
                       ),
-
-                      // ⚫ ESPAÇO LIVRE
                       _construirInfoMini(
                         'Espaço Livre',
                         '${formatNumber(espacoLivre)} L',
-                        const Color(0xFF424242), // Cinza escuro
+                        const Color(0xFF424242),
                       ),
                 ],
               ),
             ],
           ),
 
-          // RÓTULO E CÍRCULO DE PERCENTUAL
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -509,19 +463,14 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     final double capacidade = tanque.capacidadeTotal;
     final double estoque = tanque.estoqueAtual.clamp(0, capacidade);
     final double lastro = tanque.lastro.clamp(0, capacidade);
-
     final double produtoDisponivel =
         (estoque - lastro).clamp(0, capacidade);
-
     final double espacoLivre =
         (capacidade - estoque).clamp(0, capacidade);
-
     final double propLastro =
         capacidade > 0 ? (lastro / capacidade).clamp(0, 1) : 0;
-
     final double propProduto =
         capacidade > 0 ? (produtoDisponivel / capacidade).clamp(0, 1) : 0;
-
     final double propEspaco =
         capacidade > 0 ? (espacoLivre / capacidade).clamp(0, 1) : 0;
 
@@ -551,19 +500,15 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
           ),
           const SizedBox(height: 12),
 
-          // ===== BARRA COM VALORES =====
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: SizedBox(
               height: 34,
               child: Builder(builder: (context) {
-                // calcula os flex inteiros e só mostra o número se o segmento tiver espaço suficiente
                 const int scale = 1000;
                 final int flexLastro = (propLastro * scale).toInt();
                 final int flexProduto = (propProduto * scale).toInt();
                 final int flexEspaco = (propEspaco * scale).toInt();
-
-                // limiar mínimo de flex para exibir o número (aprox. 2% -> 20/1000)
                 const int minFlexToShow = 20;
 
                 return Row(
@@ -586,7 +531,6 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                               : const SizedBox.shrink(),
                         ),
                       ),
-
                     if (propProduto > 0)
                       Expanded(
                         flex: flexProduto,
@@ -605,7 +549,6 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                               : const SizedBox.shrink(),
                         ),
                       ),
-
                     if (propEspaco > 0)
                       Expanded(
                         flex: flexEspaco,
@@ -632,7 +575,6 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
 
           const SizedBox(height: 8),
 
-          // ===== LEGENDA =====
           Row(
             children: [
               _legendaItem(const Color(0xFFFF3D71), "Lastro"),
@@ -685,7 +627,6 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
       ),
       child: Column(
         children: [
-          // Cabeçalho da tabela
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: const BoxDecoration(
@@ -748,19 +689,16 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
               ],
             ),
           ),
-          // Linhas da tabela
           ...List.generate(tanque.detalhes.length, (index) {
             final detalhe = tanque.detalhes[index];
             final isAlternado = index.isEven;
             final isEntrada = detalhe.tipo == 'entrada';
             final isAbertura = index == 0;
 
-            // Define o texto da descrição
             String textoDescricao;
             String textoTipo;
 
             if (isAbertura) {
-              // Primeira linha (saldo atual) - mostra "Abertura" e sem tipo
               textoDescricao = "Abertura";
               textoTipo = "";
             } else {
@@ -870,9 +808,6 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     );
   }
 
-  /// ===============================
-  /// WIDGETS AUXILIARES
-  /// ===============================
   Widget _construirInfoMini(String label, String valor, Color cor) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -907,7 +842,6 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
   }
 }
 
-// Helpers de formatação (ponto de milhar para pt_BR)
 final NumberFormat _fmtInteiro = NumberFormat('#,##0', 'pt_BR');
 final NumberFormat _fmtUmaCasa = NumberFormat('#,##0.0', 'pt_BR');
 
