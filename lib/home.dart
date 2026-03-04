@@ -1786,117 +1786,60 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildFilhosSessaoPage() {
-    debugPrint('\n🔵 ===== _buildFilhosSessaoPage INICIADO =====');
-    debugPrint('🔵 _sessaoAtual: $_sessaoAtual');
-    debugPrint('🔵 _filhosSessaoAtual length: ${_filhosSessaoAtual.length}');
-    
-    // Mostrar todos os cards recebidos
-    debugPrint('🔵 Cards recebidos em _filhosSessaoAtual:');
-    for (var i = 0; i < _filhosSessaoAtual.length; i++) {
-      final card = _filhosSessaoAtual[i];
-      debugPrint('   [$i] ID: ${card['id']}, Label: ${card['label']}, Tipo: ${card['tipo']}');
-    }
-    
     // Se não houver cards para mostrar
     if (_filhosSessaoAtual.isEmpty) {
-      debugPrint('⚠️ _filhosSessaoAtual está vazio - mostrando página sem permissão');
       return _buildSemPermissaoPage();
     }
 
     // Filtrar apenas os cards que o usuário tem permissão
     final usuario = UsuarioAtual.instance;
-    debugPrint('🔵 Usuário atual:');
-    debugPrint('   - Nome: ${usuario?.nome}');
-    debugPrint('   - Nível: ${usuario?.nivel}');
-    debugPrint('   - ID: ${usuario?.id}');
-    
-    if (usuario != null) {
-      debugPrint('   - Cards que o usuário tem permissão:');
-      // Se existir método para listar permissões, mostre aqui
-    }
-    
     final cardsPermitidos = <Map<String, dynamic>>[];
     
     for (var card in _filhosSessaoAtual) {
       final cardId = card['id']?.toString();
       final tipo = card['tipo']?.toString();
-      final label = card['label']?.toString() ?? 'Sem label';
-      
-      debugPrint('\n🔍 Analisando card: "$label"');
-      debugPrint('   - cardId: $cardId');
-      debugPrint('   - tipo: $tipo');
       
       // Cards de transportadoras são sempre permitidos
       if (tipo == 'transportadoras') {
-        debugPrint('   ✅ Card transportadoras - sempre permitido');
         cardsPermitidos.add(card);
         continue;
       }
       
-      // Se não tem usuário, não permite (exceto transportadoras que já foi tratado)
-      if (usuario == null) {
-        debugPrint('   ❌ Usuário null - negado');
-        continue;
-      }
+      // Se não tem usuário, não permite
+      if (usuario == null) continue;
       
       // Se não tem cardId, não permite
-      if (cardId == null || cardId.isEmpty) {
-        debugPrint('   ❌ cardId null ou vazio - negado');
-        continue;
-      }
+      if (cardId == null || cardId.isEmpty) continue;
       
-      // VERIFICAÇÃO ESPECIAL PARA CARDS DE VENDA
-      // Se for card de venda (tipo 'programacao_filial'), permitir automaticamente
+      // Cards de venda são permitidos automaticamente
       if (tipo == 'programacao_filial') {
-        debugPrint('   ✅ Card de venda (programacao_filial) - permitido automaticamente');
         cardsPermitidos.add(card);
         continue;
       }
       
       // Para os demais cards, verificar permissão normal
       try {
-        final temPermissao = usuario.podeAcessarCard(cardId);
-        debugPrint('   🔍 Verificando permissão para cardId: $cardId');
-        debugPrint('   🔍 usuário.podeAcessarCard() retornou: $temPermissao');
-        
-        if (temPermissao) {
-          debugPrint('   ✅ Card permitido');
+        if (usuario.podeAcessarCard(cardId)) {
           cardsPermitidos.add(card);
-        } else {
-          debugPrint('   ❌ Card negado (sem permissão)');
         }
-      } catch (e) {
-        debugPrint('   ❌ ERRO ao verificar permissão: $e');
+      } catch (_) {
         // Em caso de erro, não permitir o card
       }
     }
 
-    debugPrint('\n🔵 RESULTADO FINAL:');
-    debugPrint('   - Total cards originais: ${_filhosSessaoAtual.length}');
-    debugPrint('   - Cards permitidos: ${cardsPermitidos.length}');
-
     // Se não houver nenhum card permitido
     if (cardsPermitidos.isEmpty) {
-      debugPrint('⚠️ Nenhum card permitido encontrado');
-      debugPrint('🔵 Motivos possíveis:');
-      debugPrint('   1. Usuário não tem permissão para nenhum card');
-      debugPrint('   2. IDs dos cards não existem no banco de dados');
-      debugPrint('   3. Cards de venda podem estar sendo bloqueados');
-      
       return _buildSemPermissaoPage();
     }
 
     // Se houver um card filho selecionado, exibe seu conteúdo
     if (_filhoSelecionadoTipo != null) {
-      debugPrint('🔵 Card filho selecionado: $_filhoSelecionadoTipo');
-      
       switch (_filhoSelecionadoTipo) {
         case 'criar_ordem':
           return _buildPaginaPadronizada(
             titulo: _sessaoAtual ?? '',
             conteudo: CriarOrdemPage(
               onCreated: () {
-                debugPrint('🔵 Ordem criada, voltando para cards');
                 setState(() {
                   _filhoSelecionadoTipo = null;
                   _mostrarFilhosSessao = true;
@@ -1905,7 +1848,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 });
               },
               onVoltar: () {
-                debugPrint('🔵 Voltando de criar ordem');
                 setState(() {
                   _filhoSelecionadoTipo = null;
                 });
@@ -1913,19 +1855,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             ),
             mostrarVoltar: true,
             onVoltar: () {
-              debugPrint('🔵 Voltando via botão voltar');
               setState(() {
                 _filhoSelecionadoTipo = null;
               });
             },
           );
         default:
-          debugPrint('⚠️ Tipo de card filho não reconhecido: $_filhoSelecionadoTipo');
           break;
       }
     }
-
-    debugPrint('🔵 Renderizando grid com ${cardsPermitidos.length} cards');
     
     return _buildPaginaPadronizada(
       titulo: _sessaoAtual ?? '',
@@ -1937,7 +1875,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             runSpacing: 15,
             alignment: WrapAlignment.start,
             children: cardsPermitidos.map((card) {
-              debugPrint('🔵 Renderizando card: ${card['label']}');
               return SizedBox(
                 width: 140,
                 height: 170,
