@@ -252,7 +252,6 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
 
       final ordem = await supabase.from('ordens').insert({
         'empresa_id': usuario!.empresaId,
-        'filial_id': usuario.filialId,
         'usuario_id': usuario.id,
         'terminal_id': _terminalSelecionado,
         'data_ordem': dataEmissao.toUtc().toIso8601String(),

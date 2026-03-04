@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class EscolherFilialPage extends StatefulWidget {
+class EscolherTerminalPage extends StatefulWidget {
   final VoidCallback onVoltar;
-  final Function(String idFilial) onSelecionarFilial;
+  final Function(String idTerminal) onSelecionarTerminal;
   final String titulo;
   
   // Adicione parâmetros para personalização
@@ -11,10 +11,10 @@ class EscolherFilialPage extends StatefulWidget {
   final Color? corFundoItem;
   final Color? corHover;
 
-  const EscolherFilialPage({
+  const EscolherTerminalPage({
     super.key,
     required this.onVoltar,
-    required this.onSelecionarFilial,
+    required this.onSelecionarTerminal,
     this.titulo = 'Selecionar terminal',
     this.corPrimaria, // ← NOVO
     this.corFundoItem, // ← NOVO
@@ -22,17 +22,17 @@ class EscolherFilialPage extends StatefulWidget {
   });
 
   @override
-  State<EscolherFilialPage> createState() => _EscolherFilialPageState();
+  State<EscolherTerminalPage> createState() => _EscolherTerminalPageState();
 }
 
-class _EscolherFilialPageState extends State<EscolherFilialPage> {
+class _EscolherTerminalPageState extends State<EscolherTerminalPage> {
   static const Color _ink = Color(0xFF0E1C2F);
   static const Color _accent = Color(0xFF1B6A6F);
   static const Color _line = Color(0xFFE6DCCB);
   static const Color _muted = Color(0xFF5A6B7A);
 
   bool carregando = true;
-  List<Map<String, dynamic>> filiais = []; // Na verdade armazenará terminais
+  List<Map<String, dynamic>> terminais = [];
 
   // Cor padrão caso não seja fornecida
   Color get _corPrimaria => widget.corPrimaria ?? _accent;
@@ -41,10 +41,10 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
   @override
   void initState() {
     super.initState();
-    _carregarFiliais();
+    _carregarTerminais();
   }
 
-  Future<void> _carregarFiliais() async {
+  Future<void> _carregarTerminais() async {
     try {
       final supabase = Supabase.instance.client;
 
@@ -52,13 +52,13 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
           await supabase.from('terminais').select('id, nome, cidade').order('nome');
 
       setState(() {
-        filiais = List<Map<String, dynamic>>.from(response);
+        terminais = List<Map<String, dynamic>>.from(response);
         carregando = false;
       });
 
     } catch (e) {
       setState(() => carregando = false);
-      print("Erro ao carregar filiais: $e");
+      print("Erro ao carregar terminais: $e");
     }
   }
 
@@ -109,7 +109,7 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
                   border: Border.all(color: _corPrimaria.withOpacity(0.7), width: 1.2),
                 ),
                 child: Text(
-                      '${filiais.length} terminais',
+                      '${terminais.length} terminais',
                   style: const TextStyle(
                     color: _accent,
                     fontSize: 11,
@@ -131,7 +131,7 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
                     color: _corPrimaria,
                   ),
                 )
-                  : filiais.isEmpty
+                  : terminais.isEmpty
                   ? Center(
                     child: Text(
                       "Nenhum terminal encontrado.",
@@ -143,14 +143,14 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      itemCount: filiais.length,
+                      itemCount: terminais.length,
                       separatorBuilder: (context, index) => const SizedBox(height: 12),
                       itemBuilder: (context, index) {
-                        final filial = filiais[index];
-                        return _buildFilialListItem(
-                          id: filial['id'].toString(),
-                          nome: filial['nome'].toString(),
-                          cidade: filial['cidade']?.toString() ?? '',
+                        final terminal = terminais[index];
+                        return _buildTerminalListItem(
+                          id: terminal['id'].toString(),
+                          nome: terminal['nome'].toString(),
+                          cidade: terminal['cidade']?.toString() ?? '',
                         );
                       },
                     ),
@@ -159,23 +159,23 @@ class _EscolherFilialPageState extends State<EscolherFilialPage> {
     );
   }
 
-  Widget _buildFilialListItem({
+  Widget _buildTerminalListItem({
     required String id,
     required String nome,
     required String cidade,
   }) {
-    return _FilialCard(
+    return _TerminalCard(
       id: id,
       nome: nome,
       cidade: cidade,
       corPrimaria: _corPrimaria,
       corFundoItem: _corFundoItem,
-      onTap: () => widget.onSelecionarFilial(id),
+      onTap: () => widget.onSelecionarTerminal(id),
     );
   }
 }
 
-class _FilialCard extends StatefulWidget {
+class _TerminalCard extends StatefulWidget {
   final String id;
   final String nome;
   final String cidade;
@@ -183,7 +183,7 @@ class _FilialCard extends StatefulWidget {
   final Color corFundoItem;
   final VoidCallback onTap;
 
-  const _FilialCard({
+  const _TerminalCard({
     required this.id,
     required this.nome,
     required this.cidade,
@@ -193,10 +193,10 @@ class _FilialCard extends StatefulWidget {
   });
 
   @override
-  State<_FilialCard> createState() => _FilialCardState();
+  State<_TerminalCard> createState() => _TerminalCardState();
 }
 
-class _FilialCardState extends State<_FilialCard> {
+class _TerminalCardState extends State<_TerminalCard> {
   static const Color _ink = Color(0xFF0E1C2F);
   static const Color _accent = Color(0xFF1B6A6F);
   static const Color _line = Color(0xFFE6DCCB);

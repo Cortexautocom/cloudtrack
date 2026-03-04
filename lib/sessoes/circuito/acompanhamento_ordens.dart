@@ -54,14 +54,14 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   final SupabaseClient _supabase = Supabase.instance.client;
   List<Map<String, dynamic>> _ordens = [];
   List<Map<String, dynamic>> _ordensFiltradas = [];
-  List<Map<String, dynamic>> _filiais = [];
+  List<Map<String, dynamic>> _terminais = [];
   bool _carregando = true;
   bool _erro = false;
   String _mensagemErro = '';
   String? _empresaId;
   
   final TextEditingController _filtroGeralController = TextEditingController();
-  String? _filialFiltroId;
+  String? _terminalFiltroId;
   String? _tipoFiltro;
 
   bool _mostrarDetalhes = false;
@@ -87,7 +87,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
 
     // Define valores iniciais dos filtros
     _tipoFiltro = 'saida';
-    _filialFiltroId = UsuarioAtual.instance?.filialId;
+    _terminalFiltroId = UsuarioAtual.instance?.terminalId;
 
     // Determina se devemos mostrar o chooser IMEDIATAMENTE para evitar
     // que a página principal apareça antes do chooser.
@@ -107,40 +107,40 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       // Se já estamos mostrando o chooser, não prossiga com carregamentos
       if (_mostrarEscolherTerminal) return;
 
-      await _carregarFiliais();
+      await _carregarTerminais();
       await _aplicarFiltros();
       if (mounted) setState(() { _carregando = false; });
     });
   }
 
-  Future<void> _carregarFiliais() async {
+  Future<void> _carregarTerminais() async {
     try {
       final usuario = UsuarioAtual.instance;
       if (usuario == null) return;
 
       if (usuario.nivel == 3) {
         final dados = await _supabase
-            .from('filiais')
+            .from('terminais')
             .select('id, nome')
             .eq('empresa_id', _empresaId!)
             .order('nome');
 
         setState(() {
-          _filiais = List<Map<String, dynamic>>.from(dados);
-          if (_filialFiltroId == null && _filiais.isNotEmpty) {
-            _filialFiltroId = _filiais.first['id'].toString();
+          _terminais = List<Map<String, dynamic>>.from(dados);
+          if (_terminalFiltroId == null && _terminais.isNotEmpty) {
+            _terminalFiltroId = _terminais.first['id'].toString();
           }
         });
-      } else if (usuario.filialId != null) {
-        final filialData = await _supabase
-            .from('filiais')
+      } else if (usuario.terminalId != null) {
+        final terminalData = await _supabase
+            .from('terminais')
             .select('id, nome')
-            .eq('id', usuario.filialId!)
+            .eq('id', usuario.terminalId!)
             .single();
 
         setState(() {
-          _filiais = [filialData];
-          _filialFiltroId = usuario.filialId;
+          _terminais = [terminalData];
+          _terminalFiltroId = usuario.terminalId;
         });
       }
     } catch (e) {
@@ -212,27 +212,27 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         var query = _supabase
           .from('movimentacoes')
           .select('''
-            id,
-            placa,
-            entrada_amb,
-            entrada_vinte,
-            saida_amb,
-            saida_vinte,
-            cliente,
-            descricao,
-            status_circuito_orig,
-            status_circuito_dest,
-            data_mov,
-            filial_id,
-            empresa_id,
-            tipo_op,
-            filial_origem_id,
-            filial_destino_id,
-            produtos!produto_id(id, nome_dois),
-            filiais!estoques_filial_id_fkey(id, nome),
-            filial_origem:filiais!movimentacoes_filial_origem_id_fkey(id, nome),
-            filial_destino:filiais!movimentacoes_filial_destino_id_fkey(id, nome),
-            ordem_id
+              id,
+              placa,
+              entrada_amb,
+              entrada_vinte,
+              saida_amb,
+              saida_vinte,
+              cliente,
+              descricao,
+              status_circuito_orig,
+              status_circuito_dest,
+              data_mov,
+              terminal_id,
+              empresa_id,
+              tipo_op,
+              filial_origem_id,
+              filial_destino_id,
+              produtos!produto_id(id, nome_dois),
+              terminais!movimentacoes_terminal_id_fkey(id, nome),
+              terminal_origem:filiais!movimentacoes_filial_origem_id_fkey(id, nome),
+              terminal_destino:filiais!movimentacoes_filial_destino_id_fkey(id, nome),
+              ordem_id
           ''')
           .eq('empresa_id', _empresaId!);
 
@@ -263,47 +263,47 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       
       List<Map<String, dynamic>> movimentacoesFiltradas = [];
 
-      // Filtra por filial baseado no nível do usuário
-      String? filialAtualId;
+      // Filtra por terminal baseado no nível do usuário
+      String? terminalAtualId;
       if (usuario.nivel < 3) {
-        filialAtualId = usuario.filialId;
+        terminalAtualId = usuario.terminalId;
       } else if (usuario.nivel == 3) {
-        filialAtualId = _filialFiltroId;
+        terminalAtualId = _terminalFiltroId;
       }
 
-      if (filialAtualId != null && filialAtualId.isNotEmpty) {
+      if (terminalAtualId != null && terminalAtualId.isNotEmpty) {
         movimentacoesFiltradas = dados.where((item) {
           final tipoOp = (item['tipo_op']?.toString() ?? 'venda').toLowerCase();
-          final filialId = item['filial_id']?.toString();
-          final filialOrigemId = item['filial_origem_id']?.toString();
-          final filialDestinoId = item['filial_destino_id']?.toString();
+          final terminalId = item['terminal_id']?.toString();
+          final terminalOrigemId = item['filial_origem_id']?.toString();
+          final terminalDestinoId = item['filial_destino_id']?.toString();
 
           // Filtro de tipo (entrada/saida)
           if (_tipoFiltro == 'entrada') {
-            // Entrada: só mostrar se a filial atual é destino
+            // Entrada: só mostrar se o terminal atual é destino
             if (tipoOp == 'usina' || tipoOp == 'transf') {
-              return filialDestinoId == filialAtualId;
+              return terminalDestinoId == terminalAtualId;
             }
             // Para vendas, não faz sentido entrada
             return false;
           } else if (_tipoFiltro == 'saida') {
-            // Saída: só mostrar se a filial atual é origem (ou local para venda)
+            // Saída: só mostrar se o terminal atual é origem (ou local para venda)
             if (tipoOp == 'usina') {
-              return false; // usina não tem saída para filial
+              return false; // usina não tem saída para terminal
             } else if (tipoOp == 'transf') {
-              return filialOrigemId == filialAtualId;
+              return terminalOrigemId == terminalAtualId;
             } else if (tipoOp == 'venda') {
-              return filialId == filialAtualId;
+              return terminalId == terminalAtualId;
             }
             return false;
           } else {
             // Todos: comportamento antigo
             if (tipoOp == 'usina') {
-              return filialDestinoId == filialAtualId;
+              return terminalDestinoId == terminalAtualId;
             } else if (tipoOp == 'transf') {
-              return filialOrigemId == filialAtualId || filialDestinoId == filialAtualId;
+              return terminalOrigemId == terminalAtualId || terminalDestinoId == terminalAtualId;
             } else if (tipoOp == 'venda') {
-              return filialId == filialAtualId;
+              return terminalId == terminalAtualId;
             }
             return false;
           }
@@ -355,8 +355,8 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
           'status_circuito_orig': primeiraMov['status_circuito_orig'],
           'status_circuito_dest': primeiraMov['status_circuito_dest'],
           'tipo_op': primeiraMov['tipo_op'],
-          'filial_origem_id': primeiraMov['filial_origem_id'],
-          'filial_destino_id': primeiraMov['filial_destino_id'],
+          'terminal_origem_id': primeiraMov['filial_origem_id'],
+          'terminal_destino_id': primeiraMov['filial_destino_id'],
           'placas': placasSet.toList(),
           'quantidade_total': quantidadeTotal,
           'produtos_agrupados': produtosAgrupados,
@@ -425,11 +425,11 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       return ordem['itens'].any((item) {
         final cliente = (item['cliente'] ?? '').toString().toLowerCase();
         final placaItem = _formatarPlacaParaBusca(item['placa']).toLowerCase();
-        final filial = _obterNomeFilialParaBusca(item).toLowerCase();
+        final terminal = _obterNomeTerminalParaBusca(item).toLowerCase();
         
         return cliente.contains(termoBusca) ||
                placaItem.contains(termoBusca) ||
-               filial.contains(termoBusca);
+               terminal.contains(termoBusca);
       });
     }).toList();
 
@@ -515,7 +515,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   Map<String, Map<String, double>> agruparProdutosDaOrdem(
       List<Map<String, dynamic>> itens) {
     final Map<String, Map<String, double>> resultado = {};
-    final filialAtualId = _filialAtualId;
+    final terminalAtualId = _terminalAtualId;
 
     for (final mov in itens) {
       final produto = mov['produtos'];
@@ -524,18 +524,18 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       final nome = produto['nome_dois']?.toString();
       if (nome == null) continue;
 
-      final filialDestinoId = mov['filial_destino_id']?.toString();
-      final filialOrigemId = mov['filial_origem_id']?.toString();
-      final filialId = mov['filial_id']?.toString();
+      final terminalDestinoId = mov['filial_destino_id']?.toString();
+      final terminalOrigemId = mov['filial_origem_id']?.toString();
+      final terminalId = mov['terminal_id']?.toString();
 
       final entradaAmb = (mov['entrada_amb'] ?? 0) as num;
       final saidaAmb = (mov['saida_amb'] ?? 0) as num;
 
       num quantidade = 0;
-      if (filialAtualId.isNotEmpty && filialDestinoId == filialAtualId) {
+      if (terminalAtualId.isNotEmpty && terminalDestinoId == terminalAtualId) {
         quantidade = entradaAmb;
-      } else if (filialAtualId.isNotEmpty &&
-          (filialOrigemId == filialAtualId || filialId == filialAtualId)) {
+      } else if (terminalAtualId.isNotEmpty &&
+          (terminalOrigemId == terminalAtualId || terminalId == terminalAtualId)) {
         quantidade = saidaAmb;
       } else {
         quantidade = saidaAmb > 0 ? saidaAmb : entradaAmb;
@@ -548,8 +548,8 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       if (tipoOp == 'transf') {
         informacao = (mov['descricao'] as String?)?.trim() ?? '';
         if (informacao.isEmpty) {
-          final origem = mov['filial_origem'] as Map<String, dynamic>?;
-          final destino = mov['filial_destino'] as Map<String, dynamic>?;
+          final origem = mov['terminal_origem'] as Map<String, dynamic>?;
+          final destino = mov['terminal_destino'] as Map<String, dynamic>?;
           if (origem != null && destino != null) {
             final origemNome = origem['nome']?.toString() ?? 'Origem';
             final destinoNome = destino['nome']?.toString() ?? 'Destino';
@@ -611,21 +611,21 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     }
   }
 
-  String _obterNomeFilialParaBusca(Map<String, dynamic> item) {
+  String _obterNomeTerminalParaBusca(Map<String, dynamic> item) {
     final tipoOp = (item['tipo_op']?.toString() ?? 'venda').toLowerCase();
     
     if (tipoOp == 'usina') {
-      final filialDestino = item['filial_destino'] as Map<String, dynamic>?;
-      return filialDestino?['nome']?.toString() ?? '';
+      final terminalDestino = item['terminal_destino'] as Map<String, dynamic>?;
+      return terminalDestino?['nome']?.toString() ?? '';
     } else if (tipoOp == 'transf') {
-      final filialOrigem = item['filial_origem'] as Map<String, dynamic>?;
-      final filialDestino = item['filial_destino'] as Map<String, dynamic>?;
-      final origemNome = filialOrigem?['nome']?.toString() ?? '';
-      final destinoNome = filialDestino?['nome']?.toString() ?? '';
+      final terminalOrigem = item['terminal_origem'] as Map<String, dynamic>?;
+      final terminalDestino = item['terminal_destino'] as Map<String, dynamic>?;
+      final origemNome = terminalOrigem?['nome']?.toString() ?? '';
+      final destinoNome = terminalDestino?['nome']?.toString() ?? '';
       return '$origemNome $destinoNome';
     } else {
-      final filial = item['filiais'] as Map<String, dynamic>?;
-      return filial?['nome']?.toString() ?? '';
+      final terminal = item['terminais'] as Map<String, dynamic>?;
+      return terminal?['nome']?.toString() ?? '';
     }
   }
 
@@ -672,46 +672,46 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     return _formatarNumero(valorInt);
   }
 
-  // MÉTODO CORRIGIDO: Determina qual status usar baseado no tipo de operação e filial
+  // MÉTODO CORRIGIDO: Determina qual status usar baseado no tipo de operação e terminal
   String _obterStatusTexto(Map<String, dynamic> ordem, Map<String, dynamic>? movimentacao) {
     final item = movimentacao ?? (ordem['itens'] as List<Map<String, dynamic>>).firstOrNull;
     
     if (item == null) return 'Sem status';
     
     final tipoOp = item['tipo_op']?.toString() ?? 'venda';
-    final filialOrigemId = item['filial_origem_id']?.toString();
-    final filialDestinoId = item['filial_destino_id']?.toString();
+    final terminalOrigemId = item['terminal_origem_id']?.toString();
+    final terminalDestinoId = item['terminal_destino_id']?.toString();
     
-    // Obter a filial atual do usuário
+    // Obter o terminal atual do usuário
     final usuario = UsuarioAtual.instance;
-    String? filialAtual;
+    String? terminalAtual;
     
     if (usuario?.nivel == 3) {
-      filialAtual = _filialFiltroId;
+      terminalAtual = _terminalFiltroId;
     } else {
-      filialAtual = usuario?.filialId;
+      terminalAtual = usuario?.terminalId;
     }
     
     dynamic statusCodigo;
     
     // Lógica para determinar qual status usar
     if (tipoOp == 'transf') {
-      // Para transferências, verifica se a filial atual é origem ou destino
-      if (filialAtual == filialOrigemId) {
-        // Filial é ORIGEM da transferência (SAÍDA) -> usa status_circuito_orig
+      // Para transferências, verifica se o terminal atual é origem ou destino
+      if (terminalAtual == terminalOrigemId) {
+        // Terminal é ORIGEM da transferência (SAÍDA) -> usa status_circuito_orig
         statusCodigo = item['status_circuito_orig'];
-      } else if (filialAtual == filialDestinoId) {
-        // Filial é DESTINO da transferência (ENTRADA) -> usa status_circuito_dest
+      } else if (terminalAtual == terminalDestinoId) {
+        // Terminal é DESTINO da transferência (ENTRADA) -> usa status_circuito_dest
         statusCodigo = item['status_circuito_dest'];
       } else {
         // Fallback: tenta usar qualquer um disponível
         statusCodigo = item['status_circuito_orig'] ?? item['status_circuito_dest'];
       }
     } else if (tipoOp == 'usina') {
-      // Para usina, a filial atual sempre é destino (ENTRADA)
+      // Para usina, o terminal atual sempre é destino (ENTRADA)
       statusCodigo = item['status_circuito_dest'];
     } else {
-      // Para vendas e outros tipos, usa o status da filial local (SAÍDA)
+      // Para vendas e outros tipos, usa o status do terminal local (SAÍDA)
       statusCodigo = item['status_circuito_orig'];
     }
     
@@ -784,7 +784,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
 
   Widget _buildFiltros() {
     final usuario = UsuarioAtual.instance;
-    final mostraFiltroFilial = usuario?.nivel == 3;
+    final mostraFiltroTerminal = usuario?.nivel == 3;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -806,13 +806,13 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       ),
       child: Row(
         children: [
-          if (mostraFiltroFilial) ...[
+          if (mostraFiltroTerminal) ...[
             Expanded(
               flex: 2,
               child: DropdownButtonFormField<String>(
-                value: _filialFiltroId,
+                value: _terminalFiltroId,
                 decoration: InputDecoration(
-                  labelText: 'Filial *',
+                  labelText: 'Terminal *',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -820,24 +820,24 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                     horizontal: 12,
                     vertical: 16,
                   ),
-                  suffixIcon: _filialFiltroId == null 
+                  suffixIcon: _terminalFiltroId == null 
                       ? Icon(Icons.error, color: Colors.orange, size: 20)
                       : null,
                 ),
-                items: _filiais.map((filial) {
+                items: _terminais.map((terminal) {
                   return DropdownMenuItem(
-                    value: filial['id'].toString(),
-                    child: Text(filial['nome'].toString()),
+                    value: terminal['id'].toString(),
+                    child: Text(terminal['nome'].toString()),
                   );
                 }).toList(),
                 onChanged: (value) {
                   setState(() {
-                    _filialFiltroId = value;
+                    _terminalFiltroId = value;
                   });
                 },
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Selecione uma filial';
+                    return 'Selecione um terminal';
                   }
                   return null;
                 },
@@ -1175,20 +1175,20 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Ícone de direção (origem/destino da filial do usuário)
+                  // Ícone de direção (origem/destino do terminal do usuário)
                   Padding(
                     padding: const EdgeInsets.only(right: 12),
                     child: Builder(builder: (context) {
                       final usuario = UsuarioAtual.instance;
-                      final filialAtual = usuario?.nivel == 3 ? _filialFiltroId : usuario?.filialId;
+                      final terminalAtual = usuario?.nivel == 3 ? _terminalFiltroId : usuario?.terminalId;
 
                       final itensLocal = ordem['itens'] as List<dynamic>;
 
                       final ehOrigem = itensLocal.any((item) =>
-                          item['filial_origem_id']?.toString() == filialAtual);
+                          item['terminal_origem_id']?.toString() == terminalAtual);
 
                       final ehDestino = itensLocal.any((item) =>
-                          item['filial_destino_id']?.toString() == filialAtual);
+                          item['terminal_destino_id']?.toString() == terminalAtual);
 
                       if (ehDestino && !ehOrigem) {
                         return Icon(Icons.arrow_circle_down, size: 30, color: Colors.green.shade700);
@@ -1467,27 +1467,27 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     super.dispose();
   }
 
-  String get _filialAtualId {
+  String get _terminalAtualId {
     final usuario = UsuarioAtual.instance;
     
     if (usuario == null) {
       return '';
     }
     
-    String filialId;
+    String terminalId;
     
     if (usuario.nivel == 3) {
-      filialId = _filialFiltroId ?? '';
+      terminalId = _terminalFiltroId ?? '';
       
-      if (filialId.isEmpty && _filiais.isNotEmpty) {
-        filialId = _filiais.first['id'].toString();
-        _filialFiltroId = filialId;
+      if (terminalId.isEmpty && _terminais.isNotEmpty) {
+        terminalId = _terminais.first['id'].toString();
+        _terminalFiltroId = terminalId;
       }
     } else {
-      filialId = usuario.filialId ?? '';
+      terminalId = usuario.terminalId ?? '';
     }
     
-    return filialId;
+    return terminalId;
   }
 
   @override
@@ -1501,7 +1501,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         title: Text(
           _mostrarDetalhes 
               ? 'Detalhes da Ordem' 
-              : 'Acompanhamento de Ordens - ${_filiais.firstWhere((f) => f['id'].toString() == _filialFiltroId, orElse: () => {'nome': ''})['nome'] ?? ''}',
+              : 'Acompanhamento de Ordens - ${_terminais.firstWhere((f) => f['id'].toString() == _terminalFiltroId, orElse: () => {'nome': ''})['nome'] ?? ''}',
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         leading: IconButton(
@@ -1528,17 +1528,17 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         child: _mostrarDetalhes
             ? DetalhesOrdemView(
                 ordem: _ordemSelecionada!,
-                filialAtualId: _filialAtualId,
+                terminalAtualId: _terminalAtualId,
               )
             : _mostrarEscolherTerminal
-                ? EscolherFilialPage(
+                ? EscolherTerminalPage(
                     onVoltar: () {
                       setState(() {
                         _mostrarEscolherTerminal = false;
                       });
                       widget.onVoltar();
                     },
-                    onSelecionarFilial: (id) => _onTerminalSelecionado(id),
+                    onSelecionarTerminal: (id) => _onTerminalSelecionado(id),
                     titulo: 'Selecionar terminal',
                     corPrimaria: const Color(0xFF0D47A1),
                   )

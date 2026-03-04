@@ -12,6 +12,7 @@ class ProgramacaoPage extends StatefulWidget {
   final String? filialId;
   final String? filialNome;
   final String? filialNomeDois;
+  final String? terminalId; // NOVO: campo para o terminal_id
 
   const ProgramacaoPage({
     super.key, 
@@ -19,6 +20,7 @@ class ProgramacaoPage extends StatefulWidget {
     this.filialId,
     this.filialNome,
     this.filialNomeDois,
+    this.terminalId, // NOVO
   });
 
   @override
@@ -97,44 +99,79 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
 
       var query = supabase
           .from("movimentacoes")
-          .select("*")
+          .select("""
+            *,
+            produtos:produto_id (
+              id,
+              nome,
+              codigo
+            )
+          """)
           .eq("tipo_op", "venda");
 
+      // Filtrar por filial se disponível
       if (widget.filialId != null && widget.filialId!.isNotEmpty) {
         query = query.eq("filial_id", widget.filialId!);
       }
-
-      final dataFormatada = _dataFiltro.toIso8601String().split('T')[0];
       
+      // Filtrar por terminal se disponível (caso a tabela movimentacoes tenha terminal_id)
+      if (widget.terminalId != null && widget.terminalId!.isNotEmpty) {
+        // Descomente a linha abaixo se a tabela movimentacoes tiver campo terminal_id
+        // query = query.eq("terminal_id", widget.terminalId!);
+        
+        debugPrint('🔹 Terminal ID disponível para filtro: ${widget.terminalId}');
+      }
+
+      // Formatar datas para filtro
+      final dataFormatada = _dataFiltro.toIso8601String().split('T')[0];
       final dataInicio = '$dataFormatada 00:00:00';
       final dataFim = '$dataFormatada 23:59:59';
       
-      // ALTERAÇÃO: ts_mov substituído por data_mov
+      // Aplicar filtro de data
       query = query
           .gte('data_mov', dataInicio)
           .lte('data_mov', dataFim);
 
-      // ALTERAÇÃO: ts_mov substituído por data_mov
+      // Ordenar por data e hora
       final response = await query.order('data_mov', ascending: true);
 
+      // Processar os dados recebidos
+      List<Map<String, dynamic>> dadosProcessados = [];
+
+      // Garantir que temos uma lista de mapas e evitar checagem de tipo redundante
+      final listaResponse = List<Map<String, dynamic>>.from(response);
+
+      for (final item in listaResponse) {
+        // Extrair informações do produto, quando disponíveis
+        final produtos = item['produtos'];
+        if (produtos is Map<String, dynamic>) {
+          item['produto_nome'] = produtos['nome'];
+          item['produto_codigo'] = produtos['codigo'];
+        }
+        dadosProcessados.add(item);
+      }
+
       setState(() {
-        movimentacoes = List<Map<String, dynamic>>.from(response);
+        movimentacoes = dadosProcessados;
         _gerarCoresParaOrdens();
+        debugPrint('✅ Carregadas ${movimentacoes.length} movimentações para ${widget.filialNomeDois ?? widget.filialNome}');
       });
       
     } catch (e) {
+      debugPrint('❌ Erro ao carregar movimentações: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erro ao carregar movimentações: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
-    }
-
-    if (mounted) {
-      setState(() => carregando = false);
+    } finally {
+      if (mounted) {
+        setState(() => carregando = false);
+      }
     }
   }
 
@@ -212,6 +249,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
         },
         filialId: widget.filialId!,
         filialNome: widget.filialNome,
+        terminalId: widget.terminalId, // AGORA FUNCIONA!
       ),
     );
 
@@ -345,9 +383,6 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
       return;
     }
 
-    // Buscar detalhes completos da movimentação (opcional, já temos)
-    // Mas precisamos garantir que temos todos os campos necessários
-
     // Abrir diálogo de edição
     final result = await showDialog<bool>(
       context: context,
@@ -360,7 +395,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
                 backgroundColor: Colors.green,
               ),
             );
-            carregar(); // Recarregar a lista
+            carregar();
           } else if (mensagem != null) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -372,7 +407,7 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
         },
         filialId: widget.filialId!,
         filialNome: widget.filialNome,
-        // Passar dados da movimentação para edição
+        terminalId: widget.terminalId, // ADICIONAR AQUI TAMBÉM
         movimentacaoParaEdicao: movimentacao,
         ordemId: ordemId,
       ),

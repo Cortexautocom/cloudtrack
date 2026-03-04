@@ -423,27 +423,73 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _carregarFilialParaProgramacao() async {
-    // CRIANDO CARDS FIXOS PARA VENDAS COM OS UUIDs DAS FILIAIS
+    // Buscar as filiais do banco de dados com seus terminais
+    final supabase = Supabase.instance.client;
+    
+    try {
+      final filiaisData = await supabase
+          .from('filiais')
+          .select('id, nome, nome_dois, terminal_id')
+          .inFilter('id', [
+            '9d476aa0-11fe-4470-8881-2699cb528690',
+            'b4225bea-63f1-4e0f-b04f-ae936d8ccda8',
+            'bcc92c8e-bd40-4d26-acb0-87acdd2ce2b7',
+            'ff09efd0-b71f-40ce-8bbb-0fa3b738e73e',
+          ]);
+
+      setState(() {
+        _filiaisProgramacao = filiaisData.map((filial) {
+          final nomeFilial = filial['nome_dois'] ?? filial['nome'];
+          return {
+            'id': filial['id'],
+            'label': nomeFilial,
+            'descricao': '',
+            'tipo': 'programacao_filial',
+            'filial_id': filial['id'],
+            'filial_nome': filial['nome'],
+            'filial_nome_dois': nomeFilial,
+            'terminal_id': filial['terminal_id'], // NOVO: adiciona o terminal_id
+            'icon': Icons.local_gas_station,
+            'sessao_pai': 'Vendas',
+          };
+        }).toList();
+      });
+      
+      debugPrint("✅ Cards fixos de vendas carregados: ${_filiaisProgramacao.length} filiais");
+      
+    } catch (e) {
+      debugPrint('❌ Erro ao carregar filiais com terminais: $e');
+      // Fallback para dados fixos se a consulta falhar
+      _carregarFilialParaProgramacaoFallback();
+    }
+  }
+
+  // Método de fallback caso a consulta ao banco falhe
+  void _carregarFilialParaProgramacaoFallback() {
     final filiaisFixas = [
       {
         'id': '9d476aa0-11fe-4470-8881-2699cb528690',
         'nome': 'Petroserra Jequié',
         'nome_dois': 'Jequié',
+        'terminal_id': null, // Você pode definir valores padrão aqui se necessário
       },
       {
         'id': 'b4225bea-63f1-4e0f-b04f-ae936d8ccda8',
         'nome': 'Petroserra Candeias',
         'nome_dois': 'PHL',
+        'terminal_id': null,
       },
       {
         'id': 'bcc92c8e-bd40-4d26-acb0-87acdd2ce2b7',
         'nome': 'PetroserraJanaúba',
         'nome_dois': 'Janaúba',
+        'terminal_id': null,
       },
       {
         'id': 'ff09efd0-b71f-40ce-8bbb-0fa3b738e73e',
         'nome': 'Petroserra Feira',
         'nome_dois': 'Sidel Terminais',
+        'terminal_id': null,
       }
     ];
 
@@ -452,19 +498,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         final nomeFilial = filial['nome_dois'] ?? filial['nome'];
         return {
           'id': filial['id'],
-          'label': nomeFilial, // APENAS O NOME PRINCIPAL, SEM LEGENDA
-          'descricao': '', // REMOVIDA A LEGENDA CONFORME SOLICITADO
+          'label': nomeFilial,
+          'descricao': '',
           'tipo': 'programacao_filial',
           'filial_id': filial['id'],
           'filial_nome': filial['nome'],
           'filial_nome_dois': nomeFilial,
+          'terminal_id': filial['terminal_id'], // NOVO
           'icon': Icons.local_gas_station,
           'sessao_pai': 'Vendas',
         };
       }).toList();
     });
-    
-    debugPrint("✅ Cards fixos de vendas carregados: ${_filiaisProgramacao.length} filiais");
   }
 
   Future<void> _carregarEmpresas() async {
@@ -1345,7 +1390,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
 
     if (_mostrarEscolherFilial) {
-      return EscolherFilialPage(
+      return EscolherTerminalPage(
         key: ValueKey('escolher-filial-$_contextoEscolhaFilial'),
         onVoltar: () {
           setState(() {
@@ -1354,7 +1399,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             _mostrarFilhosDaSessao('Operação');
           });
         },
-        onSelecionarFilial: (idFilial) async {
+        onSelecionarTerminal: (idFilial) async {
           final supabase = Supabase.instance.client;
           try {
             // Tenta buscar filial primeiro
@@ -2346,6 +2391,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         final filialId = card['filial_id'];
         final filialNome = card['filial_nome'];
         final filialNomeDois = card['filial_nome_dois'];
+        final terminalId = card['terminal_id']; // NOVO: pega o terminal_id
         
         Navigator.push(
           context,
@@ -2357,6 +2403,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               filialId: filialId,
               filialNome: filialNome,
               filialNomeDois: filialNomeDois,
+              terminalId: terminalId, // NOVO: passa o terminal_id
             ),
           ),
         );

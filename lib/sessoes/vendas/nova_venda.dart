@@ -4,19 +4,19 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../gestao_de_frota/dialog_cadastro_placas.dart';
 
 class NovaVendaDialog extends StatefulWidget {
-  final Function(bool sucesso, String? mensagem)? onSalvar;
-  final String? filialId;
+  final Function(bool, String?) onSalvar;
+  final String filialId;
   final String? filialNome;
-  
-  // Novos parâmetros para edição
+  final String? terminalId; // NOVO: adicionar este parâmetro
   final Map<String, dynamic>? movimentacaoParaEdicao;
   final String? ordemId;
 
   const NovaVendaDialog({
     super.key,
-    this.onSalvar,
-    this.filialId,
+    required this.onSalvar,
+    required this.filialId,
     this.filialNome,
+    this.terminalId, // NOVO
     this.movimentacaoParaEdicao,
     this.ordemId,
   });
@@ -243,7 +243,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
   }
 
   Future<void> _salvarVenda() async {
-    if (widget.filialId == null || widget.filialId!.isEmpty) {
+    if (widget.filialId.isEmpty) {
       _mostrarErro('Filial não informada');
       return;
     }
@@ -552,7 +552,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
       final filialResponse = await supabase
           .from('filiais')
           .select('empresa_id')
-          .eq('id', widget.filialId!)
+          .eq('id', widget.filialId)
           .single();
 
       final empresaId = filialResponse['empresa_id'];
@@ -570,7 +570,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
           .from('ordens')
           .insert({
             'empresa_id': empresaId,
-            'filial_id': widget.filialId!,
+            'filial_id': widget.filialId,
             'usuario_id': user.id,
             'tipo': 'venda',
             'data_ordem': dataMov,
@@ -598,8 +598,8 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
 
           final Map<String, dynamic> movimentacao = {
             'ordem_id': ordemId,
-            'filial_id': widget.filialId!,
-            'filial_origem_id': widget.filialId!,
+            'filial_id': widget.filialId,
+            'filial_origem_id': widget.filialId,
             'empresa_id': empresaId,
             'usuario_id': user.id,
             'produto_id': tanque.produtoId,
@@ -630,7 +630,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
         throw Exception('Nenhum tanque completo para processar');
       }
 
-      widget.onSalvar?.call(true, 'Venda registrada com sucesso! ($tanquesProcessados tanque(s) processado(s))');
+      widget.onSalvar(true, 'Venda registrada com sucesso! ($tanquesProcessados tanque(s) processado(s))');
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       _mostrarErro('Erro ao salvar venda: ${e.toString()}');
@@ -725,7 +725,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
           .update(dadosMovimentacaoEspecifica)
           .eq('id', widget.movimentacaoParaEdicao!['id']);
 
-      widget.onSalvar?.call(true, 'Programação atualizada!');
+      widget.onSalvar(true, 'Programação atualizada!');
       if (mounted) Navigator.of(context).pop(true);
       
     } catch (e) {

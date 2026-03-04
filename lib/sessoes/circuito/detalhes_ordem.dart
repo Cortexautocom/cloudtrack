@@ -19,12 +19,12 @@ enum TipoMovimentacao {
 
 class DetalhesOrdemView extends StatefulWidget {
   final Map<String, dynamic> ordem;
-  final String filialAtualId;
+  final String terminalAtualId;
 
   const DetalhesOrdemView({
     super.key,
     required this.ordem,
-    required this.filialAtualId,
+    required this.terminalAtualId,
   });
 
   @override
@@ -237,14 +237,13 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
   }
 
   TipoMovimentacao _determinarTipoMovimentacao() {
-    final origemId = widget.ordem['filial_origem_id']?.toString();
-    final destinoId = widget.ordem['filial_destino_id']?.toString();
-    final filialAtualId = widget.filialAtualId; // Recebido como parâmetro    
+    final origemId = widget.ordem['terminal_origem_id']?.toString();
+    final destinoId = widget.ordem['terminal_destino_id']?.toString();
+    final terminalAtualId = widget.terminalAtualId; // Recebido como parâmetro    
     
-    // SUA LÓGICA ESTÁ CORRETA:
-    if (origemId == filialAtualId) {
+    if (origemId == terminalAtualId) {
       return TipoMovimentacao.carregamento;
-    } else if (destinoId == filialAtualId) {
+    } else if (destinoId == terminalAtualId) {
       return TipoMovimentacao.descarregamento;
     }
     
@@ -1190,23 +1189,23 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
   // Agrupar produtos por tipo usando apenas volume ambiente (sem duplicar colunas)
   Map<String, double> _agruparProdutosParaCarregar() {
     final Map<String, double> produtos = {};
-    final filialAtualId = widget.filialAtualId;
+    final terminalAtualId = widget.terminalAtualId;
 
     for (var mov in _movimentacoes) {
       final produtoNome = mov['produtos']?['nome_dois']?.toString() ?? 'desconhecido';
 
-      final filialDestinoId = mov['filial_destino_id']?.toString();
-      final filialOrigemId = mov['filial_origem_id']?.toString();
-      final filialId = mov['filial_id']?.toString();
+      final terminalDestinoId = mov['filial_destino_id']?.toString();
+      final terminalOrigemId = mov['filial_origem_id']?.toString();
+      final terminalId = mov['terminal_id']?.toString();
 
       final entradaAmb = (mov['entrada_amb'] ?? 0) as num;
       final saidaAmb = (mov['saida_amb'] ?? 0) as num;
 
       num quantidade = 0;
-      if (filialAtualId.isNotEmpty && filialDestinoId == filialAtualId) {
+      if (terminalAtualId.isNotEmpty && terminalDestinoId == terminalAtualId) {
         quantidade = entradaAmb;
-      } else if (filialAtualId.isNotEmpty &&
-          (filialOrigemId == filialAtualId || filialId == filialAtualId)) {
+      } else if (terminalAtualId.isNotEmpty &&
+          (terminalOrigemId == terminalAtualId || terminalId == terminalAtualId)) {
         quantidade = saidaAmb;
       } else {
         quantidade = saidaAmb > 0 ? saidaAmb : entradaAmb;
