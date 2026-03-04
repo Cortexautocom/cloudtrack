@@ -42,6 +42,7 @@ external JSFunction? atualizarApp;
 
 class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   int selectedIndex = 0;
+  int _hoveredMenuIndex = -1;
   TextEditingController searchController = TextEditingController();
 
   final List<String> menuItems = [
@@ -971,67 +972,76 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                             final nomeItem = menuItems[index];
                             final nomeFormatado = _formatarNomeMenu(nomeItem);
                             
-                            return InkWell(
-                              onTap: () {
-                                _resetarTodasFlags();
+                            return MouseRegion(
+                              onEnter: (_) => setState(() => _hoveredMenuIndex = index),
+                              onExit: (_) => setState(() => _hoveredMenuIndex = -1),
+                              child: InkWell(
+                                onTap: () {
+                                  _resetarTodasFlags();
 
-                                setState(() {
-                                  selectedIndex = index;
-                                });
+                                  setState(() {
+                                    selectedIndex = index;
+                                  });
 
-                                final itemSelecionado = menuItems[index];
+                                  final itemSelecionado = menuItems[index];
 
-                                if (itemSelecionado == 'Vendas' || 
-                                    _filhosPorSessao.containsKey(itemSelecionado)) {
-                                  _mostrarFilhosDaSessao(itemSelecionado);
-                                }
-                              },
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 400),
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 10, horizontal: 10),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? Colors.white
-                                      : const Color(0xFFF5F5F5),
-                                  border: Border(
-                                    left: BorderSide(
-                                      color: isSelected
-                                          ? const Color(0xFF64A7FF)
-                                          : Colors.transparent,
-                                      width: 4,
-                                    ),
-                                  ),
-                                ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center, // Centraliza verticalmente
-                                  children: [
-                                    Icon(
-                                      _getMenuIcon(nomeItem),
-                                      color: isSelected
-                                          ? _getCorPorSessao(nomeItem)
-                                          : Colors.grey[700],
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded( // Adiciona Expanded para melhor controle
-                                      child: Text(
-                                        nomeFormatado,
-                                        style: TextStyle(
-                                          fontWeight: isSelected
-                                              ? FontWeight.bold
-                                              : FontWeight.w500,
-                                          color: isSelected
-                                              ? _getCorPorSessao(nomeItem)
-                                              : Colors.grey[800],
-                                          fontSize: 13, // Pode ajustar se necessário
-                                          height: 1.1, // Controla espaçamento entre linhas
-                                        ),
-                                        maxLines: 2, // Permite até 2 linhas
-                                        overflow: TextOverflow.visible, // Não corta o texto
+                                  if (itemSelecionado == 'Vendas' ||
+                                      _filhosPorSessao.containsKey(itemSelecionado)) {
+                                    _mostrarFilhosDaSessao(itemSelecionado);
+                                  }
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 10, horizontal: 10),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? Colors.white
+                                        : const Color(0xFFF5F5F5),
+                                    border: Border(
+                                      left: BorderSide(
+                                        color: isSelected
+                                            ? const Color(0xFF64A7FF)
+                                            : Colors.transparent,
+                                        width: 4,
                                       ),
                                     ),
-                                  ],
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.center, // Centraliza verticalmente
+                                    children: [
+                                      Icon(
+                                        _getMenuIcon(nomeItem),
+                                        color: isSelected
+                                            ? _getCorPorSessao(nomeItem)
+                                            : Colors.grey[700],
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded( // Adiciona Expanded para melhor controle
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 200),
+                                          transform: Matrix4.translationValues(
+                                              _hoveredMenuIndex == index ? 8.0 : 0.0, 0, 0),
+                                          child: Text(
+                                            nomeFormatado,
+                                            style: TextStyle(
+                                              fontWeight: isSelected
+                                                  ? FontWeight.bold
+                                                  : FontWeight.w500,
+                                              color: isSelected
+                                                  ? _getCorPorSessao(nomeItem)
+                                                  : Colors.grey[800],
+                                              fontSize: 13, // Pode ajustar se necessário
+                                              height: 1.1, // Controla espaçamento entre linhas
+                                            ),
+                                            maxLines: 2, // Permite até 2 linhas
+                                            overflow: TextOverflow.visible, // Não corta o texto
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             );
