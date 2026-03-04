@@ -84,7 +84,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarHistorico = false;
   bool _mostrarListarCacls = false;
   bool _mostrarFiltrosEstoque = false;
-  bool _mostrarEscolherFilial = false;
+  bool _mostrarEscolherTerminal = false;
   bool _mostrarEstoquePorEmpresa = false;
   bool _mostrarFiliaisDaEmpresa = false;
   bool _mostrarEstoquePorTanque = false;
@@ -115,7 +115,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   Map<String, dynamic>? _dadosCalcGerado;
   String? _filialSelecionadaId;
   String? _terminalSelecionadoId;
-  String _contextoEscolhaFilial = '';
+  String _contextoEscolhaTerminal = '';
   String? _filialParaFiltroId;
   String? _filialParaFiltroNome;
   String? _empresaParaFiltroId;
@@ -646,7 +646,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarHistorico = false;
       _mostrarListarCacls = false;
       _mostrarFiltrosEstoque = false;
-      _mostrarEscolherFilial = false;
+      _mostrarEscolherTerminal = false;
       _mostrarEstoquePorEmpresa = false;
       _mostrarFiliaisDaEmpresa = false;
       _mostrarEstoquePorTanque = false;
@@ -662,7 +662,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _filialSelecionadaNome = null;
       _dadosCalcGerado = null;
       _filialSelecionadaId = null;
-      _contextoEscolhaFilial = '';
+      _contextoEscolhaTerminal = '';
       _filialParaFiltroId = null;
       _filialParaFiltroNome = null;
       _empresaParaFiltroId = null;
@@ -738,7 +738,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarListarCacls = false;
       _mostrarOrdensAnalise = false;
       _mostrarHistorico = false;
-      _mostrarEscolherFilial = false;
+      _mostrarEscolherTerminal = false;
       _mostrarMedicaoTanques = false;
       _mostrarTanques = false;
       _mostrarFiliaisDaEmpresa = false;
@@ -778,7 +778,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _mostrarListarCacls = false;
       _mostrarOrdensAnalise = false;
       _mostrarHistorico = false;
-      _mostrarEscolherFilial = false;
+      _mostrarEscolherTerminal = false;
       _mostrarMedicaoTanques = false;
       _mostrarTanques = false;
       _mostrarFiliaisDaEmpresa = false;
@@ -793,7 +793,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _filialSelecionadaNome = null;
       _dadosCalcGerado = null;
       _filialSelecionadaId = null;
-      _contextoEscolhaFilial = '';
+      _contextoEscolhaTerminal = '';
       _filialParaFiltroId = null;
       _filialParaFiltroNome = null;
       _empresaParaFiltroId = null;
@@ -1323,8 +1323,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             } else {
               // Caso contrário, volta para Operação normalmente
               if (usuario!.nivel == 3) {
-                _mostrarEscolherFilial = true;
-                _contextoEscolhaFilial = 'cacl';
+                _mostrarEscolherTerminal = true;
+                _contextoEscolhaTerminal = 'cacl';
               } else {
                 _mostrarFilhosDaSessao('Operação');
               }
@@ -1332,7 +1332,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           });
         },
         filialId: _filialSelecionadaId!,
-        filialNome: _filialSelecionadaNome ?? 'Filial',
+        filialNome: _filialSelecionadaNome ?? 'Terminal',
         onIrParaEmissao: () {
           setState(() {
             _mostrarListarCacls = false;
@@ -1364,42 +1364,42 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       );
     }
 
-    if (_mostrarEscolherFilial) {
+    if (_mostrarEscolherTerminal) {
       return EscolherTerminalPage(
-        key: ValueKey('escolher-filial-$_contextoEscolhaFilial'),
+        key: ValueKey('escolher-terminal-$_contextoEscolhaTerminal'),
         onVoltar: () {
           setState(() {
-            _mostrarEscolherFilial = false;
-            _contextoEscolhaFilial = '';
+            _mostrarEscolherTerminal = false;
+            _contextoEscolhaTerminal = '';
             _mostrarFilhosDaSessao('Operação');
           });
         },
-        onSelecionarTerminal: (idFilial) async {
+        onSelecionarTerminal: (idTerminal) async {
           final supabase = Supabase.instance.client;
           try {
             // Tenta buscar filial primeiro
             final filialData = await supabase
                 .from('filiais')
                 .select('nome')
-                .eq('id', idFilial)
+                .eq('id', idTerminal)
                 .maybeSingle();
 
             if (filialData != null) {
               setState(() {
-                _filialSelecionadaId = idFilial;
+                _filialSelecionadaId = idTerminal;
                 _filialSelecionadaNome = filialData['nome'];
                 _terminalSelecionadoId = null;
-                _mostrarEscolherFilial = false;
+                _mostrarEscolherTerminal = false;
 
-                if (_contextoEscolhaFilial == 'cacl') {
+                if (_contextoEscolhaTerminal == 'cacl') {
                   _mostrarListarCacls = true;
-                } else if (_contextoEscolhaFilial == 'tanques') {
+                } else if (_contextoEscolhaTerminal == 'tanques') {
                   _mostrarTanques = true;
-                } else if (_contextoEscolhaFilial == 'estoque_por_tanque') {
+                } else if (_contextoEscolhaTerminal == 'estoque_por_tanque') {
                   _mostrarEstoquePorTanque = true;
                 }
 
-                _contextoEscolhaFilial = '';
+                _contextoEscolhaTerminal = '';
               });
               return;
             }
@@ -1408,53 +1408,53 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             final terminalData = await supabase
                 .from('terminais')
                 .select('nome')
-                .eq('id', idFilial)
+                .eq('id', idTerminal)
                 .maybeSingle();
 
             if (terminalData != null) {
               setState(() {
-                _terminalSelecionadoId = idFilial;
+                _terminalSelecionadoId = idTerminal;
                 _filialSelecionadaId = null;
                 _filialSelecionadaNome = null;
-                _mostrarEscolherFilial = false;
+                _mostrarEscolherTerminal = false;
 
-                if (_contextoEscolhaFilial == 'tanques') {
+                if (_contextoEscolhaTerminal == 'tanques') {
                   _mostrarTanques = true;
-                } else if (_contextoEscolhaFilial == 'estoque_por_tanque') {
+                } else if (_contextoEscolhaTerminal == 'estoque_por_tanque') {
                   _mostrarEstoquePorTanque = true;
                 }
 
-                _contextoEscolhaFilial = '';
+                _contextoEscolhaTerminal = '';
               });
               return;
             }
 
             // Fallback: não encontrou nem filial nem terminal
             setState(() {
-              _filialSelecionadaId = idFilial;
-              _filialSelecionadaNome = 'Filial/Terminal';
-              _mostrarEscolherFilial = false;
-                if (_contextoEscolhaFilial == 'cacl') _mostrarListarCacls = true;
-                if (_contextoEscolhaFilial == 'tanques') _mostrarTanques = true;
-                if (_contextoEscolhaFilial == 'estoque_por_tanque') _mostrarEstoquePorTanque = true;
-              _contextoEscolhaFilial = '';
+              _filialSelecionadaId = idTerminal;
+              _filialSelecionadaNome = 'Terminal';
+              _mostrarEscolherTerminal = false;
+                if (_contextoEscolhaTerminal == 'cacl') _mostrarListarCacls = true;
+                if (_contextoEscolhaTerminal == 'tanques') _mostrarTanques = true;
+                if (_contextoEscolhaTerminal == 'estoque_por_tanque') _mostrarEstoquePorTanque = true;
+              _contextoEscolhaTerminal = '';
             });
           } catch (e) {
             setState(() {
-              _filialSelecionadaId = idFilial;
-              _filialSelecionadaNome = 'Filial';
-              _mostrarEscolherFilial = false;
+              _filialSelecionadaId = idTerminal;
+              _filialSelecionadaNome = 'Terminal';
+              _mostrarEscolherTerminal = false;
 
-              if (_contextoEscolhaFilial == 'cacl') {
+              if (_contextoEscolhaTerminal == 'cacl') {
                 _mostrarListarCacls = true;
               }
 
-              _contextoEscolhaFilial = '';
+              _contextoEscolhaTerminal = '';
             });
           }
         },
-        titulo: _contextoEscolhaFilial == 'cacl'
-          ? 'Selecionar filial para CACL:'
+        titulo: _contextoEscolhaTerminal == 'cacl'
+          ? 'Selecionar terminal para CACL:'
           : 'Selecionar terminal para gerenciar tanques:',
       );
     }
@@ -1491,8 +1491,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             _terminalSelecionadoId = null;
 
             if (usuario!.nivel == 3) {
-              _mostrarEscolherFilial = true;
-              _contextoEscolhaFilial = 'tanques';
+              _mostrarEscolherTerminal = true;
+              _contextoEscolhaTerminal = 'tanques';
             } else {
               _mostrarFilhosDaSessao('Operação'); // ALTERADO: Agora volta para Operação
             }
@@ -1671,7 +1671,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           Row(
             children: [
               if (mostrarVoltar && (_mostrarDownloads || showConversaoList || _mostrarListarCacls || _mostrarOrdensAnalise || 
-                  _mostrarHistorico || _mostrarEscolherFilial || _mostrarMedicaoTanques || _mostrarTanques || 
+                  _mostrarHistorico || _mostrarEscolherTerminal || _mostrarMedicaoTanques || _mostrarTanques || 
                   _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || _mostrarEstoquePorTanque ||
                   _mostrarTempDensMedia || _mostrarCalcGerado || 
                   _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarTransportadoras || _mostrarFiltrosEstoque ||
@@ -1683,7 +1683,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   tooltip: 'Voltar',
                 ),
               if (mostrarVoltar && (_mostrarDownloads || showConversaoList || _mostrarListarCacls || _mostrarOrdensAnalise || 
-                  _mostrarHistorico || _mostrarEscolherFilial || _mostrarMedicaoTanques || _mostrarTanques || 
+                  _mostrarHistorico || _mostrarEscolherTerminal || _mostrarMedicaoTanques || _mostrarTanques || 
                   _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || _mostrarEstoquePorTanque ||
                   _mostrarTempDensMedia || _mostrarCalcGerado || 
                   _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarTransportadoras || _mostrarFiltrosEstoque ||
@@ -2188,8 +2188,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         final usuario = UsuarioAtual.instance;
         if (usuario!.nivel == 3) {
           setState(() {
-            _mostrarEscolherFilial = true;
-            _contextoEscolhaFilial = 'tanques';
+            _mostrarEscolherTerminal = true;
+            _contextoEscolhaTerminal = 'tanques';
           });
         } else {
           // Nível 1 e 2: vai direto para tanques usando o terminalId vinculado
@@ -2203,8 +2203,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         final usuario = UsuarioAtual.instance;
         if (usuario != null && usuario.nivel == 3) {
           setState(() {
-            _mostrarEscolherFilial = true;
-            _contextoEscolhaFilial = 'estoque_por_tanque';
+            _mostrarEscolherTerminal = true;
+            _contextoEscolhaTerminal = 'estoque_por_tanque';
             _estoquePorTanqueVemDaApuracao = true;
           });
         } else {
@@ -2247,8 +2247,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         final usuario = UsuarioAtual.instance;
         if (usuario != null && usuario.nivel == 3) {
           setState(() {
-            _mostrarEscolherFilial = true;
-            _contextoEscolhaFilial = 'estoque_por_tanque';
+            _mostrarEscolherTerminal = true;
+            _contextoEscolhaTerminal = 'estoque_por_tanque';
             _estoquePorTanqueVemDaApuracao = false;
           });
         } else {
