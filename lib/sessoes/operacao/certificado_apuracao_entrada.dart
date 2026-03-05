@@ -2142,8 +2142,8 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       if (user == null) throw Exception('Usuário não autenticado');
 
       final usuario = UsuarioAtual.instance;
-      if (usuario == null || usuario.filialId == null) {
-        throw Exception('Usuário sem filial vinculada');
+      if (usuario == null || usuario.terminalId == null || usuario.terminalId!.isEmpty) {
+        throw Exception('Usuário sem terminal vinculado');
       }
 
       final produtoId = await _resolverProdutoId(produtoSelecionado!);
@@ -2165,7 +2165,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         'origem_20c': _converterParaInteiro(campos['origem20']!.text),
         'destino_20c': _converterParaInteiro(campos['destino20']!.text),
         'usuario_id': user.id,
-        'filial_id': usuario.filialId,
+        'terminal_id': usuario.terminalId,
         'created_at': DateTime.now().toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
         // ADICIONE ESTA LINHA ↓
