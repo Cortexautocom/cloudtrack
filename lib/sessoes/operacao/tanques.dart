@@ -87,99 +87,76 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       });
 
       // ---------------------------
-      //   SE FOI PASSADO um ID, TRATAR COMO terminal_id e buscar nome
+      //   DETERMINAR O TERMINAL A SER USADO
       // ---------------------------
-      String? nomeFilial;
-      String? filtroTerminalId;
+      String? terminalId;
+      String? nomeTerminal;
 
+      // Prioridade 1: Se foi passado um terminal_id explicitamente (via filialSelecionadaId)
       if (widget.filialSelecionadaId != null) {
-        filtroTerminalId = widget.filialSelecionadaId!;
+        terminalId = widget.filialSelecionadaId!;
         try {
           final terminalCheck = await supabase
               .from('terminais')
               .select('id, nome')
               .eq('id', widget.filialSelecionadaId!)
               .maybeSingle();
-          if (terminalCheck != null) nomeFilial = terminalCheck['nome']?.toString();
-        } catch (_) {
-          nomeFilial = null;
-        }
-      }
-
-      // Se não veio seleção explícita, usa a filial do usuário (quando houver)
-      if (nomeFilial == null && usuario.filialId != null) {
-        final filialData = await supabase
-            .from('filiais')
-            .select('nome')
-            .eq('id', usuario.filialId!)
-            .maybeSingle();
-        if (filialData != null) {
-          nomeFilial = filialData['nome'];
-        }
-      }
-
-      // Carrega tanques
-      final PostgrestTransformBuilder<dynamic> query;
-
-      // Se foi fornecido um terminal explicitamente (independente do nível do usuário), filtra por terminal_id
-      // No arquivo tanques.dart, função _carregarDados()
-      if (filtroTerminalId != null) {
-          query = supabase
-              .from('tanques')
-              .select('''
-                id,
-                referencia,
-                capacidade,
-                lastro,
-                status,
-                id_produto,
-                id_filial,
-                produtos (nome),
-                terminais (nome)
-              ''')
-              .eq('terminal_id', filtroTerminalId)
-              .order('referencia');
-      }
-      // Caso não tenha sido passado terminal, segue comportamento por nível
-      else if (usuario.nivel == 3) {
-          // Administrador precisa selecionar um terminal
-          print("ERRO: Admin não escolheu terminal para visualizar tanques");
-          setState(() {
-            _carregando = false;
-            tanques = []; // Lista vazia
-            _nomeFilial = null;
-          });
-          return;
-      } else {
-          // Usuário normal: usa o terminal do próprio usuário
-          final terminalId = usuario.terminalId;
-          if (terminalId == null || terminalId.isEmpty) {
-              print('Erro: ID do terminal não encontrado para usuário não-admin');
-              setState(() {
-                _carregando = false;
-                _nomeFilial = null;
-              });
-              return;
+          if (terminalCheck != null) {
+            nomeTerminal = terminalCheck['nome']?.toString();
           }
-
-          query = supabase
-              .from('tanques')
-              .select('''
-                id,
-                referencia,
-                capacidade,
-                lastro,
-                status,
-                id_produto,
-                produtos (nome)
-              ''')
-              .eq('terminal_id', terminalId)  // ← CORRIGIDO: usando terminal_id
-              .order('referencia');
+        } catch (_) {
+          nomeTerminal = null;
+        }
       }
+      // Prioridade 2: Se não veio seleção explícita, usa o terminal do usuário
+      else if (usuario.terminalId != null) {
+        terminalId = usuario.terminalId;
+        
+        // Busca o nome do terminal
+        try {
+          final terminalData = await supabase
+              .from('terminais')
+              .select('nome')
+              .eq('id', usuario.terminalId!)
+              .maybeSingle();
+          if (terminalData != null) {
+            nomeTerminal = terminalData['nome'];
+          }
+        } catch (_) {
+          nomeTerminal = null;
+        }
+      }
+
+      // Se não temos terminalId, não podemos buscar tanques
+      if (terminalId == null) {
+        print("ERRO: Não foi possível determinar o terminal para buscar tanques");
+        setState(() {
+          _carregando = false;
+          tanques = [];
+          _nomeFilial = null; // Na verdade deveria ser _nomeTerminal
+        });
+        return;
+      }
+
+      // Carrega tanques usando o terminal_id
+      final query = supabase
+          .from('tanques')
+          .select('''
+            id,
+            referencia,
+            capacidade,
+            lastro,
+            status,
+            id_produto,
+            produtos (nome),
+            terminais!inner (nome)
+          ''')
+          .eq('terminal_id', terminalId)
+          .order('referencia');
 
       final tanquesResponse = await query;
 
-      // Usar a filial do usuário para checar permissões de emissão CACL
+      // Verifica se a filial do usuário permite emitir CACL
       bool filialEmite = false;
       final String? usuarioFilialId = usuario.filialId;
       if (usuarioFilialId != null) {
@@ -201,16 +178,6 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       final List<Map<String, dynamic>> tanquesFormatados = [];
       
       for (final tanque in tanquesResponse) {
-        // Corrigir o acesso ao nome do terminal ou da filial
-        String? nomeFilialTanque;
-        if (usuario.nivel == 3) {
-          if (tanque['terminais'] != null) {
-            nomeFilialTanque = tanque['terminais'] is Map
-                ? tanque['terminais']['nome']?.toString()
-                : tanque['terminais']?.toString();
-          }
-        }
-
         tanquesFormatados.add({
           'id': tanque['id'],
           'referencia': tanque['referencia']?.toString() ?? 'SEM REFERÊNCIA',
@@ -219,9 +186,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
           'lastro': tanque['lastro']?.toString(),
           'status': tanque['status']?.toString() ?? 'Em operação',
           'id_produto': tanque['id_produto'],
-          'id_filial': tanque['id_filial'],
-          // Adicionar nome do terminal (ou filial) se for admin
-          'filial': nomeFilialTanque ?? nomeFilial,
+          'terminal_nome': tanque['terminais']?['nome']?.toString() ?? nomeTerminal,
         });
       }
 
@@ -237,7 +202,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       setState(() {
         tanques = tanquesFormatados;
         _carregando = false;
-        _nomeFilial = nomeFilial;
+        _nomeFilial = nomeTerminal; // Renomear a variável para _nomeTerminal seria melhor
         _filialEmiteCacl = filialEmite;
       });
     } catch (e) {
