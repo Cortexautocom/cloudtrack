@@ -362,29 +362,36 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
                       spacing: 20,
                       runSpacing: 14,
                       children: [
-                        if (usuario?.nivel == 3)
-                          SizedBox(
-                            width: 540,
-                            child: DropdownButtonFormField<String>(
-                              focusNode: _terminalFocus,
-                              value: _terminalSelecionado,
-                              decoration: _decoracaoSlim('Terminal'),
-                              style: const TextStyle(fontSize: 14, color: Colors.black87),
-                              items: _terminais
-                                  .map<DropdownMenuItem<String>>(
-                                    (t) => DropdownMenuItem<String>(
-                                      value: t['id']?.toString(),
-                                      child: Text(
-                                        t['nome'] ?? '',
-                                        style: const TextStyle(fontSize: 14),
-                                      ),
+                        SizedBox(
+                          width: 540,
+                          child: DropdownButtonFormField<String>(
+                            focusNode: _terminalFocus,
+                            value: _terminalSelecionado,
+                            decoration: _decoracaoSlim('Terminal'),
+                            style: const TextStyle(fontSize: 14, color: Colors.black87),
+                            dropdownColor: Colors.white,
+                            items: _terminais
+                                .map<DropdownMenuItem<String>>(
+                                  (t) => DropdownMenuItem<String>(
+                                    value: t['id']?.toString(),
+                                    child: Text(
+                                      t['nome'] ?? '',
+                                      style: const TextStyle(fontSize: 14),
                                     ),
-                                  )
-                                  .toList(),
-                              onChanged: (v) => setState(() => _terminalSelecionado = v),
-                              validator: (v) => v == null ? 'Obrigatório' : null,
-                            ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: usuario?.nivel == 3
+                                ? (v) => setState(() => _terminalSelecionado = v)
+                                : null,
+                            validator: (v) {
+                              // for non-admin the value comes from login, so we
+                              // don't require user interaction
+                              if (usuario?.nivel == 3 && v == null) return 'Obrigatório';
+                              return null;
+                            },
                           ),
+                        ),
 
                         _campo('Origem', _origemCtrl, maiusculo: true, max: 50, letrasOnly: true, focusNode: _origemFocus, nextFocus: _notaFocus),
                         Shortcuts(

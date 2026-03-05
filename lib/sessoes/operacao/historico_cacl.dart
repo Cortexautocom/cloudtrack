@@ -20,7 +20,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
   bool carregando = true;
   bool buscando = false;
   List<Map<String, dynamic>> cacles = [];
-  List<Map<String, dynamic>> filiais = [];
+  List<Map<String, dynamic>> terminais = [];
   List<Map<String, dynamic>> tanquesDisponiveis = [];
   List<Map<String, dynamic>> produtosDisponiveis = [];
   
@@ -30,7 +30,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
   final int limitePorPagina = 10;
   
   DateTime? dataEmissao;
-  String? filialSelecionadaId;
+  String? terminalSelecionadoId;
   String? tanqueSelecionadoId;
   String? produtoSelecionado;
   
@@ -38,7 +38,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
   int? _hoverIndex;
   
   final TextEditingController dataEmissaoController = TextEditingController();
-  final TextEditingController _filialController = TextEditingController();
+  final TextEditingController _terminalController = TextEditingController();
 
   Map<String, dynamic>? _usuarioData;
 
@@ -55,7 +55,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     dataEmissaoController.dispose();
-    _filialController.dispose();
+    _terminalController.dispose();
     super.dispose();
   }
 
@@ -129,7 +129,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
       }
       
       final nivel = _usuarioData!['nivel'];
-      final filialId = _usuarioData!['id_filial']?.toString();
+      final terminalId = UsuarioAtual.instance?.terminalId;
       
       final produtosResponse = await supabase
           .from('produtos')
@@ -140,46 +140,46 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
       });
       
       if (nivel == 3) {
-        final filiaisResponse = await supabase
-            .from('filiais')
+        final terminaisResponse = await supabase
+            .from('terminais')
             .select('id, nome')
             .order('nome');
         setState(() {
-          filiais = List<Map<String, dynamic>>.from(filiaisResponse);
+          terminais = List<Map<String, dynamic>>.from(terminaisResponse);
         });
       }
       
       if (nivel == 3) {
         final tanquesResponse = await supabase
             .from('tanques')
-            .select('id, referencia, id_filial')
+            .select('id, referencia, terminal_id')
             .order('referencia');
         tanquesDisponiveis = List<Map<String, dynamic>>.from(tanquesResponse);
-      } else if (filialId != null) {
+      } else if (terminalId != null) {
         final tanquesResponse = await supabase
             .from('tanques')
             .select('id, referencia')
-            .eq('id_filial', filialId)
+            .eq('terminal_id', terminalId)
             .order('referencia');
         tanquesDisponiveis = List<Map<String, dynamic>>.from(tanquesResponse);
       }
 
-      // Se usuário não é admin, obter o nome da filial e pré-selecionar o campo
-      if (nivel != 3 && filialId != null) {
+      // Se usuário não é admin, obter o nome do terminal e pré-selecionar o campo
+      if (nivel != 3 && terminalId != null) {
         try {
-          final filialData = await supabase
-              .from('filiais')
+          final terminalData = await supabase
+              .from('terminais')
               .select('nome')
-              .eq('id', filialId)
+              .eq('id', terminalId)
               .single();
-          final nome = filialData['nome']?.toString();
+          final nome = terminalData['nome']?.toString();
           setState(() {
-            filialSelecionadaId = filialId;
-            _filialController.text = nome ?? '';
+            terminalSelecionadoId = terminalId;
+            _terminalController.text = nome ?? '';
           });
         } catch (_) {
           setState(() {
-              _filialController.text = '';
+              _terminalController.text = '';
             });
         }
       }
@@ -215,7 +215,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
       }
 
       final nivel = _usuarioData!['nivel'];
-      final filialId = _usuarioData!['id_filial']?.toString();
+      final terminalId = UsuarioAtual.instance?.terminalId;
 
       var query = supabase.from('cacl').select('''
         id,
@@ -224,7 +224,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
         base,
         produto,
         tanque_id,
-        filial_id,
+        terminal_id,
         created_at,
         status,
         solicita_canc,
@@ -241,8 +241,8 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
         porcentagem_diferenca
       ''');
 
-      if (nivel < 3 && filialId != null) {
-        query = query.eq('filial_id', filialId);
+      if (nivel < 3 && terminalId != null) {
+        query = query.eq('terminal_id', terminalId);
       }
 
       if (dataEmissao != null) {
@@ -252,8 +252,8 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
         );
       }
 
-      if (filialSelecionadaId != null && nivel == 3) {
-        query = query.eq('filial_id', filialSelecionadaId!);
+      if (terminalSelecionadoId != null && nivel == 3) {
+        query = query.eq('terminal_id', terminalSelecionadoId!);
       }
 
       if (tanqueSelecionadoId != null && tanqueSelecionadoId!.isNotEmpty) {
@@ -296,9 +296,9 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
   void _limparFiltros() {
     setState(() {
       dataEmissao = null;
-      // Não limpar filial para usuários não-admin (nível 1/2)
+      // Não limpar terminal para usuários não-admin (nível 1/2)
       if ((_usuarioData?['nivel'] ?? 0) == 3) {
-        filialSelecionadaId = null;
+        terminalSelecionadoId = null;
       }
       tanqueSelecionadoId = null;
       produtoSelecionado = null;
@@ -533,9 +533,9 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                 if (isAdmin) Expanded(
                   flex: 2,
                   child: DropdownButtonFormField<String>(
-                    value: filialSelecionadaId,
+                    value: terminalSelecionadoId,
                     decoration: InputDecoration(
-                      labelText: 'Filial',
+                      labelText: 'Terminal',
                       border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.business, size: 18),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -545,13 +545,13 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                     items: [
                       const DropdownMenuItem(
                         value: null,
-                        child: Text('Todas as filiais', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13)),
+                        child: Text('Todos os terminais', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13)),
                       ),
-                      ...filiais.map((filial) {
+                      ...terminais.map((terminal) {
                         return DropdownMenuItem(
-                          value: filial['id']?.toString(),
+                          value: terminal['id']?.toString(),
                           child: Text(
-                            filial['nome']?.toString() ?? '',
+                            terminal['nome']?.toString() ?? '',
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontSize: 13),
                           ),
@@ -560,16 +560,16 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                     ],
                     onChanged: (value) {
                       setState(() {
-                        filialSelecionadaId = value;
+                        terminalSelecionadoId = value;
                       });
                     },
                   ),
                 ) else Expanded(
                   flex: 2,
                   child: TextFormField(
-                    controller: _filialController,
+                    controller: _terminalController,
                     decoration: InputDecoration(
-                      labelText: 'Filial',
+                      labelText: 'Terminal',
                       border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.business, size: 18),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -708,9 +708,9 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: filialSelecionadaId,
+                      value: terminalSelecionadoId,
                       decoration: InputDecoration(
-                        labelText: 'Filial',
+                        labelText: 'Terminal',
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.business, size: 18),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -720,13 +720,13 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                       items: [
                         const DropdownMenuItem(
                           value: null,
-                          child: Text('Todas as filiais', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13)),
+                          child: Text('Todos os terminais', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13)),
                         ),
-                        ...filiais.map((filial) {
+                        ...terminais.map((terminal) {
                           return DropdownMenuItem(
-                            value: filial['id']?.toString(),
+                            value: terminal['id']?.toString(),
                             child: Text(
-                              filial['nome']?.toString() ?? '',
+                              terminal['nome']?.toString() ?? '',
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(fontSize: 13),
                             ),
@@ -735,7 +735,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                       ],
                       onChanged: (value) {
                         setState(() {
-                          filialSelecionadaId = value;
+                          terminalSelecionadoId = value;
                         });
                       },
                     ),
@@ -817,7 +817,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
     }
     
     final nivel = _usuarioData?['nivel'];
-    final filialId = _usuarioData?['id_filial']?.toString();
+    final terminalId = UsuarioAtual.instance?.terminalId;
     
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
@@ -851,18 +851,18 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                           color: Color(0xFF0D47A1),
                         ),
                       ),
-                      if (nivel != null && nivel < 3 && filialId != null)
+                      if (nivel != null && nivel < 3 && terminalId != null)
                         FutureBuilder(
                           future: Supabase.instance.client
-                              .from('filiais')
+                              .from('terminais')
                               .select('nome')
-                              .eq('id', filialId)
+                              .eq('id', terminalId)
                               .single(),
                           builder: (context, snapshot) {
                             if (snapshot.hasData) {
-                              final nomeFilial = snapshot.data!['nome'];
+                              final nomeTerminal = snapshot.data!['nome'];
                               return Text(
-                                nomeFilial,
+                                nomeTerminal,
                                 style: const TextStyle(
                                   fontSize: 14,
                                   color: Colors.grey,
