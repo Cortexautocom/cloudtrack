@@ -102,6 +102,15 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
             _filialSelecionadaId = '';
             _filialSelecionadaNome = null;
           }
+        } else {
+          // Usuário não possui filial: pré-selecionar a primeira filial disponível (mantendo editável)
+          if (filiais.isNotEmpty) {
+            _filialSelecionadaId = filiais.first['id'];
+            _filialSelecionadaNome = filiais.first['nome'];
+          } else {
+            _filialSelecionadaId = '';
+            _filialSelecionadaNome = null;
+          }
         }
       });
     } catch (e) {
