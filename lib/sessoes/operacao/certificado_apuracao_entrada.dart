@@ -2149,10 +2149,13 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       final produtoId = await _resolverProdutoId(produtoSelecionado!);
 
       final dadosOrdem = {
-        'data_analise': _formatarDataParaBanco(dataCtrl.text),
-        'hora_analise': horaCtrl.text,
-        'data_conclusao': DateTime.now().toIso8601String(),
-        'movimentacao_id': widget.idMovimentacao,
+        
+        'transportadora': campos['transportadora']!.text,
+        'motorista': campos['motorista']!.text,
+        'notas_fiscais': campos['notas']!.text,
+        'placa_cavalo': campos['placaCavalo']!.text,
+        'carreta1': campos['carreta1']!.text,
+        'carreta2': campos['carreta2']!.text,
         'produto_id': produtoId,
         'produto_nome': produtoSelecionado,
         'temperatura_amostra': _converterParaDecimal(campos['tempAmostra']!.text),
@@ -2165,11 +2168,9 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         'origem_20c': _converterParaInteiro(campos['origem20']!.text),
         'destino_20c': _converterParaInteiro(campos['destino20']!.text),
         'usuario_id': user.id,
+        'movimentacao_id': widget.idMovimentacao,
+        'tipo_analise': 'destino',
         'terminal_id': usuario.terminalId,
-        'created_at': DateTime.now().toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
-        // ADICIONE ESTA LINHA ↓
-        'tipo_analise': 'destino', // Define como "destino" para ENTRADA
       };
 
       final response = await supabase
@@ -2282,20 +2283,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
     _focusDestino20.dispose();
     _focusOrigem20.dispose();
     super.dispose();
-  }
-
-  String _formatarDataParaBanco(String data) {
-    if (data.isEmpty) return '';
-    
-    try {
-      final partes = data.split('/');
-      if (partes.length == 3) {
-        return '${partes[2]}-${partes[1]}-${partes[0]}';
-      }
-      return '';
-    } catch (e) {
-      return '';
-    }
   }
 
   Future<void> _carregarDadosOrdensAnalises(String idMovimentacao) async {
