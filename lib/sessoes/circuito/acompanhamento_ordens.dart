@@ -71,6 +71,9 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   bool _mostrarEscolherTerminal = false;
   String? _terminalSelecionadoId;
 
+  // Controle para aplicar filtro de data apenas quando o usuário preencher
+  bool _usarFiltroData = false;
+
   // Controladores para os filtros (para reset)
   late TextEditingController _dataInicioController;
   late TextEditingController _dataFimController;
@@ -79,14 +82,18 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   void initState() {
     super.initState();
 
-    // Inicializa controladores de data
-    final agora = DateTime.now();
-    final dataFormatada = '${agora.day.toString().padLeft(2, '0')}/${agora.month.toString().padLeft(2, '0')}/${agora.year}';
-    _dataInicioController = TextEditingController(text: dataFormatada);
-    _dataFimController = TextEditingController();
+    // Inicializa controladores de data com a data atual (dd/mm/aaaa)
+    final hoje = DateTime.now();
+    final hojeFormatado =
+      '${hoje.day.toString().padLeft(2, '0')}/${hoje.month.toString().padLeft(2, '0')}/${hoje.year}';
+    _dataInicioController = TextEditingController(text: hojeFormatado);
+    _dataFimController = TextEditingController(text: hojeFormatado);
+    // Por padrão não aplicar filtro de data até o usuário editar o campo
+    _usarFiltroData = false;
 
     // Define valores iniciais dos filtros
-    _tipoFiltro = 'saida';
+    // null corresponde a 'Todos' no Dropdown
+    _tipoFiltro = null;
     _terminalFiltroId = UsuarioAtual.instance?.terminalId;
 
     // Determina se devemos mostrar o chooser IMEDIATAMENTE para evitar
@@ -149,12 +156,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   }
 
   Future<void> _aplicarFiltros() async {
-    // Valida se pelo menos uma data foi preenchida
-    if (_dataInicioController.text.isEmpty && _dataFimController.text.isEmpty) {
-      _mostrarSnackBar('Preencha pelo menos uma data para filtrar');
-      return;
-    }
-
     setState(() {
       _carregando = true;
       _erro = false;
@@ -169,206 +170,174 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       _empresaId = usuario.empresaId;
 
       if (_empresaId == null || _empresaId!.isEmpty) {
-        throw Exception('Não foi possível identificar a empresa do usuário');
+        throw Exception('Empresa não identificada');
       }
 
-      // Converte as datas do formato dd/mm/aaaa para DateTime
       DateTime? dataInicio;
       DateTime? dataFim;
 
-      if (_dataInicioController.text.isNotEmpty) {
+      if (_dataInicioController.text.trim().isNotEmpty) {
         final partes = _dataInicioController.text.split('/');
+
         if (partes.length == 3) {
           dataInicio = DateTime(
             int.parse(partes[2]),
             int.parse(partes[1]),
             int.parse(partes[0]),
           );
-        }
-      }
 
-      if (_dataFimController.text.isNotEmpty) {
-        final partes = _dataFimController.text.split('/');
-        if (partes.length == 3) {
           dataFim = DateTime(
-            int.parse(partes[2]),
-            int.parse(partes[1]),
-            int.parse(partes[0]),
-            23, 59, 59, // Fim do dia
+            dataInicio.year,
+            dataInicio.month,
+            dataInicio.day,
+            23,
+            59,
+            59,
           );
         }
       }
 
-      // Se só tem data início, define data fim como início + 1 dia
-      if (dataInicio != null && dataFim == null) {
-        dataFim = DateTime(dataInicio.year, dataInicio.month, dataInicio.day, 23, 59, 59);
-      }
-      
-      // Se só tem data fim, define data início como fim - 1 dia
-      if (dataFim != null && dataInicio == null) {
-        dataInicio = DateTime(dataFim.year, dataFim.month, dataFim.day, 0, 0, 0);
-      }
-
-        var query = _supabase
+      var query = _supabase
           .from('movimentacoes')
           .select('''
-              id,
-              placa,
-              entrada_amb,
-              entrada_vinte,
-              saida_amb,
-              saida_vinte,
-              cliente,
-              descricao,
-              status_circuito_orig,
-              status_circuito_dest,
-              data_mov,
-              terminal_orig_id,
-              terminal_dest_id,
-              empresa_id,
-              tipo_op,
-              terminal_orig_id,
-              terminal_dest_id,
-              produtos!produto_id(id, nome_dois),
-              terminal_origem:terminais!movimentacoes_terminal_orig_id_fkey(id, nome),
-              terminal_destino:terminais!movimentacoes_terminal_dest_id_fkey(id, nome),
-              ordem_id
+            id,
+            placa,
+            entrada_amb,
+            entrada_vinte,
+            saida_amb,
+            saida_vinte,
+            cliente,
+            descricao,
+            status_circuito_orig,
+            status_circuito_dest,
+            data_mov,
+            terminal_orig_id,
+            terminal_dest_id,
+            empresa_id,
+            tipo_op,
+            produtos!produto_id(id, nome_dois),
+            terminal_origem:terminais!movimentacoes_terminal_orig_id_fkey(id, nome),
+            terminal_destino:terminais!movimentacoes_terminal_dest_id_fkey(id, nome),
+            ordem_id
           ''')
           .eq('empresa_id', _empresaId!);
 
-      // Aplica filtro por terminal quando disponível
-      final usuarioParaFiltro = UsuarioAtual.instance;
+      final usuarioFiltro = UsuarioAtual.instance;
       String? terminalParaFiltro;
 
-      if (usuarioParaFiltro != null &&
-          (usuarioParaFiltro.nivel == 1 || usuarioParaFiltro.nivel == 2)) {
+      if (usuarioFiltro != null &&
+          (usuarioFiltro.nivel == 1 || usuarioFiltro.nivel == 2)) {
         terminalParaFiltro =
-            usuarioParaFiltro.terminalId ?? _terminalSelecionadoId;
-      } else if (usuarioParaFiltro != null && usuarioParaFiltro.nivel == 3) {
+            usuarioFiltro.terminalId ?? _terminalSelecionadoId;
+      } else if (usuarioFiltro?.nivel == 3) {
         terminalParaFiltro = _terminalSelecionadoId;
       }
 
-      // FILTRO CORRETO DE TERMINAL
       if (terminalParaFiltro != null && terminalParaFiltro.isNotEmpty) {
         query = query.or(
           'terminal_orig_id.eq.$terminalParaFiltro,terminal_dest_id.eq.$terminalParaFiltro'
         );
       }
 
-      // Aplica filtro de data no banco de dados
-      if (dataInicio != null) {
-        query = query.gte('data_mov', dataInicio.toIso8601String());
-      }
+      final dados = await query.order('data_mov', ascending: false);
 
-      if (dataFim != null) {
-        query = query.lte('data_mov', dataFim.toIso8601String());
-      }
+      String? terminalAtualId =
+          usuario.nivel < 3 ? usuario.terminalId : _terminalFiltroId;
 
-      query.order('data_mov', ascending: false);
+      List<Map<String, dynamic>> movimentacoesFiltradas = dados.where((item) {
 
-      final dados = await query;
+        final tipoOp = (item['tipo_op'] ?? '').toString().toLowerCase();
+        final origem = item['terminal_orig_id']?.toString();
+        final destino = item['terminal_dest_id']?.toString();
 
-      List<Map<String, dynamic>> movimentacoesFiltradas = [];
-      // Filtra por terminal baseado no nível do usuário
-      String? terminalAtualId;
-      if (usuario.nivel < 3) {
-        terminalAtualId = usuario.terminalId;
-      } else if (usuario.nivel == 3) {
-        terminalAtualId = _terminalFiltroId;
-      }
+        final statusDest = item['status_circuito_dest'];
+        final statusDestInt =
+            statusDest is int ? statusDest : int.tryParse(statusDest?.toString() ?? '0');
 
-      if (terminalAtualId != null && terminalAtualId.isNotEmpty) {
-        movimentacoesFiltradas = dados.where((item) {
-          final tipoOp = (item['tipo_op']?.toString() ?? 'venda').toLowerCase();
-          final terminalOrigemId = item['terminal_orig_id']?.toString();
-          final terminalDestinoId = item['terminal_dest_id']?.toString();
+        final dataMovStr = item['data_mov']?.toString();
 
-          // Filtro de tipo (entrada/saida)
-          if (_tipoFiltro == 'entrada') {
-            // Entrada: só mostrar se o terminal atual é destino
-            if (tipoOp == 'usina' || tipoOp == 'transf') {
-              return terminalDestinoId == terminalAtualId;
-            }
-            // Para vendas, não faz sentido entrada
-            return false;
-          } else if (_tipoFiltro == 'saida') {
-            // Saída: só mostrar se o terminal atual é origem (ou local para venda)
-            if (tipoOp == 'usina') {
-              return false; // usina não tem saída para terminal
-            } else if (tipoOp == 'transf') {
-              return terminalOrigemId == terminalAtualId;
-            } else if (tipoOp == 'venda') {
-              return terminalOrigemId == terminalAtualId;
-            }
-            return false;
-          } else {
-            // Todos: comportamento antigo
-            if (tipoOp == 'usina') {
-              return terminalDestinoId == terminalAtualId;
-            } else if (tipoOp == 'transf') {
-              return terminalOrigemId == terminalAtualId || terminalDestinoId == terminalAtualId;
-            } else if (tipoOp == 'venda') {
-              return terminalOrigemId == terminalAtualId;
-            }
-            return false;
-          }
-        }).toList();
-      } else {
-        movimentacoesFiltradas = List<Map<String, dynamic>>.from(dados);
-      }
+        bool dentroDaData = true;
 
-      final Map<String, List<Map<String, dynamic>>> gruposOrdens = {};
-
-      for (var movimentacao in movimentacoesFiltradas) {
-        final ordemId = movimentacao['ordem_id']?.toString();
-        if (ordemId != null && ordemId.isNotEmpty) {
-          if (!gruposOrdens.containsKey(ordemId)) {
-            gruposOrdens[ordemId] = [];
-          }
-          gruposOrdens[ordemId]!.add(movimentacao);
+        if (dataInicio != null && dataFim != null && dataMovStr != null) {
+          try {
+            final dataMov = DateTime.parse(dataMovStr);
+            dentroDaData = !(dataMov.isBefore(dataInicio) || dataMov.isAfter(dataFim));
+          } catch (_) {}
         }
+
+        // ENTRADA PROGRAMADA (status 1) aparece SEMPRE
+        if (statusDestInt == 1 && destino == terminalAtualId) {
+          if (_tipoFiltro == 'saida') return false;
+          return true;
+        }
+
+        if (!dentroDaData) return false;
+
+        if (_tipoFiltro == 'entrada') {
+          if (tipoOp == 'usina' || tipoOp == 'transf') {
+            return destino == terminalAtualId;
+          }
+          return false;
+        }
+
+        if (_tipoFiltro == 'saida') {
+          if (tipoOp == 'transf' || tipoOp == 'venda') {
+            return origem == terminalAtualId;
+          }
+          return false;
+        }
+
+        return origem == terminalAtualId || destino == terminalAtualId;
+
+      }).toList();
+
+      final Map<String, List<Map<String, dynamic>>> grupos = {};
+
+      for (var mov in movimentacoesFiltradas) {
+        final ordemId = mov['ordem_id']?.toString();
+        if (ordemId == null) continue;
+
+        grupos.putIfAbsent(ordemId, () => []);
+        grupos[ordemId]!.add(mov);
       }
 
       final List<Map<String, dynamic>> ordensResumidas = [];
 
-      for (var entry in gruposOrdens.entries) {
-        final ordemId = entry.key;
-        final movimentacoesOrdem = entry.value;
-
-        if (movimentacoesOrdem.isEmpty) continue;
-
-        final primeiraMov = movimentacoesOrdem.first;
+      for (var entry in grupos.entries) {
+        final primeira = entry.value.first;
 
         final Set<String> placasSet = {};
-        for (var mov in movimentacoesOrdem) {
+
+        for (var mov in entry.value) {
           final placasFormatadas = _formatarPlacas(mov['placa']);
+
           if (placasFormatadas.isNotEmpty && placasFormatadas != 'N/I') {
-            final placasList = placasFormatadas.split(', ').map((p) => p.trim()).toList();
+            final placasList =
+                placasFormatadas.split(', ').map((p) => p.trim()).toList();
             placasSet.addAll(placasList.where((p) => p.isNotEmpty));
           }
         }
 
-        final produtosAgrupados = agruparProdutosDaOrdem(movimentacoesOrdem);
+        final produtosAgrupados = agruparProdutosDaOrdem(entry.value);
+
         final quantidadeTotal = produtosAgrupados.values.fold<double>(
           0,
           (sum, infos) => sum + infos.values.fold<double>(0, (s, v) => s + v),
         );
 
-        final ordemResumo = {
-          'ordem_id': ordemId,
-          'data_mov': primeiraMov['data_mov'],
-          'status_circuito_orig': primeiraMov['status_circuito_orig'],
-          'status_circuito_dest': primeiraMov['status_circuito_dest'],
-          'tipo_op': primeiraMov['tipo_op'],
-          'terminal_origem_id': primeiraMov['terminal_orig_id'],
-          'terminal_destino_id': primeiraMov['terminal_dest_id'],
+        ordensResumidas.add({
+          'ordem_id': entry.key,
+          'data_mov': primeira['data_mov'],
+          'status_circuito_orig': primeira['status_circuito_orig'],
+          'status_circuito_dest': primeira['status_circuito_dest'],
+          'tipo_op': primeira['tipo_op'],
+          'terminal_origem_id': primeira['terminal_orig_id'],
+          'terminal_destino_id': primeira['terminal_dest_id'],
           'placas': placasSet.toList(),
           'quantidade_total': quantidadeTotal,
           'produtos_agrupados': produtosAgrupados,
-          'itens': movimentacoesOrdem,
-        };
-
-        ordensResumidas.add(ordemResumo);
+          'itens': entry.value,
+        });
       }
 
       ordensResumidas.sort((a, b) {
@@ -383,8 +352,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
           _ordensFiltradas = List.from(ordensResumidas);
           _carregando = false;
         });
-        
-        // Aplica filtro de texto se houver
+
         _aplicarFiltroTexto();
       }
 
@@ -448,20 +416,11 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     _dataFimController.clear();
     _filtroGeralController.clear();
     setState(() {
+      _usarFiltroData = false;
       _ordens = [];
       _ordensFiltradas = [];
     });
-  }
-
-  void _mostrarSnackBar(String mensagem) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(mensagem),
-        backgroundColor: Colors.orange,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
+  } 
 
   Color _obterCorProduto(String nomeProduto) {
     final Map<String, Color> mapeamentoExato = {
@@ -857,6 +816,11 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
               controller: _dataInicioController,
               keyboardType: TextInputType.number,
               inputFormatters: [DataInputFormatter()],
+              onChanged: (v) {
+                setState(() {
+                  _usarFiltroData = v.trim().isNotEmpty || _dataFimController.text.trim().isNotEmpty;
+                });
+              },
               onSubmitted: (_) => _aplicarFiltros(),
               decoration: InputDecoration(
                 labelText: 'Data',

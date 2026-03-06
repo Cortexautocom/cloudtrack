@@ -67,6 +67,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   // Larguras das colunas
   static const double _larguraData = 120;
   static const double _larguraProduto = 180;
+  static const double _larguraClienteDestino = 160;
   static const double _larguraDescricao = 240;
   static const double _larguraNumerica = 120;
 
@@ -113,6 +114,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     // Soma das larguras fixas (7 colunas numéricas - agora com a nova coluna Sobra/Perda)
     double soma = _larguraData + 
                   _larguraDescricao + 
+                  _larguraClienteDestino +
                   (_larguraNumerica * 7); // 7 colunas numéricas (incluindo Sobra/Perda)
     
     // Adiciona coluna de produto se necessário
@@ -516,6 +518,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             data_mov,
             ts_mov,
             descricao,
+            cliente,
             entrada_amb,
             entrada_vinte,
             saida_amb,
@@ -606,6 +609,31 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       final dados = await query.order('ts_mov', ascending: true);
       debugPrint('📊 Dados retornados da query: ${dados.length} registros');
 
+      // Coletar IDs de filiais destino de transferências e buscar nomes em lote
+      final Set<String> filialDestinoIds = {};
+      for (var mov in dados) {
+        if ((mov['tipo_op']?.toString() ?? '') == 'transf' && mov['filial_destino_id'] != null) {
+          filialDestinoIds.add(mov['filial_destino_id'].toString());
+        }
+      }
+
+      final Map<String, String> filialNomes = {};
+      if (filialDestinoIds.isNotEmpty) {
+        try {
+            final orExpr = filialDestinoIds.map((id) => 'id.eq.$id').join(',');
+            final filiaisRes = await _supabase
+              .from('filiais')
+              .select('id, nome_dois')
+              .or(orExpr);
+
+          for (var f in filiaisRes) {
+            filialNomes[f['id'].toString()] = f['nome_dois']?.toString() ?? '';
+          }
+        } catch (e) {
+          debugPrint('Erro ao buscar nomes das filiais destino: $e');
+        }
+      }
+
       if (dados.isEmpty) {
         debugPrint('⚠️ Nenhum dado encontrado para os filtros aplicados');
       } else {
@@ -637,6 +665,16 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           'id': mov['id'],
           'data_mov': mov['data_mov'],
           'descricao': mov['descricao'] ?? '',
+          'cliente_destino': (() {
+            final tipoOpMov = mov['tipo_op']?.toString() ?? '';
+            if (tipoOpMov == 'venda') {
+              return mov['cliente']?.toString() ?? '';
+            } else if (tipoOpMov == 'transf') {
+              final fd = mov['filial_destino_id']?.toString();
+              return filialNomes[fd] ?? fd ?? '';
+            }
+            return mov['cliente']?.toString() ?? mov['filial_destino_id']?.toString() ?? '';
+          })(),
           'produto_nome': produtoNome,
           'produto_id': mov['produto_id'],
           'saldo_amb': saldoAmb,
@@ -936,6 +974,10 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         case 'produto_nome':
           valorA = (a['produto_nome'] ?? '').toString().toLowerCase();
           valorB = (b['produto_nome'] ?? '').toString().toLowerCase();
+          break;
+        case 'cliente_destino':
+          valorA = (a['cliente_destino'] ?? '').toString().toLowerCase();
+          valorB = (b['cliente_destino'] ?? '').toString().toLowerCase();
           break;
         case 'entrada_amb':
         case 'entrada_vinte':
@@ -1335,6 +1377,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                 if (mostrarColunaProduto) 
                   _th('Produto', _larguraProduto, onTap: () => _onSort('produto_nome')),
                 _th('Descrição', _larguraDescricao, onTap: () => _onSort('descricao')),
+                _th('Cliente/Destino', _larguraClienteDestino, onTap: () => _onSort('cliente_destino')),
                 _th('Entrada (Amb)', _larguraNumerica, onTap: () => _onSort('entrada_amb')),
                 _th('Entrada (20ºC)', _larguraNumerica, onTap: () => _onSort('entrada_vinte')),
                 _th('Saída (Amb)', _larguraNumerica, onTap: () => _onSort('saida_amb')),
@@ -1403,6 +1446,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                         _cell('', _larguraProduto),
                       // Descrição: Estoque Inicial
                       _cell('Estoque Inicial', _larguraDescricao, cor: Colors.blue, fontWeight: FontWeight.bold),
+                      // Cliente/Destino vazio para linha inicial
+                      _cell('', _larguraClienteDestino),
                       // Entradas e Saídas zeradas
                       _cell('0', _larguraNumerica, isNumber: true),
                       _cell('0', _larguraNumerica, isNumber: true),
@@ -1444,6 +1489,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                         _cell('', _larguraProduto),
                       // Descrição: Estoque Final
                       _cell('Estoque Final', _larguraDescricao, cor: Colors.grey.shade700, fontWeight: FontWeight.bold),
+                      // Cliente/Destino vazio para linha final
+                      _cell('', _larguraClienteDestino),
                       // Entradas e Saídas zeradas
                       _cell('0', _larguraNumerica, isNumber: true),
                       _cell('0', _larguraNumerica, isNumber: true),
@@ -1498,6 +1545,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                     if (mostrarColunaProduto)
                       _cell(e['produto_nome'] ?? '-', _larguraProduto),
                     _cell(e['descricao'] ?? '-', _larguraDescricao),
+                        _cell(e['cliente_destino'] ?? '-', _larguraClienteDestino),
                     _cell(_formatarNumero(e['entrada_amb']), _larguraNumerica, 
                           fundo: _getCorFundoEntrada(), isNumber: true),
                     _cell(_formatarNumero(e['entrada_vinte']), _larguraNumerica, 
