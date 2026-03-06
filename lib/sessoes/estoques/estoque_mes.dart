@@ -70,6 +70,42 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   static const double _larguraDescricao = 240;
   static const double _larguraNumerica = 120;
 
+  // Funções de debug para identificar o problema
+  void _debugPrintParams() {
+    debugPrint('=' * 50);
+    debugPrint('🔍 PARÂMETROS RECEBIDOS EM ESTOQUEMESPAGE:');
+    debugPrint('filialId: ${widget.filialId}');
+    debugPrint('terminalId: ${widget.terminalId}');
+    debugPrint('nomeFilial: ${widget.nomeFilial}');
+    debugPrint('empresaId: ${widget.empresaId}');
+    debugPrint('mesFiltro: ${widget.mesFiltro}');
+    debugPrint('produtoFiltro: ${widget.produtoFiltro}');
+    debugPrint('tipoRelatorio: ${widget.tipoRelatorio}');
+    debugPrint('isIntraday: ${widget.isIntraday}');
+    debugPrint('dataIntraday: ${widget.dataIntraday}');
+    debugPrint('=' * 50);
+  }
+
+  void _debugPrintResolucao() {
+    debugPrint('=' * 50);
+    debugPrint('🔍 RESOLUÇÃO DE FILIAL/EMPRESA:');
+    debugPrint('_filialIdUsar: $_filialIdUsar');
+    debugPrint('_empresaId: $_empresaId');
+    debugPrint('=' * 50);
+  }
+
+  void _debugPrintQuery() {
+    debugPrint('=' * 50);
+    debugPrint('🔍 QUERY QUE SERÁ EXECUTADA:');
+    debugPrint('filialIdUsar: $_filialIdUsar');
+    debugPrint('empresaId: $_empresaId');
+    debugPrint('produtoFiltro: ${widget.produtoFiltro}');
+    debugPrint('isIntraday: ${widget.isIntraday}');
+    debugPrint('dataIntraday: ${widget.dataIntraday}');
+    debugPrint('mesFiltro: ${widget.mesFiltro}');
+    debugPrint('=' * 50);
+  }
+
   // GETTER para calcular largura total DINAMICAMENTE
   double get _larguraTabela {
     bool mostrarColunaProduto = widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
@@ -136,46 +172,66 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       _erro = false;
     });
 
-    try {
-      // Se for terminal, buscar a filial e empresa associadas
-      if (widget.terminalId != null) {
-        final terminalData = await _supabase
-            .from('terminais')
-            .select('filial_id, empresa_id')
-            .eq('id', widget.terminalId!)
-            .maybeSingle();
+    // Print dos parâmetros recebidos
+    _debugPrintParams();
 
-        if (terminalData != null) {
-          _filialIdUsar = terminalData['filial_id']?.toString();
-          _empresaId = terminalData['empresa_id']?.toString();
-        } else {
-          throw Exception('Terminal não encontrado');
-        }
-      } else {
+    try {
+      // Resolver filial e empresa a partir dos parâmetros recebidos.
+      // A tabela terminais NÃO possui filial_id / empresa_id.
+      // A relação é inversa: filiais possui terminal_id_1 e terminal_id_2.
+      if (widget.filialId != null && widget.filialId!.isNotEmpty) {
+        // Filial já conhecida (selecionada pelo usuário no filtro)
         _filialIdUsar = widget.filialId;
-        
-        if (widget.empresaId == null && _filialIdUsar != null) {
+        debugPrint('✅ Filial obtida diretamente do parâmetro: $_filialIdUsar');
+
+        if (widget.empresaId != null && widget.empresaId!.isNotEmpty) {
+          _empresaId = widget.empresaId;
+          debugPrint('✅ Empresa obtida diretamente do parâmetro: $_empresaId');
+        } else {
+          // Buscar empresa_id pela filial (necessário para nível 4 sem empresa_id)
+          debugPrint('🔍 Buscando empresa_id para filial: $_filialIdUsar');
           final filialData = await _supabase
               .from('filiais')
               .select('empresa_id')
               .eq('id', _filialIdUsar!)
               .maybeSingle();
-
-          if (filialData != null) {
-            _empresaId = filialData['empresa_id']?.toString();
-          }
-        } else {
-          _empresaId = widget.empresaId;
+          _empresaId = filialData?['empresa_id']?.toString();
+          debugPrint('✅ Empresa encontrada via filial: $_empresaId');
         }
-      }
+      } else if (widget.terminalId != null) {
+        // Sem filial explícita – descobrir pela filial que possui este terminal
+        debugPrint('🔍 Buscando filial para terminal: ${widget.terminalId}');
+        final filialData = await _supabase
+            .from('filiais')
+            .select('id, empresa_id')
+            .or('terminal_id_1.eq.${widget.terminalId!},terminal_id_2.eq.${widget.terminalId!}')
+            .maybeSingle();
 
-      if (_empresaId == null || _empresaId!.isEmpty) {
-        throw Exception('Não foi possível identificar a empresa');
+        if (filialData != null) {
+          _filialIdUsar = filialData['id']?.toString();
+          _empresaId = filialData['empresa_id']?.toString();
+          debugPrint('✅ Filial encontrada via terminal: $_filialIdUsar');
+          debugPrint('✅ Empresa encontrada via terminal: $_empresaId');
+        } else {
+          debugPrint('❌ Filial associada ao terminal não encontrada');
+          throw Exception('Filial associada ao terminal não encontrada');
+        }
+      } else {
+        debugPrint('❌ Não foi possível identificar a filial - nenhum parâmetro válido');
+        throw Exception('Não foi possível identificar a filial');
       }
 
       if (_filialIdUsar == null || _filialIdUsar!.isEmpty) {
+        debugPrint('❌ _filialIdUsar está nulo ou vazio');
         throw Exception('Não foi possível identificar a filial');
       }
+
+      if (_empresaId == null || _empresaId!.isEmpty) {
+        debugPrint('❌ _empresaId está nulo ou vazio');
+        throw Exception('Não foi possível identificar a empresa');
+      }
+
+      _debugPrintResolucao();
 
       if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
         final produtoData = await _supabase
@@ -185,19 +241,25 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             .maybeSingle();
         
         _nomeProdutoSelecionado = produtoData?['nome']?.toString();
+        debugPrint('✅ Nome do produto selecionado: $_nomeProdutoSelecionado');
       }
 
       // Carregar estoque inicial (do final do período anterior)
+      debugPrint('🔍 Carregando estoque inicial...');
       await _carregarEstoqueInicial();
 
+      debugPrint('🔍 Carregando dados analíticos...');
       await _carregarDadosAnalitico();
 
       if (widget.tipoRelatorio == 'sintetico') {
+        debugPrint('🔍 Carregando dados sintéticos...');
         await _carregarDadosSintetico();
       }
       
       // Calcular estoque final
       _calcularEstoqueFinal();
+      
+      debugPrint('✅ Dados carregados com sucesso! Total de movimentações: ${_movimentacoes.length}');
       
       if (mounted) {
         setState(() {
@@ -206,7 +268,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       }
       
     } catch (e) {
-      debugPrint('Erro ao carregar movimentações: $e');
+      debugPrint('❌ Erro ao carregar movimentações: $e');
       if (mounted) {
         setState(() {
           _carregando = false;
@@ -432,6 +494,20 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
 
   Future<void> _carregarDadosAnalitico() async {
     try {
+      _debugPrintQuery();
+      
+      // DEBUG: Verificar formato das datas no banco
+      final testeData = await _supabase
+          .from('movimentacoes')
+          .select('data_mov')
+          .eq('filial_id', _filialIdUsar!)
+          .limit(5);
+      
+      debugPrint('📅 Amostra de datas no banco:');
+      for (var item in testeData) {
+        debugPrint('  - ${item['data_mov']} (${item['data_mov'].runtimeType})');
+      }
+      
       // Query única para buscar todas as movimentações relevantes
       var query = _supabase
           .from('movimentacoes')
@@ -459,28 +535,84 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           .or('filial_id.eq.$_filialIdUsar,filial_destino_id.eq.$_filialIdUsar,filial_origem_id.eq.$_filialIdUsar')
           .eq('empresa_id', _empresaId!);
 
-      // Filtro de data: Intraday ou Mensal
+      debugPrint('🔍 Query base construída');
+
+      // FILTRO DE DATA CORRIGIDO - CONSIDERANDO APENAS O DIA
       if (widget.isIntraday && widget.dataIntraday != null) {
-        // Modo Intraday: apenas a data específica
-        final dataEspecifica = widget.dataIntraday!.toIso8601String().split('T')[0];
-        query = query.eq('data_mov', dataEspecifica);
+        // Modo Intraday: filtrar pelo dia inteiro usando range de datas
+        // Criar DateTime para o início do dia (00:00:00.000)
+        final dataInicio = DateTime(
+          widget.dataIntraday!.year,
+          widget.dataIntraday!.month,
+          widget.dataIntraday!.day,
+          0, 0, 0, 0,
+        );
+        
+        // Criar DateTime para o final do dia (23:59:59.999)
+        final dataFim = DateTime(
+          widget.dataIntraday!.year,
+          widget.dataIntraday!.month,
+          widget.dataIntraday!.day,
+          23, 59, 59, 999,
+        );
+        
+        final dataInicioStr = dataInicio.toIso8601String();
+        final dataFimStr = dataFim.toIso8601String();
+        
+        // Aplicar filtro de range
+        query = query
+            .gte('data_mov', dataInicioStr)
+            .lte('data_mov', dataFimStr);
+        
+        debugPrint('📅 Filtro Intraday aplicado: data_mov entre $dataInicioStr e $dataFimStr');
+        
       } else if (widget.mesFiltro != null) {
-        // Modo Mensal: intervalo do mês
-        final primeiroDia = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month, 1);
-        final ultimoDia = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month + 1, 0);
+        // Modo Mensal: intervalo do mês completo
+        // Primeiro dia do mês às 00:00:00
+        final primeiroDia = DateTime(
+          widget.mesFiltro!.year, 
+          widget.mesFiltro!.month, 
+          1, 
+          0, 0, 0, 0
+        );
+        
+        // Último dia do mês às 23:59:59.999
+        final ultimoDia = DateTime(
+          widget.mesFiltro!.year, 
+          widget.mesFiltro!.month + 1, 
+          0, 
+          23, 59, 59, 999
+        );
+        
+        final primeiroDiaStr = primeiroDia.toIso8601String();
+        final ultimoDiaStr = ultimoDia.toIso8601String();
         
         query = query
-            .gte('data_mov', primeiroDia.toIso8601String())
-            .lte('data_mov', ultimoDia.toIso8601String());
+            .gte('data_mov', primeiroDiaStr)
+            .lte('data_mov', ultimoDiaStr);
+        
+        debugPrint('📅 Filtro Mensal aplicado: data_mov entre $primeiroDiaStr e $ultimoDiaStr');
       }
 
+      // FILTRO DE PRODUTO
       if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
         query = query.eq('produto_id', widget.produtoFiltro!);
+        debugPrint('📦 Filtro de produto aplicado: ${widget.produtoFiltro}');
+      } else if (widget.produtoFiltro == 'todos') {
+        debugPrint('📦 Filtro "todos" aplicado - sem filtro de produto específico');
       }
 
+      // EXECUTAR QUERY
       final dados = await query.order('ts_mov', ascending: true);
+      debugPrint('📊 Dados retornados da query: ${dados.length} registros');
 
-      // Gerar lista analítica normalizada
+      if (dados.isEmpty) {
+        debugPrint('⚠️ Nenhum dado encontrado para os filtros aplicados');
+      } else {
+        debugPrint('✅ Primeiro registro: ${dados.first}');
+      }
+
+      // PROCESSAR DADOS
       final List<Map<String, dynamic>> analitico = [];
 
       // Calcular saldo acumulado começando com estoque inicial
@@ -512,11 +644,13 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         });
       }
 
+      debugPrint('📊 Lista analítica gerada: ${analitico.length} registros');
+
       // Ordenar e atualizar estado
       _ordenarDados(analitico, 'data_mov', true);
 
     } catch (e) {
-      debugPrint('Erro ao carregar dados analíticos: $e');
+      debugPrint('❌ Erro ao carregar dados analíticos: $e');
       rethrow;
     }
   }

@@ -41,6 +41,7 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
   DateTime? _mesSelecionado;
   String? _produtoSelecionado;
   String? _filialSelecionadaId;
+  String? _filialSelecionadaNome;
   String _tipoRelatorio = 'sintetico';
   List<Map<String, dynamic>> _produtosDisponiveis = [];
   List<Map<String, dynamic>> _filiaisDisponiveis = [];
@@ -54,7 +55,11 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
   void initState() {
     super.initState();
     _mesSelecionado = DateTime.now();
-    _filialSelecionadaId = widget.filialId ?? UsuarioAtual.instance?.filialId ?? '';
+
+    final usuario = UsuarioAtual.instance;
+    // Inicializar filial a partir do usuário logado (filial_id é opcional para todos os níveis)
+    _filialSelecionadaId = usuario?.filialId ?? '';
+
     _carregarFiliaisDisponiveis();
     _carregarProdutosDisponiveis();
   }
@@ -63,6 +68,7 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
     setState(() => _carregandoFiliais = true);
 
     try {
+      // Buscar TODAS as filiais sem filtro de empresa_id (nível 4 precisa ver todas)
       final dados = await _supabase
           .from('filiais')
           .select('id, nome, nome_dois')
@@ -82,9 +88,20 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
           {'id': '', 'nome': '<selecione>'}
         ];
         _filiaisDisponiveis.addAll(filiais);
-        // If initial filial was provided but not present in list, keep as-is
-        if ((_filialSelecionadaId == null || _filialSelecionadaId!.isEmpty) && _filiaisDisponiveis.length > 1) {
-          // leave empty selection
+
+        // Se o usuário tem filial_id pré-selecionada, capturar o nome correspondente
+        if (_filialSelecionadaId != null && _filialSelecionadaId!.isNotEmpty) {
+          final filialEncontrada = filiais.firstWhere(
+            (f) => f['id'] == _filialSelecionadaId,
+            orElse: () => {'id': '', 'nome': ''},
+          );
+          if (filialEncontrada['id']!.isNotEmpty) {
+            _filialSelecionadaNome = filialEncontrada['nome'];
+          } else {
+            // filial_id do usuário não encontrada na lista, resetar
+            _filialSelecionadaId = '';
+            _filialSelecionadaNome = null;
+          }
         }
       });
     } catch (e) {
@@ -99,11 +116,11 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
     }
   }
 
-  Future<void> _carregarProdutosDisponiveis() async {
+  Future<void> _carregarProdutosDisponiveis({bool incluirTodos = false}) async {
     setState(() => _carregandoProdutos = true);
     
     try {
-      debugPrint('🔍 Carregando produtos...');
+      debugPrint('🔍 Carregando produtos (incluirTodos: $incluirTodos)...');
       
       // Buscar apenas id e nome de todos os produtos, sem qualquer filtro
       final dados = await _supabase
@@ -114,6 +131,14 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
       debugPrint('📊 Produtos encontrados: ${dados.length}');
 
       final List<Map<String, dynamic>> produtos = [];
+      
+      // Adicionar "Todos os produtos" apenas no modo intraday
+      if (incluirTodos) {
+        produtos.add({'id': 'todos', 'nome': 'Todos os produtos'});
+      }
+      
+      produtos.add({'id': '', 'nome': '<selecione>'});
+      
       for (var produto in dados) {
         produtos.add({
           'id': produto['id'].toString(),
@@ -122,10 +147,7 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
       }
 
       setState(() {
-        _produtosDisponiveis = [
-          {'id': '', 'nome': '<selecione>'}
-        ];
-        _produtosDisponiveis.addAll(produtos);
+        _produtosDisponiveis = produtos;
         _produtoSelecionado = '';
       });
       
@@ -142,7 +164,7 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
     } finally {
       setState(() => _carregandoProdutos = false);
     }
-  }  
+  }
 
   Future<void> _selecionarMes(BuildContext context) async {
     final DateTime? selecionado = await showDatePicker(
@@ -236,14 +258,26 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
       );
       return;
     }
+
+    // Validar: "Todos os produtos" só é permitido no modo intraday
+    if (!_intraday && _produtoSelecionado == 'todos') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('A opção "Todos os produtos" só está disponível no modo Intraday.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     final String? filialToPass = (_filialSelecionadaId != null && _filialSelecionadaId!.isNotEmpty)
         ? _filialSelecionadaId
-        : (widget.filialId != null && widget.filialId!.isNotEmpty ? widget.filialId : null);
+        : null;
 
     widget.onConsultarEstoque(
       filialId: filialToPass,
       terminalId: widget.terminalId,
-      nomeFilial: widget.nomeFilial,
+      nomeFilial: _filialSelecionadaNome ?? 'Filial não selecionada',
       empresaId: widget.empresaId,
       mesFiltro: _intraday ? null : _mesSelecionado,
       produtoFiltro: _produtoSelecionado,
@@ -261,6 +295,8 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
       _intraday = false;
       _dataSelecionada = DateTime.now();
     });
+    // Recarregar produtos sem opção "Todos" (modo mensal)
+    _carregarProdutosDisponiveis(incluirTodos: false);
   }
 
   @override
@@ -373,9 +409,16 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
               Checkbox(
                 value: _intraday,
                 onChanged: (value) {
+                  final novoIntraday = value ?? false;
+                  // Se estava com "Todos" selecionado e desmarcou intraday, resetar produto
+                  if (!novoIntraday && _produtoSelecionado == 'todos') {
+                    _produtoSelecionado = '';
+                  }
                   setState(() {
-                    _intraday = value ?? false;
+                    _intraday = novoIntraday;
                   });
+                  // Recarregar lista de produtos com a regra correta
+                  _carregarProdutosDisponiveis(incluirTodos: novoIntraday);
                 },
                 activeColor: const Color(0xFF0D47A1),
               ),
@@ -445,6 +488,16 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
                             onChanged: (String? novoValor) {
                               setState(() {
                                 _filialSelecionadaId = novoValor;
+                                // Capturar o nome da filial selecionada
+                                if (novoValor != null && novoValor.isNotEmpty) {
+                                  final filial = _filiaisDisponiveis.firstWhere(
+                                    (f) => f['id'] == novoValor,
+                                    orElse: () => {'id': '', 'nome': ''},
+                                  );
+                                  _filialSelecionadaNome = filial['nome'];
+                                } else {
+                                  _filialSelecionadaNome = null;
+                                }
                               });
                             },
                             items: _filiaisDisponiveis.map<DropdownMenuItem<String>>((filial) {
@@ -702,7 +755,7 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
               _buildItemResumo(
                 icon: Icons.store,
                 label: widget.terminalId != null ? 'Terminal' : 'Filial',
-                value: widget.nomeFilial,
+                value: _filialSelecionadaNome ?? 'Não selecionada',
               ),
               if (widget.empresaNome != null)
                 _buildItemResumo(
