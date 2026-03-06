@@ -262,7 +262,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         }
 
         // ENTRADA PROGRAMADA (status 1) aparece SEMPRE
-        if (statusDestInt == 1 && destino == terminalAtualId) {
+        if (statusDestInt != null && statusDestInt <= 3 && destino == terminalAtualId) {
           if (_tipoFiltro == 'saida') return false;
           return true;
         }
@@ -627,8 +627,8 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     if (item == null) return 'Sem status';
     
     final tipoOp = item['tipo_op']?.toString() ?? 'venda';
-    final terminalOrigemId = item['terminal_origem_id']?.toString();
-    final terminalDestinoId = item['terminal_destino_id']?.toString();
+    final terminalOrigemId = item['terminal_orig_id']?.toString();
+    final terminalDestinoId = item['terminal_dest_id']?.toString();
     
     // Obter o terminal atual do usuário
     final usuario = UsuarioAtual.instance;
@@ -1141,10 +1141,10 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                       final itensLocal = ordem['itens'] as List<dynamic>;
 
                       final ehOrigem = itensLocal.any((item) =>
-                          item['terminal_origem_id']?.toString() == terminalAtual);
+                          item['terminal_orig_id']?.toString() == terminalAtual);
 
                       final ehDestino = itensLocal.any((item) =>
-                          item['terminal_destino_id']?.toString() == terminalAtual);
+                          item['terminal_dest_id']?.toString() == terminalAtual);
 
                       if (ehDestino && !ehOrigem) {
                         return Icon(Icons.arrow_circle_down, size: 30, color: Colors.green.shade700);
