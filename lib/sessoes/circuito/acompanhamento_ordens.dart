@@ -71,9 +71,6 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
   bool _mostrarEscolherTerminal = false;
   String? _terminalSelecionadoId;
 
-  // Controle para aplicar filtro de data apenas quando o usuário preencher
-  bool _usarFiltroData = false;
-
   // Controladores para os filtros (para reset)
   late TextEditingController _dataInicioController;
   late TextEditingController _dataFimController;
@@ -88,8 +85,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       '${hoje.day.toString().padLeft(2, '0')}/${hoje.month.toString().padLeft(2, '0')}/${hoje.year}';
     _dataInicioController = TextEditingController(text: hojeFormatado);
     _dataFimController = TextEditingController(text: hojeFormatado);
-    // Por padrão não aplicar filtro de data até o usuário editar o campo
-    _usarFiltroData = false;
+    
 
     // Define valores iniciais dos filtros
     // null corresponde a 'Todos' no Dropdown
@@ -409,18 +405,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     setState(() {
       _ordensFiltradas = resultado;
     });
-  }
-
-  void _limparFiltros() {
-    _dataInicioController.clear();
-    _dataFimController.clear();
-    _filtroGeralController.clear();
-    setState(() {
-      _usarFiltroData = false;
-      _ordens = [];
-      _ordensFiltradas = [];
-    });
-  } 
+  }  
 
   Color _obterCorProduto(String nomeProduto) {
     final Map<String, Color> mapeamentoExato = {
@@ -809,53 +794,95 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             const SizedBox(width: 12),
           ],
 
-          // Campo único de Data
-          Expanded(
-            flex: 2,
-            child: TextField(
-              controller: _dataInicioController,
-              keyboardType: TextInputType.number,
-              inputFormatters: [DataInputFormatter()],
-              onChanged: (v) {
-                setState(() {
-                  _usarFiltroData = v.trim().isNotEmpty || _dataFimController.text.trim().isNotEmpty;
-                });
-              },
-              onSubmitted: (_) => _aplicarFiltros(),
-              decoration: InputDecoration(
-                labelText: 'Data',
-                hintText: 'dd/mm/aaaa',
-                hintStyle: TextStyle(
-                  color: Colors.grey.shade400,
-                  fontSize: 13,
+          // Campo único de Data (botão semelhante ao de historico_cacl)
+          SizedBox(
+            width: 150,
+            child: Builder(builder: (context) {
+              final textoData = _dataInicioController.text.trim().isNotEmpty
+                  ? _dataInicioController.text
+                  : 'Data';
+
+              return InkWell(
+                onTap: () async {
+                  DateTime inicial = DateTime.now();
+                  try {
+                    final partes = _dataInicioController.text.split('/');
+                    if (partes.length == 3) {
+                      inicial = DateTime(
+                        int.parse(partes[2]),
+                        int.parse(partes[1]),
+                        int.parse(partes[0]),
+                      );
+                    }
+                  } catch (_) {}
+
+                  final data = await showDatePicker(
+                    context: context,
+                    initialDate: inicial,
+                    firstDate: DateTime(2020, 1, 1),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                    helpText: 'Filtrar por data',
+                    cancelText: 'Cancelar',
+                    confirmText: 'Confirmar',
+                    builder: (context, child) {
+                      return Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: const ColorScheme.light(
+                            primary: Color(0xFF0D47A1),
+                            onPrimary: Colors.white,
+                            surface: Colors.white,
+                            onSurface: Colors.black,
+                          ),
+                        ),
+                        child: child!,
+                      );
+                    },
+                  );
+
+                  if (data != null) {
+                    setState(() {
+                      _dataInicioController.text = '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}';
+                    });
+
+                    // Aplicar filtros automaticamente ao selecionar nova data
+                    await _aplicarFiltros();
+                  }
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  height: 56,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  alignment: Alignment.centerLeft,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFF0D47A1).withOpacity(0.5)),
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.white,
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_today, size: 20, color: Color(0xFF0D47A1)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          textoData,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF0D47A1),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.5),
-                ),
-                prefixIcon: const Icon(Icons.calendar_today, size: 20, color: Color(0xFF0D47A1)),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 16,
-                ),
-                filled: true,
-                fillColor: Colors.grey.shade50,
-              ),
-            ),
+              );
+            }),
           ),
 
           const SizedBox(width: 12),
 
-          Expanded(
-            flex: 2,
+          SizedBox(
+            width: 150,
             child: DropdownButtonFormField<String>(
               value: _tipoFiltro,
               decoration: InputDecoration(
@@ -935,46 +962,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             ),
           ),
 
-          const SizedBox(width: 12),
-
-          // Botão Limpar
-          OutlinedButton.icon(
-            onPressed: _limparFiltros,
-            icon: const Icon(Icons.clear_all, size: 18),
-            label: const Text('Limpar'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.grey.shade700,
-              side: BorderSide(color: Colors.grey.shade400),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 14,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-
-          const SizedBox(width: 12),
-
-          // Botão Filtrar
-          ElevatedButton.icon(
-            onPressed: _aplicarFiltros,
-            icon: const Icon(Icons.filter_list, size: 18),
-            label: const Text('Filtrar'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0D47A1),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 14,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              elevation: 2,
-            ),
-          ),
+          // Espaço realocado para o campo de pesquisa (botões removidos)
         ],
       ),
     );
