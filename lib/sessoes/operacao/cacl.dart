@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'cacl_pdf.dart';
-import 'estoque_tanque.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:typed_data';
 import 'dart:convert' show base64Encode;
@@ -181,60 +180,11 @@ class _CalcPageState extends State<CalcPage> {
   }
 
   Future<void> _irParaEstoqueTanqueAposEmissao() async {
-    final tanqueId = _obterTanqueId();
-    final terminalId = widget.dadosFormulario['terminal_id']?.toString();
 
-    if (tanqueId == null ||
-        tanqueId.isEmpty ||
-        terminalId == null ||
-        terminalId.isEmpty) {
-      _navigatorState?.pop({'status': 'cacl_emitido'});
-      return;
+    // ✅ SIMPLES: apenas retorna para a tela anterior (GerenciamentoTanquesPage)
+    if (_navigatorState != null && mounted) {
+      _navigatorState!.pop({'status': 'cacl_emitido'});
     }
-
-    String referenciaTanque =
-        widget.dadosFormulario['tanque']?.toString() ?? 'Tanque';
-    String nomeTerminal = widget.dadosFormulario['base']?.toString() ?? 'Terminal';
-
-    try {
-      final supabase = Supabase.instance.client;
-
-      final tanque = await supabase
-          .from('tanques')
-          .select('referencia')
-          .eq('id', tanqueId)
-          .maybeSingle();
-      if (tanque != null && tanque['referencia'] != null) {
-        referenciaTanque = tanque['referencia'].toString();
-      }
-
-      final terminal = await supabase
-          .from('terminais')
-          .select('nome')
-          .eq('id', terminalId)
-          .maybeSingle();
-      if (terminal != null && terminal['nome'] != null) {
-        nomeTerminal = terminal['nome'].toString();
-      }
-    } catch (_) {}
-
-    if (!mounted) return;
-
-    await _navigatorState?.pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) => EstoqueTanquePage(
-          tanqueId: tanqueId,
-          referenciaTanque: referenciaTanque,
-          filialId: terminalId,
-          nomeFilial: nomeTerminal,
-          data: _obterDataParaEstoque(),
-          onVoltar: () {
-            _navigatorState?.maybePop();
-          },
-        ),
-      ),
-      (route) => route.isFirst,
-    );
   }
 
   Future<void> _carregarDadosParaVisualizacao() async {

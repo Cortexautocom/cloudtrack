@@ -443,9 +443,10 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
 
     if (resultado is Map &&
         (resultado['status'] == 'pendente_salvo' ||
-            resultado['status'] == 'cacl_finalizado')) {
+            resultado['status'] == 'cacl_finalizado' ||
+            resultado['status'] == 'cacl_emitido')) {
       widget.onFinalizarCACL?.call();
-      widget.onVoltar();
+      Navigator.of(context).pop(resultado);
     }
   }
 

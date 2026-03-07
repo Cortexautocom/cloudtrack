@@ -409,7 +409,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       }
     }
 
-    await Navigator.of(context).push(
+    final resultado = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => MedicaoTanquesPage(
           onVoltar: () => Navigator.pop(context),
@@ -424,6 +424,17 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     );
 
     if (!mounted) return;
+
+    // Após emissão do CACL, voltar até a página de tanques
+    if (resultado is Map && resultado['status'] == 'cacl_emitido') {
+      if (widget.onVoltar != null) {
+        widget.onVoltar!();
+      } else {
+        Navigator.of(context).pop();
+      }
+      return;
+    }
+
     await _carregar();
   }
 
