@@ -179,11 +179,31 @@ class _CalcPageState extends State<CalcPage> {
     return combinado.toIso8601String();
   }
 
+  // Em CalcPage.dart - método _irParaEstoqueTanqueAposEmissao()
   Future<void> _irParaEstoqueTanqueAposEmissao() async {
-
-    // ✅ SIMPLES: apenas retorna para a tela anterior (GerenciamentoTanquesPage)
-    if (_navigatorState != null && mounted) {
-      _navigatorState!.pop({'status': 'cacl_emitido'});
+    // ✅ VERIFICA SE É EDIÇÃO DE PENDENTE
+    final bool isEdicaoPendente = widget.dadosFormulario['modo_edicao'] == true && 
+                                  widget.dadosFormulario['id_cacl'] != null;
+    
+    if (isEdicaoPendente) {
+      // Se é edição de pendente, precisa voltar 2 níveis: 
+      // CalcPage -> EditarCaclPage -> EstoqueTanquePage
+      if (_navigatorState != null && mounted) {
+        // Primeiro pop fecha a CalcPage
+        _navigatorState!.pop();
+        // Depois precisamos encontrar e fechar a EditarCaclPage
+        // Mas como estamos dentro de um push, o Navigator atual já fechou a CalcPage
+        // O contexto atual agora é da EditarCaclPage
+        if (mounted) {
+          // Retorna para a EstoqueTanquePage com status
+          Navigator.of(context).pop({'status': 'cacl_emitido'});
+        }
+      }
+    } else {
+      // Fluxo normal de emissão (não é edição)
+      if (_navigatorState != null && mounted) {
+        _navigatorState!.pop({'status': 'cacl_emitido'});
+      }
     }
   }
 
@@ -1111,7 +1131,18 @@ class _CalcPageState extends State<CalcPage> {
       }
 
       if (!mounted) return;
-      await _irParaEstoqueTanqueAposEmissao();
+
+      // ✅ VERIFICA SE É EDIÇÃO DE PENDENTE
+      final bool isEdicaoPendente = widget.dadosFormulario['modo_edicao'] == true && 
+                                    widget.dadosFormulario['id_cacl'] != null;
+
+      if (isEdicaoPendente) {
+        // Para edição de pendente, usa o novo método
+        await _irParaEstoqueTanqueAposEmissao();
+      } else {
+        // Fluxo normal
+        await _irParaEstoqueTanqueAposEmissao();
+      }
       return;
     } catch (e) {
       if (context.mounted) {

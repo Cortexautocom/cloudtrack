@@ -5,12 +5,22 @@ import 'cacl.dart';
 
 class EditarCaclPage extends StatefulWidget {
   final VoidCallback onVoltar;
-  final String caclId; // ID do CACL pendente a ser editado
+  final String caclId;
+  
+  // Parâmetros para navegação de volta para EstoqueTanquePage
+  final String? tanqueReferencia;
+  final String? filialId;
+  final String? filialNome;
+  final DateTime? dataReferencia;
 
   const EditarCaclPage({
     super.key,
     required this.onVoltar,
     required this.caclId,
+    this.tanqueReferencia,
+    this.filialId,
+    this.filialNome,
+    this.dataReferencia,
   });
 
   @override
@@ -37,6 +47,10 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
   // Checkboxes (carregar do CACL se existirem)
   bool _caclVerificacao = false;
   bool _caclMovimentacao = false;
+
+  // Dados para navegação
+  String? _tanqueReferencia;
+  DateTime _dataFiltro = DateTime.now();
 
   String _horarioAtualBrasiliaFormatado() {
     final agoraUtc = DateTime.now().toUtc();
@@ -112,6 +126,15 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
       _caclData = cacl;
       _terminalId = cacl['terminal_id']?.toString();
       
+      // ✅ CAPTURAR DADOS PARA NAVEGAÇÃO
+      if (cacl['data'] != null) {
+        try {
+          _dataFiltro = DateTime.parse(cacl['data'].toString().split('T')[0]);
+        } catch (_) {
+          _dataFiltro = DateTime.now();
+        }
+      }
+      
       // 2. Buscar informações do tanque da relação
       if (cacl['tanques'] != null) {
         final tanque = cacl['tanques'];
@@ -120,6 +143,11 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
           'produto': tanque['produtos']?['nome']?.toString() ?? cacl['produto']?.toString() ?? '',
           'capacidade': '${tanque['capacidade']?.toString() ?? '0'} L',
         };
+        
+        // ✅ Capturar referência do tanque
+        if (tanque['referencia'] != null) {
+          _tanqueReferencia = tanque['referencia'].toString();
+        }
       } else {
         // Fallback: buscar tanque pelo tanque_id se a relação não funcionar
         final tanqueId = cacl['tanque_id']?.toString();
@@ -140,10 +168,15 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
               'produto': tanqueInfo['produtos']?['nome']?.toString() ?? cacl['produto']?.toString() ?? '',
               'capacidade': '${tanqueInfo['capacidade']?.toString() ?? '0'} L',
             };
+            
+            // ✅ Capturar referência do tanque
+            if (tanqueInfo['referencia'] != null) {
+              _tanqueReferencia = tanqueInfo['referencia'].toString();
+            }
           } else {
             // Fallback com dados do CACL
             _tanqueInfo = {
-              'numero': cacl['produto']?.toString() ?? '', // Usar produto como fallback
+              'numero': cacl['produto']?.toString() ?? '',
               'produto': cacl['produto']?.toString() ?? '',
               'capacidade': 'Capacidade não encontrada',
             };
@@ -474,23 +507,35 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
       ...dadosSegundaMedicao,
     };
     
+    // Determinar dados de navegação (prioridade: parâmetros do widget > dados carregados)
+    final String? tanqueRef = widget.tanqueReferencia ?? _tanqueReferencia;
+    final String? filialId = widget.filialId ?? _terminalId;
+    final String? filialNome = widget.filialNome ?? _nomeFilial;
+    final DateTime dataRef = widget.dataReferencia ?? _dataFiltro;
+    
     // Preparar dados completos para CalcPage
     final dadosFormulario = {
       'id_cacl': widget.caclId, // ID para atualização
       'data': _dataController.text,
       'base': _nomeFilial ?? _caclData['base'] ?? 'POLO DE COMBUSTÍVEL',
       'produto': _tanqueInfo['produto'] ?? _caclData['produto'] ?? '',
-      'tanque': _tanqueInfo['numero'] ?? '', // Agora vem de tanques.referencia
+      'tanque': _tanqueInfo['numero'] ?? '',
       'responsavel': UsuarioAtual.instance?.nome ?? 'Usuário',
       'medicoes': dadosMedicoes,
       'terminal_id': _terminalId ?? _caclData['terminal_id'],
-      'tanque_id': _caclData['tanque_id'], // Incluir o ID do tanque
+      'tanque_id': _caclData['tanque_id'],
       'cacl_verificacao': _caclVerificacao,
       'cacl_movimentacao': _caclMovimentacao,
       
       // Dados adicionais para modo edição
       'modo_edicao': true,
       'dados_cacl_original': _caclData,
+      
+      // Dados para voltar direto para EstoqueTanquePage
+      'tanque_referencia': tanqueRef,
+      'filial_id': filialId,
+      'filial_nome': filialNome,
+      'data_referencia': dataRef.toIso8601String(),
     };
     
     // Navegar para CalcPage em modo edição
@@ -498,22 +543,18 @@ class _EditarCaclPageState extends State<EditarCaclPage> {
       MaterialPageRoute(
         builder: (context) => CalcPage(
           dadosFormulario: dadosFormulario,
-          modo: CaclModo.emissao, // Modo emissão, mas com ID para atualização
+          modo: CaclModo.emissao,
           onVoltar: () {
-            Navigator.pop(context); // Volta para EditarCaclPage
+            // Se voltar manualmente, volta para EditarCaclPage
+            Navigator.pop(context);
           },
-          // Callback especial para atualização
           onFinalizar: () {
-            // Após finalizar, voltar para lista com refresh
-            Navigator.of(context).popUntil((route) => route.isFirst);
+            // Quando emitir, volta para EstoqueTanquePage
+            // Primeiro fecha a CalcPage
+            Navigator.pop(context);
+            // Depois fecha a EditarCaclPage e retorna para EstoqueTanquePage com refresh
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('✓ CACL atualizado com sucesso!'),
-                  backgroundColor: Colors.green,
-                  duration: Duration(seconds: 2),
-                ),
-              );
+              Navigator.pop(context, {'status': 'cacl_emitido'});
             }
           },
         ),
