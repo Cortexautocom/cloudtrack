@@ -29,7 +29,8 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
   int totalRegistros = 0;
   final int limitePorPagina = 10;
   
-  DateTime? dataEmissao;
+  DateTime? dataInicial;
+  DateTime? dataFinal;
   String? terminalSelecionadoId;
   String? tanqueSelecionadoId;
   String? produtoSelecionado;
@@ -37,7 +38,8 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
   int? _nivelUsuario;
   int? _hoverIndex;
   
-  final TextEditingController dataEmissaoController = TextEditingController();
+  final TextEditingController dataInicialController = TextEditingController();
+  final TextEditingController dataFinalController = TextEditingController();
   final TextEditingController _terminalController = TextEditingController();
 
   Map<String, dynamic>? _usuarioData;
@@ -46,15 +48,19 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    dataEmissao = DateTime.now();
-    dataEmissaoController.text = _formatarData(dataEmissao!);
+    // Não pré-selecionar datas: mostrar rótulos antes da escolha
+    dataInicial = null;
+    dataFinal = null;
+    dataInicialController.clear();
+    dataFinalController.clear();
     _carregarDadosIniciais();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    dataEmissaoController.dispose();
+    dataInicialController.dispose();
+    dataFinalController.dispose();
     _terminalController.dispose();
     super.dispose();
   }
@@ -245,11 +251,18 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
         query = query.eq('terminal_id', terminalId);
       }
 
-      if (dataEmissao != null) {
-        query = query.eq(
-          'data',
-          dataEmissao!.toIso8601String().split('T')[0],
-        );
+      if (dataInicial == null && dataFinal == null) {
+        // Nenhuma data selecionada pelo usuário — mostrar apenas CACLs da data atual
+        final hoje = DateTime.now().toIso8601String().split('T')[0];
+        query = query.eq('data', hoje);
+      } else if (dataInicial != null && dataFinal != null) {
+        final inicio = dataInicial!.toIso8601String().split('T')[0];
+        final fim = dataFinal!.toIso8601String().split('T')[0];
+        query = query.gte('data', inicio).lte('data', fim);
+      } else if (dataInicial != null) {
+        query = query.eq('data', dataInicial!.toIso8601String().split('T')[0]);
+      } else if (dataFinal != null) {
+        query = query.eq('data', dataFinal!.toIso8601String().split('T')[0]);
       }
 
       if (terminalSelecionadoId != null && nivel == 3) {
@@ -291,20 +304,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
     } finally {
       setState(() => buscando = false);
     }
-  }
-
-  void _limparFiltros() {
-    setState(() {
-      dataEmissao = null;
-      // Não limpar terminal para usuários não-admin (nível 1/2)
-      if ((_usuarioData?['nivel'] ?? 0) == 3) {
-        terminalSelecionadoId = null;
-      }
-      tanqueSelecionadoId = null;
-      produtoSelecionado = null;
-      dataEmissaoController.clear();
-    });
-    _aplicarFiltros();
   }
 
   String _formatarData(dynamic data) {
@@ -455,7 +454,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  flex: 2,
                   child: DropdownButtonFormField<String>(
                     value: produtoSelecionado,
                     decoration: InputDecoration(
@@ -486,14 +484,14 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                       setState(() {
                         produtoSelecionado = value;
                       });
+                      _aplicarFiltros();
                     },
                   ),
                 ),
-                
+
                 const SizedBox(width: 8),
-                
+
                 Expanded(
-                  flex: 2,
                   child: DropdownButtonFormField<String>(
                     value: tanqueSelecionadoId,
                     decoration: InputDecoration(
@@ -524,80 +522,79 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                       setState(() {
                         tanqueSelecionadoId = value;
                       });
+                      _aplicarFiltros();
                     },
                   ),
                 ),
-                
+
                 const SizedBox(width: 8),
-                
-                if (isAdmin) Expanded(
-                  flex: 2,
-                  child: DropdownButtonFormField<String>(
-                    value: terminalSelecionadoId,
-                    decoration: InputDecoration(
-                      labelText: 'Terminal',
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.business, size: 18),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      isDense: true,
-                    ),
-                    isExpanded: true,
-                    items: [
-                      const DropdownMenuItem(
-                        value: null,
-                        child: Text('Todos os terminais', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13)),
-                      ),
-                      ...terminais.map((terminal) {
-                        return DropdownMenuItem(
-                          value: terminal['id']?.toString(),
-                          child: Text(
-                            terminal['nome']?.toString() ?? '',
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 13),
+
+                Expanded(
+                  child: isAdmin
+                      ? DropdownButtonFormField<String>(
+                          value: terminalSelecionadoId,
+                          decoration: InputDecoration(
+                            labelText: 'Terminal',
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.business, size: 18),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            isDense: true,
                           ),
-                        );
-                      }).toList(),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        terminalSelecionadoId = value;
-                      });
-                    },
-                  ),
-                ) else Expanded(
-                  flex: 2,
-                  child: TextFormField(
-                    controller: _terminalController,
-                    decoration: InputDecoration(
-                      labelText: 'Terminal',
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.business, size: 18),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      isDense: true,
-                    ),
-                    readOnly: true,
-                    enabled: true,
-                    style: const TextStyle(fontSize: 13, color: Colors.black87),
-                  ),
+                          isExpanded: true,
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('Todos os terminais', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13)),
+                            ),
+                            ...terminais.map((terminal) {
+                              return DropdownMenuItem(
+                                value: terminal['id']?.toString(),
+                                child: Text(
+                                  terminal['nome']?.toString() ?? '',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              );
+                            }).toList(),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              terminalSelecionadoId = value;
+                            });
+                            _aplicarFiltros();
+                          },
+                        )
+                      : TextFormField(
+                          controller: _terminalController,
+                          decoration: InputDecoration(
+                            labelText: 'Terminal',
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.business, size: 18),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            isDense: true,
+                          ),
+                          readOnly: true,
+                          enabled: true,
+                          style: const TextStyle(fontSize: 13, color: Colors.black87),
+                        ),
                 ),
-                
+
                 const SizedBox(width: 8),
-                
-                SizedBox(
-                  width: 180,
+
+                Expanded(
                   child: Builder(builder: (context) {
-                    final textoData = dataEmissao != null
-                        ? '${dataEmissao!.day.toString().padLeft(2, '0')}/${dataEmissao!.month.toString().padLeft(2, '0')}/${dataEmissao!.year}'
-                        : 'Data';
+                    final textoInicial = dataInicial != null
+                        ? '${dataInicial!.day.toString().padLeft(2, '0')}/${dataInicial!.month.toString().padLeft(2, '0')}/${dataInicial!.year}'
+                        : 'Data inicial';
 
                     return InkWell(
                       onTap: () async {
                         final data = await showDatePicker(
                           context: context,
-                          initialDate: dataEmissao ?? DateTime.now(),
+                          initialDate: dataInicial ?? DateTime.now(),
                           firstDate: DateTime(2020, 1, 1),
                           lastDate: DateTime.now().add(const Duration(days: 365)),
-                          helpText: 'Filtrar por data',
+                          helpText: 'Data inicial',
                           cancelText: 'Cancelar',
                           confirmText: 'Confirmar',
                           builder: (context, child) {
@@ -617,9 +614,10 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
 
                         if (data != null) {
                           setState(() {
-                            dataEmissao = data;
-                            dataEmissaoController.text = _formatarData(data);
+                            dataInicial = data;
+                            dataInicialController.text = _formatarData(data);
                           });
+                          _aplicarFiltros();
                         }
                       },
                       borderRadius: BorderRadius.circular(4),
@@ -637,7 +635,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                           children: [
                             Expanded(
                               child: Text(
-                                textoData,
+                                textoInicial,
                                 style: const TextStyle(
                                   fontSize: 13,
                                   color: Color(0xFF0D47A1),
@@ -651,54 +649,81 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                     );
                   }),
                 ),
-                
+
                 const SizedBox(width: 8),
-                
-                SizedBox(
-                  width: 180,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: _limparFiltros,
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            side: const BorderSide(color: Color(0xFF0D47A1)),
-                            minimumSize: const Size(0, 40),
-                          ),
-                          child: const Text(
-                            'Limpar',
-                            style: TextStyle(fontSize: 13),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => _aplicarFiltros(),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0D47A1),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            minimumSize: const Size(0, 40),
-                          ),
-                          child: buscando
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Text(
-                                  'Filtrar',
-                                  style: TextStyle(fontSize: 13),
+
+                Expanded(
+                  child: Builder(builder: (context) {
+                    final textoFinal = dataFinal != null
+                        ? '${dataFinal!.day.toString().padLeft(2, '0')}/${dataFinal!.month.toString().padLeft(2, '0')}/${dataFinal!.year}'
+                        : 'Data final';
+
+                    return InkWell(
+                      onTap: () async {
+                        final data = await showDatePicker(
+                          context: context,
+                          initialDate: dataFinal ?? DateTime.now(),
+                          firstDate: DateTime(2020, 1, 1),
+                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                          helpText: 'Data final',
+                          cancelText: 'Cancelar',
+                          confirmText: 'Confirmar',
+                          builder: (context, child) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: const ColorScheme.light(
+                                  primary: Color(0xFF0D47A1),
+                                  onPrimary: Colors.white,
+                                  surface: Colors.white,
+                                  onSurface: Colors.black,
                                 ),
+                              ),
+                              child: child!,
+                            );
+                          },
+                        );
+
+                        if (data != null) {
+                          setState(() {
+                            dataFinal = data;
+                            dataFinalController.text = _formatarData(data);
+                          });
+                          _aplicarFiltros();
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        height: 40,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        alignment: Alignment.centerLeft,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFF0D47A1).withOpacity(0.5)),
+                          borderRadius: BorderRadius.circular(4),
+                          color: Colors.white,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                textoFinal,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFF0D47A1),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    );
+                  }),
                 ),
+
+                const SizedBox(width: 8),
+
+                const SizedBox.shrink(),
               ],
             ),
             /*
