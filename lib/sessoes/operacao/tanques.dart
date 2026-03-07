@@ -1868,27 +1868,33 @@ class _SelecaoTipoVisualizacaoBottomSheetState extends State<_SelecaoTipoVisuali
     if (_tipoDataEspecifica) {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => EstoqueTanquePage(
+          builder: (ctx) => EstoqueTanquePage(
             tanqueId: widget.tanqueId,
             referenciaTanque: widget.referenciaTanque,
             filialId: widget.filialId,
             nomeFilial: widget.nomeFilial,
             data: _dataSelecionada,
-            onVoltar: widget.onVoltar,
+            onVoltar: () {
+              Navigator.of(ctx).pop();
+              widget.onVoltar();
+            },
           ),
         ),
       );
     } else {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => EstoqueTanqueMensalPage(
+          builder: (ctx) => EstoqueTanqueMensalPage(
             tanqueId: widget.tanqueId,
             referenciaTanque: widget.referenciaTanque,
             filialId: widget.filialId,
             nomeFilial: widget.nomeFilial,
             mes: _mesSelecionado,
             ano: _anoSelecionado,
-            onVoltar: widget.onVoltar,
+            onVoltar: () {
+              Navigator.of(ctx).pop();
+              widget.onVoltar();
+            },
           ),
         ),
       );
@@ -1897,20 +1903,24 @@ class _SelecaoTipoVisualizacaoBottomSheetState extends State<_SelecaoTipoVisuali
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, -5),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
+          child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -2063,7 +2073,9 @@ class _SelecaoTipoVisualizacaoBottomSheetState extends State<_SelecaoTipoVisuali
           const SizedBox(height: 10),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   @override
