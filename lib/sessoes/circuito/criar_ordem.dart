@@ -278,6 +278,7 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
         'filial_id': usuario.filialId,
         'descricao': '$_tipoOp - ${_origemCtrl.text}',
         'cliente': _origemCtrl.text,
+        'quantidade': quantidadeAmb,
         'entrada_amb': _tipoOperacao == 'Entrada' ? quantidadeAmb : null,
         'entrada_vinte': null,
         'saida_amb': _tipoOperacao == 'Saída' ? quantidadeAmb : null,

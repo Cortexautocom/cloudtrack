@@ -640,26 +640,54 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       terminalAtual = usuario?.terminalId;
     }
     
+    // PRIORIDADE 1: Se o terminal atual é o DESTINO, usa status_circuito_dest
+    if (terminalAtual != null && terminalAtual == terminalDestinoId) {
+      final statusDest = item['status_circuito_dest'];
+      if (statusDest != null) {
+        final codigo = statusDest is int ? statusDest : int.tryParse(statusDest.toString());
+        switch (codigo) {
+          case 1: return 'Programado';
+          case 15: return 'Aguardando';
+          case 2: return 'Check-list';
+          case 3: return 'Em operação';
+          case 4: return 'Emissão NF';
+          case 5: return 'Liberado';
+          default: return 'Sem status';
+        }
+      }
+    }
+    
+    // PRIORIDADE 2: Se o terminal atual é a ORIGEM, usa status_circuito_orig
+    if (terminalAtual != null && terminalAtual == terminalOrigemId) {
+      final statusOrig = item['status_circuito_orig'];
+      if (statusOrig != null) {
+        final codigo = statusOrig is int ? statusOrig : int.tryParse(statusOrig.toString());
+        switch (codigo) {
+          case 1: return 'Programado';
+          case 15: return 'Aguardando';
+          case 2: return 'Check-list';
+          case 3: return 'Em operação';
+          case 4: return 'Emissão NF';
+          case 5: return 'Liberado';
+          default: return 'Sem status';
+        }
+      }
+    }
+    
+    // Fallback: tenta qualquer status disponível
     dynamic statusCodigo;
     
-    // Lógica para determinar qual status usar
     if (tipoOp == 'transf') {
-      // Para transferências, verifica se o terminal atual é origem ou destino
       if (terminalAtual == terminalOrigemId) {
-        // Terminal é ORIGEM da transferência (SAÍDA) -> usa status_circuito_orig
         statusCodigo = item['status_circuito_orig'];
       } else if (terminalAtual == terminalDestinoId) {
-        // Terminal é DESTINO da transferência (ENTRADA) -> usa status_circuito_dest
         statusCodigo = item['status_circuito_dest'];
       } else {
-        // Fallback: tenta usar qualquer um disponível
         statusCodigo = item['status_circuito_orig'] ?? item['status_circuito_dest'];
       }
     } else if (tipoOp == 'usina') {
-      // Para usina, o terminal atual sempre é destino (ENTRADA)
       statusCodigo = item['status_circuito_dest'];
     } else {
-      // Para vendas e outros tipos, usa o status do terminal local (SAÍDA)
       statusCodigo = item['status_circuito_orig'];
     }
     
@@ -1159,7 +1187,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                   ),
 
                   Container(
-                    width: tipoOpTexto == 'Transferência' ? 95 : 85,
+                    width: 120, // Largura fixa de 120px
                     margin: const EdgeInsets.only(right: 12),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 6,
@@ -1204,10 +1232,10 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                           ),
                           child: Text(
                             tipoOpTexto,
-                            style: TextStyle(
-                              fontSize: tipoOpTexto == 'Transferência' ? 9 : 10,
+                            style: const TextStyle(
+                              fontSize: 10, // Tamanho fixo para todos os tipos
                               fontWeight: FontWeight.w600,
-                              color: const Color.fromARGB(255, 121, 121, 121),
+                              color: Color.fromARGB(255, 121, 121, 121),
                             ),
                             textAlign: TextAlign.center,
                             maxLines: 2,
