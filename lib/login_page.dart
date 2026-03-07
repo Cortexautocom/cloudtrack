@@ -5,20 +5,15 @@ import 'configuracoes/cadastro_novo_usuario.dart';
 import 'configuracoes/esqueci_senha.dart';
 import 'configuracoes/escolher_senha.dart';
 
-/// 🧩 Classe global que armazena dados do usuário logado
 class UsuarioAtual {
   static UsuarioAtual? instance;
 
   final String id;
   final String nome;
   final int nivel;
-
-  /// IDs SEMPRE String (Flutter Web safe)
   final String? filialId;
   final String? empresaId;
   final String? terminalId;
-
-  /// CONTROLE REAL DE ACESSO (CARD-CENTRIC)
   final List<String> cardsPermitidosIds;
   final bool senhaTemporaria;
 
@@ -33,7 +28,6 @@ class UsuarioAtual {
     required this.senhaTemporaria,
   });
 
-  /// Fonte única de permissão
   bool podeAcessarCard(String cardId) {
     if (nivel >= 3) return true;
     return cardsPermitidosIds.contains(cardId);
@@ -56,7 +50,24 @@ class _LoginPageState extends State<LoginPage> {
   bool _obscureText = true;
   bool _isLoading = false;
 
-  /// 🔐 Carrega permissões de CARDS
+  Future<String?> _buscarFilialIdPorTerminal(String? terminalId) async {
+    if (terminalId == null) return null;
+    
+    try {
+      final supabase = Supabase.instance.client;
+      
+      final filial = await supabase
+          .from('filiais')
+          .select('id')
+          .eq('terminal_id_1', terminalId)
+          .maybeSingle();
+      
+      return filial?['id']?.toString();
+    } catch (e) {
+      return null;
+    }
+  }
+
   Future<List<String>> _carregarPermissoesCards(String usuarioId) async {
     try {
       final supabase = Supabase.instance.client;
@@ -72,12 +83,10 @@ class _LoginPageState extends State<LoginPage> {
           .where((id) => id.isNotEmpty)
           .toList();
     } catch (e) {
-      debugPrint('❌ Erro ao carregar permissões de cards: $e');
       return [];
     }
   }
 
-  /// 🔑 LOGIN
   Future<void> loginUser() async {
     setState(() => _isLoading = true);
 
@@ -97,7 +106,6 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     try {
-      /// 1️⃣ Auth
       final response = await supabase.auth.signInWithPassword(
         email: email,
         password: password,
@@ -106,7 +114,6 @@ class _LoginPageState extends State<LoginPage> {
       final user = response.user;
       if (user == null) throw Exception('Falha na autenticação.');
 
-      /// 2️⃣ Dados do usuário
       final raw = await supabase
           .from('usuarios')
           .select('''
@@ -130,11 +137,11 @@ class _LoginPageState extends State<LoginPage> {
       final int nivel = usuarioData['nivel'] as int;
       final String? empresaId = usuarioData['empresa_id']?.toString();
       final String? terminalId = usuarioData['terminal_id']?.toString();
+      
+      final String? filialId = await _buscarFilialIdPorTerminal(terminalId);
 
-      /// 3️⃣ Permissões reais (cards)
       final cardsPermitidosIds = await _carregarPermissoesCards(user.id);
 
-      /// 4️⃣ Validação: usuário sem nenhum card
       if (nivel < 3 && cardsPermitidosIds.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -152,19 +159,17 @@ class _LoginPageState extends State<LoginPage> {
         return;
       }
 
-      /// 5️⃣ Instância global
       UsuarioAtual.instance = UsuarioAtual(
         id: usuarioData['id'].toString(),
         nome: (usuarioData['Nome_apelido'] ?? usuarioData['nome']).toString(),
         nivel: nivel,
-        filialId: null,
+        filialId: filialId,
         empresaId: empresaId,
         terminalId: terminalId,
         cardsPermitidosIds: cardsPermitidosIds,
         senhaTemporaria: usuarioData['senha_temporaria'] == true,
       );
 
-      /// 6️⃣ Troca de senha
       if (UsuarioAtual.instance!.precisaTrocarSenha) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -180,7 +185,6 @@ class _LoginPageState extends State<LoginPage> {
         return;
       }
 
-      /// 7️⃣ Sucesso
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Login realizado com sucesso!'),
@@ -204,8 +208,6 @@ class _LoginPageState extends State<LoginPage> {
         }
       }
 
-      debugPrint('❌ Erro de login: $error');
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(mensagemErro),
@@ -217,7 +219,6 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  /// 🖥️ UI
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -344,7 +345,6 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
           ),
-          // ===== Rodapé institucional =====
           Positioned(
             bottom: 30,
             left: 0,
