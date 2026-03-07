@@ -228,6 +228,7 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
           .lte('data_mov', _fimMes.toIso8601String());
 
       // Ordenação: sem CACL primeiro, com CACL depois
+      // Ordenação: primeiro por data, e dentro de cada data os CACLs por último
       final List<Map<String, dynamic>> listaOrdenadaParaUI =
           List<Map<String, dynamic>>.from(dados);
 
@@ -236,22 +237,51 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
         return c != null && c.isNotEmpty && c.toLowerCase() != 'null';
       }
 
+      // Primeiro, ordena por data (crescente)
       listaOrdenadaParaUI.sort((a, b) {
-        final aTemCacl = temCaclValido(a);
-        final bTemCacl = temCaclValido(b);
-
-        if (aTemCacl && !bTemCacl) return 1;
-        if (!aTemCacl && bTemCacl) return -1;
-
         final da = DateTime.parse(a['data_mov']);
         final db = DateTime.parse(b['data_mov']);
-        final c = da.compareTo(db);
-        if (c != 0) return c;
-
-        final ia = a['id'].toString();
-        final ib = b['id'].toString();
-        return ia.compareTo(ib);
+        return da.compareTo(db);
       });
+
+      // Depois, reagrupa mantendo a ordem por data, mas colocando CACLs no final de cada dia
+      final Map<String, List<Map<String, dynamic>>> movsPorDia = {};
+      for (final mov in listaOrdenadaParaUI) {
+        final data = DateTime.parse(mov['data_mov']);
+        final chave = '${data.year}-${data.month}-${data.day}';
+        movsPorDia.putIfAbsent(chave, () => []).add(mov);
+      }
+
+      // Para cada dia, ordena: sem CACL primeiro, com CACL depois
+      final List<Map<String, dynamic>> listaReordenada = [];
+      for (final data in movsPorDia.keys.toList()..sort()) {
+        final movsDoDia = movsPorDia[data]!;
+        
+        // Separa movimentos do dia em duas listas
+        final semCacl = movsDoDia.where((m) => !temCaclValido(m)).toList();
+        final comCacl = movsDoDia.where(temCaclValido).toList();
+        
+        // Mantém a ordem cronológica original dentro de cada grupo
+        semCacl.sort((a, b) {
+          final da = DateTime.parse(a['data_mov']);
+          final db = DateTime.parse(b['data_mov']);
+          return da.compareTo(db);
+        });
+        
+        comCacl.sort((a, b) {
+          final da = DateTime.parse(a['data_mov']);
+          final db = DateTime.parse(b['data_mov']);
+          return da.compareTo(db);
+        });
+        
+        // Adiciona primeiro os sem CACL, depois os com CACL
+        listaReordenada.addAll(semCacl);
+        listaReordenada.addAll(comCacl);
+      }
+
+      // Substitui a lista original pela reordenada
+      listaOrdenadaParaUI.clear();
+      listaOrdenadaParaUI.addAll(listaReordenada);
 
       // Calcula saldo acumulado
       num saldoAmb = _estoqueInicial['amb'] ?? 0;
