@@ -11,7 +11,7 @@ import 'sessoes/gestao_de_frota/controle_documentos.dart';
 import 'sessoes/operacao/emitir_cacl.dart';
 import 'sessoes/operacao/tanques.dart';
 import 'sessoes/operacao/escolher_terminal.dart';
-import 'sessoes/vendas/programacao.dart'; 
+import 'sessoes/vendas/programacao.dart';
 import 'sessoes/estoques/estoque_geral.dart';
 import 'sessoes/operacao/estoque_tanques_geral.dart';
 import 'sessoes/operacao/historico_cacl.dart';
@@ -19,6 +19,7 @@ import 'sessoes/operacao/listar_cacls.dart';
 import 'sessoes/estoques/estoque_downloads.dart';
 import 'sessoes/estoques/filtro_estoque.dart';
 import 'sessoes/estoques/estoque_mes.dart';
+import 'sessoes/estoques/compacto_final.dart';
 import 'sessoes/gestao_de_frota/motoristas_page.dart';
 import 'sessoes/gestao_de_frota/veiculos.dart';
 import 'sessoes/gestao_de_frota/transportadoras.dart';
@@ -40,7 +41,8 @@ class HomePage extends StatefulWidget {
 @JS()
 external JSFunction? atualizarApp;
 
-class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
+class _HomePageState extends State<HomePage>
+    with SingleTickerProviderStateMixin {
   int selectedIndex = 0;
   int _hoveredMenuIndex = -1;
   TextEditingController searchController = TextEditingController();
@@ -63,7 +65,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     'Segurança & Compliance',
     'Relatórios',
     'Configurações',
-    'Ajuda'
+    'Ajuda',
   ];
 
   // FLAGS GERAIS
@@ -75,7 +77,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarAcompanhamentoOrdens = false;
   bool _mostrarSuporte = false;
 
-  
   // FLAGS PARA SESSÕES ESPECÍFICAS
   bool _mostrarCalcGerado = false;
   bool _mostrarDownloads = false;
@@ -93,22 +94,23 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _mostrarTempDensMedia = false;
   bool _mostrarCardsFilial = false;
   bool _voltarParaTanquesApoCACL = false; // ← RASTREIA SE VEIO DE TANQUES
-  bool _estoquePorTanqueVemDaApuracao = false; // ← RASTREIA ORIGEM DO ESTOQUE POR TANQUE
-  
+  bool _estoquePorTanqueVemDaApuracao =
+      false; // ← RASTREIA ORIGEM DO ESTOQUE POR TANQUE
+
   // NOVAS VARIÁVEIS PARA GESTÃO DE FROTA
   bool _mostrarVeiculos = false;
   bool _mostrarDetalhesVeiculo = false;
   Map<String, dynamic>? _veiculoSelecionado;
   bool _mostrarMotoristas = false;
   bool _mostrarTransportadoras = false;
-  
+
   // FLAG UNIFICADA PARA MOSTRAR FILHOS DE QUALQUER SESSÃO
   bool _mostrarFilhosSessao = false;
   String? _sessaoAtual;
   List<Map<String, dynamic>> _filhosSessaoAtual = [];
   // Tipo do card filho selecionado (navegação por estado)
   String? _filhoSelecionadoTipo;
-  
+
   // DADOS PARA NAVEGAÇÃO
   String? _filialSelecionadaNome;
   String? _usuarioFilialNome;
@@ -123,12 +125,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   String? _empresaParaFiltroNome;
   String? _terminalParaFiltroId;
   String? _terminalParaFiltroNome;
-  
+
   // LISTAS DE DADOS
   List<Map<String, dynamic>> sessoes = [];
   List<Map<String, dynamic>> empresas = [];
   List<Map<String, dynamic>> filiaisDaEmpresa = [];
-  
+
   // FLAGS DE CARREGAMENTO
   bool carregandoEmpresas = false;
   bool carregandoFiliaisEmpresa = false;
@@ -147,7 +149,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     'Estoques': const Color(0xFFFF9800), // Laranja
     'Operação': const Color(0xFF2196F3), // Azul
     'Circuito': const Color(0xFF9C27B0), // Roxo
-    'Vendas': const Color(0xFF4CAF50),   // Verde
+    'Vendas': const Color(0xFF4CAF50), // Verde
     'Gestão de Frota': const Color(0xFFF44336), // Vermelho
     'Bombeios e Cotas': const Color(0xFF00BCD4), // Ciano
     'Laboratório': const Color(0xFF8BC34A), // Verde claro
@@ -207,7 +209,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               .maybeSingle();
 
           setState(() {
-            _usuarioTerminalNome = terminalData?['nome']?.toString() ?? 'Sem terminal';
+            _usuarioTerminalNome =
+                terminalData?['nome']?.toString() ?? 'Sem terminal';
             _usuarioFilialNome = null;
           });
         } catch (e) {
@@ -276,7 +279,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
     try {
       final supabase = Supabase.instance.client;
-      
+
       final cardsDb = await supabase
           .from('cards')
           .select('id, nome, tipo, sessao_pai, ordem')
@@ -287,11 +290,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       debugPrint('✅ Cards encontrados no banco: ${cardsDb.length}');
 
       final List<Map<String, dynamic>> todosCards = [];
-      
+
       for (var card in cardsDb) {
         final cardId = card['id'].toString();
         final sessaoPai = card['sessao_pai']?.toString() ?? 'Geral';
-        
+
         // Cards que devem ser sempre incluídos (sem filtro de permissão)
         final cardsObrigatorios = ['estoque_por_tanque'];
         final tipoRaw = card['tipo']?.toString() ?? '';
@@ -299,7 +302,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
         // Remover card isolado de CACL: acesso passa a ser feito via Estoque por tanque
         if (tipo == 'cacl') continue;
-        
+
         // Para usuários de nível 1 e 2, permitir acesso a cards de movimentacoes
         if (usuario.nivel <= 2 && tipo == 'movimentacoes') {
           todosCards.add({
@@ -312,7 +315,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           });
         }
         // Para os demais casos, manter a lógica original
-        else if (usuario.nivel >= 3 || usuario.podeAcessarCard(cardId) || cardsObrigatorios.contains(tipo)) {
+        else if (usuario.nivel >= 3 ||
+            usuario.podeAcessarCard(cardId) ||
+            cardsObrigatorios.contains(tipo)) {
           todosCards.add({
             'id': cardId,
             'label': card['nome'],
@@ -324,18 +329,20 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         }
       }
 
-      debugPrint('✅ Cards permitidos para ${usuario.nome}: ${todosCards.length}');
+      debugPrint(
+        '✅ Cards permitidos para ${usuario.nome}: ${todosCards.length}',
+      );
 
       final Map<String, List<Map<String, dynamic>>> cardsOrganizados = {};
-      
+
       for (var card in todosCards) {
         var sessaoPai = card['sessao_pai'];
-        
+
         // Reatribuir Estoque por tanque para Operação
         if (card['tipo']?.toString() == 'estoque_por_tanque') {
           sessaoPai = 'Operação';
         }
-        
+
         cardsOrganizados.putIfAbsent(sessaoPai, () => []);
         cardsOrganizados[sessaoPai]!.add(card);
       }
@@ -345,7 +352,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         _filhosPorSessao.addAll(cardsOrganizados);
         _carregandoCards = false;
       });
-
     } catch (e) {
       debugPrint('❌ Erro ao carregar cards do banco: $e');
       setState(() => _carregandoCards = false);
@@ -355,37 +361,178 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   void _inicializarFilhosPorSessaoFallback() {
     _filhosPorSessao['Operação'] = [
-      {'id': 'fallback-ordens', 'icon': Icons.assignment, 'label': 'Ordens / Análises', 'descricao': 'Geração e gestão de ordens', 'tipo': 'ordens_analise', 'sessao_pai': 'Operação'},
-      {'id': 'fallback-historico', 'icon': Icons.history, 'label': 'Histórico de CACLs', 'descricao': 'Consultar histórico de CACLs emitidos', 'tipo': 'historico_cacl', 'sessao_pai': 'Operação'},
-      {'id': 'fallback-tabelas', 'icon': Icons.table_chart, 'label': 'Tabelas de Conversão', 'descricao': 'Tabelas de conversão de densidade e temperatura', 'tipo': 'tabelas_conversao', 'sessao_pai': 'Operação'},
-      {'id': 'fallback-temp', 'icon': Icons.thermostat, 'label': 'Temperatura e Densidade média', 'descricao': 'Cálculo de temperatura e densidade média', 'tipo': 'temp_dens_media', 'sessao_pai': 'Operação'},
-      {'id': 'fallback-tanques', 'icon': Icons.oil_barrel, 'label': 'Tanques', 'descricao': 'Gerenciamento de tanques', 'tipo': 'tanques', 'sessao_pai': 'Operação'},
-      {'id': 'fallback-estoque-tanque', 'icon': Icons.water_drop, 'label': 'Estoque por tanque', 'descricao': 'Acompanhar estoques por tanque', 'tipo': 'estoque_por_tanque', 'sessao_pai': 'Operação'},
+      {
+        'id': 'fallback-ordens',
+        'icon': Icons.assignment,
+        'label': 'Ordens / Análises',
+        'descricao': 'Geração e gestão de ordens',
+        'tipo': 'ordens_analise',
+        'sessao_pai': 'Operação',
+      },
+      {
+        'id': 'fallback-historico',
+        'icon': Icons.history,
+        'label': 'Histórico de CACLs',
+        'descricao': 'Consultar histórico de CACLs emitidos',
+        'tipo': 'historico_cacl',
+        'sessao_pai': 'Operação',
+      },
+      {
+        'id': 'fallback-tabelas',
+        'icon': Icons.table_chart,
+        'label': 'Tabelas de Conversão',
+        'descricao': 'Tabelas de conversão de densidade e temperatura',
+        'tipo': 'tabelas_conversao',
+        'sessao_pai': 'Operação',
+      },
+      {
+        'id': 'fallback-temp',
+        'icon': Icons.thermostat,
+        'label': 'Temperatura e Densidade média',
+        'descricao': 'Cálculo de temperatura e densidade média',
+        'tipo': 'temp_dens_media',
+        'sessao_pai': 'Operação',
+      },
+      {
+        'id': 'fallback-tanques',
+        'icon': Icons.oil_barrel,
+        'label': 'Tanques',
+        'descricao': 'Gerenciamento de tanques',
+        'tipo': 'tanques',
+        'sessao_pai': 'Operação',
+      },
+      {
+        'id': 'fallback-estoque-tanque',
+        'icon': Icons.water_drop,
+        'label': 'Estoque por tanque',
+        'descricao': 'Acompanhar estoques por tanque',
+        'tipo': 'estoque_por_tanque',
+        'sessao_pai': 'Operação',
+      },
     ];
 
     _filhosPorSessao['Estoques'] = [
-      {'id': 'fallback-geral', 'icon': Icons.hub, 'label': 'Estoque Geral', 'descricao': 'Visão consolidada dos estoques da base', 'tipo': 'estoque_geral', 'sessao_pai': 'Estoques'},
-      {'id': 'fallback-empresa', 'icon': Icons.business, 'label': 'Movimentação por empresa', 'descricao': 'Movimentações por empresa', 'tipo': 'movimentacao_por_empresa', 'sessao_pai': 'Estoques'},
-      {'id': 'fallback-mov', 'icon': Icons.swap_horiz, 'label': 'Movimentações', 'descricao': 'Acompanhar entradas e saídas em geral', 'tipo': 'movimentacoes', 'sessao_pai': 'Estoques'},
-      {'id': 'fallback-transf', 'icon': Icons.compare_arrows, 'label': 'Transferências', 'descricao': 'Gerenciar transferências entre filiais', 'tipo': 'transferencias', 'sessao_pai': 'Estoques'},
+      {
+        'id': 'fallback-geral',
+        'icon': Icons.hub,
+        'label': 'Estoque Geral',
+        'descricao': 'Visão consolidada dos estoques da base',
+        'tipo': 'estoque_geral',
+        'sessao_pai': 'Estoques',
+      },
+      {
+        'id': 'fallback-compacto-final',
+        'icon': Icons.view_compact,
+        'label': 'Compacto final',
+        'descricao': 'Visão compacta do final do dia',
+        'tipo': 'compacto_final',
+        'sessao_pai': 'Estoques',
+      },
+      {
+        'id': 'fallback-empresa',
+        'icon': Icons.business,
+        'label': 'Movimentação por empresa',
+        'descricao': 'Movimentações por empresa',
+        'tipo': 'movimentacao_por_empresa',
+        'sessao_pai': 'Estoques',
+      },
+      {
+        'id': 'fallback-mov',
+        'icon': Icons.swap_horiz,
+        'label': 'Movimentações',
+        'descricao': 'Acompanhar entradas e saídas em geral',
+        'tipo': 'movimentacoes',
+        'sessao_pai': 'Estoques',
+      },
+      {
+        'id': 'fallback-transf',
+        'icon': Icons.compare_arrows,
+        'label': 'Transferências',
+        'descricao': 'Gerenciar transferências entre filiais',
+        'tipo': 'transferencias',
+        'sessao_pai': 'Estoques',
+      },
     ];
 
-    _filhosPorSessao['Circuito'] = [      
-      {'id': 'fallback-acompanhar', 'icon': Icons.directions_car, 'label': 'Acompanhar ordem', 'descricao': 'Acompanhar situação da ordem', 'tipo': 'acompanhar_ordem', 'sessao_pai': 'Circuito'},
-      {'id': 'fallback-visao', 'icon': Icons.dashboard, 'label': 'Visão geral', 'descricao': 'Panorama completo dos circuitos', 'tipo': 'visao_geral_circuito', 'sessao_pai': 'Circuito'},
-      {'id': 'criar-ordem', 'icon': Icons.add_circle_outline, 'label': 'Criar Ordem', 'descricao': 'Criar uma nova ordem', 'tipo': 'criar_ordem', 'sessao_pai': 'Circuito'},
+    _filhosPorSessao['Circuito'] = [
+      {
+        'id': 'fallback-acompanhar',
+        'icon': Icons.directions_car,
+        'label': 'Acompanhar ordem',
+        'descricao': 'Acompanhar situação da ordem',
+        'tipo': 'acompanhar_ordem',
+        'sessao_pai': 'Circuito',
+      },
+      {
+        'id': 'fallback-visao',
+        'icon': Icons.dashboard,
+        'label': 'Visão geral',
+        'descricao': 'Panorama completo dos circuitos',
+        'tipo': 'visao_geral_circuito',
+        'sessao_pai': 'Circuito',
+      },
+      {
+        'id': 'criar-ordem',
+        'icon': Icons.add_circle_outline,
+        'label': 'Criar Ordem',
+        'descricao': 'Criar uma nova ordem',
+        'tipo': 'criar_ordem',
+        'sessao_pai': 'Circuito',
+      },
     ];
 
     _filhosPorSessao['Gestão de Frota'] = [
-      {'id': 'fallback-veiculos', 'icon': Icons.directions_car, 'label': 'Veículos Próprios', 'descricao': 'Gerenciar frota de veículos próprios', 'tipo': 'veiculos', 'sessao_pai': 'Gestão de Frota'},
-      {'id': 'fallback-transportadoras', 'icon': Icons.local_shipping, 'label': 'Transportadoras', 'descricao': 'Gerenciar transportadoras', 'tipo': 'transportadoras', 'sessao_pai': 'Gestão de Frota'},
-      {'id': 'fallback-terceiros', 'icon': Icons.local_shipping, 'label': 'Veículos de terceiros', 'descricao': 'Gerenciar veículos de transportadoras', 'tipo': 'veiculos_terceiros', 'sessao_pai': 'Gestão de Frota'},
-      {'id': 'fallback-motoristas', 'icon': Icons.people, 'label': 'Motoristas', 'descricao': 'Gerenciar cadastro de motoristas', 'tipo': 'motoristas', 'sessao_pai': 'Gestão de Frota'},
-      {'id': 'fallback-documentacao', 'icon': Icons.description, 'label': 'Documentação', 'descricao': 'Controle de documentos da frota', 'tipo': 'documentacao', 'sessao_pai': 'Gestão de Frota'},
+      {
+        'id': 'fallback-veiculos',
+        'icon': Icons.directions_car,
+        'label': 'Veículos Próprios',
+        'descricao': 'Gerenciar frota de veículos próprios',
+        'tipo': 'veiculos',
+        'sessao_pai': 'Gestão de Frota',
+      },
+      {
+        'id': 'fallback-transportadoras',
+        'icon': Icons.local_shipping,
+        'label': 'Transportadoras',
+        'descricao': 'Gerenciar transportadoras',
+        'tipo': 'transportadoras',
+        'sessao_pai': 'Gestão de Frota',
+      },
+      {
+        'id': 'fallback-terceiros',
+        'icon': Icons.local_shipping,
+        'label': 'Veículos de terceiros',
+        'descricao': 'Gerenciar veículos de transportadoras',
+        'tipo': 'veiculos_terceiros',
+        'sessao_pai': 'Gestão de Frota',
+      },
+      {
+        'id': 'fallback-motoristas',
+        'icon': Icons.people,
+        'label': 'Motoristas',
+        'descricao': 'Gerenciar cadastro de motoristas',
+        'tipo': 'motoristas',
+        'sessao_pai': 'Gestão de Frota',
+      },
+      {
+        'id': 'fallback-documentacao',
+        'icon': Icons.description,
+        'label': 'Documentação',
+        'descricao': 'Controle de documentos da frota',
+        'tipo': 'documentacao',
+        'sessao_pai': 'Gestão de Frota',
+      },
     ];
 
     _filhosPorSessao['Bombeios e Cotas'] = [
-      {'id': 'fallback-bombeios', 'icon': Icons.invert_colors, 'label': 'Bombeios e Cotas', 'descricao': 'Controle de bombeios', 'tipo': 'bombeios', 'sessao_pai': 'Bombeios e Cotas'},
+      {
+        'id': 'fallback-bombeios',
+        'icon': Icons.invert_colors,
+        'label': 'Bombeios e Cotas',
+        'descricao': 'Controle de bombeios',
+        'tipo': 'bombeios',
+        'sessao_pai': 'Bombeios e Cotas',
+      },
     ];
   }
 
@@ -398,6 +545,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       'temp_dens_media': Icons.thermostat,
       'tanques': Icons.oil_barrel,
       'estoque_geral': Icons.hub,
+      'compacto_final': Icons.view_compact,
       'estoque_por_empresa': Icons.business,
       'estoque_por_tanque': Icons.water_drop,
       'movimentacoes': Icons.swap_horiz,
@@ -427,6 +575,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       'temp_dens_media': 'Cálculo de temperatura e densidade média',
       'tanques': 'Gerenciamento de tanques',
       'estoque_geral': 'Visão consolidada dos estoques da base',
+      'compacto_final': 'Visão compacta do final do dia',
       'estoque_por_empresa': 'Movimentações por empresa',
       'estoque_por_tanque': 'Acompanhar estoques por tanque',
       'movimentacoes': 'Acompanhar entradas e saídas em geral',
@@ -445,10 +594,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     };
     return mapaDescricoes[tipo] ?? '';
   }
-  
+
   Future<void> _carregarFilialParaProgramacao() async {
     final supabase = Supabase.instance.client;
-    
+
     try {
       // Busca todas as filiais — terminal_id_1 é apenas parâmetro, não critério
       final filiaisData = await supabase
@@ -494,11 +643,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       setState(() {
         _filiaisProgramacao = filiaisProcessadas;
       });
-      
     } catch (e) {
       debugPrint('❌ ERRO ao carregar filiais: $e');
       debugPrint('❌ Stack trace: ${StackTrace.current}');
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -507,7 +655,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
         );
       }
-      
+
       setState(() {
         _filiaisProgramacao = [];
       });
@@ -517,13 +665,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   Future<void> _carregarEmpresas() async {
     setState(() => carregandoEmpresas = true);
     final supabase = Supabase.instance.client;
-    
+
     try {
       final dados = await supabase
           .from('empresas')
           .select('id, nome, nome_abrev, cnpj')
           .order('nome');
-      
+
       setState(() {
         empresas = dados.map((empresa) {
           return {
@@ -554,20 +702,20 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       carregandoFiliaisEmpresa = true;
       filiaisDaEmpresa.clear();
     });
-    
+
     final supabase = Supabase.instance.client;
     final usuario = UsuarioAtual.instance;
-    
+
     try {
       dynamic queryResult;
-      
+
       if (usuario != null && usuario.nivel < 3) {
         List<String> filiaisPermitidas = [];
-        
+
         if (usuario.filialId != null) {
           filiaisPermitidas.add(usuario.filialId!);
         }
-        
+
         if (filiaisPermitidas.isEmpty) {
           queryResult = await supabase
               .from('filiais')
@@ -590,9 +738,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             .eq('empresa_id', empresaId)
             .order('nome');
       }
-      
+
       List<Map<String, dynamic>> dados = [];
-      
+
       if (queryResult is List) {
         for (var item in queryResult) {
           if (item is Map<String, dynamic>) {
@@ -603,7 +751,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           }
         }
       }
-      
+
       setState(() {
         filiaisDaEmpresa = dados.map((filial) {
           return {
@@ -615,7 +763,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           };
         }).toList();
       });
-      
     } catch (e) {
       debugPrint("Erro ao carregar filiais: $e");
       if (mounted) {
@@ -692,8 +839,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _contextoEscolhaTerminal = '';
       _filialParaFiltroId = null;
       _filialParaFiltroNome = null;
-      _terminalParaFiltroId = null;        // ← ADICIONAR
-      _terminalParaFiltroNome = null;      // ← ADICIONAR
+      _terminalParaFiltroId = null; // ← ADICIONAR
+      _terminalParaFiltroNome = null; // ← ADICIONAR
       _empresaParaFiltroId = null;
       _empresaParaFiltroNome = null;
       _empresaSelecionadaId = null;
@@ -708,7 +855,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         _mostrarSemPermissao();
         return;
       }
-      
+
       setState(() {
         _mostrarFilhosSessao = true;
         _sessaoAtual = nomeSessao;
@@ -733,35 +880,49 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         },
       ];
     }
-    
+
     // ATUALIZADO: Filtrar cards de Estoques por nível
     if (nomeSessao == 'Estoques') {
       final usuario = UsuarioAtual.instance;
       if (usuario != null) {
         if (usuario.nivel <= 1) {
           // Nível 1: remover cards de empresa (empresa-level)
-          filhos = filhos.where((card) => card['tipo'] != 'estoque_por_empresa' && card['tipo'] != 'movimentacao_por_empresa').toList();
+          filhos = filhos
+              .where(
+                (card) =>
+                    card['tipo'] != 'estoque_por_empresa' &&
+                    card['tipo'] != 'movimentacao_por_empresa',
+              )
+              .toList();
         } else if (usuario.nivel == 2) {
           // Nível 2: remover apenas cards de empresa, manter movimentacoes
-          filhos = filhos.where((card) => card['tipo'] != 'estoque_por_empresa' && card['tipo'] != 'movimentacao_por_empresa').toList();
+          filhos = filhos
+              .where(
+                (card) =>
+                    card['tipo'] != 'estoque_por_empresa' &&
+                    card['tipo'] != 'movimentacao_por_empresa',
+              )
+              .toList();
         } else {
           // Nível 3: manter cards de empresa, remover o card genérico de movimentações
-          filhos = filhos.where((card) => card['tipo'] != 'movimentacoes').toList();
+          filhos = filhos
+              .where((card) => card['tipo'] != 'movimentacoes')
+              .toList();
         }
       }
     }
-    
+
     if (filhos.isEmpty) {
       _mostrarSemPermissao();
       return;
     }
-    
+
     setState(() {
       _mostrarFilhosSessao = true;
       _sessaoAtual = nomeSessao;
       _filhosSessaoAtual = List.from(filhos);
       _filhoSelecionadoTipo = null;
-      
+
       showConversaoList = false;
       _mostrarDownloads = false;
       _mostrarListarCacls = false;
@@ -801,7 +962,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _sessaoAtual = null;
       _filhosSessaoAtual = [];
       _filhoSelecionadoTipo = null;
-      
+
       showConversaoList = false;
       _mostrarDownloads = false;
       _mostrarListarCacls = false;
@@ -825,8 +986,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _contextoEscolhaTerminal = '';
       _filialParaFiltroId = null;
       _filialParaFiltroNome = null;
-      _terminalParaFiltroId = null;        // ← ADICIONAR
-      _terminalParaFiltroNome = null;      // ← ADICIONAR
+      _terminalParaFiltroId = null; // ← ADICIONAR
+      _terminalParaFiltroNome = null; // ← ADICIONAR
       _empresaParaFiltroId = null;
       _empresaParaFiltroNome = null;
       _empresaSelecionadaId = null;
@@ -902,8 +1063,26 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                 const SizedBox(height: 2),
                                 Text(
                                   (usuario?.nivel == 1 || usuario?.nivel == 2)
-                                      ? (_usuarioTerminalNome ?? (UsuarioAtual.instance?.terminalId == null || UsuarioAtual.instance!.terminalId!.isEmpty ? 'Sem terminal' : 'Carregando...'))
-                                      : (_usuarioFilialNome ?? (UsuarioAtual.instance?.filialId == null || UsuarioAtual.instance!.filialId!.isEmpty ? 'Sem filial' : 'Carregando...')),
+                                      ? (_usuarioTerminalNome ??
+                                            (UsuarioAtual
+                                                            .instance
+                                                            ?.terminalId ==
+                                                        null ||
+                                                    UsuarioAtual
+                                                        .instance!
+                                                        .terminalId!
+                                                        .isEmpty
+                                                ? 'Sem terminal'
+                                                : 'Carregando...'))
+                                      : (_usuarioFilialNome ??
+                                            (UsuarioAtual.instance?.filialId ==
+                                                        null ||
+                                                    UsuarioAtual
+                                                        .instance!
+                                                        .filialId!
+                                                        .isEmpty
+                                                ? 'Sem filial'
+                                                : 'Carregando...')),
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: Colors.grey[600],
@@ -923,7 +1102,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           if (value == 'Perfil') {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (_) => const PerfilPage()),
+                              MaterialPageRoute(
+                                builder: (_) => const PerfilPage(),
+                              ),
                             );
                           }
 
@@ -933,7 +1114,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                             if (context.mounted) {
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => const LoginPage()),
+                                MaterialPageRoute(
+                                  builder: (_) => const LoginPage(),
+                                ),
                                 (route) => false,
                               );
                             }
@@ -971,10 +1154,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                             bool isSelected = selectedIndex == index;
                             final nomeItem = menuItems[index];
                             final nomeFormatado = _formatarNomeMenu(nomeItem);
-                            
+
                             return MouseRegion(
-                              onEnter: (_) => setState(() => _hoveredMenuIndex = index),
-                              onExit: (_) => setState(() => _hoveredMenuIndex = -1),
+                              onEnter: (_) =>
+                                  setState(() => _hoveredMenuIndex = index),
+                              onExit: (_) =>
+                                  setState(() => _hoveredMenuIndex = -1),
                               child: InkWell(
                                 onTap: () {
                                   _resetarTodasFlags();
@@ -986,20 +1171,24 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   final itemSelecionado = menuItems[index];
 
                                   if (itemSelecionado == 'Vendas' ||
-                                      _filhosPorSessao.containsKey(itemSelecionado)) {
+                                      _filhosPorSessao.containsKey(
+                                        itemSelecionado,
+                                      )) {
                                     _mostrarFilhosDaSessao(itemSelecionado);
                                   }
                                 },
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 200),
                                   padding: const EdgeInsets.symmetric(
-                                      vertical: 10, horizontal: 10),
+                                    vertical: 10,
+                                    horizontal: 10,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: isSelected
                                         ? Colors.white
                                         : (_hoveredMenuIndex == index
-                                            ? const Color(0xFFFAFBFF)
-                                            : const Color(0xFFF5F5F5)),
+                                              ? const Color(0xFFFAFBFF)
+                                              : const Color(0xFFF5F5F5)),
                                     border: Border(
                                       left: BorderSide(
                                         color: isSelected
@@ -1010,7 +1199,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                     ),
                                   ),
                                   child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.center, // Centraliza verticalmente
+                                    crossAxisAlignment: CrossAxisAlignment
+                                        .center, // Centraliza verticalmente
                                     children: [
                                       Icon(
                                         _getMenuIcon(nomeItem),
@@ -1020,15 +1210,28 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                         size: 20,
                                       ),
                                       const SizedBox(width: 10),
-                                      Expanded( // Adiciona Expanded para melhor controle
+                                      Expanded(
+                                        // Adiciona Expanded para melhor controle
                                         child: AnimatedContainer(
-                                          duration: const Duration(milliseconds: 200),
-                                            transform: Matrix4.translationValues(
-                                              _hoveredMenuIndex == index ? 6.0 : 0.0, 0, 0),
+                                          duration: const Duration(
+                                            milliseconds: 200,
+                                          ),
+                                          transform: Matrix4.translationValues(
+                                            _hoveredMenuIndex == index
+                                                ? 6.0
+                                                : 0.0,
+                                            0,
+                                            0,
+                                          ),
                                           child: AnimatedDefaultTextStyle(
-                                            duration: const Duration(milliseconds: 200),
+                                            duration: const Duration(
+                                              milliseconds: 200,
+                                            ),
                                             style: TextStyle(
-                                              fontWeight: (isSelected || _hoveredMenuIndex == index)
+                                              fontWeight:
+                                                  (isSelected ||
+                                                      _hoveredMenuIndex ==
+                                                          index)
                                                   ? FontWeight.bold
                                                   : FontWeight.w500,
                                               color: isSelected
@@ -1068,35 +1271,35 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               ],
             ),
           ),
-          
-            Container(
-              height: 50,
-              width: double.infinity,
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'PowerTank Terminais 2026, All rights reserved.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey[600],
-                      letterSpacing: 0.3,
-                    ),
+
+          Container(
+            height: 50,
+            width: double.infinity,
+            color: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'PowerTank Terminais 2026, All rights reserved.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[600],
+                    letterSpacing: 0.3,
                   ),
-                  const SizedBox(height: 2),
-                  Text(                    
-                    '© Norton Tecnology - 550 California St, W-325, San Francisco, CA - EUA.',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey[500],
-                      letterSpacing: 0.2,
-                    ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '© Norton Tecnology - 550 California St, W-325, San Francisco, CA - EUA.',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey[500],
+                    letterSpacing: 0.2,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
         ],
       ),
     );
@@ -1167,18 +1370,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   // NOVO: Página padronizada para áreas indisponíveis
   Widget _buildAreaIndisponivelPage() {
     final areaAtual = menuItems[selectedIndex];
-    
+
     return _buildPaginaPadronizada(
       titulo: areaAtual,
       conteudo: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.do_not_disturb,
-              size: 80,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.do_not_disturb, size: 80, color: Colors.grey[400]),
             const SizedBox(height: 30), // Aumente este espaçamento
             const Text(
               'Seu plano não contempla este módulo.',
@@ -1189,10 +1388,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               ),
             ),
             const SizedBox(height: 15), // Aumente este espaçamento
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              
-            ),
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 40)),
             // BOTÃO REMOVIDO - apenas mantenha a mensagem
           ],
         ),
@@ -1223,7 +1419,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
           default:
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Funcionalidade $tipoCard em desenvolvimento...')),
+              SnackBar(
+                content: Text('Funcionalidade $tipoCard em desenvolvimento...'),
+              ),
             );
         }
       },
@@ -1236,7 +1434,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       },
     );
   }
-
 
   Widget _buildRelatoriosPage() {
     return _buildPaginaPadronizada(
@@ -1319,12 +1516,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     if (_mostrarMenuAjuda) {
       return _buildAjudaPage();
     }
-    
+
     if (_mostrarCardsFilial && _filialParaFiltroId != null) {
       return _buildCardsFilialPage();
     }
 
-    if (_mostrarFiltrosEstoque && (_filialParaFiltroId != null || _terminalParaFiltroId != null)) {
+    if (_mostrarFiltrosEstoque &&
+        (_filialParaFiltroId != null || _terminalParaFiltroId != null)) {
       return _buildFiltrosEstoquePage();
     }
 
@@ -1341,7 +1539,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           }
         },
       );
-    }    
+    }
 
     if (showConversaoList) {
       return TabelasDeConversao(
@@ -1386,7 +1584,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         },
       );
     }
-    
+
     if (_mostrarOrdensAnalise) {
       return Material(
         type: MaterialType.canvas,
@@ -1479,9 +1677,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               _filialSelecionadaId = idTerminal;
               _filialSelecionadaNome = 'Terminal';
               _mostrarEscolherTerminal = false;
-                if (_contextoEscolhaTerminal == 'cacl') _mostrarListarCacls = true;
-                if (_contextoEscolhaTerminal == 'tanques') _mostrarTanques = true;
-                if (_contextoEscolhaTerminal == 'estoque_por_tanque') _mostrarEstoquePorTanque = true;
+              if (_contextoEscolhaTerminal == 'cacl')
+                _mostrarListarCacls = true;
+              if (_contextoEscolhaTerminal == 'tanques') _mostrarTanques = true;
+              if (_contextoEscolhaTerminal == 'estoque_por_tanque')
+                _mostrarEstoquePorTanque = true;
               _contextoEscolhaTerminal = '';
             });
           } catch (e) {
@@ -1499,8 +1699,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           }
         },
         titulo: _contextoEscolhaTerminal == 'cacl'
-          ? 'Selecionar terminal para CACL:'
-          : 'Selecionar terminal para gerenciar tanques:',
+            ? 'Selecionar terminal para CACL:'
+            : 'Selecionar terminal para gerenciar tanques:',
       );
     }
 
@@ -1524,8 +1724,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       );
     }
 
-    if (_mostrarTanques && (_filialSelecionadaId != null || _terminalSelecionadoId != null)) {
-      final filialIdParaGerenciamento = _terminalSelecionadoId ?? _filialSelecionadaId;
+    if (_mostrarTanques &&
+        (_filialSelecionadaId != null || _terminalSelecionadoId != null)) {
+      final filialIdParaGerenciamento =
+          _terminalSelecionadoId ?? _filialSelecionadaId;
       return GerenciamentoTanquesPage(
         key: const ValueKey('gerenciamento-tanques'),
         onVoltar: () {
@@ -1539,7 +1741,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               _mostrarEscolherTerminal = true;
               _contextoEscolhaTerminal = 'tanques';
             } else {
-              _mostrarFilhosDaSessao('Operação'); // ALTERADO: Agora volta para Operação
+              _mostrarFilhosDaSessao(
+                'Operação',
+              ); // ALTERADO: Agora volta para Operação
             }
           });
         },
@@ -1591,8 +1795,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         ),
       );
     }
-
-    
 
     if (_mostrarAcompanhamentoOrdens) {
       return AcompanhamentoOrdensPage(
@@ -1715,24 +1917,52 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         children: [
           Row(
             children: [
-              if (mostrarVoltar && (_mostrarDownloads || showConversaoList || _mostrarListarCacls || _mostrarOrdensAnalise || 
-                  _mostrarHistorico || _mostrarEscolherTerminal || _mostrarMedicaoTanques || _mostrarTanques || 
-                  _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || _mostrarEstoquePorTanque ||
-                  _mostrarTempDensMedia || _mostrarCalcGerado || 
-                  _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarTransportadoras || _mostrarFiltrosEstoque ||
-                  _mostrarCardsFilial || _mostrarSuporte))
-
+              if (mostrarVoltar &&
+                  (_mostrarDownloads ||
+                      showConversaoList ||
+                      _mostrarListarCacls ||
+                      _mostrarOrdensAnalise ||
+                      _mostrarHistorico ||
+                      _mostrarEscolherTerminal ||
+                      _mostrarMedicaoTanques ||
+                      _mostrarTanques ||
+                      _mostrarFiliaisDaEmpresa ||
+                      _mostrarEstoquePorEmpresa ||
+                      _mostrarEstoquePorTanque ||
+                      _mostrarTempDensMedia ||
+                      _mostrarCalcGerado ||
+                      _mostrarVeiculos ||
+                      _mostrarDetalhesVeiculo ||
+                      _mostrarMotoristas ||
+                      _mostrarTransportadoras ||
+                      _mostrarFiltrosEstoque ||
+                      _mostrarCardsFilial ||
+                      _mostrarSuporte))
                 IconButton(
                   icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
                   onPressed: onVoltar ?? _voltarParaCardsPai,
                   tooltip: 'Voltar',
                 ),
-              if (mostrarVoltar && (_mostrarDownloads || showConversaoList || _mostrarListarCacls || _mostrarOrdensAnalise || 
-                  _mostrarHistorico || _mostrarEscolherTerminal || _mostrarMedicaoTanques || _mostrarTanques || 
-                  _mostrarFiliaisDaEmpresa || _mostrarEstoquePorEmpresa || _mostrarEstoquePorTanque ||
-                  _mostrarTempDensMedia || _mostrarCalcGerado || 
-                  _mostrarVeiculos || _mostrarDetalhesVeiculo || _mostrarMotoristas || _mostrarTransportadoras || _mostrarFiltrosEstoque ||
-                  _mostrarCardsFilial))
+              if (mostrarVoltar &&
+                  (_mostrarDownloads ||
+                      showConversaoList ||
+                      _mostrarListarCacls ||
+                      _mostrarOrdensAnalise ||
+                      _mostrarHistorico ||
+                      _mostrarEscolherTerminal ||
+                      _mostrarMedicaoTanques ||
+                      _mostrarTanques ||
+                      _mostrarFiliaisDaEmpresa ||
+                      _mostrarEstoquePorEmpresa ||
+                      _mostrarEstoquePorTanque ||
+                      _mostrarTempDensMedia ||
+                      _mostrarCalcGerado ||
+                      _mostrarVeiculos ||
+                      _mostrarDetalhesVeiculo ||
+                      _mostrarMotoristas ||
+                      _mostrarTransportadoras ||
+                      _mostrarFiltrosEstoque ||
+                      _mostrarCardsFilial))
                 const SizedBox(width: 10),
               Text(
                 titulo,
@@ -1759,11 +1989,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.lock_outline,
-            size: 80,
-            color: Colors.grey[400],
-          ),
+          Icon(Icons.lock_outline, size: 80, color: Colors.grey[400]),
           const SizedBox(height: 20),
           const Text(
             'Sem permissão',
@@ -1779,10 +2005,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             child: Text(
               'Você não tem permissão para acessar nenhum card nesta sessão.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
+              style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
           ),
           const SizedBox(height: 20),
@@ -1809,29 +2032,29 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     // Filtrar apenas os cards que o usuário tem permissão
     final usuario = UsuarioAtual.instance;
     final cardsPermitidos = <Map<String, dynamic>>[];
-    
+
     for (var card in _filhosSessaoAtual) {
       final cardId = card['id']?.toString();
       final tipo = card['tipo']?.toString();
-      
+
       // Cards de transportadoras são sempre permitidos
       if (tipo == 'transportadoras') {
         cardsPermitidos.add(card);
         continue;
       }
-      
+
       // Se não tem usuário, não permite
       if (usuario == null) continue;
-      
+
       // Se não tem cardId, não permite
       if (cardId == null || cardId.isEmpty) continue;
-      
+
       // Cards de venda são permitidos automaticamente
       if (tipo == 'programacao_filial') {
         cardsPermitidos.add(card);
         continue;
       }
-      
+
       // Para os demais cards, verificar permissão normal
       try {
         if (usuario.podeAcessarCard(cardId)) {
@@ -1859,7 +2082,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   _filhoSelecionadoTipo = null;
                   _mostrarFilhosSessao = true;
                   _sessaoAtual = 'Circuito';
-                  _filhosSessaoAtual = List.from(_filhosPorSessao['Circuito'] ?? []);
+                  _filhosSessaoAtual = List.from(
+                    _filhosPorSessao['Circuito'] ?? [],
+                  );
                 });
               },
               onVoltar: () {
@@ -1879,7 +2104,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           break;
       }
     }
-    
+
     return _buildPaginaPadronizada(
       titulo: _sessaoAtual ?? '',
       conteudo: SingleChildScrollView(
@@ -1911,20 +2136,22 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               child: CircularProgressIndicator(color: Color(0xFF0D47A1)),
             )
           : empresas.isEmpty
-              ? const Center(
-                  child: Text(
-                    'Nenhuma empresa encontrada.',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                )
-              : GridView.count(
-                  crossAxisCount: 7,
-                  crossAxisSpacing: 15,
-                  mainAxisSpacing: 15,
-                  childAspectRatio: 1.1,
-                  padding: const EdgeInsets.only(bottom: 20),
-                  children: empresas.map((empresa) => _buildCardEmpresa(empresa)).toList(),
-                ),
+          ? const Center(
+              child: Text(
+                'Nenhuma empresa encontrada.',
+                style: TextStyle(color: Colors.grey),
+              ),
+            )
+          : GridView.count(
+              crossAxisCount: 7,
+              crossAxisSpacing: 15,
+              mainAxisSpacing: 15,
+              childAspectRatio: 1.1,
+              padding: const EdgeInsets.only(bottom: 20),
+              children: empresas
+                  .map((empresa) => _buildCardEmpresa(empresa))
+                  .toList(),
+            ),
       onVoltar: () => _mostrarFilhosDaSessao('Estoques'),
     );
   }
@@ -1937,20 +2164,23 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               child: CircularProgressIndicator(color: Color(0xFF0D47A1)),
             )
           : filiaisDaEmpresa.isEmpty
-              ? const Center(
-                  child: Text(
-                    'Nenhuma filial encontrada para esta empresa.',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                )
-              : GridView.count(
-                  crossAxisCount: 6, // REDUZIDO DE 7 PARA 6 PARA DAR MAIS ESPAÇO
-                  crossAxisSpacing: 18, // AUMENTADO DE 15 PARA 18
-                  mainAxisSpacing: 18, // AUMENTADO DE 15 PARA 18
-                  childAspectRatio: 1.0, // AUMENTADO DE 1.1 PARA 1.0 (MAIS QUADRADO)
-                  padding: const EdgeInsets.only(bottom: 20),
-                  children: filiaisDaEmpresa.map((filial) => _buildCardFilial(filial)).toList(),
-                ),
+          ? const Center(
+              child: Text(
+                'Nenhuma filial encontrada para esta empresa.',
+                style: TextStyle(color: Colors.grey),
+              ),
+            )
+          : GridView.count(
+              crossAxisCount: 6, // REDUZIDO DE 7 PARA 6 PARA DAR MAIS ESPAÇO
+              crossAxisSpacing: 18, // AUMENTADO DE 15 PARA 18
+              mainAxisSpacing: 18, // AUMENTADO DE 15 PARA 18
+              childAspectRatio:
+                  1.0, // AUMENTADO DE 1.1 PARA 1.0 (MAIS QUADRADO)
+              padding: const EdgeInsets.only(bottom: 20),
+              children: filiaisDaEmpresa
+                  .map((filial) => _buildCardFilial(filial))
+                  .toList(),
+            ),
       onVoltar: () {
         setState(() {
           _mostrarFiliaisDaEmpresa = false;
@@ -1965,7 +2195,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final usuario = UsuarioAtual.instance;
     final cardId = card['id']?.toString();
     final tipo = card['tipo']?.toString();
-    
+
     if (tipo != 'transportadoras' &&
         usuario != null &&
         cardId != null &&
@@ -1993,16 +2223,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  card['icon'],
-                  color: corSessao,
-                  size: 55,
-                ),
+                Icon(card['icon'], color: corSessao, size: 55),
                 const SizedBox(height: 10),
                 ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxHeight: 40,
-                  ),
+                  constraints: const BoxConstraints(maxHeight: 40),
                   child: Text(
                     card['label'] ?? '',
                     style: TextStyle(
@@ -2038,9 +2262,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               _empresaSelecionadaId = empresaId;
               _empresaSelecionadaNome = empresa['label'];
             });
-            
+
             await _carregarFiliaisDaEmpresa(_empresaSelecionadaId!);
-            
+
             setState(() {
               _mostrarEstoquePorEmpresa = false;
               _mostrarFiliaisDaEmpresa = true;
@@ -2101,14 +2325,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               _empresaParaFiltroId = _empresaSelecionadaId;
               _empresaParaFiltroNome = _empresaSelecionadaNome;
               _mostrarCardsFilial = false;
-              _mostrarFiltrosEstoque = true; // Navega diretamente para filtros de estoque
+              _mostrarFiltrosEstoque =
+                  true; // Navega diretamente para filtros de estoque
             });
           },
           hoverColor: _getCorPorSessao('Estoques').withOpacity(0.1),
           child: Container(
             padding: const EdgeInsets.all(18), // AUMENTADO DE 15 PARA 18
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300, width: 1.5), // AUMENTADO DE 1 PARA 1.5
+              border: Border.all(
+                color: Colors.grey.shade300,
+                width: 1.5,
+              ), // AUMENTADO DE 1 PARA 1.5
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -2121,7 +2349,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 ),
                 const SizedBox(height: 12), // AUMENTADO DE 10 PARA 12
                 ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 50), // AUMENTADO DE 40 PARA 50
+                  constraints: const BoxConstraints(
+                    maxHeight: 50,
+                  ), // AUMENTADO DE 40 PARA 50
                   child: Text(
                     filial['label'],
                     style: const TextStyle(
@@ -2245,31 +2475,36 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   void _navegarParaCardEstoques(String tipo) {
     final usuario = UsuarioAtual.instance;
-    
+
     switch (tipo) {
       case 'estoque_geral':
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => const EstoqueGeralPage(),
-          ),
+          MaterialPageRoute(builder: (_) => const EstoqueGeralPage()),
         );
         break;
-        
+
+      case 'compacto_final':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const CompactoFinalPage()),
+        );
+        break;
+
       case 'estoque_por_empresa':
         setState(() {
           _mostrarEstoquePorEmpresa = true;
           _carregarEmpresas();
         });
         break;
-        
+
       case 'movimentacao_por_empresa':
         setState(() {
           _mostrarEstoquePorEmpresa = true;
           _carregarEmpresas();
         });
         break;
-        
+
       case 'estoque_por_tanque':
         final usuario = UsuarioAtual.instance;
         if (usuario != null && usuario.nivel == 3) {
@@ -2286,12 +2521,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           });
         }
         break;
-        
+
       case 'movimentacoes':
       case 'movimentaces':
         // Validar se usuário tem filial OU terminal vinculado
         if (usuario == null) return;
-        
+
         // Para nível 1 e 2, usar terminal_id
         if (usuario.nivel == 1 || usuario.nivel == 2) {
           if (usuario.terminalId == null || usuario.terminalId!.isEmpty) {
@@ -2304,7 +2539,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             );
             return;
           }
-          
+
           setState(() {
             _terminalParaFiltroId = usuario.terminalId;
             _terminalParaFiltroNome = _usuarioTerminalNome ?? 'Seu Terminal';
@@ -2318,7 +2553,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           });
           return;
         }
-        
+
         // Para nível 3, usar filial_id
         if (usuario.nivel == 3) {
           if (usuario.filialId == null || usuario.filialId!.isEmpty) {
@@ -2331,7 +2566,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             );
             return;
           }
-          
+
           setState(() {
             _filialParaFiltroId = usuario.filialId;
             _filialParaFiltroNome = _usuarioFilialNome ?? 'Sua Filial';
@@ -2345,7 +2580,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           });
         }
         break;
-        
+
       case 'transferencias':
         Navigator.push(
           context,
@@ -2358,7 +2593,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
         );
         break;
-        
+
       default:
         debugPrint('Tipo de card de estoques não reconhecido: $tipo');
         break;
@@ -2386,8 +2621,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         break;
     }
   }
-// ...existing code...
-
+  // ...existing code...
 
   void _navegarParaCardGestaoFrota(String tipo) {
     switch (tipo) {
@@ -2399,7 +2633,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _mostrarMotoristas = false;
         });
         break;
-        
+
       case 'veiculos_terceiros':
       case 'transportadoras':
         setState(() {
@@ -2410,7 +2644,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _mostrarMotoristas = false;
         });
         break;
-        
+
       case 'motoristas':
         setState(() {
           _mostrarMotoristas = true;
@@ -2419,13 +2653,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _veiculoSelecionado = null;
         });
         break;
-        
+
       case 'documentacao':
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => const ControleDocumentosPage(),
-          ),
+          MaterialPageRoute(builder: (_) => const ControleDocumentosPage()),
         );
         break;
     }
@@ -2438,7 +2670,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         final filialNome = card['filial_nome'];
         final filialNomeDois = card['filial_nome_dois'];
         final terminalId = card['terminal_id']; // NOVO: pega o terminal_id
-        
+
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -2471,8 +2703,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         key: const ValueKey('usuarios'),
         onVoltar: () => setState(() => showUsuarios = false),
       );
-    }    
-      
+    }
+
     if (showControleAcesso) {
       return ControleAcessoUsuarios(
         key: const ValueKey('controle_acesso'),
@@ -2626,16 +2858,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.home,
-            size: 80,
-            color: Color(0xFF0D47A1),
-          ),
+          Icon(Icons.home, size: 80, color: Color(0xFF0D47A1)),
           SizedBox(height: 20),
           Text(
-            usuario != null 
-              ? 'Olá, ${usuario.nome}! Bem-vindo ao PowerTank!'
-              : 'Bem-vindo ao PowerTank!',
+            usuario != null
+                ? 'Olá, ${usuario.nome}! Bem-vindo ao PowerTank!'
+                : 'Bem-vindo ao PowerTank!',
             style: TextStyle(
               fontSize: 24,
               color: Color(0xFF0D47A1),
@@ -2660,7 +2888,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       ),
     );
   }
-  
+
   Widget _buildCardsFilialPage() {
     final cardsFilial = [
       {
@@ -2668,7 +2896,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'icon': Icons.swap_horiz,
         'label': 'Movimentações',
         'descricao': 'Consultar movimentações da filial',
-        'tipo': 'movimentacoes'
+        'tipo': 'movimentacoes',
       },
     ];
 
@@ -2694,10 +2922,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     child: InkWell(
                       onTap: () {
                         if (card['tipo'] == 'movimentacoes') {
-                          if (_filialParaFiltroId == null || _filialParaFiltroId!.isEmpty) {
+                          if (_filialParaFiltroId == null ||
+                              _filialParaFiltroId!.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Filial nao informada para movimentacoes.'),
+                                content: Text(
+                                  'Filial nao informada para movimentacoes.',
+                                ),
                                 backgroundColor: Colors.red,
                                 duration: Duration(seconds: 3),
                               ),
@@ -2781,34 +3012,35 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _mostrarFilhosDaSessao('Estoques');
         }
       },
-      onConsultarEstoque: ({
-        required String? filialId,
-        required String? terminalId,
-        required String nomeFilial,
-        String? empresaId,
-        DateTime? mesFiltro,
-        String? produtoFiltro,
-        required String tipoRelatorio,
-        required bool isIntraday,
-        DateTime? dataIntraday,
-      }) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => EstoqueMesPage(
-              filialId: filialId,
-              terminalId: terminalId,
-              nomeFilial: nomeFilial,
-              empresaId: empresaId,
-              mesFiltro: mesFiltro,
-              produtoFiltro: produtoFiltro,
-              tipoRelatorio: tipoRelatorio,
-              isIntraday: isIntraday,
-              dataIntraday: dataIntraday,
-            ),
-          ),
-        );
-      },
+      onConsultarEstoque:
+          ({
+            required String? filialId,
+            required String? terminalId,
+            required String nomeFilial,
+            String? empresaId,
+            DateTime? mesFiltro,
+            String? produtoFiltro,
+            required String tipoRelatorio,
+            required bool isIntraday,
+            DateTime? dataIntraday,
+          }) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => EstoqueMesPage(
+                  filialId: filialId,
+                  terminalId: terminalId,
+                  nomeFilial: nomeFilial,
+                  empresaId: empresaId,
+                  mesFiltro: mesFiltro,
+                  produtoFiltro: produtoFiltro,
+                  tipoRelatorio: tipoRelatorio,
+                  isIntraday: isIntraday,
+                  dataIntraday: dataIntraday,
+                ),
+              ),
+            );
+          },
     );
   }
 
@@ -2823,10 +3055,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       'Segurança & Compliance': 'Segurança &\nCompliance',
       'Configurações': 'Configurações', // Mantém igual (opcional)
     };
-    
+
     return quebras[nomeOriginal] ?? nomeOriginal;
   }
-
 }
 
 /// Widget para exibir cards de uma sessão específica
@@ -2834,7 +3065,7 @@ class HomeCards extends StatelessWidget {
   final String menuSelecionado;
   final void Function(BuildContext context, String tipo) onCardSelecionado;
   final Function() onVoltar;
-  
+
   const HomeCards({
     super.key,
     required this.menuSelecionado,
@@ -2871,9 +3102,7 @@ class HomeCards extends StatelessWidget {
           const Divider(color: Colors.grey),
           const SizedBox(height: 20),
 
-          Expanded(
-            child: _buildCardsConteudo(context),
-          ),
+          Expanded(child: _buildCardsConteudo(context)),
         ],
       ),
     );
@@ -2908,7 +3137,7 @@ class HomeCards extends StatelessWidget {
         'icone': Icons.architecture,
         'cor': const Color(0xFF0D47A1),
         'tipo': 'grande_arquiteto',
-      },      
+      },
     ];
 
     return GridView.count(
@@ -2960,10 +3189,7 @@ class HomeCards extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Text(
                     card['descricao'],
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey,
-                    ),
+                    style: const TextStyle(fontSize: 10, color: Colors.grey),
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
