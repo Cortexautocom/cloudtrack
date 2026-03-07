@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
 import 'emitir_cacl.dart';
 import 'cacl_historico.dart';
 import 'estoque_tanque.dart';
+import 'estoque_tanque_mensal.dart';
 import 'editar_cacl.dart';
 
 class GerenciamentoTanquesPage extends StatefulWidget {
   final VoidCallback onVoltar;
-  final String? filialSelecionadaId; // ← NOVO PARÂMETRO
-  final Function(String filialId)? onAbrirCACL; // ← CALLBACK PARA ABRIR CACL
+  final String? filialSelecionadaId;
+  final Function(String filialId)? onAbrirCACL;
 
   const GerenciamentoTanquesPage({
     super.key, 
     required this.onVoltar,
-    this.filialSelecionadaId, // ← NOVO PARÂMETRO
-    this.onAbrirCACL, // ← CALLBACK PARA ABRIR CACL
+    this.filialSelecionadaId,
+    this.onAbrirCACL,
   });
 
   @override
@@ -34,10 +36,10 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
   List<Map<String, dynamic>> produtos = [];
   bool _carregando = true;
   bool _editando = false;
-  bool _mostrandoCardsAcoes = false; // ← NOVO: MOSTRA CARDS DE AÇÕES
+  bool _mostrandoCardsAcoes = false;
   Map<String, dynamic>? _tanqueEditando;
-  Map<String, dynamic>? _tanqueSelecionadoParaAcoes; // ← NOVO: TANQUE PARA CARDS DE AÇÕES
-  String? _nomeFilial; // ← PARA MOSTRAR O NOME DA FILIAL
+  Map<String, dynamic>? _tanqueSelecionadoParaAcoes;
+  String? _nomeFilial;
   bool _carregandoCacls = false;
   List<Map<String, dynamic>> _caclesTanque = [];
   int? _hoverCaclIndex;
@@ -46,11 +48,10 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
   String? _estoqueTanqueReferencia;
   String? _estoqueFilialId;
   String? _estoqueNomeFilial;
-  bool _filialEmiteCacl = false; // indica se a filial permite emitir CACL mov
+  bool _filialEmiteCacl = false;
 
   final List<String> _statusOptions = ['Em operação', 'Operação suspensa'];
   
-  // Controladores para o formulário de edição
   final TextEditingController _referenciaController = TextEditingController();
   final TextEditingController _capacidadeController = TextEditingController();
   final TextEditingController _lastroController = TextEditingController();
@@ -76,7 +77,6 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       final supabase = Supabase.instance.client;
       final usuario = UsuarioAtual.instance!;
 
-      // Carrega produtos
       final produtosResponse = await supabase
           .from('produtos')
           .select('id, nome')
@@ -86,13 +86,9 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
         produtos = List<Map<String, dynamic>>.from(produtosResponse);
       });
 
-      // ---------------------------
-      //   DETERMINAR O TERMINAL A SER USADO
-      // ---------------------------
       String? terminalId;
       String? nomeTerminal;
 
-      // Prioridade 1: Se foi passado um terminal_id explicitamente (via filialSelecionadaId)
       if (widget.filialSelecionadaId != null) {
         terminalId = widget.filialSelecionadaId!;
         try {
@@ -108,11 +104,9 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
           nomeTerminal = null;
         }
       }
-      // Prioridade 2: Se não veio seleção explícita, usa o terminal do usuário
       else if (usuario.terminalId != null) {
         terminalId = usuario.terminalId;
         
-        // Busca o nome do terminal
         try {
           final terminalData = await supabase
               .from('terminais')
@@ -127,18 +121,16 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
         }
       }
 
-      // Se não temos terminalId, não podemos buscar tanques
       if (terminalId == null) {
         print("ERRO: Não foi possível determinar o terminal para buscar tanques");
         setState(() {
           _carregando = false;
           tanques = [];
-          _nomeFilial = null; // Na verdade deveria ser _nomeTerminal
+          _nomeFilial = null;
         });
         return;
       }
 
-      // Carrega tanques usando o terminal_id
       final query = supabase
           .from('tanques')
           .select('''
@@ -156,7 +148,6 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
 
       final tanquesResponse = await query;
 
-      // Verifica se a filial do usuário permite emitir CACL
       bool filialEmite = false;
       final String? usuarioFilialId = usuario.filialId;
       if (usuarioFilialId != null) {
@@ -202,7 +193,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       setState(() {
         tanques = tanquesFormatados;
         _carregando = false;
-        _nomeFilial = nomeTerminal; // Renomear a variável para _nomeTerminal seria melhor
+        _nomeFilial = nomeTerminal;
         _filialEmiteCacl = filialEmite;
       });
     } catch (e) {
@@ -220,7 +211,6 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       _tanqueEditando = tanque;
       _referenciaController.text = tanque['referencia'];
       
-      // Formata a capacidade igual ao campo Lastro
       final capacidade = tanque['capacidade'];
       if (capacidade != null && capacidade.isNotEmpty) {
         _capacidadeController.text = _formatarMilhar(capacidade);
@@ -243,7 +233,6 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       _lastroController.clear();
       _produtoSelecionado = null;
       _statusSelecionado = null;
-      // Volta para os cards de ações
       _mostrandoCardsAcoes = true;
     });
   }
@@ -288,14 +277,12 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
           .order('created_at', ascending: false);
 
       if (mounted) {
-        // Filtrar no lado do cliente
         final caclesFiltrados = List<Map<String, dynamic>>.from(response).where((cacl) {
           final status = cacl['status']?.toString().toLowerCase();
           final dataCacl = cacl['data'] != null 
               ? DateTime.parse(cacl['data'].toString())
               : null;
           
-          // Manter se for pendente OU se for do dia atual
           if (status == 'pendente') {
             return true;
           }
@@ -340,17 +327,15 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
 
       String horaFmt = '';
       if (horarioInicial != null) {
-        // se vier "18:00" ok, se vier timestamp, extrai só HH:mm
         final h = horarioInicial.toString();
         if (h.contains('T')) {
           final dh = DateTime.parse(h);
           horaFmt =
               '${dh.hour.toString().padLeft(2, '0')}:${dh.minute.toString().padLeft(2, '0')}';
         } else {
-          horaFmt = h.substring(0, 5); // garante HH:mm
+          horaFmt = h.substring(0, 5);
         }
       } else {
-        // fallback: usa a hora do próprio campo data (timestamp)
         horaFmt =
             '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
       }
@@ -457,7 +442,6 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       await _carregarDados();
     }
     
-    // Recarrega a lista de CACLs do tanque quando volta
     if (tanqueId != null && tanqueId.isNotEmpty) {
       await _carregarCaclsDoTanque(tanqueId);
     }
@@ -486,7 +470,9 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       return;
     }
 
-    final filialId = _tanqueSelecionadoParaAcoes?['id_filial']?.toString() ?? widget.filialSelecionadaId ?? usuario.filialId;
+    final filialId = _tanqueSelecionadoParaAcoes?['id_filial']?.toString() ?? 
+                     widget.filialSelecionadaId ?? 
+                     usuario.filialId;
     if (filialId == null || filialId.isEmpty) {
       return;
     }
@@ -495,13 +481,26 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
         _nomeFilial ??
         '';
 
-    setState(() {
-      _estoqueTanqueId = tanqueId;
-      _estoqueTanqueReferencia = referencia ?? 'Tanque';
-      _estoqueFilialId = filialId;
-      _estoqueNomeFilial = nomeFilial;
-      _mostrandoEstoqueTanque = true;
-    });
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _SelecaoTipoVisualizacaoBottomSheet(
+        tanqueId: tanqueId,
+        referenciaTanque: referencia ?? 'Tanque',
+        filialId: filialId,
+        nomeFilial: nomeFilial,
+        onVoltar: () {
+          setState(() {
+            _mostrandoEstoqueTanque = false;
+          });
+          _carregarDados();
+          if (tanqueId.isNotEmpty) {
+            _carregarCaclsDoTanque(tanqueId);
+          }
+        },
+      ),
+    );
   }
 
   void _voltarDoEstoqueTanque() {
@@ -517,7 +516,6 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
     }
   }
 
-  // Função para aplicar máscara no campo capacidade
   void _aplicarMascaraCapacidade(String valor) {
     final digitsOnly = valor.replaceAll(RegExp(r'[^\d]'), '');
     if (digitsOnly.isEmpty) {
@@ -550,7 +548,6 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
   }
 
   Future<void> _salvarTanque() async {
-    // Validação do valor mínimo
     final capacidadeTexto = _capacidadeController.text.trim();
     final valorNumerico = int.tryParse(capacidadeTexto.replaceAll('.', '')) ?? 0;
     final lastroTexto = _lastroController.text.trim();
@@ -574,13 +571,10 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       final supabase = Supabase.instance.client;
       final usuario = UsuarioAtual.instance!;
       
-      // Determinar id_filial para o tanque
       String? idFilial;
       if (usuario.nivel == 3) {
-        // Admin usa a filial selecionada
         idFilial = widget.filialSelecionadaId;
       } else {
-        // Usuário normal usa sua própria filial
         idFilial = usuario.filialId;
       }
 
@@ -602,27 +596,20 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
         'lastro': lastroValor,
         'status': _statusSelecionado,
         'id_produto': _produtoSelecionado,
-        'id_filial': idFilial, // ← Sempre definir a filial
+        'id_filial': idFilial,
       };
 
       if (_tanqueEditando != null) {
-        // Atualizar tanque existente
         await supabase
             .from('tanques')
             .update(dadosAtualizados)
             .eq('id', _tanqueEditando!['id']);
-      } else {
-        // Criar novo tanque (se implementar criação futura)
-        // await supabase.from('tanques').insert(dadosAtualizados);
       }
 
-      // Recarrega os dados
       await _carregarDados();
       
-      // Volta para a lista
       _cancelarEdicao();
 
-      // Mostra mensagem de sucesso
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -682,7 +669,6 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
             backgroundColor: Colors.white,
             body: Column(
               children: [
-          // Cabeçalho
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -731,7 +717,6 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
             ]),
           ),
 
-          // Conteúdo
           Expanded(
             child: _editando 
                 ? _buildFormularioEdicao()
@@ -816,7 +801,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
           const SizedBox(height: 14),
           Expanded(
             child: ListView.separated(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               itemCount: tanques.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
@@ -1077,387 +1062,388 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
   }
 
   Widget _buildCardsAcoesDoTanque() {
-  return Padding(
-    padding: const EdgeInsets.fromLTRB(60, 18, 60, 16),
-    child: SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (_tanqueSelecionadoParaAcoes != null) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: _line, width: 1.2),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: _accent.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _accent.withOpacity(0.2)),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(60, 18, 60, 16),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_tanqueSelecionadoParaAcoes != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _line, width: 1.2),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: _accent.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _accent.withOpacity(0.2)),
+                      ),
+                      child: const Icon(Icons.storage, color: _accent, size: 22),
                     ),
-                    child: const Icon(Icons.storage, color: _accent, size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _tanqueSelecionadoParaAcoes!['referencia'] ?? 'Tanque',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: _ink,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _tanqueSelecionadoParaAcoes!['referencia'] ?? 'Tanque',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: _ink,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _tanqueSelecionadoParaAcoes!['produto'] ?? 'Produto',
-                          style: const TextStyle(fontSize: 12, color: _muted),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildCardAcao(
-                    icon: Icons.analytics,
-                    titulo: 'CACL Movimentação',
-                    descricao: 'Emitir CACL Movimentação',
-                    onTap: _abrirCACL,
-                    enabled: _filialEmiteCacl,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildCardAcao(
-                    icon: Icons.inventory_2,
-                    titulo: 'Movimentação tanque',
-                    descricao: 'Consultar movimentação do tanque',
-                    onTap: _abrirEstoqueTanque,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildCardAcao(
-                    icon: Icons.edit,
-                    titulo: 'Editar Tanque',
-                    descricao: 'Atualizar dados do tanque',
-                    onTap: _abrirEdicaoTanque,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _line, width: 1.2),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.receipt_long_outlined, size: 18, color: _accent),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'CACLs emitidos do tanque',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: _ink,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.refresh, size: 18, color: _accent),
-                    onPressed: _tanqueSelecionadoParaAcoes?['id'] == null
-                        ? null
-                        : () {
-                            final tanqueId =
-                                _tanqueSelecionadoParaAcoes?['id']?.toString();
-                            if (tanqueId != null && tanqueId.isNotEmpty) {
-                              _carregarCaclsDoTanque(tanqueId);
-                            }
-                          },
-                    tooltip: 'Recarregar CACLs',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (_carregandoCacls)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: CircularProgressIndicator(color: _accent),
-                ),
-              )
-            else if (_caclesTanque.isEmpty)
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.receipt_long_outlined, size: 52, color: _muted),
-                    SizedBox(height: 10),
-                    Text(
-                      'Nenhum CACL encontrado para este tanque',
-                      style: TextStyle(fontSize: 14, color: _muted),
+                          const SizedBox(height: 4),
+                          Text(
+                            _tanqueSelecionadoParaAcoes!['produto'] ?? 'Produto',
+                            style: const TextStyle(fontSize: 12, color: _muted),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-              )
-            else
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _caclesTanque.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (context, index) {
-                  final cacl = _caclesTanque[index];
-                  final status = cacl['status']?.toString();
-                  final solicitaCanc = cacl['solicita_canc'] as bool?;
-                  final isCancelado = status?.toLowerCase() == 'cancelado';
-                  final statusColor = _getStatusColor(status);
-                  final cardColor = _getCardColor(status, solicitaCanc);
-                  final borderColor = _getBorderColor(status, solicitaCanc);
-                  final statusText = _getStatusText(status);
-                  final tanqueRef =
-                      cacl['tanques']?['referencia']?.toString() ?? '-';
-                  final produto = cacl['produto'] ?? 'Produto não informado';
-
-                  final inicio =
-                      _formatarInicio(cacl['data'], cacl['horario_inicial']);
-
-                  return Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: SizedBox(
-                        width: 1300,
-                        child: MouseRegion(
-                          cursor: SystemMouseCursors.click,
-                          onEnter: (_) =>
-                              setState(() => _hoverCaclIndex = index),
-                          onExit: (_) =>
-                              setState(() => _hoverCaclIndex = null),
-                          child: GestureDetector(
-                            onTap: () async {
-                              final nivelUsuario =
-                                  UsuarioAtual.instance?.nivel ?? 0;
-                              if (nivelUsuario == 2 && isCancelado) return;
-
-                              final caclId = cacl['id'].toString();
-                              final isPendente =
-                                  status?.toLowerCase() == 'pendente';
-                              final isAguardando =
-                                  status?.toLowerCase() == 'aguardando';
-
-                              if (!context.mounted) return;
-
-                              if (isPendente || isAguardando) {
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => EditarCaclPage(
-                                      caclId: caclId,
-                                      onVoltar: () =>
-                                          Navigator.pop(context),
-                                    ),
-                                  ),
-                                );
-                              } else {
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => CaclHistoricoPage(
-                                      caclId: caclId,
-                                      onVoltar: () =>
-                                          Navigator.pop(context),
-                                    ),
-                                  ),
-                                );
-                              }
-
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildCardAcao(
+                      icon: Icons.analytics,
+                      titulo: 'CACL Movimentação',
+                      descricao: 'Emitir CACL Movimentação',
+                      onTap: _abrirCACL,
+                      enabled: _filialEmiteCacl,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildCardAcao(
+                      icon: Icons.inventory_2,
+                      titulo: 'Movimentação tanque',
+                      descricao: 'Consultar movimentação do tanque',
+                      onTap: _abrirEstoqueTanque,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildCardAcao(
+                      icon: Icons.edit,
+                      titulo: 'Editar Tanque',
+                      descricao: 'Atualizar dados do tanque',
+                      onTap: _abrirEdicaoTanque,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _line, width: 1.2),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.receipt_long_outlined, size: 18, color: _accent),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'CACLs emitidos do tanque',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: _ink,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.refresh, size: 18, color: _accent),
+                      onPressed: _tanqueSelecionadoParaAcoes?['id'] == null
+                          ? null
+                          : () {
                               final tanqueId =
-                                  _tanqueSelecionadoParaAcoes?['id']
-                                      ?.toString();
+                                  _tanqueSelecionadoParaAcoes?['id']?.toString();
                               if (tanqueId != null && tanqueId.isNotEmpty) {
                                 _carregarCaclsDoTanque(tanqueId);
                               }
                             },
-                            child: Opacity(
-                              opacity: isCancelado ? 0.85 : 1.0,
-                              child: AnimatedContainer(
-                                duration:
-                                    const Duration(milliseconds: 180),
-                                curve: Curves.easeOut,
-                                transform: _hoverCaclIndex == index
-                                    ? (Matrix4.identity()
-                                      ..scale(1.01, 1.01))
-                                    : Matrix4.identity(),
-                                decoration: BoxDecoration(
-                                  color: _hoverCaclIndex == index
-                                      ? cardColor.withOpacity(0.85)
-                                      : cardColor,
-                                  borderRadius:
-                                      BorderRadius.circular(12),
-                                  border: Border.all(
-                                      color: borderColor, width: 1.5),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(
-                                        _hoverCaclIndex == index
-                                            ? 0.15
-                                            : 0.05,
+                      tooltip: 'Recarregar CACLs',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (_carregandoCacls)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: CircularProgressIndicator(color: _accent),
+                  ),
+                )
+              else if (_caclesTanque.isEmpty)
+                Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.receipt_long_outlined, size: 52, color: _muted),
+                      SizedBox(height: 10),
+                      Text(
+                        'Nenhum CACL encontrado para este tanque',
+                        style: TextStyle(fontSize: 14, color: _muted),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _caclesTanque.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final cacl = _caclesTanque[index];
+                    final status = cacl['status']?.toString();
+                    final solicitaCanc = cacl['solicita_canc'] as bool?;
+                    final isCancelado = status?.toLowerCase() == 'cancelado';
+                    final statusColor = _getStatusColor(status);
+                    final cardColor = _getCardColor(status, solicitaCanc);
+                    final borderColor = _getBorderColor(status, solicitaCanc);
+                    final statusText = _getStatusText(status);
+                    final tanqueRef =
+                        cacl['tanques']?['referencia']?.toString() ?? '-';
+                    final produto = cacl['produto'] ?? 'Produto não informado';
+
+                    final inicio =
+                        _formatarInicio(cacl['data'], cacl['horario_inicial']);
+
+                    return Padding(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: SizedBox(
+                          width: 1300,
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            onEnter: (_) =>
+                                setState(() => _hoverCaclIndex = index),
+                            onExit: (_) =>
+                                setState(() => _hoverCaclIndex = null),
+                            child: GestureDetector(
+                              onTap: () async {
+                                final nivelUsuario =
+                                    UsuarioAtual.instance?.nivel ?? 0;
+                                if (nivelUsuario == 2 && isCancelado) return;
+
+                                final caclId = cacl['id'].toString();
+                                final isPendente =
+                                    status?.toLowerCase() == 'pendente';
+                                final isAguardando =
+                                    status?.toLowerCase() == 'aguardando';
+
+                                if (!context.mounted) return;
+
+                                if (isPendente || isAguardando) {
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => EditarCaclPage(
+                                        caclId: caclId,
+                                        onVoltar: () =>
+                                            Navigator.pop(context),
                                       ),
-                                      blurRadius: _hoverCaclIndex == index
-                                          ? 12
-                                          : 4,
-                                      offset: const Offset(0, 4),
                                     ),
-                                  ],
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        width: 4,
-                                        height: 60,
-                                        decoration: BoxDecoration(
-                                          color: statusColor,
-                                          borderRadius:
-                                              BorderRadius.circular(2),
-                                        ),
+                                  );
+                                } else {
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => CaclHistoricoPage(
+                                        caclId: caclId,
+                                        onVoltar: () =>
+                                            Navigator.pop(context),
                                       ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                const Icon(Icons.storage,
-                                                    size: 16,
-                                                    color:
-                                                        Colors.black54),
-                                                const SizedBox(width: 6),
-                                                Text(
-                                                  'Tanque $tanqueRef',
-                                                  style: TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight:
-                                                        FontWeight.bold,
-                                                    color: isCancelado
-                                                        ? Colors.grey
-                                                        : Colors.black87,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.local_gas_station,
-                                                  size: 14,
-                                                  color: isCancelado
-                                                      ? Colors.grey
-                                                      : Colors.black54,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Expanded(
-                                                  child: Text(
-                                                    produto,
+                                    ),
+                                  );
+                                }
+
+                                final tanqueId =
+                                    _tanqueSelecionadoParaAcoes?['id']
+                                        ?.toString();
+                                if (tanqueId != null && tanqueId.isNotEmpty) {
+                                  _carregarCaclsDoTanque(tanqueId);
+                                }
+                              },
+                              child: Opacity(
+                                opacity: isCancelado ? 0.85 : 1.0,
+                                child: AnimatedContainer(
+                                  duration:
+                                      const Duration(milliseconds: 180),
+                                  curve: Curves.easeOut,
+                                  transform: _hoverCaclIndex == index
+                                      ? (Matrix4.identity()
+                                        ..scale(1.01, 1.01))
+                                      : Matrix4.identity(),
+                                  decoration: BoxDecoration(
+                                    color: _hoverCaclIndex == index
+                                        ? cardColor.withOpacity(0.85)
+                                        : cardColor,
+                                    borderRadius:
+                                        BorderRadius.circular(12),
+                                    border: Border.all(
+                                        color: borderColor, width: 1.5),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(
+                                          _hoverCaclIndex == index
+                                              ? 0.15
+                                              : 0.05,
+                                        ),
+                                        blurRadius: _hoverCaclIndex == index
+                                            ? 12
+                                            : 4,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Container(
+                                          width: 4,
+                                          height: 60,
+                                          decoration: BoxDecoration(
+                                            color: statusColor,
+                                            borderRadius:
+                                                BorderRadius.circular(2),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  const Icon(Icons.storage,
+                                                      size: 16,
+                                                      color:
+                                                          Colors.black54),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    'Tanque $tanqueRef',
                                                     style: TextStyle(
-                                                      fontSize: 14,
+                                                      fontSize: 16,
+                                                      fontWeight:
+                                                          FontWeight.bold,
                                                       color: isCancelado
                                                           ? Colors.grey
                                                           : Colors.black87,
                                                     ),
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
                                                   ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.play_circle_outline,
-                                                  size: 14,
-                                                  color: isCancelado
-                                                      ? Colors.grey
-                                                      : Colors.black54,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Expanded(
-                                                  child: Text(
-                                                    inicio,
-                                                    style: TextStyle(
-                                                      fontSize: 13,
-                                                      color: isCancelado
-                                                          ? Colors.grey
-                                                          : Colors.black54,
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.local_gas_station,
+                                                    size: 14,
+                                                    color: isCancelado
+                                                        ? Colors.grey
+                                                        : Colors.black54,
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Expanded(
+                                                    child: Text(
+                                                      produto,
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        color: isCancelado
+                                                            ? Colors.grey
+                                                            : Colors.black87,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                     ),
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
                                                   ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.play_circle_outline,
+                                                    size: 14,
+                                                    color: isCancelado
+                                                        ? Colors.grey
+                                                        : Colors.black54,
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Expanded(
+                                                    child: Text(
+                                                      inicio,
+                                                      style: TextStyle(
+                                                        fontSize: 13,
+                                                        color: isCancelado
+                                                            ? Colors.grey
+                                                            : Colors.black54,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.end,
+                                          children: [
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: statusColor
+                                                    .withOpacity(0.15),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                statusText,
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight:
+                                                      FontWeight.w600,
+                                                  color: statusColor,
                                                 ),
-                                              ],
+                                              ),
                                             ),
                                           ],
                                         ),
-                                      ),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.end,
-                                        children: [
-                                          Container(
-                                            padding:
-                                                const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: statusColor
-                                                  .withOpacity(0.15),
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              statusText,
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight:
-                                                    FontWeight.w600,
-                                                color: statusColor,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1465,16 +1451,15 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
+                    );
+                  },
+                ),
+            ],
           ],
-        ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildCardAcao({
     required IconData icon,
@@ -1541,7 +1526,6 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       ),
     );
   }
-
 }
 
 class _TanqueCard extends StatefulWidget {
@@ -1621,11 +1605,9 @@ class _TanqueCardState extends State<_TanqueCard> {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  // Informações em linha única
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Lastro (se existir)
                       if (widget.tanque['lastro'] != null &&
                           widget.tanque['lastro'].toString().trim().isNotEmpty)
                         Container(
@@ -1647,7 +1629,6 @@ class _TanqueCardState extends State<_TanqueCard> {
                       if (widget.tanque['lastro'] != null &&
                           widget.tanque['lastro'].toString().trim().isNotEmpty)
                         const SizedBox(width: 8),
-                      // Capacidade
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
@@ -1665,7 +1646,6 @@ class _TanqueCardState extends State<_TanqueCard> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      // Status
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
@@ -1691,6 +1671,406 @@ class _TanqueCardState extends State<_TanqueCard> {
         ),
       ),
     );
+  }
+}
+
+class _SelecaoTipoVisualizacaoBottomSheet extends StatefulWidget {
+  final String tanqueId;
+  final String referenciaTanque;
+  final String filialId;
+  final String nomeFilial;
+  final VoidCallback onVoltar;
+
+  const _SelecaoTipoVisualizacaoBottomSheet({
+    required this.tanqueId,
+    required this.referenciaTanque,
+    required this.filialId,
+    required this.nomeFilial,
+    required this.onVoltar,
+  });
+
+  @override
+  State<_SelecaoTipoVisualizacaoBottomSheet> createState() => _SelecaoTipoVisualizacaoBottomSheetState();
+}
+
+class _SelecaoTipoVisualizacaoBottomSheetState extends State<_SelecaoTipoVisualizacaoBottomSheet> {
+  bool _tipoDataEspecifica = true;
+  bool _tipoMensal = false;
+  
+  DateTime _dataSelecionada = DateTime.now();
+  int _mesSelecionado = DateTime.now().month;
+  int _anoSelecionado = DateTime.now().year;
+  
+  final TextEditingController _dataController = TextEditingController();
+  final TextEditingController _mesAnoController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _atualizarDataController();
+    _atualizarMesAnoController();
+  }
+
+  void _atualizarDataController() {
+    _dataController.text = DateFormat('dd/MM/yyyy').format(_dataSelecionada);
+  }
+
+  void _atualizarMesAnoController() {
+    _mesAnoController.text = '${_mesSelecionado.toString().padLeft(2, '0')}/${_anoSelecionado}';
+  }
+
+  Future<void> _selecionarData() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _dataSelecionada,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF0D47A1),
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _dataSelecionada = picked;
+        _tipoDataEspecifica = true;
+        _tipoMensal = false;
+        _atualizarDataController();
+      });
+    }
+  }
+
+  String _getNomeMes(int mes) {
+    const meses = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    return meses[mes - 1];
+  }
+
+  Future<void> _selecionarMesAno() async {
+    int tempMes = _mesSelecionado;
+    int tempAno = _anoSelecionado;
+
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Selecionar Mês/Ano'),
+              content: SizedBox(
+                width: 300,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            value: tempMes,
+                            decoration: const InputDecoration(
+                              labelText: 'Mês',
+                              border: OutlineInputBorder(),
+                            ),
+                            items: List.generate(12, (index) {
+                              final mes = index + 1;
+                              return DropdownMenuItem(
+                                value: mes,
+                                child: Text(_getNomeMes(mes)),
+                              );
+                            }),
+                            onChanged: (value) {
+                              if (value != null) {
+                                setStateDialog(() {
+                                  tempMes = value;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextFormField(
+                            initialValue: tempAno.toString(),
+                            decoration: const InputDecoration(
+                              labelText: 'Ano',
+                              border: OutlineInputBorder(),
+                            ),
+                            keyboardType: TextInputType.number,
+                            onChanged: (value) {
+                              final ano = int.tryParse(value);
+                              if (ano != null && ano >= 2000 && ano <= 2100) {
+                                setStateDialog(() {
+                                  tempAno = ano;
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _mesSelecionado = tempMes;
+                      _anoSelecionado = tempAno;
+                      _tipoMensal = true;
+                      _tipoDataEspecifica = false;
+                      _atualizarMesAnoController();
+                    });
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0D47A1),
+                  ),
+                  child: const Text('Confirmar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _visualizar() {
+    if (!_tipoDataEspecifica && !_tipoMensal) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecione um tipo de visualização'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    Navigator.pop(context);
+
+    if (_tipoDataEspecifica) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => EstoqueTanquePage(
+            tanqueId: widget.tanqueId,
+            referenciaTanque: widget.referenciaTanque,
+            filialId: widget.filialId,
+            nomeFilial: widget.nomeFilial,
+            data: _dataSelecionada,
+            onVoltar: widget.onVoltar,
+          ),
+        ),
+      );
+    } else {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => EstoqueTanqueMensalPage(
+            tanqueId: widget.tanqueId,
+            referenciaTanque: widget.referenciaTanque,
+            filialId: widget.filialId,
+            nomeFilial: widget.nomeFilial,
+            mes: _mesSelecionado,
+            ano: _anoSelecionado,
+            onVoltar: widget.onVoltar,
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Center(
+            child: Text(
+              'Selecionar Período',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0D47A1),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          
+          InkWell(
+            onTap: _selecionarData,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: _tipoDataEspecifica 
+                      ? const Color(0xFF0D47A1) 
+                      : Colors.grey.shade300,
+                  width: _tipoDataEspecifica ? 2 : 1,
+                ),
+                borderRadius: BorderRadius.circular(8),
+                color: _tipoDataEspecifica 
+                    ? const Color(0xFF0D47A1).withOpacity(0.05)
+                    : Colors.white,
+              ),
+              child: Row(
+                children: [
+                  Radio<bool>(
+                    value: true,
+                    groupValue: _tipoDataEspecifica,
+                    onChanged: (value) {
+                      setState(() {
+                        _tipoDataEspecifica = true;
+                        _tipoMensal = false;
+                      });
+                    },
+                    activeColor: const Color(0xFF0D47A1),
+                  ),
+                  const Expanded(
+                    child: Text(
+                      'Data específica',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade400),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      _dataController.text,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 12),
+          
+          InkWell(
+            onTap: _selecionarMesAno,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: _tipoMensal 
+                      ? const Color(0xFF0D47A1) 
+                      : Colors.grey.shade300,
+                  width: _tipoMensal ? 2 : 1,
+                ),
+                borderRadius: BorderRadius.circular(8),
+                color: _tipoMensal 
+                    ? const Color(0xFF0D47A1).withOpacity(0.05)
+                    : Colors.white,
+              ),
+              child: Row(
+                children: [
+                  Radio<bool>(
+                    value: true,
+                    groupValue: _tipoMensal,
+                    onChanged: (value) {
+                      setState(() {
+                        _tipoMensal = true;
+                        _tipoDataEspecifica = false;
+                      });
+                    },
+                    activeColor: const Color(0xFF0D47A1),
+                  ),
+                  const Expanded(
+                    child: Text(
+                      'Estoque mensal',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade400),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      _mesAnoController.text,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 24),
+          
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    side: const BorderSide(color: Color(0xFF0D47A1)),
+                    foregroundColor: const Color(0xFF0D47A1),
+                  ),
+                  child: const Text('Voltar'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _visualizar,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: const Color(0xFF0D47A1),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Visualizar'),
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _dataController.dispose();
+    _mesAnoController.dispose();
+    super.dispose();
   }
 }
 

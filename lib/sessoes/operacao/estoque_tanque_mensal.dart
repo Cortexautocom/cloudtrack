@@ -1,0 +1,883 @@
+import 'dart:convert';
+import 'dart:html' as html;
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class EstoqueTanqueMensalPage extends StatefulWidget {
+  final String tanqueId;
+  final String referenciaTanque;
+  final String filialId;
+  final String nomeFilial;
+  final int mes;
+  final int ano;
+  final VoidCallback? onVoltar;
+
+  const EstoqueTanqueMensalPage({
+    super.key,
+    required this.tanqueId,
+    required this.referenciaTanque,
+    required this.filialId,
+    required this.nomeFilial,
+    required this.mes,
+    required this.ano,
+    this.onVoltar,
+  });
+
+  @override
+  State<EstoqueTanqueMensalPage> createState() => _EstoqueTanqueMensalPageState();
+}
+
+class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
+  final SupabaseClient _supabase = Supabase.instance.client;
+
+  bool _carregando = true;
+  bool _erro = false;
+  bool _baixandoExcel = false;
+  String _mensagemErro = '';
+
+  List<Map<String, dynamic>> _movs = [];
+  List<Map<String, dynamic>> _movsOrdenadas = [];
+
+  Map<String, num?> _estoqueInicial = {'amb': 0, 'vinte': 0};
+  Map<String, num?> _estoqueFinal = {'amb': null, 'vinte': null};
+
+  num _totalEntradas = 0;
+  num _totalSaidas = 0;
+  num _totalSobraPerda = 0;
+  String? _produtoNome;
+
+  late DateTime _inicioMes;
+  late DateTime _fimMes;
+
+  final ScrollController _vertical = ScrollController();
+  final ScrollController _hHeader = ScrollController();
+  final ScrollController _hBody = ScrollController();
+
+  static const double _hCab = 40;
+  static const double _hRow = 40;
+  static const double _hFoot = 32;
+
+  static const double _wData = 120;
+  static const double _wDesc = 240;
+  static const double _wNum = 130;
+
+  double get _wTable => _wData + _wDesc + (_wNum * 6);
+
+  String _coluna = 'data_mov';
+  bool _asc = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _inicioMes = DateTime(widget.ano, widget.mes, 1);
+    _fimMes = DateTime(widget.ano, widget.mes + 1, 0, 23, 59, 59);
+    _syncScroll();
+    _carregar();
+  }
+
+  void _syncScroll() {
+    _hHeader.addListener(() {
+      if (_hBody.hasClients && _hBody.offset != _hHeader.offset) {
+        _hBody.jumpTo(_hHeader.offset);
+      }
+    });
+    _hBody.addListener(() {
+      if (_hHeader.hasClients && _hHeader.offset != _hBody.offset) {
+        _hHeader.jumpTo(_hBody.offset);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _vertical.dispose();
+    _hHeader.dispose();
+    _hBody.dispose();
+    super.dispose();
+  }
+
+  Future<void> _carregarEstoqueInicialDoBanco() async {
+    try {
+      final dataRef = DateTime(widget.ano, widget.mes, 1);
+      final dataStr = dataRef.toIso8601String().split('T')[0];
+
+      final response = await _supabase.rpc(
+        'fn_estoque_inicial_mes_tanque',
+        params: {
+          'p_tanque_id': widget.tanqueId,
+          'p_data': dataStr,
+        },
+      );
+
+      final num saldo = (response ?? 0) as num;
+
+      _estoqueInicial = {
+        'amb': saldo,
+        'vinte': saldo,
+      };
+    } catch (e) {
+      debugPrint('Erro ao buscar estoque inicial mensal via função: $e');
+      _estoqueInicial = {'amb': 0, 'vinte': 0};
+    }
+  }
+
+  Future<void> _carregarProdutoDoTanque() async {
+    try {
+      final resp = await _supabase
+          .from('tanques')
+          .select('produtos (nome)')
+          .eq('id', widget.tanqueId)
+          .maybeSingle();
+
+      if (resp != null) {
+        final produtoObj = resp['produtos'];
+        if (produtoObj is Map && produtoObj['nome'] != null) {
+          _produtoNome = produtoObj['nome'].toString();
+        } else if (resp['nome'] != null) {
+          _produtoNome = resp['nome'].toString();
+        } else {
+          _produtoNome = null;
+        }
+      } else {
+        _produtoNome = null;
+      }
+    } catch (_) {
+      _produtoNome = null;
+    }
+  }
+
+  Future<void> _calcularTotais() async {
+    try {
+      // Soma todas as entradas do mês
+      final entradasResp = await _supabase
+          .from('movimentacoes_tanque')
+          .select('entrada_vinte')
+          .eq('tanque_id', widget.tanqueId)
+          .gte('data_mov', _inicioMes.toIso8601String())
+          .lte('data_mov', _fimMes.toIso8601String());
+
+      _totalEntradas = 0;
+      for (final item in entradasResp) {
+        _totalEntradas += (item['entrada_vinte'] ?? 0) as num;
+      }
+
+      // Soma todas as saídas do mês
+      final saidasResp = await _supabase
+          .from('movimentacoes_tanque')
+          .select('saida_vinte')
+          .eq('tanque_id', widget.tanqueId)
+          .gte('data_mov', _inicioMes.toIso8601String())
+          .lte('data_mov', _fimMes.toIso8601String());
+
+      _totalSaidas = 0;
+      for (final item in saidasResp) {
+        _totalSaidas += (item['saida_vinte'] ?? 0) as num;
+      }
+
+      // Busca e soma todas as sobras/perdas do mês
+      final sobrasPerdasResp = await _supabase
+          .from('movimentacoes_tanque')
+          .select('entrada_vinte, saida_vinte, descricao')
+          .eq('tanque_id', widget.tanqueId)
+          .gte('data_mov', _inicioMes.toIso8601String())
+          .lte('data_mov', _fimMes.toIso8601String())
+          .or("descricao.ilike.Sobra CACL%,descricao.ilike.Perda CACL%");
+
+      _totalSobraPerda = 0;
+      for (final item in sobrasPerdasResp) {
+        final descricao = (item['descricao'] ?? '').toString();
+        if (descricao.startsWith('Sobra CACL')) {
+          _totalSobraPerda += (item['entrada_vinte'] ?? 0) as num;
+        } else if (descricao.startsWith('Perda CACL')) {
+          _totalSobraPerda += (item['saida_vinte'] ?? 0) as num;
+        }
+      }
+    } catch (e) {
+      debugPrint('Erro ao calcular totais: $e');
+    }
+  }
+
+  Future<void> _carregar() async {
+    setState(() {
+      _carregando = true;
+      _erro = false;
+    });
+
+    try {
+      await _carregarEstoqueInicialDoBanco();
+      await _carregarProdutoDoTanque();
+      await _calcularTotais();
+
+      final dados = await _supabase
+          .from('movimentacoes_tanque')
+          .select('''
+            id,
+            movimentacao_id,
+            cacl_id,
+            data_mov,
+            cliente,
+            descricao,
+            entrada_amb,
+            entrada_vinte,
+            saida_amb,
+            saida_vinte
+          ''')
+          .eq('tanque_id', widget.tanqueId)
+          .gte('data_mov', _inicioMes.toIso8601String())
+          .lte('data_mov', _fimMes.toIso8601String());
+
+      // Ordenação: sem CACL primeiro, com CACL depois
+      final List<Map<String, dynamic>> listaOrdenadaParaUI =
+          List<Map<String, dynamic>>.from(dados);
+
+      bool temCaclValido(Map<String, dynamic> m) {
+        final c = m['cacl_id']?.toString().trim();
+        return c != null && c.isNotEmpty && c.toLowerCase() != 'null';
+      }
+
+      listaOrdenadaParaUI.sort((a, b) {
+        final aTemCacl = temCaclValido(a);
+        final bTemCacl = temCaclValido(b);
+
+        if (aTemCacl && !bTemCacl) return 1;
+        if (!aTemCacl && bTemCacl) return -1;
+
+        final da = DateTime.parse(a['data_mov']);
+        final db = DateTime.parse(b['data_mov']);
+        final c = da.compareTo(db);
+        if (c != 0) return c;
+
+        final ia = a['id'].toString();
+        final ib = b['id'].toString();
+        return ia.compareTo(ib);
+      });
+
+      // Calcula saldo acumulado
+      num saldoAmb = _estoqueInicial['amb'] ?? 0;
+      num saldoVinte = _estoqueInicial['vinte'] ?? 0;
+
+      final List<Map<String, dynamic>> listaComSaldo = [];
+
+      for (final m in listaOrdenadaParaUI) {
+        final num entradaAmb = (m['entrada_amb'] ?? 0) as num;
+        final num entradaVinte = (m['entrada_vinte'] ?? 0) as num;
+        final num saidaAmb = (m['saida_amb'] ?? 0) as num;
+        final num saidaVinte = (m['saida_vinte'] ?? 0) as num;
+
+        final String cliente = (m['cliente']?.toString().trim() ?? '');
+        final String desc = (m['descricao']?.toString().trim() ?? '');
+        final String descricao = cliente.isNotEmpty ? cliente : desc;
+
+        saldoAmb += entradaAmb - saidaAmb;
+        saldoVinte += entradaVinte - saidaVinte;
+
+        listaComSaldo.add({
+          'id': m['id'],
+          'movimentacao_id': m['movimentacao_id'],
+          'cacl_id': m['cacl_id'],
+          'data_mov': m['data_mov'],
+          'descricao': descricao,
+          'entrada_amb': entradaAmb,
+          'entrada_vinte': entradaVinte,
+          'saida_amb': saidaAmb,
+          'saida_vinte': saidaVinte,
+          'saldo_amb': saldoAmb,
+          'saldo_vinte': saldoVinte,
+        });
+      }
+
+      _movs = List<Map<String, dynamic>>.from(listaComSaldo);
+      _movsOrdenadas = List<Map<String, dynamic>>.from(listaComSaldo);
+
+      _estoqueFinal = {
+        'amb': _movs.isEmpty ? null : _movs.last['saldo_amb'],
+        'vinte': _movs.isEmpty ? null : _movs.last['saldo_vinte'],
+      };
+
+      setState(() => _carregando = false);
+    } catch (e) {
+      setState(() {
+        _carregando = false;
+        _erro = true;
+        _mensagemErro = e.toString();
+      });
+    }
+  }
+
+  void _ordenar(String col, bool asc) {
+    final ord = List<Map<String, dynamic>>.from(_movs);
+    ord.sort((a, b) {
+      dynamic va, vb;
+      switch (col) {
+        case 'data_mov':
+          va = DateTime.parse(a['data_mov']);
+          vb = DateTime.parse(b['data_mov']);
+          break;
+        case 'descricao':
+          va = (a['descricao'] ?? '').toString().toLowerCase();
+          vb = (b['descricao'] ?? '').toString().toLowerCase();
+          break;
+        case 'entrada_amb':
+        case 'entrada_vinte':
+        case 'saida_amb':
+        case 'saida_vinte':
+        case 'saldo_amb':
+        case 'saldo_vinte':
+          va = a[col] ?? 0;
+          vb = b[col] ?? 0;
+          break;
+        default:
+          return 0;
+      }
+      if (va is DateTime && vb is DateTime) {
+        return asc ? va.compareTo(vb) : vb.compareTo(va);
+      }
+      if (va is num && vb is num) {
+        return asc ? va.compareTo(vb) : vb.compareTo(va);
+      }
+      if (va is String && vb is String) {
+        return asc ? va.compareTo(vb) : vb.compareTo(va);
+      }
+      return 0;
+    });
+
+    final semCacl = ord.where((m) => !_temCaclIdValido(m)).toList();
+    final comCacl = ord.where(_temCaclIdValido).toList();
+    final ordenadasParaUI = [...semCacl, ...comCacl];
+
+    setState(() {
+      _movsOrdenadas = ordenadasParaUI;
+      _coluna = col;
+      _asc = asc;
+    });
+  }
+
+  bool _temCaclIdValido(Map<String, dynamic> mov) {
+    final caclId = mov['cacl_id']?.toString().trim();
+    return caclId != null &&
+        caclId.isNotEmpty &&
+        caclId.toLowerCase() != 'null';
+  }
+
+  void _onSort(String col) {
+    final asc = _coluna == col ? !_asc : true;
+    _ordenar(col, asc);
+  }
+
+  Future<void> _baixarExcel() async {
+    if (_movsOrdenadas.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não há dados para exportar'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _baixandoExcel = true;
+    });
+
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    try {
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('Gerando relatório Excel...'),
+          duration: Duration(seconds: 5),
+        ),
+      );
+
+      final requestData = {
+        'tanqueId': widget.tanqueId,
+        'referenciaTanque': widget.referenciaTanque,
+        'filialId': widget.filialId,
+        'nomeFilial': widget.nomeFilial,
+        'mes': widget.mes,
+        'ano': widget.ano,
+        'tipo': 'mensal',
+        'estoqueInicial': _estoqueInicial,
+        'estoqueFinal': _estoqueFinal,
+        'totalEntradas': _totalEntradas,
+        'totalSaidas': _totalSaidas,
+        'totalSobraPerda': _totalSobraPerda,
+        'movimentacoes': _movsOrdenadas,
+        'produtoNome': _produtoNome,
+      };
+
+      debugPrint('Enviando para Edge Function (mensal): $requestData');
+
+      final response = await _chamarEdgeFunctionBinaria(requestData);
+
+      if (response.statusCode != 200) {
+        final errorBody = response.body;
+        throw Exception(
+          'Erro ${response.statusCode}: ${errorBody.isNotEmpty ? errorBody : "Falha na Edge Function"}',
+        );
+      }
+
+      final bytes = response.bodyBytes;
+
+      if (bytes.isEmpty) {
+        throw Exception('Arquivo vazio recebido da Edge Function');
+      }
+
+      debugPrint('Arquivo XLSX recebido: ${bytes.length} bytes');
+
+      final blob = html.Blob([
+        bytes,
+      ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+
+      final nomeFilialFormatado = widget.nomeFilial
+          .replaceAll(' ', '_')
+          .replaceAll(RegExp(r'[^\w_]'), '');
+
+      final mes = widget.mes.toString().padLeft(2, '0');
+      final ano = widget.ano.toString();
+      final fileName =
+          'estoque_tanque_mensal_${widget.referenciaTanque}_${nomeFilialFormatado}_${mes}_${ano}.xlsx';
+
+      html.AnchorElement(href: url)
+        ..setAttribute('download', fileName)
+        ..click();
+
+      html.Url.revokeObjectUrl(url);
+
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Download do Excel iniciado! Verifique sua pasta de downloads.',
+          ),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Erro detalhado ao baixar relatório: $e');
+
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('Erro: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _baixandoExcel = false;
+        });
+      }
+    }
+  }
+
+  Future<http.Response> _chamarEdgeFunctionBinaria(
+    Map<String, dynamic> requestData,
+  ) async {
+    try {
+      const supabaseUrl = 'https://ikaxzlpaihdkqyjqrxyw.supabase.co';
+
+      final session = Supabase.instance.client.auth.currentSession;
+
+      if (session == null || session.accessToken.isEmpty) {
+        throw Exception('Sessão inválida. Faça login novamente.');
+      }
+
+      return await _fazerRequisicao(
+        supabaseUrl,
+        session.accessToken,
+        requestData,
+      );
+    } catch (e) {
+      debugPrint('Erro detalhado ao chamar Edge Function: $e');
+      rethrow;
+    }
+  }
+
+  Future<http.Response> _fazerRequisicao(
+    String supabaseUrl,
+    String accessToken,
+    Map<String, dynamic> requestData,
+  ) async {
+    final functionUrl = '$supabaseUrl/functions/v1/down_excel_estoque_tanque';
+
+    debugPrint('URL: $functionUrl');
+    debugPrint('Token (início): ${accessToken.substring(0, 20)}...');
+    debugPrint('Dados: ${jsonEncode(requestData)}');
+
+    final response = await http.post(
+      Uri.parse(functionUrl),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+        'Accept':
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      },
+      body: jsonEncode(requestData),
+    );
+
+    debugPrint('Status Code: ${response.statusCode}');
+    debugPrint('Tamanho resposta: ${response.bodyBytes.length} bytes');
+
+    return response;
+  }
+
+  Color _bgEntrada() => Colors.green.shade50.withOpacity(0.3);
+  Color _bgSaida() => Colors.red.shade50.withOpacity(0.3);
+
+  String _fmtNum(num? v) {
+    if (v == null) return '-';
+    final s = v.abs().toStringAsFixed(0);
+    final b = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      final r = s.length - i;
+      b.write(s[i]);
+      if (r > 1 && r % 3 == 1) b.write('.');
+    }
+    return v < 0 ? '-${b.toString()}' : b.toString();
+  }
+
+  String _fmtData(String s) {
+    final d = DateTime.parse(s);
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  }
+
+  String _getNomeMes(int mes) {
+    const meses = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    return meses[mes - 1];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final String mesAno = '${_getNomeMes(widget.mes)}/${widget.ano}';
+
+    return Scaffold(
+      backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
+        elevation: 1,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF0D47A1),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Movimentação Mensal do Tanque – ${widget.referenciaTanque}${_produtoNome != null ? ' - ${_produtoNome!}' : ''}",
+            ),
+            Text(
+              '${widget.nomeFilial} | $mesAno',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: widget.onVoltar ?? () => Navigator.pop(context),
+        ),
+        actions: [
+          _baixandoExcel
+              ? const Padding(
+                  padding: EdgeInsets.all(12.0),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Color(0xFF0D47A1),
+                      ),
+                    ),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.download),
+                  tooltip: 'Baixar Excel',
+                  onPressed: _baixarExcel,
+                ),
+          IconButton(
+            icon: const Icon(Icons.sort),
+            onPressed: () => _onSort('data_mov'),
+          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _carregar),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: _carregando
+            ? const Center(child: CircularProgressIndicator())
+            : _erro
+            ? Center(child: Text(_mensagemErro))
+            : _buildConteudo(),
+      ),
+    );
+  }
+
+  Widget _buildConteudo() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(child: _buildTabela()),
+        _buildBlocoResumo(),
+      ],
+    );
+  }
+
+  Widget _buildBlocoResumo() {
+    return Container(
+      width: _wTable,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(10),
+          bottomRight: Radius.circular(10),
+        ),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildCampoResumo(
+            'Total Entradas (20ºC):',
+            _totalEntradas,
+          ),
+          _buildCampoResumo(
+            'Total Saídas (20ºC):',
+            _totalSaidas,
+            cor: Colors.red,
+          ),
+          _buildCampoResumo(
+            'Total Sobra/Perda (20ºC):',
+            _totalSobraPerda,
+            cor: _totalSobraPerda >= 0 ? const Color(0xFF0D47A1) : Colors.red,
+          ),
+          _buildCampoResumo(
+            'Saldo Final (20ºC):',
+            _estoqueFinal['vinte'] ?? 0,
+            cor: const Color(0xFF0D47A1),
+            negrito: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCampoResumo(
+    String label,
+    num valor, {
+    Color? cor,
+    bool negrito = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _fmtNum(valor),
+          style: TextStyle(
+            fontSize: negrito ? 18 : 16,
+            fontWeight: FontWeight.bold,
+            color: cor ?? const Color(0xFF0D47A1),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabela() {
+    return Scrollbar(
+      controller: _vertical,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _vertical,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Column(children: [_cabecalho(), _corpo(), _rodape()]),
+        ),
+      ),
+    );
+  }
+
+  Widget _cabecalho() {
+    return Scrollbar(
+      controller: _hHeader,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _hHeader,
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: _wTable,
+          child: Container(
+            height: _hCab,
+            color: const Color(0xFF0D47A1),
+            child: Row(
+              children: [
+                _th('Data', _wData, () => _onSort('data_mov')),
+                _th('Descrição', _wDesc, () => _onSort('descricao')),
+                _th('Entrada (Amb)', _wNum, () => _onSort('entrada_amb')),
+                _th('Entrada (20ºC)', _wNum, () => _onSort('entrada_vinte')),
+                _th('Saída (Amb)', _wNum, () => _onSort('saida_amb')),
+                _th('Saída (20ºC)', _wNum, () => _onSort('saida_vinte')),
+                _th('Saldo (Amb)', _wNum, () => _onSort('saldo_amb')),
+                _th('Saldo (20ºC)', _wNum, () => _onSort('saldo_vinte')),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _th(String t, double w, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: w,
+        alignment: Alignment.center,
+        child: Text(
+          t,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _corpo() {
+    return Scrollbar(
+      controller: _hBody,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _hBody,
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: _wTable,
+          child: ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _movsOrdenadas.length + 2,
+            itemBuilder: (context, i) {
+              if (i == 0) {
+                return _linhaResumo(
+                  'Estoque Inicial do Mês',
+                  _estoqueInicial['amb'],
+                  _estoqueInicial['vinte'],
+                  cor: Colors.blue,
+                );
+              }
+              if (i == _movsOrdenadas.length + 1) {
+                return _linhaResumo(
+                  'Estoque Final',
+                  _estoqueFinal['amb'],
+                  _estoqueFinal['vinte'],
+                  cor: Colors.grey.shade700,
+                );
+              }
+
+              final e = _movsOrdenadas[i - 1];
+              return Container(
+                height: _hRow,
+                color: (i - 1) % 2 == 0 ? Colors.grey.shade50 : Colors.white,
+                child: Row(
+                  children: [
+                    _cell(_fmtData(e['data_mov']), _wData),
+                    _cell(e['descricao'] ?? '-', _wDesc),
+                    _cell(_fmtNum(e['entrada_amb']), _wNum, bg: _bgEntrada()),
+                    _cell(_fmtNum(e['entrada_vinte']), _wNum, bg: _bgEntrada()),
+                    _cell(_fmtNum(e['saida_amb']), _wNum, bg: _bgSaida()),
+                    _cell(_fmtNum(e['saida_vinte']), _wNum, bg: _bgSaida()),
+                    _cell(
+                      _fmtNum(e['saldo_amb']),
+                      _wNum,
+                      cor: (e['saldo_amb'] ?? 0) < 0 ? Colors.red : null,
+                    ),
+                    _cell(
+                      _fmtNum(e['saldo_vinte']),
+                      _wNum,
+                      cor: (e['saldo_vinte'] ?? 0) < 0 ? Colors.red : null,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _linhaResumo(String label, num? amb, num? vinte, {Color? cor}) {
+    return Container(
+      height: _hRow,
+      color: Colors.blue.shade50,
+      child: Row(
+        children: [
+          _cell('', _wData),
+          _cell(label, _wDesc, cor: cor, fw: FontWeight.bold),
+          _cell('-', _wNum),
+          _cell('-', _wNum),
+          _cell('-', _wNum),
+          _cell('-', _wNum),
+          _cell(_fmtNum(amb), _wNum, cor: cor, fw: FontWeight.bold),
+          _cell(_fmtNum(vinte), _wNum, cor: cor, fw: FontWeight.bold),
+        ],
+      ),
+    );
+  }
+
+  Widget _cell(String t, double w, {Color? bg, Color? cor, FontWeight? fw}) {
+    return Container(
+      width: w,
+      alignment: Alignment.center,
+      color: bg,
+      child: Text(
+        t.isEmpty ? '-' : t,
+        style: TextStyle(
+          fontSize: 12,
+          color: cor ?? Colors.grey.shade700,
+          fontWeight: fw,
+        ),
+      ),
+    );
+  }
+
+  Widget _rodape() {
+    return Container(
+      height: _hFoot,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      alignment: Alignment.centerLeft,
+      color: Colors.grey.shade100,
+      child: Text(
+        '${_movsOrdenadas.length} movimentação(ões) no mês',
+        style: TextStyle(
+          fontSize: 12,
+          color: Colors.grey.shade600,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+}
