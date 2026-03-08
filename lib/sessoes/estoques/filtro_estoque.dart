@@ -129,44 +129,63 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
     setState(() => _carregandoProdutos = true);
     
     try {
-      debugPrint('🔍 Carregando produtos (incluirTodos: $incluirTodos)...');
-      
-      // Buscar apenas id e nome de todos os produtos, sem qualquer filtro
-      final dados = await _supabase
-          .from('produtos')
-          .select('id, nome')
-          .order('nome');
-
-      debugPrint('📊 Produtos encontrados: ${dados.length}');
-
-      final List<Map<String, dynamic>> produtos = [];
-      
-      // Adicionar "Todos os produtos" apenas no modo intraday
-      if (incluirTodos) {
-        produtos.add({'id': 'todos', 'nome': 'Todos os produtos'});
-      }
-      
-      produtos.add({'id': '', 'nome': '<selecione>'});
-      
-      for (var produto in dados) {
-        produtos.add({
-          'id': produto['id'].toString(),
-          'nome': produto['nome'].toString(),
+      if (widget.terminalId == null || widget.terminalId!.isEmpty) {
+        setState(() {
+          _produtosDisponiveis = [
+            {'id': '', 'nome': '<sem terminal vinculado>'}
+          ];
+          _produtoSelecionado = '';
         });
+        return;
       }
-
+      
+      final response = await _supabase
+          .from('tanques')
+          .select('''
+            id_produto,
+            produtos!inner (
+              id,
+              nome
+            )
+          ''')
+          .eq('terminal_id', widget.terminalId!)
+          .not('id_produto', 'is', null);
+      
+      final Map<String, Map<String, dynamic>> produtosUnicos = {};
+      for (var tanque in response) {
+        if (tanque['produtos'] != null) {
+          final produto = tanque['produtos'] as Map<String, dynamic>;
+          final produtoId = produto['id']?.toString();
+          if (produtoId != null && !produtosUnicos.containsKey(produtoId)) {
+            produtosUnicos[produtoId] = {
+              'id': produtoId,
+              'nome': produto['nome']?.toString() ?? 'Produto sem nome',
+            };
+          }
+        }
+      }
+      
+      List<Map<String, dynamic>> produtos = produtosUnicos.values.toList()
+        ..sort((a, b) => (a['nome'] ?? '').compareTo(b['nome'] ?? ''));
+      
+      final List<Map<String, dynamic>> listaFinal = [];
+      
+      if (incluirTodos) {
+        listaFinal.add({'id': 'todos', 'nome': 'Todos os produtos'});
+      }
+      
+      listaFinal.add({'id': '', 'nome': '<selecione>'});
+      listaFinal.addAll(produtos);
+      
       setState(() {
-        _produtosDisponiveis = produtos;
+        _produtosDisponiveis = listaFinal;
         _produtoSelecionado = '';
       });
       
-      debugPrint('✅ Produtos carregados: ${_produtosDisponiveis.length - 1} itens');
-      
     } catch (e) {
-      debugPrint("❌ Erro ao carregar produtos: $e");
       setState(() {
         _produtosDisponiveis = [
-          {'id': '', 'nome': '<selecione>'}
+          {'id': '', 'nome': '<erro ao carregar produtos>'}
         ];
         _produtoSelecionado = '';
       });
@@ -498,7 +517,6 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
                             onChanged: (String? novoValor) {
                               setState(() {
                                 _filialSelecionadaId = novoValor;
-                                // Capturar o nome da filial selecionada
                                 if (novoValor != null && novoValor.isNotEmpty) {
                                   final filial = _filiaisDisponiveis.firstWhere(
                                     (f) => f['id'] == novoValor,
@@ -509,6 +527,8 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
                                   _filialSelecionadaNome = null;
                                 }
                               });
+                              // Recarregar produtos quando a filial mudar
+                              _carregarProdutosDisponiveis(incluirTodos: _intraday);
                             },
                             items: _filiaisDisponiveis.map<DropdownMenuItem<String>>((filial) {
                               return DropdownMenuItem<String>(
