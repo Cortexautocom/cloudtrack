@@ -32,6 +32,7 @@ import 'sessoes/ajuda/desenvolvedor.dart';
 import 'sessoes/ajuda/suporte.dart';
 import 'sessoes/circuito/criar_ordem.dart';
 import 'sessoes/almoxerifado/frascos_amostra.dart';
+import 'sessoes/operacao/estoque_produto.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -96,6 +97,7 @@ class _HomePageState extends State<HomePage>
   bool _mostrarEstoquePorTanque = false;
   bool _mostrarMenuAjuda = false;
   bool _mostrarTempDensMedia = false;
+  bool _mostrarEstoqueProduto = false;
   bool _mostrarCardsFilial = false;
   bool _voltarParaTanquesApoCACL = false; // ← RASTREIA SE VEIO DE TANQUES
   bool _estoquePorTanqueVemDaApuracao =
@@ -348,7 +350,8 @@ class _HomePageState extends State<HomePage>
         }
 
         cardsOrganizados.putIfAbsent(sessaoPai, () => []);
-        cardsOrganizados[sessaoPai]!.add(card);
+        // Inserir no início para manter a ordem da consulta reversed
+        cardsOrganizados[sessaoPai]!.insert(0, card);
       }
 
       setState(() {
@@ -587,6 +590,7 @@ class _HomePageState extends State<HomePage>
       'criar_ordem': Icons.add_circle_outline,
       'frascos_amostra': Icons.science_outlined,
       'estoque_fiscal': Icons.receipt_long,
+      'estoque_produto': Icons.inventory_2,
     };
     return mapaIcones[tipo] ?? Icons.apps;
   }
@@ -618,6 +622,7 @@ class _HomePageState extends State<HomePage>
       'programacao_filial': 'Programação de vendas por filial',
       'frascos_amostra': 'Controle de frascos de amostras',
       'estoque_fiscal': 'Acompanhar estoque fiscal e tributário',
+      'estoque_produto': 'Acompanhar estoque por produto',
     };
     return mapaDescricoes[tipo] ?? '';
   }
@@ -1004,6 +1009,7 @@ class _HomePageState extends State<HomePage>
       _mostrarFiltrosEstoque = false;
       _mostrarCalcGerado = false;
       _mostrarTempDensMedia = false;
+      _mostrarEstoqueProduto = false;
       _mostrarMenuAjuda = false;
       _mostrarCardsFilial = false;
       _resetarTodasFlagsGestaoFrota();
@@ -1372,9 +1378,14 @@ class _HomePageState extends State<HomePage>
         return _buildAjudaPage();
 
       case 'Laboratório':
+      case 'Financeiro':
       case 'Jurídico':
       case 'Gestão de Projetos':
       case 'Recursos Humanos':
+      case 'Segurança & Compliance':
+      case 'Manutenção e ativos':
+        return _buildAreaIndisponivelPage();
+
       case 'Almoxerifado':
         if (_mostrarFrascosAmostra) {
           return FrascosAmostraPage(
@@ -1387,10 +1398,6 @@ class _HomePageState extends State<HomePage>
           );
         }
         return _buildConteudoSessoes();
-
-      case 'Manutenção e ativos':
-      case 'Segurança & Compliance':
-        return _buildAreaIndisponivelPage();
 
       case 'Estoques':
       case 'Operação':
@@ -1418,7 +1425,7 @@ class _HomePageState extends State<HomePage>
             Icon(Icons.do_not_disturb, size: 80, color: Colors.grey[400]),
             const SizedBox(height: 30), // Aumente este espaçamento
             const Text(
-              'Seu plano não contempla este módulo.',
+              'Esta seção não está disponível no plano contratado.',
               style: TextStyle(
                 fontSize: 24,
                 color: Colors.grey,
@@ -1947,6 +1954,17 @@ class _HomePageState extends State<HomePage>
         onVoltar: () {
           setState(() {
             _mostrarTempDensMedia = false;
+            _mostrarFilhosDaSessao('Operação');
+          });
+        },
+      );
+    }
+
+    if (_mostrarEstoqueProduto) {
+      return EstoqueProdutoPage(
+        onVoltar: () {
+          setState(() {
+            _mostrarEstoqueProduto = false;
             _mostrarFilhosDaSessao('Operação');
           });
         },
@@ -2582,6 +2600,11 @@ class _HomePageState extends State<HomePage>
       case 'temp_dens_media':
         setState(() {
           _mostrarTempDensMedia = true;
+        });
+        break;
+      case 'estoque_produto':
+        setState(() {
+          _mostrarEstoqueProduto = true;
         });
         break;
       case 'tanques': // ADICIONADO: Caso para tanques agora em Operação
