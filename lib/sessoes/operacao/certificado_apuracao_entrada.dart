@@ -526,13 +526,10 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         }
       }
 
-      // Preencher volumes de ORIGEM quando disponíveis na movimentação
-      // `saida_amb` -> `origemAmb` (ambiente)
-      // `saida_vinte` -> `origem20` (20°C)
-      if (movimentacao['saida_amb'] != null) {
+      if (movimentacao['entrada_amb'] != null) {
         try {
             campos['origemAmb']!.text =
-              _aplicarMascaraMilhar(movimentacao['saida_amb'].toString());
+              _aplicarMascaraMilhar(movimentacao['entrada_amb'].toString());
             _origemAmbBloqueado = true;
         } catch (_) {}
       }
@@ -2237,7 +2234,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       final supabase = Supabase.instance.client;
       final timestampBrasilia = _obterTimestampBrasilia();
       
-      // Usa apenas as 4 colunas padrão: entrada_amb, entrada_vinte, saida_amb, saida_vinte
+      // Usa apenas as 4 colunas padrão: entrada_amb, entrada_vinte, entrada_amb, saida_vinte
       await supabase
           .from('movimentacoes')
           .update({
