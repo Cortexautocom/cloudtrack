@@ -33,6 +33,7 @@ import 'sessoes/ajuda/suporte.dart';
 import 'sessoes/circuito/criar_ordem.dart';
 import 'sessoes/almoxerifado/frascos_amostra.dart';
 import 'sessoes/operacao/estoque_produto.dart';
+import 'sessoes/operacao/filtro_estoque_produto.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -1960,8 +1961,40 @@ class _HomePageState extends State<HomePage>
       );
     }
 
+    // ========== NOVO: Estoque por Produto ==========
     if (_mostrarEstoqueProduto) {
-      return EstoqueProdutoPage(
+      return FiltroEstoqueProdutoPage(
+        filialId: _filialParaFiltroId,
+        terminalId: _terminalParaFiltroId,
+        nomeFilial: _filialParaFiltroNome ?? _terminalParaFiltroNome ?? '',
+        empresaId: _empresaParaFiltroId,
+        empresaNome: _empresaParaFiltroNome,
+        onConsultarEstoqueProduto: ({
+          required String? filialId,
+          required String? terminalId,
+          required String nomeFilial,
+          String? empresaId,
+          DateTime? dataFiltro,
+          required String produtoId,
+          required String produtoNome,
+          required bool isIntraday,
+        }) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => EstoqueProdutoPage(
+                filialId: filialId,
+                terminalId: terminalId,
+                nomeFilial: nomeFilial,
+                empresaId: empresaId,
+                dataFiltro: dataFiltro,
+                produtoId: produtoId,
+                produtoNome: produtoNome,
+                isIntraday: isIntraday,
+              ),
+            ),
+          );
+        },
         onVoltar: () {
           setState(() {
             _mostrarEstoqueProduto = false;
@@ -1970,6 +2003,7 @@ class _HomePageState extends State<HomePage>
         },
       );
     }
+    // ===============================================
 
     if (_mostrarCalcGerado) {
       return CalcPage(

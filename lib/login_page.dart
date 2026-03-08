@@ -14,6 +14,7 @@ class UsuarioAtual {
   final String? filialId;
   final String? empresaId;
   final String? terminalId;
+  final String? terminalNome; // NOVO CAMPO
   final List<String> cardsPermitidosIds;
   final bool senhaTemporaria;
 
@@ -24,6 +25,7 @@ class UsuarioAtual {
     required this.filialId,
     required this.empresaId,
     required this.terminalId,
+    required this.terminalNome, // NOVO PARÂMETRO
     required this.cardsPermitidosIds,
     required this.senhaTemporaria,
   });
@@ -64,6 +66,26 @@ class _LoginPageState extends State<LoginPage> {
       
       return filial?['id']?.toString();
     } catch (e) {
+      return null;
+    }
+  }
+
+  // NOVO: Método para buscar nome do terminal
+  Future<String?> _buscarNomeTerminal(String? terminalId) async {
+    if (terminalId == null) return null;
+    
+    try {
+      final supabase = Supabase.instance.client;
+      
+      final terminal = await supabase
+          .from('terminais')
+          .select('nome')
+          .eq('id', terminalId)
+          .maybeSingle();
+      
+      return terminal?['nome']?.toString();
+    } catch (e) {
+      debugPrint('Erro ao buscar nome do terminal: $e');
       return null;
     }
   }
@@ -139,6 +161,9 @@ class _LoginPageState extends State<LoginPage> {
       final String? terminalId = usuarioData['terminal_id']?.toString();
       
       final String? filialId = await _buscarFilialIdPorTerminal(terminalId);
+      
+      // NOVO: Buscar nome do terminal
+      final String? terminalNome = await _buscarNomeTerminal(terminalId);
 
       final cardsPermitidosIds = await _carregarPermissoesCards(user.id);
 
@@ -159,6 +184,7 @@ class _LoginPageState extends State<LoginPage> {
         return;
       }
 
+      // ATUALIZADO: Incluir terminalNome na criação do UsuarioAtual
       UsuarioAtual.instance = UsuarioAtual(
         id: usuarioData['id'].toString(),
         nome: (usuarioData['Nome_apelido'] ?? usuarioData['nome']).toString(),
@@ -166,6 +192,7 @@ class _LoginPageState extends State<LoginPage> {
         filialId: filialId,
         empresaId: empresaId,
         terminalId: terminalId,
+        terminalNome: terminalNome, // NOVO CAMPO
         cardsPermitidosIds: cardsPermitidosIds,
         senhaTemporaria: usuarioData['senha_temporaria'] == true,
       );

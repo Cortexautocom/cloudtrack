@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../home.dart'; // ✅ IMPORT ADICIONADO
+import '../home.dart';
 import '../login_page.dart';
 
 class EscolherSenhaPage extends StatefulWidget {
@@ -62,6 +62,7 @@ class _EscolherSenhaPageState extends State<EscolherSenhaPage> {
             filialId: UsuarioAtual.instance!.filialId,
             empresaId: UsuarioAtual.instance!.empresaId,
             terminalId: UsuarioAtual.instance!.terminalId,
+            terminalNome: UsuarioAtual.instance!.terminalNome,
             cardsPermitidosIds: UsuarioAtual.instance!.cardsPermitidosIds,
             senhaTemporaria: false,
           );
