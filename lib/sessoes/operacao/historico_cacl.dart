@@ -318,38 +318,18 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
     }
   }
 
-  String _formatarInicio(dynamic data, dynamic horarioInicial, [dynamic horarioFinal]) {
-    if (data == null) return 'Início: -';
+  String _formatarHora(dynamic horario) {
+    if (horario == null) return '-';
     try {
-      final d = DateTime.parse(data.toString());
-
-      final dataFmt =
-          '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-
-      String horaFmt = '';
-      if (horarioInicial != null) {
-        final h = horarioInicial.toString();
-        if (h.contains('T')) {
-          final dh = DateTime.parse(h);
-          horaFmt = '${dh.hour.toString().padLeft(2, '0')}:${dh.minute.toString().padLeft(2, '0')}';
-        } else {
-          horaFmt = h.length >= 5 ? h.substring(0, 5) : h;
-        }
-        return 'Início: $dataFmt, $horaFmt h';
-      } else if (horarioFinal != null) {
-        final h = horarioFinal.toString();
-        if (h.contains('T')) {
-          final dh = DateTime.parse(h);
-          horaFmt = '${dh.hour.toString().padLeft(2, '0')}:${dh.minute.toString().padLeft(2, '0')}';
-        } else {
-          horaFmt = h.length >= 5 ? h.substring(0, 5) : h;
-        }
-        return 'Fim: $dataFmt, $horaFmt h';
+      final h = horario.toString();
+      if (h.contains('T')) {
+        final dh = DateTime.parse(h);
+        return '${dh.hour.toString().padLeft(2, '0')}:${dh.minute.toString().padLeft(2, '0')}';
+      } else {
+        return h.length >= 5 ? h.substring(0, 5) : h;
       }
-
-      return 'Sem horário';
     } catch (_) {
-      return 'Início: -';
+      return '-';
     }
   }
 
@@ -366,51 +346,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
         return const Color.fromARGB(255, 128, 128, 128);
     }
   }
-
-  Color _getCardColor(String? status, bool? solicitaCanc) {
-    if (status?.toLowerCase() == 'cancelado') {
-      return Colors.grey.shade50;
-    }
-
-    if (solicitaCanc == true) {
-      return Colors.red.shade50;
-    }
-
-    switch (status?.toLowerCase()) {
-      case 'emitido':
-        return Colors.green.shade50;
-      case 'pendente':
-      case 'aguardando':
-        return Colors.orange.shade50;
-      case 'cancelado':
-        return Colors.grey.shade50;
-      default:
-        return Colors.grey.shade50;
-    }
-  }
-
-  Color _getBorderColor(String? status, bool? solicitaCanc) {
-    if (status?.toLowerCase() == 'cancelado') {
-      return Colors.grey.shade300;
-    }
-
-    if (solicitaCanc == true) {
-      return Colors.red.shade300;
-    }
-
-    switch (status?.toLowerCase()) {
-      case 'emitido':
-        return Colors.green.shade300;
-      case 'pendente':
-      case 'aguardando':
-        return Colors.orange.shade300;
-      case 'cancelado':
-        return Colors.grey.shade300;
-      default:
-        return Colors.grey.shade300;
-    }
-  }
-
+  
   String _getStatusText(String? status) {
     switch (status?.toLowerCase()) {
       case 'emitido':
@@ -726,48 +662,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                 const SizedBox.shrink(),
               ],
             ),
-            /*
-            if (isAdmin) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: terminalSelecionadoId,
-                      decoration: InputDecoration(
-                        labelText: 'Terminal',
-                        border: const OutlineInputBorder(),
-                        prefixIcon: const Icon(Icons.business, size: 18),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        isDense: true,
-                      ),
-                      isExpanded: true,
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('Todos os terminais', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13)),
-                        ),
-                        ...terminais.map((terminal) {
-                          return DropdownMenuItem(
-                            value: terminal['id']?.toString(),
-                            child: Text(
-                              terminal['nome']?.toString() ?? '',
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          );
-                        }).toList(),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          terminalSelecionadoId = value;
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ],*/
           ],
         ),
       ),
@@ -913,6 +807,44 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
 
           _buildCardFiltros(),
 
+          // Cabeçalho da lista
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Row(
+              children: [
+                Container(width: 4), // Espaço para a barra colorida
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: Text('Tanque', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text('Produto', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: Text('Data', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: Text('H.Inicial', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: Text('H.Final', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text('Status', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
+                ),
+                SizedBox(width: 24), // Espaço para o ícone
+              ],
+            ),
+          ),
+          
+          const Divider(height: 1),
+
           Expanded(
             child: carregando
                 ? const Center(
@@ -930,23 +862,15 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                   children: [
                                     Icon(
                                       Icons.receipt_long_outlined,
-                                      size: 60,
+                                      size: 40,
                                       color: Colors.grey,
                                     ),
-                                    SizedBox(height: 16),
+                                    SizedBox(height: 8),
                                     Text(
                                       'Nenhum CACL encontrado',
                                       style: TextStyle(
                                         color: Colors.grey,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    SizedBox(height: 8),
-                                    Text(
-                                      'Ajuste os filtros para encontrar CACLs',
-                                      style: TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 13,
+                                        fontSize: 14,
                                       ),
                                     ),
                                   ],
@@ -955,417 +879,224 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                             : RefreshIndicator(
                                 onRefresh: _refreshData,
                                 color: const Color(0xFF0D47A1),
-                                child: ListView.separated(
+                                child: ListView.builder(
+                                  padding: const EdgeInsets.symmetric(vertical: 4),
                                   itemCount: cacles.length,
-                                  separatorBuilder: (_, __) => const SizedBox(height: 6), // ↓ cards mais próximos
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 4, // ↓ reduz espaçamento vertical geral
-                                  ),
                                   itemBuilder: (context, index) {
                                     final cacl = cacles[index];
                                     final status = cacl['status']?.toString();
                                     final solicitaCanc = cacl['solicita_canc'] as bool?;
-                                    final isCancelado =
-                                        status?.toLowerCase() == 'cancelado';
+                                    final isCancelado = status?.toLowerCase() == 'cancelado';
                                     final statusColor = _getStatusColor(status);
-                                    final cardColor =
-                                        _getCardColor(status, solicitaCanc);
-                                    final borderColor =
-                                        _getBorderColor(status, solicitaCanc);
                                     final statusText = _getStatusText(status);
-                                    final tanqueRef =
-                                        cacl['tanques']?['referencia']?.toString() ?? '-';
-                                    final produto =
-                                        cacl['produto'] ?? 'Produto não informado';
+                                    final tanqueRef = cacl['tanques']?['referencia']?.toString() ?? '-';
+                                    final produto = cacl['produto'] ?? '-';
                                     final data = _formatarData(cacl['data']);
-                                    final horario = _formatarInicio(
-                                      cacl['data'],
-                                      cacl['horario_inicial'],
-                                      cacl['horario_final'],
-                                    );
+                                    final horarioInicial = _formatarHora(cacl['horario_inicial']);
+                                    final horarioFinal = _formatarHora(cacl['horario_final']);
 
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 4, // ↓ reduz apenas a distância vertical entre cards
-                                      ),
-                                      child: Align(
-                                        alignment: Alignment.center,
-                                        child: SizedBox(
-                                          width: 1400, // ← largura máxima dos cards no histórico
-                                          child: MouseRegion(
-                                            cursor: SystemMouseCursors.click,
-                                            onEnter: (_) {
-                                              setState(() => _hoverIndex = index);
-                                            },
-                                            onExit: (_) {
-                                              setState(() => _hoverIndex = null);
-                                            },
-                                            child: GestureDetector(
-                                              onTap: () async {
-                                                final caclId = cacl['id'].toString();
+                                    return MouseRegion(
+                                      cursor: SystemMouseCursors.click,
+                                      onEnter: (_) => setState(() => _hoverIndex = index),
+                                      onExit: (_) => setState(() => _hoverIndex = null),
+                                      child: GestureDetector(
+                                        onTap: () async {
+                                          final caclId = cacl['id'].toString();
+                                          final nivelUsuario = _nivelUsuario ?? 0;
 
-                                                final nivelUsuario = _nivelUsuario ?? 0;
+                                          if (nivelUsuario == 2 && isCancelado) {
+                                            return;
+                                          }
 
-                                                if (nivelUsuario == 2 && isCancelado) {
-                                                  return;
-                                                }
+                                          if (!context.mounted) return;
 
-                                                if (!context.mounted) return;
+                                          String? tipo = cacl['tipo']?.toString();
+                                          if (tipo == null) {
+                                            try {
+                                              final resp = await Supabase.instance.client
+                                                  .from('cacl')
+                                                  .select('tipo')
+                                                  .eq('id', caclId)
+                                                  .maybeSingle();
+                                              tipo = resp?['tipo']?.toString();
+                                            } catch (_) {
+                                              tipo = null;
+                                            }
+                                          }
 
-                                                // Tentamos ler o campo 'tipo' vindo da lista; se não existir, buscamos no Supabase
-                                                String? tipo = cacl['tipo']?.toString();
-                                                if (tipo == null) {
-                                                  try {
-                                                    final resp = await Supabase.instance.client
-                                                        .from('cacl')
-                                                        .select('tipo')
-                                                        .eq('id', caclId)
-                                                        .maybeSingle();
-                                                    tipo = resp?['tipo']?.toString();
-                                                  } catch (_) {
-                                                    tipo = null;
-                                                  }
-                                                }
-
-                                                if (tipo == 'verificacao') {
-                                                  // Abrir no layout de visualização de fechamento de tanque
-                                                  await Navigator.push(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder: (_) {
-                                                        final Map<String, dynamic> payload = <String, dynamic>{};
-                                                        payload['origem_estoque_tanque'] = true;
-                                                        return CalcPage(
-                                                          dadosFormulario: payload,
-                                                          modo: CaclModo.visualizacao,
-                                                          caclId: caclId,
-                                                          onVoltar: () {
-                                                            Navigator.pop(context);
-                                                          },
-                                                        );
-                                                      },
-                                                    ),
+                                          if (tipo == 'verificacao') {
+                                            await Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) {
+                                                  final Map<String, dynamic> payload = <String, dynamic>{};
+                                                  payload['origem_estoque_tanque'] = true;
+                                                  return CalcPage(
+                                                    dadosFormulario: payload,
+                                                    modo: CaclModo.visualizacao,
+                                                    caclId: caclId,
+                                                    onVoltar: () {
+                                                      Navigator.pop(context);
+                                                    },
                                                   );
-                                                } else {
-                                                  // Comportamento atual
-                                                  await Navigator.push(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder: (_) => CaclHistoricoPage(
-                                                        caclId: caclId,
-                                                        onVoltar: () {
-                                                          Navigator.pop(context);
-                                                        },
+                                                },
+                                              ),
+                                            );
+                                          } else {
+                                            await Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) => CaclHistoricoPage(
+                                                  caclId: caclId,
+                                                  onVoltar: () {
+                                                    Navigator.pop(context);
+                                                  },
+                                                ),
+                                              ),
+                                            );
+                                          }
+
+                                          _refreshData();
+                                        },
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 150),
+                                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                                          color: _hoverIndex == index 
+                                              ? Colors.grey.shade200 
+                                              : (index.isEven ? Colors.white : Colors.grey.shade50),
+                                          child: Row(
+                                            children: [
+                                              // Indicador de status
+                                              Container(
+                                                width: 4,
+                                                height: 24,
+                                                color: statusColor,
+                                              ),
+                                              const SizedBox(width: 12),
+                                              
+                                              // Tanque
+                                              Expanded(
+                                                flex: 2,
+                                                child: Text(
+                                                  tanqueRef,
+                                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              
+                                              // Produto
+                                              Expanded(
+                                                flex: 2,
+                                                child: Text(
+                                                  produto,
+                                                  style: const TextStyle(fontSize: 12),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              
+                                              // Data
+                                              Expanded(
+                                                flex: 1,
+                                                child: Text(
+                                                  data,
+                                                  style: const TextStyle(fontSize: 12),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              
+                                              // Hora Inicial
+                                              Expanded(
+                                                flex: 1,
+                                                child: Text(
+                                                  horarioInicial,
+                                                  style: const TextStyle(fontSize: 12),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              
+                                              // Hora Final
+                                              Expanded(
+                                                flex: 1,
+                                                child: Text(
+                                                  horarioFinal,
+                                                  style: const TextStyle(fontSize: 12),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              
+                                              // Status
+                                              Expanded(
+                                                flex: 2,
+                                                child: Row(
+                                                  children: [
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: statusColor.withOpacity(0.15),
+                                                        borderRadius: BorderRadius.circular(4),
                                                       ),
-                                                    ),
-                                                  );
-                                                }
-
-                                                _refreshData();
-                                              },
-                                              child: Opacity(
-                                                opacity: isCancelado ? 0.85 : 1.0,
-                                                child: AnimatedContainer(
-                                                  duration:
-                                                      const Duration(milliseconds: 180),
-                                                  curve: Curves.easeOut,
-                                                  alignment: Alignment.center,
-                                                  transformAlignment: Alignment.center,
-                                                  transform: _hoverIndex == index
-                                                      ? (Matrix4.identity()
-                                                        ..scale(1.01, 1.01))
-                                                      : Matrix4.identity(),
-                                                  decoration: BoxDecoration(
-                                                    color: _hoverIndex == index
-                                                        ? cardColor.withOpacity(0.85)
-                                                        : cardColor,
-                                                    borderRadius:
-                                                        BorderRadius.circular(12),
-                                                    border: Border.all(
-                                                      color: borderColor,
-                                                      width: 1.5,
-                                                    ),
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                        color: Colors.black.withOpacity(
-                                                          _hoverIndex == index
-                                                              ? 0.15
-                                                              : 0.05,
+                                                      child: Text(
+                                                        statusText,
+                                                        style: TextStyle(
+                                                          fontSize: 10,
+                                                          fontWeight: FontWeight.w600,
+                                                          color: statusColor,
                                                         ),
-                                                        blurRadius:
-                                                            _hoverIndex == index ? 12 : 4,
-                                                        offset: const Offset(0, 4),
                                                       ),
-                                                    ],
-                                                  ),
-                                                  child: Stack(
-                                                    children: [
+                                                    ),
+                                                    if (solicitaCanc == true && !isCancelado)
                                                       Padding(
-                                                        padding: const EdgeInsets.all(12),
-                                                        child: Row(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment.start,
-                                                          children: [
-                                                            Container(
-                                                              width: 4,
-                                                              height: 60,
-                                                              decoration: BoxDecoration(
-                                                                color: statusColor,
-                                                                borderRadius:
-                                                                    BorderRadius.circular(2),
-                                                              ),
-                                                            ),
-                                                            const SizedBox(width: 12),
-                                                            Expanded(
-                                                              child: Column(
-                                                                crossAxisAlignment:
-                                                                    CrossAxisAlignment.start,
-                                                                children: [
-                                                                  Row(
-                                                                    children: [
-                                                                      const Icon(
-                                                                        Icons.storage,
-                                                                        size: 16,
-                                                                        color:
-                                                                            Colors.black54,
-                                                                      ),
-                                                                      const SizedBox(width: 6),
-                                                                      Text(
-                                                                        'Tanque $tanqueRef',
-                                                                        style: TextStyle(
-                                                                          fontSize: 16,
-                                                                          fontWeight:
-                                                                              FontWeight.bold,
-                                                                          color: isCancelado
-                                                                              ? Colors.grey
-                                                                              : Colors.black87,
-                                                                        ),
-                                                                      ),
-                                                                    ],
-                                                                  ),
-                                                                  const SizedBox(height: 4),
-                                                                  Row(
-                                                                    children: [
-                                                                      Icon(
-                                                                        Icons
-                                                                            .local_gas_station,
-                                                                        size: 14,
-                                                                        color: isCancelado
-                                                                            ? Colors.grey
-                                                                            : Colors.black54,
-                                                                      ),
-                                                                      const SizedBox(width: 6),
-                                                                      Expanded(
-                                                                        child: Text(
-                                                                          produto,
-                                                                          style: TextStyle(
-                                                                            fontSize: 14,
-                                                                            color: isCancelado
-                                                                                ? Colors.grey
-                                                                                : Colors.black87,
-                                                                          ),
-                                                                          maxLines: 1,
-                                                                          overflow:
-                                                                              TextOverflow
-                                                                                  .ellipsis,
-                                                                        ),
-                                                                      ),
-                                                                    ],
-                                                                  ),
-                                                                  const SizedBox(height: 4),
-                                                                  Row(
-                                                                    children: [
-                                                                      Icon(
-                                                                        Icons.calendar_today,
-                                                                        size: 14,
-                                                                        color: isCancelado
-                                                                            ? Colors.grey
-                                                                            : Colors.black54,
-                                                                      ),
-                                                                      const SizedBox(width: 6),
-                                                                      Text(
-                                                                        data,
-                                                                        style: TextStyle(
-                                                                          fontSize: 13,
-                                                                          color: isCancelado
-                                                                              ? Colors.grey
-                                                                              : Colors.black54,
-                                                                        ),
-                                                                      ),
-                                                                      const SizedBox(width: 16),
-                                                                      Icon(
-                                                                        Icons.access_time,
-                                                                        size: 14,
-                                                                        color: isCancelado
-                                                                            ? Colors.grey
-                                                                            : Colors.black54,
-                                                                      ),
-                                                                      const SizedBox(width: 6),
-                                                                      Expanded(
-                                                                        child: Text(
-                                                                          horario,
-                                                                          style: TextStyle(
-                                                                            fontSize: 13,
-                                                                            color: isCancelado
-                                                                                ? Colors.grey
-                                                                                : Colors.black54,
-                                                                          ),
-                                                                          maxLines: 1,
-                                                                          overflow:
-                                                                              TextOverflow
-                                                                                  .ellipsis,
-                                                                        ),
-                                                                      ),
-                                                                    ],
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                            ),
-                                                            Column(
-                                                              crossAxisAlignment:
-                                                                  CrossAxisAlignment.end,
-                                                              children: [
-                                                                Container(
-                                                                  padding: const EdgeInsets
-                                                                      .symmetric(
-                                                                    horizontal: 8,
-                                                                    vertical: 4,
-                                                                  ),
-                                                                  decoration: BoxDecoration(
-                                                                    color: statusColor
-                                                                        .withOpacity(0.15),
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            6),
-                                                                  ),
-                                                                  child: Text(
-                                                                    statusText,
-                                                                    style: TextStyle(
-                                                                      fontSize: 11,
-                                                                      fontWeight:
-                                                                          FontWeight.w600,
-                                                                      color: statusColor,
-                                                                    ),
-                                                                  ),
-                                                                ),
-                                                                const SizedBox(height: 8),
-                                                                if (!isCancelado &&
-                                                                    (_nivelUsuario == 1 ||
-                                                                        _nivelUsuario == 2))
-                                                                  ElevatedButton(
-                                                                    onPressed: () {
-                                                                      if (solicitaCanc ==
-                                                                          true) {
-                                                                        ScaffoldMessenger.of(
-                                                                                context)
-                                                                            .showSnackBar(
-                                                                          const SnackBar(
-                                                                            content: Text(
-                                                                                'Cancelamento já solicitado. Aguarde a análise do supervisor.'),
-                                                                            backgroundColor:
-                                                                                Colors.orange,
-                                                                            duration: Duration(
-                                                                                seconds: 3),
-                                                                          ),
-                                                                        );
-                                                                      } else {
-                                                                        _showDialogSolicitarCancelamento(
-                                                                            cacl);
-                                                                      }
-                                                                    },
-                                                                    style: ElevatedButton
-                                                                        .styleFrom(
-                                                                      backgroundColor:
-                                                                          solicitaCanc == true
-                                                                              ? Colors.red
-                                                                                  .shade50
-                                                                              : Colors.orange
-                                                                                  .shade50,
-                                                                      foregroundColor:
-                                                                          solicitaCanc == true
-                                                                              ? Colors.red
-                                                                                  .shade800
-                                                                              : Colors.orange
-                                                                                  .shade800,
-                                                                      padding:
-                                                                          const EdgeInsets
-                                                                              .symmetric(
-                                                                        horizontal: 8,
-                                                                        vertical: 4,
-                                                                      ),
-                                                                      minimumSize:
-                                                                          const Size(0, 0),
-                                                                      shape:
-                                                                          RoundedRectangleBorder(
-                                                                        borderRadius:
-                                                                            BorderRadius
-                                                                                .circular(6),
-                                                                        side: BorderSide(
-                                                                          color: solicitaCanc ==
-                                                                                  true
-                                                                              ? Colors.red
-                                                                                  .shade300
-                                                                              : Colors.orange
-                                                                                  .shade300,
-                                                                        ),
-                                                                      ),
-                                                                      elevation: 0,
-                                                                    ),
-                                                                    child: Text(
-                                                                      solicitaCanc == true
-                                                                          ? 'Cancelamento\nsolicitado'
-                                                                          : 'Solicitar\ncancelamento',
-                                                                      textAlign:
-                                                                          TextAlign.center,
-                                                                      style: const TextStyle(
-                                                                        fontSize: 10,
-                                                                        fontWeight:
-                                                                            FontWeight.w600,
-                                                                      ),
-                                                                    ),
-                                                                  ),
-                                                              ],
-                                                            ),
-                                                          ],
+                                                        padding: const EdgeInsets.only(left: 4),
+                                                        child: Icon(
+                                                          Icons.warning_amber_rounded,
+                                                          size: 14,
+                                                          color: Colors.red.shade700,
                                                         ),
                                                       ),
-                                                        if (_nivelUsuario == 3 &&
-                                                          (status?.toLowerCase() == 'emitido' ||
-                                                            status?.toLowerCase() == 'pendente'))
-                                                        Positioned(
-                                                          right: 4,
-                                                          bottom: 2,
-                                                          child: PopupMenuButton<String>(
-                                                            padding: EdgeInsets.zero,
-                                                            iconSize: 14,
-                                                            tooltip: 'Ações do CACL',
-                                                            icon: Icon(
-                                                              Icons.settings,
-                                                              size: 14,
-                                                              color: Colors.grey.shade700,
-                                                            ),
-                                                            onSelected: (value) async {
-                                                              if (value == 'cancelar') {
-                                                                await _cancelarCaclNivel3(
-                                                                  cacl['id'].toString(),
-                                                                );
-                                                              }
-                                                            },
-                                                            itemBuilder: (context) => const [
-                                                              PopupMenuItem<String>(
-                                                                value: 'cancelar',
-                                                                child: Text('Cancelar CACL'),
-                                                              ),
-                                                            ],
-                                                          ),
+                                                  ],
+                                                ),
+                                              ),
+                                              
+                                              // Botão de ação para níveis 1 e 2
+                                              if (!isCancelado && (_nivelUsuario == 1 || _nivelUsuario == 2))
+                                                Padding(
+                                                  padding: const EdgeInsets.only(left: 8),
+                                                  child: solicitaCanc == true
+                                                      ? const Icon(Icons.hourglass_empty, size: 16, color: Colors.orange)
+                                                      : IconButton(
+                                                          icon: const Icon(Icons.cancel_outlined, size: 16, color: Colors.red),
+                                                          onPressed: () => _showDialogSolicitarCancelamento(cacl),
+                                                          padding: EdgeInsets.zero,
+                                                          constraints: const BoxConstraints(),
+                                                          tooltip: 'Solicitar cancelamento',
                                                         ),
+                                                ),
+                                              
+                                              // Menu para admin (nível 3)
+                                              if (_nivelUsuario == 3 && (status?.toLowerCase() == 'emitido' || status?.toLowerCase() == 'pendente'))
+                                                Padding(
+                                                  padding: const EdgeInsets.only(left: 4),
+                                                  child: PopupMenuButton<String>(
+                                                    padding: EdgeInsets.zero,
+                                                    iconSize: 16,
+                                                    tooltip: 'Ações do CACL',
+                                                    icon: Icon(Icons.more_vert, size: 16, color: Colors.grey.shade700),
+                                                    onSelected: (value) async {
+                                                      if (value == 'cancelar') {
+                                                        await _cancelarCaclNivel3(cacl['id'].toString());
+                                                      }
+                                                    },
+                                                    itemBuilder: (context) => const [
+                                                      PopupMenuItem<String>(
+                                                        value: 'cancelar',
+                                                        child: Text('Cancelar CACL', style: TextStyle(fontSize: 13)),
+                                                      ),
                                                     ],
                                                   ),
                                                 ),
-                                              ),
-                                            ),
+                                              
+                                              const Icon(Icons.chevron_right, size: 18, color: Color(0xFF0D47A1)),
+                                            ],
                                           ),
                                         ),
                                       ),
@@ -1378,7 +1109,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                     ],
                   ),
           ),
-
         ],
       ),
     );
