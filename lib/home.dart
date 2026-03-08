@@ -28,7 +28,7 @@ import 'sessoes/circuito/acompanhamento_ordens.dart';
 import 'sessoes/estoques/transferencias.dart';
 import 'sessoes/operacao/listar_ordens.dart';
 import 'sessoes/operacao/temp_dens_media.dart';
-import 'sessoes/ajuda/arquiteto.dart';
+import 'sessoes/ajuda/desenvolvedor.dart';
 import 'sessoes/ajuda/suporte.dart';
 import 'sessoes/circuito/criar_ordem.dart';
 import 'sessoes/almoxerifado/frascos_amostra.dart';
@@ -1450,7 +1450,7 @@ class _HomePageState extends State<HomePage>
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => const GrandeArquitetoPage(),
+                builder: (context) => const DesenvolvedorPage(),
               ),
             );
             break;

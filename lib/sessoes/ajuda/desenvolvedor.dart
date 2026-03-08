@@ -3,17 +3,17 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
 
 // ============================================
-// PÁGINA PRINCIPAL - O GRANDE ARQUITETO
+// PÁGINA PRINCIPAL - O Desenvolvedor
 // ============================================
 
-class GrandeArquitetoPage extends StatefulWidget {
-  const GrandeArquitetoPage({super.key});
+class DesenvolvedorPage extends StatefulWidget {
+  const DesenvolvedorPage({super.key});
 
   @override
-  GrandeArquitetoPageState createState() => GrandeArquitetoPageState();
+  DesenvolvedorPageState createState() => DesenvolvedorPageState();
 }
 
-class GrandeArquitetoPageState extends State<GrandeArquitetoPage>
+class DesenvolvedorPageState extends State<DesenvolvedorPage>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
@@ -83,7 +83,7 @@ class GrandeArquitetoPageState extends State<GrandeArquitetoPage>
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text(
-          'O Grande Arquiteto',
+          'O Desenvolvedor',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -108,7 +108,7 @@ class GrandeArquitetoPageState extends State<GrandeArquitetoPage>
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         _buildCenteredText(
-                          'Bem-vindo, $usuarioNome!\nVocê chegou ao Grande Arquiteto.',
+                          'Bem-vindo, $usuarioNome!\nVocê chegou ao Desenvolvedor.',
                           fontSize: 24,
                           fontWeight: FontWeight.w600,
                         ),
@@ -117,7 +117,7 @@ class GrandeArquitetoPageState extends State<GrandeArquitetoPage>
                           'Faça perguntas, peça melhorias, traga problemas.\n'
                           'Escreva do seu jeito, traga ideias mal formadas,\n'
                           'liberte sua mente.\n\n'
-                          'O Grande Arquiteto agradece sua contribuição.',
+                          'O Desenvolvedor agradece sua contribuição.',
                           fontSize: 20,
                         ),
                         const SizedBox(height: 32),
@@ -170,7 +170,7 @@ class GrandeArquitetoPageState extends State<GrandeArquitetoPage>
                     fit: BoxFit.contain,
                     child: Stack(
                       children: [
-                        Image.asset('assets/arquiteto.png'),
+                        Image.asset('assets/desenvolvedor.png'),
 
                         Positioned(
                           left: 0,
@@ -466,7 +466,7 @@ class EnviarSugestaoPageState extends State<EnviarSugestaoPage> {
               const SizedBox(height: 16),
               const Text(
                 'Sua mensagem foi salva e será analisada com atenção.\n\n'
-                'O Grande Arquiteto agradece sua contribuição!',
+                'O Desenvolvedor agradece sua contribuição!',
                 style: TextStyle(
                   color: Colors.white70,
                   fontSize: 16,
@@ -551,7 +551,7 @@ class EnviarSugestaoPageState extends State<EnviarSugestaoPage> {
               _buildTipItem('❤️', 'Críticas construtivas são bem-vindas'),
               const SizedBox(height: 16),
               const Text(
-                'O Grande Arquiteto entende ideias em formação, '
+                'O Desenvolvedor entende ideias em formação, '
                 'então não se preocupe com a perfeição.',
                 style: TextStyle(fontStyle: FontStyle.italic),
               ),
@@ -657,7 +657,7 @@ class EnviarSugestaoPageState extends State<EnviarSugestaoPage> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              'O Grande Arquiteto está pronto para ouvir você',
+                              '',
                               style: TextStyle(
                                 color: Colors.white.withOpacity(0.7),
                                 fontSize: 14,
