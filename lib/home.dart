@@ -446,7 +446,7 @@ class _HomePageState extends State<HomePage>
       },
       {
         'id': 'fallback-transf',
-        'icon': Icons.compare_arrows,
+        'icon': Icons.low_priority,
         'label': 'Transferências',
         'descricao': 'Gerenciar transferências entre filiais',
         'tipo': 'transferencias',
@@ -551,7 +551,7 @@ class _HomePageState extends State<HomePage>
       'movimentacoes': Icons.swap_horiz,
       'movimentacao_por_empresa': Icons.business,
       'movimentaces': Icons.swap_horiz,
-      'transferencias': Icons.compare_arrows,
+      'transferencias': Icons.low_priority,
       'acompanhar_ordem': Icons.directions_car,
       'visao_geral_circuito': Icons.dashboard,
       'veiculos': Icons.directions_car,

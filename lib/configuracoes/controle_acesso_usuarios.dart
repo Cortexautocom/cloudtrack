@@ -867,7 +867,7 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
       'estoque_geral': Icons.hub,
       'estoque_por_empresa': Icons.business,
       'movimentacoes': Icons.swap_horiz,
-      'transferencias': Icons.compare_arrows,
+      'transferencias': Icons.low_priority,
       'iniciar_circuito': Icons.play_arrow,
       'acompanhar_ordem': Icons.directions_car,
       'visao_geral_circuito': Icons.dashboard,
