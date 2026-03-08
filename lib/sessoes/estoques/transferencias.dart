@@ -604,6 +604,114 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
     try {
       final supabase = Supabase.instance.client;
 
+      // Verificar status_circuito_orig da movimentação
+      final movimentacaoId = t['id'];
+      final movimentacaoResponse = await supabase
+          .from('movimentacoes')
+          .select('status_circuito_orig')
+          .eq('id', movimentacaoId)
+          .single();
+
+      final statusCircuitoOrig = movimentacaoResponse['status_circuito_orig'];
+
+      // Verificar se está nos estágios 1, 2 ou 3
+      if (statusCircuitoOrig != null && 
+          [1, 2, 3].contains(statusCircuitoOrig)) {
+        
+        if (!mounted) return;
+
+        // Mostrar dialog de bloqueio
+        await showDialog(
+          context: context,
+          builder: (ctx) => Dialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: const BorderSide(color: Color(0xFF0D47A1), width: 1),
+            ),
+            child: SizedBox(
+              width: 420,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF0D47A1),
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
+                    ),
+                    child: Row(
+                      children: const [
+                        Icon(Icons.block, color: Colors.white, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Cancelamento não permitido',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Content
+                  const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text(
+                      'Não é possível cancelar esta transferência, pois o veículo já teve ordem de análise emitida. Entre em contato com o supervisor do terminal de origem.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.4,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+
+                  // Footer
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(9)),
+                      border: Border(
+                        top: BorderSide(color: Colors.grey.shade300, width: 1),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 120,
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0D47A1),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            child: const Text('OK', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+        
+        return; // Interrompe o cancelamento
+      }
+
+      // Se passou na validação, prossegue com o cancelamento
       await supabase.from('ordens').delete().eq('id', ordemId);
 
       if (!mounted) return;
@@ -615,6 +723,7 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
       // Recarrega listas
       await carregarHoje();
       await carregarHistorico(reset: true);
+      
     } catch (e) {
       debugPrint('Erro ao cancelar ordem: $e');
       if (mounted) {
