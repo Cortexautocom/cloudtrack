@@ -604,23 +604,52 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
     try {
       final supabase = Supabase.instance.client;
 
-      // Verificar status_circuito_orig da movimentação
       final movimentacaoId = t['id'];
+      if (movimentacaoId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('ID da movimentação não encontrado.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
       final movimentacaoResponse = await supabase
           .from('movimentacoes')
-          .select('status_circuito_orig')
+          .select('status_circuito_orig, status_circuito_dest')
           .eq('id', movimentacaoId)
           .single();
 
       final statusCircuitoOrig = movimentacaoResponse['status_circuito_orig'];
+      final statusCircuitoDest = movimentacaoResponse['status_circuito_dest'];
+      
+      int? statusOrigInt;
+      int? statusDestInt;
+      
+      if (statusCircuitoOrig != null) {
+        if (statusCircuitoOrig is int) {
+          statusOrigInt = statusCircuitoOrig;
+        } else if (statusCircuitoOrig is String) {
+          statusOrigInt = int.tryParse(statusCircuitoOrig);
+        }
+      }
+      
+      if (statusCircuitoDest != null) {
+        if (statusCircuitoDest is int) {
+          statusDestInt = statusCircuitoDest;
+        } else if (statusCircuitoDest is String) {
+          statusDestInt = int.tryParse(statusCircuitoDest);
+        }
+      }
 
-      // Verificar se está nos estágios 1, 2 ou 3
-      if (statusCircuitoOrig != null && 
-          [1, 2, 3].contains(statusCircuitoOrig)) {
-        
+      // Verifica se algum dos status (origem ou destino) está acima de 3
+      if ((statusOrigInt != null && statusOrigInt > 3) || 
+          (statusDestInt != null && statusDestInt > 3)) {
         if (!mounted) return;
 
-        // Mostrar dialog de bloqueio
         await showDialog(
           context: context,
           builder: (ctx) => Dialog(
@@ -634,7 +663,6 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Header
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     decoration: const BoxDecoration(
@@ -656,8 +684,6 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
                       ],
                     ),
                   ),
-
-                  // Content
                   const Padding(
                     padding: EdgeInsets.all(20),
                     child: Text(
@@ -670,8 +696,6 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
                       ),
                     ),
                   ),
-
-                  // Footer
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
@@ -708,10 +732,9 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
           ),
         );
         
-        return; // Interrompe o cancelamento
+        return;
       }
 
-      // Se passou na validação, prossegue com o cancelamento
       await supabase.from('ordens').delete().eq('id', ordemId);
 
       if (!mounted) return;
@@ -720,12 +743,10 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
         const SnackBar(content: Text('Ordem cancelada com sucesso.')),
       );
 
-      // Recarrega listas
       await carregarHoje();
       await carregarHistorico(reset: true);
       
     } catch (e) {
-      debugPrint('Erro ao cancelar ordem: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erro ao cancelar ordem: $e'), backgroundColor: Colors.red),

@@ -1157,7 +1157,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                     const Icon(Icons.receipt_long_outlined, size: 18, color: _accent),
                     const SizedBox(width: 8),
                     const Text(
-                      'CACLs emitidos do tanque',
+                      'CACLs da data atual ou pendentes:',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,

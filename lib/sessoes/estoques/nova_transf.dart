@@ -687,6 +687,119 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
 
       final terminalDestId = filialDestinoResponse['terminal_id_1']?.toString();
 
+      // VALIDAÇÃO: Verificar apenas se o terminal de destino possui tanques com o produto selecionado
+      if (terminalDestId != null && _produtoId != null) {
+        final tanquesDestino = await supabase
+            .from('tanques')
+            .select('id')
+            .eq('terminal_id', terminalDestId)
+            .eq('id_produto', _produtoId!)
+            .limit(1);
+        
+        if (tanquesDestino.isEmpty) {
+          // Terminal de destino não tem tanque para este produto
+          final destinoNome = _filiais
+              .firstWhere(
+                (f) => f['id']?.toString() == _destinoId,
+                orElse: () => {'nome_dois': 'Destino'},
+              )['nome_dois']
+              ?.toString() ?? 'Destino';
+          
+          final produtoNome = _produtos
+              .firstWhere(
+                (p) => p['id']?.toString() == _produtoId,
+                orElse: () => {'nome': 'produto'},
+              )['nome']
+              ?.toString() ?? 'produto';
+          
+          if (mounted) {
+            setState(() => _salvando = false);
+            
+            final confirmar = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                title: Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 24),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Atenção',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0D47A1),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                content: Padding(
+                  padding: const EdgeInsets.only(left: 36),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'O terminal de destino ($destinoNome) não possui tanque em operação para o produto "$produtoNome".',
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Tem certeza que deseja prosseguir com a transferência?',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
+                    child: const Text(
+                      'Voltar',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Color.fromARGB(255, 95, 95, 95),
+                      ),
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange.shade600,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    child: const Text(
+                      'Sim, prosseguir',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            );
+            
+            if (confirmar != true) {
+              return; // Usuário escolheu voltar
+            }
+            
+            setState(() => _salvando = true);
+          }
+        }
+      }
+
       final hoje = DateTime.now();
       final dataMov = '${hoje.year}-${hoje.month.toString().padLeft(2, '0')}-${hoje.day.toString().padLeft(2, '0')}';
 
@@ -749,7 +862,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         'tipo_mov_orig': 'saida',
         'tipo_mov_dest': 'entrada',
         'terminal_orig_id': terminalOrigId,
-        'terminal_dest_id': terminalDestId,  // <-- NOVO CAMPO ADICIONADO
+        'terminal_dest_id': terminalDestId,
       };
 
       await supabase.from('movimentacoes').insert([transferencia]);

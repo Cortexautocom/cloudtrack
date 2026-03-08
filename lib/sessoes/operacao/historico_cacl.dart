@@ -137,13 +137,51 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
       final nivel = _usuarioData!['nivel'];
       final terminalId = UsuarioAtual.instance?.terminalId;
       
-      final produtosResponse = await supabase
-          .from('produtos')
-          .select('id, nome')
-          .order('nome');
-      setState(() {
-        produtosDisponiveis = List<Map<String, dynamic>>.from(produtosResponse);
-      });
+      // Carregar produtos específicos do terminal
+      if (terminalId != null) {
+        // Busca produtos através dos tanques do terminal
+        final produtosResponse = await supabase
+            .from('tanques')
+            .select('''
+              id_produto,
+              produtos!inner (
+                id,
+                nome
+              )
+            ''')
+            .eq('terminal_id', terminalId)
+            .not('id_produto', 'is', null) // CORREÇÃO: usar .not().isNull() ou .neq().isNot()
+            .order('produtos(nome)');
+        
+        // Extrair produtos únicos da resposta
+        final Map<String, Map<String, dynamic>> produtosUnicos = {};
+        for (var tanque in produtosResponse) {
+          if (tanque['produtos'] != null) {
+            final produto = tanque['produtos'] as Map<String, dynamic>;
+            final produtoId = produto['id']?.toString();
+            if (produtoId != null && !produtosUnicos.containsKey(produtoId)) {
+              produtosUnicos[produtoId] = {
+                'id': produtoId,
+                'nome': produto['nome']?.toString() ?? 'Produto sem nome',
+              };
+            }
+          }
+        }
+        
+        setState(() {
+          produtosDisponiveis = produtosUnicos.values.toList()
+            ..sort((a, b) => (a['nome'] ?? '').compareTo(b['nome'] ?? ''));
+        });
+      } else {
+        // Se não tiver terminalId (admin), carrega todos os produtos
+        final produtosResponse = await supabase
+            .from('produtos')
+            .select('id, nome')
+            .order('nome');
+        setState(() {
+          produtosDisponiveis = List<Map<String, dynamic>>.from(produtosResponse);
+        });
+      }
       
       if (nivel == 3) {
         final terminaisResponse = await supabase
