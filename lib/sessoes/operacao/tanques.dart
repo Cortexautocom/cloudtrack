@@ -1767,84 +1767,142 @@ class _SelecaoTipoVisualizacaoBottomSheetState extends State<_SelecaoTipoVisuali
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
-            return AlertDialog(
-              title: const Text('Selecionar Mês/Ano'),
-              content: SizedBox(
-                width: 300,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<int>(
-                            value: tempMes,
-                            decoration: const InputDecoration(
-                              labelText: 'Mês',
-                              border: OutlineInputBorder(),
-                            ),
-                            items: List.generate(12, (index) {
-                              final mes = index + 1;
-                              return DropdownMenuItem(
-                                value: mes,
-                                child: Text(_getNomeMes(mes)),
-                              );
-                            }),
-                            onChanged: (value) {
-                              if (value != null) {
-                                setStateDialog(() {
-                                  tempMes = value;
-                                });
-                              }
-                            },
+            return Dialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Center(
+                        child: Text(
+                          'Selecionar Mês/Ano',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0D47A1),
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: TextFormField(
-                            initialValue: tempAno.toString(),
-                            decoration: const InputDecoration(
-                              labelText: 'Ano',
-                              border: OutlineInputBorder(),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<int>(
+                                  value: tempMes,
+                                  isExpanded: true,
+                                  icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF0D47A1)),
+                                  items: List.generate(12, (index) {
+                                    final mes = index + 1;
+                                    return DropdownMenuItem(
+                                      value: mes,
+                                      child: Text(
+                                        _getNomeMes(mes),
+                                        style: const TextStyle(fontSize: 15),
+                                      ),
+                                    );
+                                  }),
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setStateDialog(() => tempMes = value);
+                                    }
+                                  },
+                                ),
+                              ),
                             ),
-                            keyboardType: TextInputType.number,
-                            onChanged: (value) {
-                              final ano = int.tryParse(value);
-                              if (ano != null && ano >= 2000 && ano <= 2100) {
-                                setStateDialog(() {
-                                  tempAno = ano;
-                                });
-                              }
-                            },
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 2,
+                            child: TextFormField(
+                              initialValue: tempAno.toString(),
+                              decoration: InputDecoration(
+                                labelText: 'Ano',
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(color: Colors.grey.shade300),
+                                ),
+                              ),
+                              keyboardType: TextInputType.number,
+                              onChanged: (value) {
+                                final ano = int.tryParse(value);
+                                if (ano != null && ano >= 2000 && ano <= 2100) {
+                                  setStateDialog(() => tempAno = ano);
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                side: const BorderSide(color: Color(0xFF0D47A1)),
+                                foregroundColor: const Color(0xFF0D47A1),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: const Text('Cancelar'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.pop(context); // Fecha o Diálogo de Mês/Ano
+                                Navigator.pop(context); // Fecha o BottomSheet Original
+
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (ctx) => EstoqueTanqueMensalPage(
+                                      tanqueId: widget.tanqueId,
+                                      referenciaTanque: widget.referenciaTanque,
+                                      filialId: widget.filialId,
+                                      nomeFilial: widget.nomeFilial,
+                                      mes: tempMes,
+                                      ano: tempAno,
+                                      onVoltar: () {
+                                        Navigator.of(ctx).pop();
+                                        widget.onVoltar();
+                                      },
+                                    ),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                backgroundColor: const Color(0xFF0D47A1),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                elevation: 0,
+                              ),
+                              child: const Text('Confirmar'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancelar'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _mesSelecionado = tempMes;
-                      _anoSelecionado = tempAno;
-                      _tipoMensal = true;
-                      _tipoDataEspecifica = false;
-                      _atualizarMesAnoController();
-                    });
-                    Navigator.pop(context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0D47A1),
-                  ),
-                  child: const Text('Confirmar'),
-                ),
-              ],
             );
           },
         );
