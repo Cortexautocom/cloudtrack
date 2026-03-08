@@ -492,6 +492,7 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
                           child: DropdownButton<String>(
                             value: _filialSelecionadaId,
                             isExpanded: true,
+                            itemHeight: 50, // Define a altura dos itens e do botão proporcionalmente
                             icon: const Icon(Icons.arrow_drop_down, size: 20),
                             style: const TextStyle(fontSize: 13, color: Colors.black),
                             onChanged: (String? novoValor) {
@@ -552,9 +553,10 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
                       onTap: _intraday ? () => _selecionarDataIntraday(context) : () => _selecionarMes(context),
                       child: Container(
                         width: double.infinity,
+                        height: 50, // Ajustado para coincidir com itemHeight do Dropdown
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
-                          vertical: 8,
+                          vertical: 0, // Removido vertical padding para centralizar via Row/Align
                         ),
                         decoration: BoxDecoration(
                           color: Colors.white,
@@ -573,7 +575,7 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
                                 : (_mesSelecionado != null
                                     ? '${_mesSelecionado!.month.toString().padLeft(2, '0')}/${_mesSelecionado!.year}'
                                     : 'Selecione o mês'),
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 13,
                                 color: Colors.black,
                               ),
@@ -610,6 +612,7 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
                     if (_carregandoProdutos)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        height: 50,
                         decoration: BoxDecoration(
                           color: Colors.white,
                           border: Border.all(color: Colors.grey.shade400, width: 1),
@@ -637,6 +640,7 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
                           child: DropdownButton<String>(
                             value: _produtoSelecionado,
                             isExpanded: true,
+                            itemHeight: 50,
                             icon: const Icon(Icons.arrow_drop_down, size: 20),
                             style: const TextStyle(fontSize: 13, color: Colors.black),
                             onChanged: (String? novoValor) {
@@ -693,6 +697,7 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
                         child: DropdownButton<String>(
                           value: _tipoRelatorio,
                           isExpanded: true,
+                          itemHeight: 50,
                           icon: const Icon(Icons.arrow_drop_down, size: 20),
                           style: const TextStyle(fontSize: 13, color: Colors.black),
                           onChanged: (String? novoValor) {
