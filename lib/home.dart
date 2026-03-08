@@ -30,6 +30,7 @@ import 'sessoes/operacao/temp_dens_media.dart';
 import 'sessoes/ajuda/arquiteto.dart';
 import 'sessoes/ajuda/suporte.dart';
 import 'sessoes/circuito/criar_ordem.dart';
+import 'sessoes/almoxerifado/frascos_amostra.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -76,6 +77,7 @@ class _HomePageState extends State<HomePage>
   bool showUsuarios = false;
   bool _mostrarAcompanhamentoOrdens = false;
   bool _mostrarSuporte = false;
+  bool _mostrarFrascosAmostra = false;
 
   // FLAGS PARA SESSÕES ESPECÍFICAS
   bool _mostrarCalcGerado = false;
@@ -534,6 +536,17 @@ class _HomePageState extends State<HomePage>
         'sessao_pai': 'Bombeios e Cotas',
       },
     ];
+
+    _filhosPorSessao['Almoxerifado'] = [
+      {
+        'id': 'fallback-frascos-amostra',
+        'icon': Icons.science_outlined,
+        'label': 'Frascos de amostras',
+        'descricao': 'Controle de frascos de amostras',
+        'tipo': 'frascos_amostra',
+        'sessao_pai': 'Almoxerifado',
+      },
+    ];
   }
 
   IconData _definirIconePorTipo(String tipo) {
@@ -562,6 +575,7 @@ class _HomePageState extends State<HomePage>
       'bombeios': Icons.invert_colors,
       'programacao_filial': Icons.local_gas_station,
       'criar_ordem': Icons.add_circle_outline,
+      'frascos_amostra': Icons.science_outlined,
     };
     return mapaIcones[tipo] ?? Icons.apps;
   }
@@ -591,6 +605,7 @@ class _HomePageState extends State<HomePage>
       'documentacao': 'Controle de documentos da frota',
       'bombeios': 'Controle de bombeios',
       'programacao_filial': 'Programação de vendas por filial',
+      'frascos_amostra': 'Controle de frascos de amostras',
     };
     return mapaDescricoes[tipo] ?? '';
   }
@@ -1344,12 +1359,23 @@ class _HomePageState extends State<HomePage>
 
         return _buildAjudaPage();
 
-      case 'Financeiro':
       case 'Laboratório':
       case 'Jurídico':
       case 'Gestão de Projetos':
       case 'Recursos Humanos':
       case 'Almoxerifado':
+        if (_mostrarFrascosAmostra) {
+          return FrascosAmostraPage(
+            onVoltar: () {
+              setState(() {
+                _mostrarFrascosAmostra = false;
+                _mostrarFilhosDaSessao('Almoxerifado');
+              });
+            },
+          );
+        }
+        return _buildConteudoSessoes();
+
       case 'Manutenção e ativos':
       case 'Segurança & Compliance':
         return _buildAreaIndisponivelPage();
@@ -2411,6 +2437,9 @@ class _HomePageState extends State<HomePage>
       case 'Bombeios e Cotas':
         _navegarParaCardBombeios(tipo);
         break;
+      case 'Almoxerifado':
+        _navegarParaCardAlmoxerifado(tipo);
+        break;
       default:
         debugPrint('Sessão pai não reconhecida: $sessaoPai');
     }
@@ -2693,6 +2722,16 @@ class _HomePageState extends State<HomePage>
     switch (tipo) {
       case 'bombeios':
         debugPrint('Abrir tela de bombeios');
+        break;
+    }
+  }
+
+  void _navegarParaCardAlmoxerifado(String tipo) {
+    switch (tipo) {
+      case 'frascos_amostra':
+        setState(() {
+          _mostrarFrascosAmostra = true;
+        });
         break;
     }
   }
