@@ -18,6 +18,7 @@ import 'sessoes/operacao/historico_cacl.dart';
 import 'sessoes/operacao/listar_cacls.dart';
 import 'sessoes/estoques/estoque_downloads.dart';
 import 'sessoes/estoques/filtro_estoque.dart';
+import 'sessoes/estoques/filtro_movimentacoes.dart';
 import 'sessoes/estoques/estoque_mes.dart';
 import 'sessoes/estoques/compacto_final.dart';
 import 'sessoes/gestao_de_frota/motoristas_page.dart';
@@ -88,6 +89,7 @@ class _HomePageState extends State<HomePage>
   bool _mostrarHistorico = false;
   bool _mostrarListarCacls = false;
   bool _mostrarFiltrosEstoque = false;
+  bool _mostrarFiltroMovimentacoes = false;
   bool _mostrarEscolherTerminal = false;
   bool _mostrarEstoquePorEmpresa = false;
   bool _mostrarFiliaisDaEmpresa = false;
@@ -1549,6 +1551,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildConteudoSessoes() {
+    final usuario = UsuarioAtual.instance;
     if (_mostrarMenuAjuda) {
       return _buildAjudaPage();
     }
@@ -1832,6 +1835,102 @@ class _HomePageState extends State<HomePage>
       );
     }
 
+    if (_mostrarFiltrosEstoque) {
+      return FiltroEstoquePage(
+        filialId: _filialParaFiltroId,
+        terminalId: _terminalParaFiltroId,
+        nomeFilial: _filialParaFiltroNome ?? _terminalParaFiltroNome ?? '',
+        empresaId: _empresaParaFiltroId,
+        empresaNome: _empresaParaFiltroNome,
+        onConsultarEstoque: ({
+          required String? filialId,
+          required String? terminalId,
+          required String nomeFilial,
+          String? empresaId,
+          DateTime? mesFiltro,
+          String? produtoFiltro,
+          required String tipoRelatorio,
+          required bool isIntraday,
+          DateTime? dataIntraday,
+        }) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => EstoqueMesPage(
+                filialId: filialId,
+                terminalId: terminalId,
+                nomeFilial: nomeFilial,
+                mesFiltro: mesFiltro,
+                produtoFiltro: produtoFiltro,
+                tipoRelatorio: tipoRelatorio,
+                isIntraday: isIntraday,
+                dataIntraday: dataIntraday,
+              ),
+            ),
+          );
+        },
+        onVoltar: () {
+          setState(() {
+            _mostrarFiltrosEstoque = false;
+            // Se o nível for 4 (Master), volta para a seleção de filiais da empresa
+            if (usuario?.nivel == 4) {
+              _mostrarFiliaisDaEmpresa = true;
+            } else {
+              _mostrarFilhosDaSessao('Estoques');
+            }
+          });
+        },
+      );
+    }
+
+    if (_mostrarFiltroMovimentacoes) {
+      return FiltroMovimentacoesPage(
+        filialId: _filialParaFiltroId,
+        terminalId: _terminalParaFiltroId,
+        nomeFilial: _filialParaFiltroNome ?? _terminalParaFiltroNome ?? '',
+        empresaId: _empresaParaFiltroId,
+        empresaNome: _empresaParaFiltroNome,
+        onConsultarEstoque: ({
+          required String? filialId,
+          required String? terminalId,
+          required String nomeFilial,
+          String? empresaId,
+          DateTime? mesFiltro,
+          String? produtoFiltro,
+          required String tipoRelatorio,
+          required bool isIntraday,
+          DateTime? dataIntraday,
+        }) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => EstoqueMesPage(
+                filialId: filialId,
+                terminalId: terminalId,
+                nomeFilial: nomeFilial,
+                mesFiltro: mesFiltro,
+                produtoFiltro: produtoFiltro,
+                tipoRelatorio: tipoRelatorio,
+                isIntraday: isIntraday,
+                dataIntraday: dataIntraday,
+              ),
+            ),
+          );
+        },
+        onVoltar: () {
+          setState(() {
+            _mostrarFiltroMovimentacoes = false;
+            // Se o nível for 4 (Master), volta para a seleção de filiais da empresa
+            if (usuario?.nivel == 4) {
+              _mostrarFiliaisDaEmpresa = true;
+            } else {
+              _mostrarFilhosDaSessao('Estoques');
+            }
+          });
+        },
+      );
+    }
+
     if (_mostrarAcompanhamentoOrdens) {
       return AcompanhamentoOrdensPage(
         key: const ValueKey('acompanhamento-ordens'),
@@ -1972,6 +2071,7 @@ class _HomePageState extends State<HomePage>
                       _mostrarMotoristas ||
                       _mostrarTransportadoras ||
                       _mostrarFiltrosEstoque ||
+                      _mostrarFiltroMovimentacoes ||
                       _mostrarCardsFilial ||
                       _mostrarSuporte))
                 IconButton(
@@ -1998,6 +2098,7 @@ class _HomePageState extends State<HomePage>
                       _mostrarMotoristas ||
                       _mostrarTransportadoras ||
                       _mostrarFiltrosEstoque ||
+                      _mostrarFiltroMovimentacoes ||
                       _mostrarCardsFilial))
                 const SizedBox(width: 10),
               Text(
@@ -2361,8 +2462,14 @@ class _HomePageState extends State<HomePage>
               _empresaParaFiltroId = _empresaSelecionadaId;
               _empresaParaFiltroNome = _empresaSelecionadaNome;
               _mostrarCardsFilial = false;
-              _mostrarFiltrosEstoque =
-                  true; // Navega diretamente para filtros de estoque
+
+              // Direciona para o filtro correto baseado no contexto
+              if (_contextoEscolhaTerminal == 'movimentacoes' ||
+                  _contextoEscolhaTerminal == 'movimentaces') {
+                _mostrarFiltroMovimentacoes = true;
+              } else {
+                _mostrarFiltrosEstoque = true;
+              }
             });
           },
           hoverColor: _getCorPorSessao('Estoques').withOpacity(0.1),
@@ -2567,6 +2674,42 @@ class _HomePageState extends State<HomePage>
         // Validar se usuário tem filial OU terminal vinculado
         if (usuario == null) return;
 
+        // --- REGRAS PARA MOVIMENTAÇÕES ---
+        if (tipo == 'movimentacoes' || tipo == 'movimentaces') {
+          // Nível 1 e 2 (Operacional/Terminal): vinculados a Terminal/Filial mas podem mudar
+          if (usuario.nivel == 1 || usuario.nivel == 2) {
+            setState(() {
+              _terminalParaFiltroId = usuario.terminalId;
+              _terminalParaFiltroNome = _usuarioTerminalNome ?? 'Seu Terminal';
+              _filialParaFiltroId = null;
+              _filialParaFiltroNome = null;
+              _empresaParaFiltroId = null;
+              _empresaParaFiltroNome = null;
+              _mostrarFiltroMovimentacoes = true;
+              _mostrarCardsFilial = false;
+              _mostrarFiliaisDaEmpresa = false;
+            });
+            return;
+          }
+
+          // Nível 3 (Gerencial/Filial): não vinculados a filial específica, campos livres
+          if (usuario.nivel == 3) {
+            setState(() {
+              _filialParaFiltroId = null; // Campos começam livres
+              _filialParaFiltroNome = null;
+              _terminalParaFiltroId = null;
+              _terminalParaFiltroNome = null;
+              _empresaParaFiltroId = null;
+              _empresaParaFiltroNome = null;
+              _mostrarFiltroMovimentacoes = true;
+              _mostrarCardsFilial = false;
+              _mostrarFiliaisDaEmpresa = false;
+            });
+            return;
+          }
+        }
+
+        // --- REGRAS PADRÃO (ESTOQUES / OUTROS) ---
         // Para nível 1 e 2, usar terminal_id
         if (usuario.nivel == 1 || usuario.nivel == 2) {
           if (usuario.terminalId == null || usuario.terminalId!.isEmpty) {
@@ -2587,7 +2730,13 @@ class _HomePageState extends State<HomePage>
             _filialParaFiltroNome = null;
             _empresaParaFiltroId = null;
             _empresaParaFiltroNome = null;
-            _mostrarFiltrosEstoque = true;
+
+            if (tipo == 'movimentacoes' || tipo == 'movimentaces') {
+              _mostrarFiltroMovimentacoes = true;
+            } else {
+              _mostrarFiltrosEstoque = true;
+            }
+
             _mostrarCardsFilial = false;
             _mostrarFiliaisDaEmpresa = false;
           });
@@ -2614,11 +2763,26 @@ class _HomePageState extends State<HomePage>
             _terminalParaFiltroNome = null;
             _empresaParaFiltroId = null;
             _empresaParaFiltroNome = null;
-            _mostrarFiltrosEstoque = true;
+
+            if (tipo == 'movimentacoes' || tipo == 'movimentaces') {
+              _mostrarFiltroMovimentacoes = true;
+            } else {
+              _mostrarFiltrosEstoque = true;
+            }
+
             _mostrarCardsFilial = false;
             _mostrarFiliaisDaEmpresa = false;
           });
+          return;
         }
+
+        // Para nível 4 (Master), mostrar seleção de empresa primeiro
+        setState(() {
+          _mostrarEstoquePorEmpresa = true;
+          // passamos o tipo para saber qual filtro abrir depois da seleção da filial
+          _contextoEscolhaTerminal = tipo;
+          _carregarEmpresas();
+        });
         break;
 
       case 'transferencias':
