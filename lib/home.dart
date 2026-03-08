@@ -454,6 +454,14 @@ class _HomePageState extends State<HomePage>
         'tipo': 'transferencias',
         'sessao_pai': 'Estoques',
       },
+      {
+        'id': 'fallback-estoque-fiscal',
+        'icon': Icons.receipt_long,
+        'label': 'Estoque fiscal',
+        'descricao': 'Acompanhar estoque fiscal e tributário',
+        'tipo': 'estoque_fiscal',
+        'sessao_pai': 'Estoques',
+      },
     ];
 
     _filhosPorSessao['Circuito'] = [
@@ -576,6 +584,7 @@ class _HomePageState extends State<HomePage>
       'programacao_filial': Icons.local_gas_station,
       'criar_ordem': Icons.add_circle_outline,
       'frascos_amostra': Icons.science_outlined,
+      'estoque_fiscal': Icons.receipt_long,
     };
     return mapaIcones[tipo] ?? Icons.apps;
   }
@@ -606,6 +615,7 @@ class _HomePageState extends State<HomePage>
       'bombeios': 'Controle de bombeios',
       'programacao_filial': 'Programação de vendas por filial',
       'frascos_amostra': 'Controle de frascos de amostras',
+      'estoque_fiscal': 'Acompanhar estoque fiscal e tributário',
     };
     return mapaDescricoes[tipo] ?? '';
   }
@@ -2553,6 +2563,7 @@ class _HomePageState extends State<HomePage>
 
       case 'movimentacoes':
       case 'movimentaces':
+      case 'estoque_fiscal':
         // Validar se usuário tem filial OU terminal vinculado
         if (usuario == null) return;
 
