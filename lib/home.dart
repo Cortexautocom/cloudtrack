@@ -1454,7 +1454,7 @@ class _HomePageState extends State<HomePage>
             });
             break;
 
-          case 'grande_arquiteto':
+          case 'desenvolvedor':
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -3403,11 +3403,11 @@ class HomeCards extends StatelessWidget {
         'tipo': 'suporte',
       },
       {
-        'titulo': 'O Grande Arquiteto',
-        'descricao': 'Dicionário de dados, relações e estruturas do sistema',
+        'titulo': 'O Desenvolvedor',
+        'descricao': 'Dê sua contribuição para o projeto',
         'icone': Icons.architecture,
         'cor': const Color(0xFF0D47A1),
-        'tipo': 'grande_arquiteto',
+        'tipo': 'desenvolvedor',
       },
     ];
 
