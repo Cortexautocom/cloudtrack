@@ -1,3 +1,4 @@
+// ==================== main.dart ====================
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_strategy/url_strategy.dart';
@@ -45,13 +46,26 @@ class _MyAppState extends State<MyApp> {
   void _setupAuthListener() {
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       print('🔐 Auth state changed: ${data.event}');
+      
+      if (data.event == AuthChangeEvent.passwordRecovery) {
+        print('📧 Evento de recuperação de senha detectado!');
+        if (ModalRoute.of(context)?.settings.name != '/redefinir-senha') {
+          Navigator.pushReplacementNamed(context, '/redefinir-senha');
+        }
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final isRecoveryLink = Uri.base.toString().contains('type=recovery');
+    final uri = Uri.base;
+    print('🔗 URL recebida: $uri');
+    print('🔗 Query parameters: ${uri.queryParameters}');
     
+    final isRecoveryLink = uri.queryParameters.containsKey('code') || 
+                           uri.toString().contains('type=recovery') ||
+                           uri.toString().contains('access_token');
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'PowerTank',
@@ -60,9 +74,7 @@ class _MyAppState extends State<MyApp> {
         scaffoldBackgroundColor: Colors.white,
         primarySwatch: Colors.blue,
         inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8.0),
-          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.0)),
           filled: true,
           fillColor: Colors.grey[50],
         ),
@@ -71,9 +83,7 @@ class _MyAppState extends State<MyApp> {
             backgroundColor: Colors.blue,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 16.0),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8.0),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
           ),
         ),
       ),

@@ -37,18 +37,14 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
       setState(() => _senhaRedefinida = true);
 
       if (!mounted) return;
+      
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Senha redefinida com sucesso!'),
           backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
         ),
       );
-
-      await Future.delayed(const Duration(seconds: 2));
-      await supabase.auth.signOut();
-
-      if (!mounted) return;
-      Navigator.pushReplacementNamed(context, '/login');
       
     } on AuthException catch (error) {
       if (!mounted) return;
@@ -58,6 +54,7 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
           backgroundColor: Colors.red,
         ),
       );
+      setState(() => _isLoading = false);
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -66,10 +63,18 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
           backgroundColor: Colors.red,
         ),
       );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      setState(() => _isLoading = false);
     }
-  }  
+  }
+
+  void _irParaLogin() {
+    // Limpa toda a pilha de navegação e vai para a tela de login
+    Navigator.pushNamedAndRemoveUntil(
+      context, 
+      '/login', 
+      (route) => false,
+    );
+  }
 
   String? _validarForcaSenha(String? value) {
     if (value == null || value.isEmpty) {
@@ -151,7 +156,7 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
                   const SizedBox(height: 10),
                   Text(
                     _senhaRedefinida 
-                      ? 'Sua senha foi redefinida com sucesso. Você será redirecionado para a página inicial.'
+                      ? 'Sua senha foi redefinida com sucesso.'
                       : 'Digite sua nova senha nos campos abaixo',
                     style: const TextStyle(
                       fontSize: 14,
@@ -234,20 +239,62 @@ class _RedefinirSenhaPageState extends State<RedefinirSenhaPage> {
                       ),
                     ),
                   ] else ...[
-                    const Column(
-                      children: [
-                        CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0A4B78)),
-                        ),
-                        SizedBox(height: 20),
-                        Text(
-                          'Redirecionando...',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 14,
+                    // Estado de sucesso com botão para fazer login
+                    const Icon(
+                      Icons.check_circle,
+                      color: Colors.green,
+                      size: 80,
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Senha redefinida com sucesso.',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 30),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0A4B78),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                      ],
+                        onPressed: _irParaLogin,
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.login, color: Colors.white, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              'Fazer login',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    TextButton(
+                      onPressed: _irParaLogin,
+                      child: const Text(
+                        'Voltar para o login',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF0A4B78),
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
                     ),
                   ],
                   const SizedBox(height: 20),

@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'home.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'configuracoes/cadastro_novo_usuario.dart';
 import 'configuracoes/esqueci_senha.dart';
-import 'configuracoes/escolher_senha.dart';
 
 class UsuarioAtual {
   static UsuarioAtual? instance;
@@ -14,7 +12,7 @@ class UsuarioAtual {
   final String? filialId;
   final String? empresaId;
   final String? terminalId;
-  final String? terminalNome; // NOVO CAMPO
+  final String? terminalNome;
   final List<String> cardsPermitidosIds;
   final bool senhaTemporaria;
 
@@ -25,7 +23,7 @@ class UsuarioAtual {
     required this.filialId,
     required this.empresaId,
     required this.terminalId,
-    required this.terminalNome, // NOVO PARÂMETRO
+    required this.terminalNome,
     required this.cardsPermitidosIds,
     required this.senhaTemporaria,
   });
@@ -52,6 +50,52 @@ class _LoginPageState extends State<LoginPage> {
   bool _obscureText = true;
   bool _isLoading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _checkForRecoveryLink();
+  }
+
+  Future<void> _checkForRecoveryLink() async {
+    final uri = Uri.base;
+    
+    if (uri.queryParameters.containsKey('code')) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacementNamed(context, '/redefinir-senha');
+      });
+      return;
+    }
+    
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session != null && mounted) {
+      _fetchUserData(session.user.id);
+    }
+  }
+
+  Future<void> _fetchUserData(String userId) async {
+    try {
+      final supabase = Supabase.instance.client;
+      
+      final raw = await supabase
+          .from('usuarios')
+          .select('''
+            id,
+            nome,
+            Nome_apelido,
+            nivel,
+            empresa_id,
+            terminal_id,
+            senha_temporaria
+          ''')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (raw != null) {
+        _processarLogin(raw);
+      }
+    } catch (e) {}
+  }
+
   Future<String?> _buscarFilialIdPorTerminal(String? terminalId) async {
     if (terminalId == null) return null;
     
@@ -70,7 +114,6 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // NOVO: Método para buscar nome do terminal
   Future<String?> _buscarNomeTerminal(String? terminalId) async {
     if (terminalId == null) return null;
     
@@ -85,7 +128,6 @@ class _LoginPageState extends State<LoginPage> {
       
       return terminal?['nome']?.toString();
     } catch (e) {
-      debugPrint('Erro ao buscar nome do terminal: $e');
       return null;
     }
   }
@@ -106,6 +148,48 @@ class _LoginPageState extends State<LoginPage> {
           .toList();
     } catch (e) {
       return [];
+    }
+  }
+
+  Future<void> _processarLogin(Map<String, dynamic> usuarioData) async {
+    final int nivel = usuarioData['nivel'] as int;
+    final String? empresaId = usuarioData['empresa_id']?.toString();
+    final String? terminalId = usuarioData['terminal_id']?.toString();
+    
+    final String? filialId = await _buscarFilialIdPorTerminal(terminalId);
+    final String? terminalNome = await _buscarNomeTerminal(terminalId);
+    final cardsPermitidosIds = await _carregarPermissoesCards(usuarioData['id'].toString());
+
+    if (nivel < 3 && cardsPermitidosIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Você não tem permissão para acessar nenhuma funcionalidade.'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 3),
+        ),
+      );
+
+      await Supabase.instance.client.auth.signOut();
+      UsuarioAtual.instance = null;
+      return;
+    }
+
+    UsuarioAtual.instance = UsuarioAtual(
+      id: usuarioData['id'].toString(),
+      nome: (usuarioData['Nome_apelido'] ?? usuarioData['nome']).toString(),
+      nivel: nivel,
+      filialId: filialId,
+      empresaId: empresaId,
+      terminalId: terminalId,
+      terminalNome: terminalNome,
+      cardsPermitidosIds: cardsPermitidosIds,
+      senhaTemporaria: usuarioData['senha_temporaria'] == true,
+    );
+
+    if (UsuarioAtual.instance!.precisaTrocarSenha) {
+      Navigator.pushReplacementNamed(context, '/escolher-senha');
+    } else {
+      Navigator.pushReplacementNamed(context, '/home');
     }
   }
 
@@ -154,90 +238,28 @@ class _LoginPageState extends State<LoginPage> {
         throw Exception('Usuário não encontrado.');
       }
 
-      final usuarioData = Map<String, dynamic>.from(raw as Map);
-
-      final int nivel = usuarioData['nivel'] as int;
-      final String? empresaId = usuarioData['empresa_id']?.toString();
-      final String? terminalId = usuarioData['terminal_id']?.toString();
+      await _processarLogin(Map<String, dynamic>.from(raw as Map));
       
-      final String? filialId = await _buscarFilialIdPorTerminal(terminalId);
-      
-      // NOVO: Buscar nome do terminal
-      final String? terminalNome = await _buscarNomeTerminal(terminalId);
-
-      final cardsPermitidosIds = await _carregarPermissoesCards(user.id);
-
-      if (nivel < 3 && cardsPermitidosIds.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Você não tem permissão para acessar nenhuma funcionalidade.',
-            ),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 3),
-          ),
-        );
-
-        await supabase.auth.signOut();
-        UsuarioAtual.instance = null;
-        setState(() => _isLoading = false);
-        return;
-      }
-
-      // ATUALIZADO: Incluir terminalNome na criação do UsuarioAtual
-      UsuarioAtual.instance = UsuarioAtual(
-        id: usuarioData['id'].toString(),
-        nome: (usuarioData['Nome_apelido'] ?? usuarioData['nome']).toString(),
-        nivel: nivel,
-        filialId: filialId,
-        empresaId: empresaId,
-        terminalId: terminalId,
-        terminalNome: terminalNome, // NOVO CAMPO
-        cardsPermitidosIds: cardsPermitidosIds,
-        senhaTemporaria: usuarioData['senha_temporaria'] == true,
-      );
-
-      if (UsuarioAtual.instance!.precisaTrocarSenha) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Defina uma nova senha para continuar.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const EscolherSenhaPage()),
-        );
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Login realizado com sucesso!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
-      );
-    } catch (error) {
+    } on AuthException catch (error) {
       String mensagemErro = 'Erro ao fazer login.';
-
-      if (error is AuthException) {
-        final msg = error.message.toLowerCase();
-        if (msg.contains('invalid')) {
-          mensagemErro = 'E-mail ou senha incorretos.';
-        } else if (msg.contains('email not confirmed')) {
-          mensagemErro = 'E-mail não confirmado.';
-        }
+      final msg = error.message.toLowerCase();
+      
+      if (msg.contains('invalid')) {
+        mensagemErro = 'E-mail ou senha incorretos.';
+      } else if (msg.contains('email not confirmed')) {
+        mensagemErro = 'E-mail não confirmado.';
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(mensagemErro),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro inesperado: $error'),
           backgroundColor: Colors.red,
         ),
       );
@@ -406,5 +428,12 @@ class _LoginPageState extends State<LoginPage> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
   }
 }
