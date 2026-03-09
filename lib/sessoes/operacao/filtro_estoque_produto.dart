@@ -50,9 +50,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
   bool _carregandoProdutos = false;
   bool _carregandoFiliais = false;
   bool _carregandoTerminais = false;
-  bool _intraday = true; // Sempre true para estoque por produto
-  bool _terminalVinculado = false; // Indica se o usuário tem terminal fixo
-  bool _filiaisCarregadas = false; // Controle se as filiais já foram carregadas
+  bool _terminalVinculado = false;
 
   @override
   void initState() {
@@ -85,7 +83,6 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
   Future<void> _carregarFilialPorTerminal(String terminalId) async {
     setState(() {
       _carregandoFiliais = true;
-      _filiaisCarregadas = false;
     });
 
     try {
@@ -173,7 +170,6 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
 
       setState(() {
         _filiaisDisponiveis = filiais;
-        _filiaisCarregadas = true;
         
         // Se só tiver uma filial disponível (além da opção <selecione>), pré-selecionar automaticamente
         if (filiais.length == 2) { // 1 opção <selecione> + 1 filial
@@ -193,7 +189,6 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
         ];
         _filialSelecionadaId = '';
         _filialSelecionadaNome = null;
-        _filiaisCarregadas = true;
       });
     } finally {
       setState(() => _carregandoFiliais = false);
@@ -302,7 +297,6 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
             _filiaisDisponiveis = [];
             _filialSelecionadaId = '';
             _filialSelecionadaNome = null;
-            _filiaisCarregadas = false;
           });
         }
       });
@@ -494,7 +488,6 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
         _filiaisDisponiveis = [];
         _filialSelecionadaId = '';
         _filialSelecionadaNome = null;
-        _filiaisCarregadas = false;
         _produtosDisponiveis = []; // Limpar produtos
       }
     });
@@ -787,7 +780,6 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                       _filiaisDisponiveis = [];
                       _filialSelecionadaId = '';
                       _filialSelecionadaNome = null;
-                      _filiaisCarregadas = false;
                       _produtosDisponiveis = [];
                       _produtoSelecionadoId = '';
                       _produtoSelecionadoNome = null;
