@@ -1215,6 +1215,45 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
+                              ElevatedButton.icon(
+                                onPressed: _voltar,
+                                icon: const Icon(Icons.arrow_back, size: 24),
+                                label: const Text(
+                                  'Voltar',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+
+                              ElevatedButton.icon(
+                                onPressed: _modoVisualizacao ? _baixarPDF : null,
+                                icon: const Icon(Icons.picture_as_pdf, size: 24),
+                                label: const Text(
+                                  'Gerar Certificado PDF',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _modoVisualizacao
+                                      ? const Color(0xFF0D47A1)
+                                      : Colors.grey[300],
+                                  foregroundColor:
+                                      _modoVisualizacao ? Colors.white : Colors.grey[600],
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+
                               if (!_modoVisualizacao)
                                 ElevatedButton.icon(
                                     onPressed: (_salvandoCertificado || (_converterParaInteiro(campos['origem20']!.text) ?? 0) <= 0)
@@ -1262,45 +1301,6 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                                     ),
                                   ),
                                 ),
-
-                              ElevatedButton.icon(
-                                onPressed: _modoVisualizacao ? _baixarPDF : null,
-                                icon: const Icon(Icons.picture_as_pdf, size: 24),
-                                label: const Text(
-                                  'Gerar Certificado PDF',
-                                  style: TextStyle(fontSize: 16),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _modoVisualizacao
-                                      ? const Color(0xFF0D47A1)
-                                      : Colors.grey[300],
-                                  foregroundColor:
-                                      _modoVisualizacao ? Colors.white : Colors.grey[600],
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                              ),
-
-                              ElevatedButton.icon(
-                                onPressed: _voltar,
-                                icon: const Icon(Icons.arrow_back, size: 24),
-                                label: const Text(
-                                  'Voltar',
-                                  style: TextStyle(fontSize: 16),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blue,
-                                  foregroundColor: Colors.white,
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                              ),
                             ],
                           ),
                         ],

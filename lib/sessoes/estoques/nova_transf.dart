@@ -800,8 +800,9 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         }
       }
 
-      final hoje = DateTime.now();
-      final dataMov = '${hoje.year}-${hoje.month.toString().padLeft(2, '0')}-${hoje.day.toString().padLeft(2, '0')}';
+      // Obter data/hora atual no fuso de São Paulo
+      final agora = DateTime.now();
+      final dataHoraSP = agora.toIso8601String(); // Formato: YYYY-MM-DDTHH:MM:SS.mmm
 
       final ordemResponse = await supabase
           .from('ordens')
@@ -810,7 +811,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
             'filial_id': _origemId,
             'usuario_id': _usuarioId,
             'tipo': 'transferencia',
-            'data_ordem': dataMov,
+            'data_ordem': dataHoraSP, // Agora insere com data e hora completas
           })
           .select('id')
           .single();
