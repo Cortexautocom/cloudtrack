@@ -1720,6 +1720,30 @@ class _HomePageState extends State<HomePage>
 
     // SEÇÃO: Operação
     if (sessaoAtual == 'Operação') {
+      if (_mostrarEstoquePorTanque) {
+        return Container(
+          margin: const EdgeInsets.only(left: 12),
+          child: EstoquePorTanquePage(
+            key: const ValueKey('estoque-por-tanque'),
+            terminalSelecionadoId:
+                _terminalSelecionadoId ?? _filialSelecionadaId,
+            onVoltar: () {
+              setState(() {
+                _mostrarEstoquePorTanque = false;
+                _terminalSelecionadoId = null;
+                _filialSelecionadaId = null;
+
+                if (_estoquePorTanqueVemDaApuracao) {
+                  _estoquePorTanqueVemDaApuracao = false;
+                  _mostrarFilhosDaSessao('Operação');
+                } else {
+                  _mostrarFilhosDaSessao('Operação');
+                }
+              });
+            },
+          ),
+        );
+      }
       if (_mostrarTanques &&
           (_filialSelecionadaId != null || _terminalSelecionadoId != null)) {
         final filialIdParaGerenciamento =
