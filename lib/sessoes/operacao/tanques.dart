@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
-import 'emitir_cacl.dart';
+import 'medicoes_emitir_cacl.dart';
 import 'cacl_historico.dart';
 import 'estoque_tanque.dart';
 import 'estoque_tanque_mensal.dart';
@@ -419,7 +419,6 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
   }
 
   Future<void> _abrirCACL() async {
-    final filialId = _tanqueSelecionadoParaAcoes?['id_filial']?.toString() ?? widget.filialSelecionadaId ?? UsuarioAtual.instance!.filialId;
     final tanqueId = _tanqueSelecionadoParaAcoes?['id']?.toString();
     bool caclFinalizado = false;
 
@@ -427,7 +426,6 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       MaterialPageRoute(
         builder: (context) => MedicaoTanquesPage(
           onVoltar: () => Navigator.pop(context),
-          filialSelecionadaId: filialId,
           tanqueSelecionadoId: tanqueId,
           onFinalizarCACL: () {
             caclFinalizado = true;

@@ -8,7 +8,7 @@ import 'configuracoes/usuarios.dart';
 import 'perfil.dart';
 import 'sessoes/operacao/cacl.dart';
 import 'sessoes/gestao_de_frota/controle_documentos.dart';
-import 'sessoes/operacao/emitir_cacl.dart';
+import 'sessoes/operacao/medicoes_emitir_cacl.dart';
 import 'sessoes/operacao/tanques.dart';
 import 'sessoes/operacao/escolher_terminal.dart';
 import 'sessoes/vendas/programacao.dart';
@@ -1938,7 +1938,6 @@ class _HomePageState extends State<HomePage>
       if (_mostrarMedicaoTanques) {
         return MedicaoTanquesPage(
           key: const ValueKey('medicao-tanques'),
-          filialSelecionadaId: _terminalSelecionadoId ?? _filialSelecionadaId,
           onVoltar: () {
             setState(() {
               _mostrarMedicaoTanques = false;

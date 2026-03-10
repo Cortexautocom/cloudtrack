@@ -5,7 +5,6 @@ import 'cacl.dart';
 
 class MedicaoTanquesPage extends StatefulWidget {
   final VoidCallback onVoltar;
-  final String? filialSelecionadaId;
   final String? tanqueSelecionadoId;
   final DateTime? dataReferencia;
   final VoidCallback? onFinalizarCACL;
@@ -17,7 +16,6 @@ class MedicaoTanquesPage extends StatefulWidget {
   const MedicaoTanquesPage({
     super.key,
     required this.onVoltar,
-    this.filialSelecionadaId,
     this.tanqueSelecionadoId,
     this.dataReferencia,
     this.onFinalizarCACL,
@@ -39,7 +37,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
 
   int _tanqueSelecionadoIndex = 0;
   bool _carregando = true;
-  String? _nomeFilial;
+  String? _nomeTerminal;
+  String? _terminalId;
 
   // Novas variáveis para os tipos de CACL
   bool _caclVerificacao = false;
@@ -71,78 +70,41 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       _caclVerificacao = true;
       _caclMovimentacao = false;
     }
+    
+    _carregarDadosDoUsuario();
     _carregarTanques();
+  }
+
+  Future<void> _carregarDadosDoUsuario() async {
+    final usuario = UsuarioAtual.instance;
+    if (usuario != null) {
+      setState(() {
+        _terminalId = usuario.terminalId;
+        _nomeTerminal = usuario.terminalNome;
+      });
+    }
   }
 
   Future<void> _carregarTanques() async {
     try {
       final supabase = Supabase.instance.client;
-      final usuario = UsuarioAtual.instance!;
 
-      final PostgrestTransformBuilder<dynamic> query;
-
-      String? nomeFilial;
-      if (usuario.nivel == 3 && widget.filialSelecionadaId != null) {
-        final terminalData = await supabase
-            .from('terminais')
-            .select('nome')
-            .eq('id', widget.filialSelecionadaId!)
-            .maybeSingle();
-        nomeFilial = terminalData?['nome']?.toString();
-      } else if (usuario.terminalId != null) {
-        final terminalData = await supabase
-            .from('terminais')
-            .select('nome')
-            .eq('id', usuario.terminalId!)
-            .maybeSingle();
-        nomeFilial = terminalData?['nome']?.toString();
+      if (_terminalId == null) {
+        setState(() => _carregando = false);
+        return;
       }
 
-      if (mounted) {
-        setState(() {
-          _nomeFilial = nomeFilial;
-        });
-      }
-
-      if (usuario.nivel == 3) {
-        if (widget.filialSelecionadaId == null) {
-          setState(() => _carregando = false);
-          return;
-        }
-
-        query = supabase
-            .from('tanques')
-            .select('''
-              id, 
-              referencia,
-              capacidade,
-              id_produto,
-              produtos (nome)
-            ''')
-            .eq('terminal_id', widget.filialSelecionadaId!)
-            .order('referencia', ascending: true);
-      } else {
-        final idTerminal = usuario.terminalId;
-
-        if (idTerminal == null) {
-          setState(() => _carregando = false);
-          return;
-        }
-
-        query = supabase
-            .from('tanques')
-            .select('''
-              id,
-              referencia,
-              capacidade,
-              id_produto,
-              produtos (nome)
-            ''')
-            .eq('terminal_id', idTerminal)
-            .order('referencia', ascending: true);
-      }
-
-      final tanquesResponse = await query;
+      final tanquesResponse = await supabase
+          .from('tanques')
+          .select('''
+            id,
+            referencia,
+            capacidade,
+            id_produto,
+            produtos (nome)
+          ''')
+          .eq('terminal_id', _terminalId!)
+          .order('referencia', ascending: true);
 
       final List<Map<String, dynamic>> tanquesFormatados = [];
 
@@ -207,7 +169,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           TextEditingController(), // 5 - temp amostra Inicial
           TextEditingController(), // 6 - água cm Inicial
           TextEditingController(), // 7 - água mm Inicial
-          TextEditingController(), // 8 - observações Inicial (NOVA POSIÇÃO)
+          TextEditingController(), // 8 - observações Inicial
           // ===== 2ª MEDIÇÃO =====
           TextEditingController(), // 9  - horário Final
           TextEditingController(), // 10 - cm Final
@@ -415,7 +377,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
 
     final dadosFormulario = {
       'data': _dataController.text,
-      'base': _nomeFilial ?? 'POLO DE COMBUSTÍVEL',
+      'base': _nomeTerminal ?? 'POLO DE COMBUSTÍVEL',
       'produto': tanqueAtual['produto'],
       'tanque': tanqueAtual['numero'],
       'tanque_id': tanqueAtual['id'],
@@ -424,11 +386,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       'movimentacao_id_referencia': widget.movimentacaoIdReferencia,
       'responsavel': UsuarioAtual.instance?.nome ?? 'Usuário',
       'medicoes': dadosMedicoes,
-      'terminal_id':
-          UsuarioAtual.instance!.nivel == 3 &&
-              widget.filialSelecionadaId != null
-          ? widget.filialSelecionadaId
-          : UsuarioAtual.instance!.terminalId,
+      'terminal_id': _terminalId,
       'cacl_verificacao': _caclVerificacao,
       'cacl_movimentacao': _caclMovimentacao,
     };
@@ -526,12 +484,12 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (_nomeFilial != null) ...[
+                if (_nomeTerminal != null) ...[
                   const SizedBox(width: 12),
                   const Icon(Icons.business, size: 14, color: Colors.grey),
                   const SizedBox(width: 4),
                   Text(
-                    _nomeFilial!,
+                    _nomeTerminal!,
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -758,7 +716,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              'Não há tanques cadastrados para esta filial',
+                              'Não há tanques cadastrados para este terminal',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey.shade500,
@@ -882,7 +840,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
 
                               const SizedBox(
                                 height: 12,
-                              ), // Espaço entre checkboxes e botão
+                              ),
                               // Botão Pré-visualização
                               SizedBox(
                                 width: 200,
@@ -1037,7 +995,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                       'Inicial',
                       Colors.blue[50]!,
                       Colors.blue,
-                      ctrls.sublist(0, 9), // 0–8 (agora inclui observações)
+                      ctrls.sublist(0, 9), // 0–8
                       focusNodes.sublist(0, 9), // 0–8
                       ehSegundaMedicao: false,
                     ),
@@ -1191,7 +1149,7 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                   focusNode: f[7],
                   nextFocus: ehSegundaMedicao
                       ? f[8]
-                      : f[8], // Agora vai para observações
+                      : f[8],
                 ),
                 ehSegundaMedicao
                     ? _buildFaturadoField(
@@ -1201,13 +1159,13 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
                         width: 100,
                         focusNode: f[8],
                         readOnly: _caclVerificacao,
-                        nextFocus: f[9], // Agora vai para observações
+                        nextFocus: f[9],
                       )
                     : _buildGhostField(width: 100),
               ],
             ),
 
-            // OBSERVAÇÕES — AGORA ESTÁ DISPONÍVEL EM AMBAS AS MEDIÇÕES
+            // OBSERVAÇÕES
             const SizedBox(height: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1525,17 +1483,14 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
   }
 
   String _aplicarMascaraFaturado(String texto) {
-    // Remove tudo que não é número
     String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
 
-    // Limita a 6 dígitos (999999 = 999.999)
     if (apenasNumeros.length > 6) {
       apenasNumeros = apenasNumeros.substring(0, 6);
     }
 
     if (apenasNumeros.isEmpty) return '';
 
-    // Se tiver mais de 3 dígitos, adiciona o ponto
     if (apenasNumeros.length > 3) {
       String parteMilhar = apenasNumeros.substring(0, apenasNumeros.length - 3);
       String parteCentena = apenasNumeros.substring(apenasNumeros.length - 3);
@@ -1626,7 +1581,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
   Widget _buildGhostField({double width = 100}) {
     return Column(
       children: [
-        // Label invisível (mantém o espaço)
         Opacity(
           opacity: 0,
           child: Text(
@@ -1639,7 +1593,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
           ),
         ),
         const SizedBox(height: 4),
-        // Container vazio com mesma altura
         Container(width: width, height: 36),
       ],
     );
@@ -1652,7 +1605,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
     }
 
     try {
-      // Verifica APENAS os 6 campos obrigatórios da primeira medição (posições 0-5)
       final camposObrigatorios = _controllers[_tanqueSelecionadoIndex].sublist(
         0,
         6,
@@ -1661,10 +1613,8 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         (controller) => controller.text.trim().isNotEmpty,
       );
 
-      // Verifica se pelo menos uma checkbox está marcada
       final checkboxMarcada = _caclVerificacao || _caclMovimentacao;
 
-      // Para CACL movimentacao, exige faturado valido (> 0)
       bool faturadoValido = true;
       if (_caclMovimentacao) {
         final faturadoTexto = _controllers[_tanqueSelecionadoIndex][17].text
@@ -1672,7 +1622,6 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
         faturadoValido = _parseFaturado(faturadoTexto) > 0;
       }
 
-      // Botão habilita se: campos obrigatórios preenchidos + checkbox marcada + faturado valido (movimentacao)
       final botaoPodeHabilitar =
           camposPreenchidos && checkboxMarcada && faturadoValido;
 
@@ -1703,13 +1652,11 @@ class _MedicaoTanquesPageState extends State<MedicaoTanquesPage> {
       return contagem;
     }
 
-    // Filtrar apenas CACLs emitidos (não pendentes)
     final caclesEmitidos = widget.caclesHoje!.where((cacl) {
       final status = cacl['status']?.toString().toLowerCase() ?? '';
       return status.contains('emitido');
     }).toList();
 
-    // Contar por tanque_id
     for (final cacl in caclesEmitidos) {
       final tanqueId = cacl['tanque_id']?.toString();
       if (tanqueId != null && tanqueId.isNotEmpty) {

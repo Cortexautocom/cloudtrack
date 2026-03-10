@@ -3,7 +3,7 @@ import 'dart:html' as html;
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'emitir_cacl.dart';
+import 'medicoes_emitir_cacl.dart';
 
 class EstoqueTanquePage extends StatefulWidget {
   final String tanqueId;
@@ -413,7 +413,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       MaterialPageRoute(
         builder: (context) => MedicaoTanquesPage(
           onVoltar: () => Navigator.pop(context),
-          filialSelecionadaId: widget.filialId,
           tanqueSelecionadoId: widget.tanqueId,
           dataReferencia: _dataFiltro,
           caclBloqueadoComoVerificacao: true,
