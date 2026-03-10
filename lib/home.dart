@@ -861,6 +861,7 @@ class _HomePageState extends State<HomePage>
       _mostrarTempDensMedia = false;
       _mostrarMenuAjuda = false;
       _mostrarSuporte = false;
+      _mostrarEstoqueProduto = false;
       _voltarParaTanquesApoCACL = false;
       _resetarTodasFlagsGestaoFrota();
       _mostrarFilhosSessao = false;
