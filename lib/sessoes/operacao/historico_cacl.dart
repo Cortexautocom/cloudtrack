@@ -1095,45 +1095,19 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                                 ),
                                               ),
                                               
-                                              // Botão de ação para níveis 1 e 2
-                                              if (!isCancelado && (_nivelUsuario == 1 || _nivelUsuario == 2))
-                                                Padding(
-                                                  padding: const EdgeInsets.only(left: 8),
-                                                  child: solicitaCanc == true
-                                                      ? const Icon(Icons.hourglass_empty, size: 16, color: Colors.orange)
-                                                      : IconButton(
-                                                          icon: const Icon(Icons.cancel_outlined, size: 16, color: Colors.red),
-                                                          onPressed: () => _showDialogSolicitarCancelamento(cacl),
-                                                          padding: EdgeInsets.zero,
-                                                          constraints: const BoxConstraints(),
-                                                          tooltip: 'Solicitar cancelamento',
-                                                        ),
-                                                ),
-                                              
-                                              // Menu para admin (nível 3)
-                                              if (_nivelUsuario == 3 && (status?.toLowerCase() == 'emitido' || status?.toLowerCase() == 'pendente'))
-                                                Padding(
-                                                  padding: const EdgeInsets.only(left: 4),
-                                                  child: PopupMenuButton<String>(
-                                                    padding: EdgeInsets.zero,
-                                                    iconSize: 16,
-                                                    tooltip: 'Ações do CACL',
-                                                    icon: Icon(Icons.more_vert, size: 16, color: Colors.grey.shade700),
-                                                    onSelected: (value) async {
-                                                      if (value == 'cancelar') {
-                                                        await _cancelarCaclNivel3(cacl['id'].toString());
-                                                      }
-                                                    },
-                                                    itemBuilder: (context) => const [
-                                                      PopupMenuItem<String>(
-                                                        value: 'cancelar',
-                                                        child: Text('Cancelar CACL', style: TextStyle(fontSize: 13)),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              
-                                              const Icon(Icons.chevron_right, size: 18, color: Color(0xFF0D47A1)),
+                                              // Botão de ação (Cancelamento)
+                                              Padding(
+                                                padding: const EdgeInsets.only(right: 28),
+                                                child: (!isCancelado && (status?.toLowerCase() == 'emitido' || status?.toLowerCase() == 'pendente'))
+                                                    ? IconButton(
+                                                        icon: const Icon(Icons.cancel_outlined, size: 16, color: Colors.red),
+                                                        onPressed: () => _showDialogConfirmarCancelamento(cacl),
+                                                        padding: EdgeInsets.zero,
+                                                        constraints: const BoxConstraints(),
+                                                        tooltip: 'Cancelar CACL',
+                                                      )
+                                                    : const SizedBox(width: 16, height: 16),
+                                              ),
                                             ],
                                           ),
                                         ),
@@ -1152,38 +1126,24 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
     );
   }
 
-  Future<void> _solicitarCancelamento(String caclId) async {
+  Future<void> _cancelarCacl(String caclId) async {
     try {
       final supabase = Supabase.instance.client;
       
       await supabase
           .from('cacl')
-          .update({'solicita_canc': true})
+          .update({'status': 'cancelado'})
           .eq('id', caclId);
       
       if (mounted) {
-        setState(() {
-          final index = cacles.indexWhere((c) => c['id'] == caclId);
-          if (index != -1) {
-            cacles[index]['solicita_canc'] = true;
-          }
-        });
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cancelamento solicitado ao supervisor. Aguarde.'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
-          ),
-        );
-        
+        _showDialogSucessoCancelamento();
         await _refreshData();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erro ao solicitar cancelamento: ${e.toString()}'),
+            content: Text('Erro ao cancelar CACL: ${e.toString()}'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 3),
           ),
@@ -1192,55 +1152,67 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
     }
   }
 
-  Future<void> _cancelarCaclNivel3(String caclId) async {
-    try {
-      final supabase = Supabase.instance.client;
-
-      await supabase.from('cacl').delete().eq('id', caclId);
-
-      if (!mounted) return;
-
-      setState(() {
-        cacles.removeWhere((c) => c['id']?.toString() == caclId);
-        totalRegistros = totalRegistros > 0 ? totalRegistros - 1 : 0;
-        totalPaginas = (totalRegistros / limitePorPagina).ceil();
-        if (totalPaginas == 0) totalPaginas = 1;
-        if (paginaAtual > totalPaginas) paginaAtual = totalPaginas;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('CACL cancelado e removido com sucesso.'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
-
-      await _aplicarFiltros(resetarPagina: false);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao cancelar CACL: ${e.toString()}'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-
-  void _showDialogSolicitarCancelamento(Map<String, dynamic> cacl) {
+  void _showDialogSucessoCancelamento() {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return Dialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0xFF0D47A1), width: 1),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.check_circle_outline, color: Colors.green, size: 48),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'CACL cancelado com sucesso.',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF0D47A1),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0D47A1),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showDialogConfirmarCancelamento(Map<String, dynamic> cacl) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0xFF0D47A1), width: 1),
           ),
           elevation: 8,
           child: ConstrainedBox(
             constraints: const BoxConstraints(
-              maxWidth: 600,
+              maxWidth: 400,
             ),
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -1252,13 +1224,13 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                     children: [
                       Icon(
                         Icons.warning_amber_rounded,
-                        color: Colors.orange.shade700,
+                        color: Colors.red.shade700,
                         size: 24,
                       ),
                       const SizedBox(width: 12),
                       const Expanded(
                         child: Text(
-                          'Solicitar Cancelamento',
+                          'Confirmar Cancelamento',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
@@ -1270,15 +1242,12 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                   ),
                   const SizedBox(height: 16),
                   
-                  const Padding(
-                    padding: EdgeInsets.only(left: 36),
-                    child: Text(
-                      'Deseja solicitar o cancelamento deste CACL?\n\nEsta solicitação será enviada ao supervisor para análise.',
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: Colors.black87,
-                        height: 1.4,
-                      ),
+                  const Text(
+                    'Tem certeza que quer cancelar o CACL já emitido?',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.black87,
+                      height: 1.4,
                     ),
                   ),
                   const SizedBox(height: 28),
@@ -1298,7 +1267,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                           ),
                         ),
                         child: const Text(
-                          'Voltar à lista',
+                          'Voltar',
                           style: TextStyle(
                             fontSize: 14,
                             color: Color.fromARGB(255, 102, 102, 102),
@@ -1310,10 +1279,10 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                       ElevatedButton(
                         onPressed: () async {
                           Navigator.pop(context);
-                          await _solicitarCancelamento(cacl['id'].toString());
+                          await _cancelarCacl(cacl['id'].toString());
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange.shade600,
+                          backgroundColor: Colors.red.shade600,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 24,
@@ -1323,10 +1292,9 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                             borderRadius: BorderRadius.circular(8),
                           ),
                           elevation: 2,
-                          shadowColor: Colors.orange.withOpacity(0.3),
                         ),
                         child: const Text(
-                          'Sim, quero solicitar',
+                          'Sim, cancelar.',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
