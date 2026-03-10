@@ -1805,7 +1805,7 @@ class _CalcPageState extends State<CalcPage> {
                                 widget.modo == CaclModo.edicao) &&
                             !_caclJaEmitido)
                           ElevatedButton.icon(
-                            onPressed: _isEmittingCACL
+                            onPressed: (_isEmittingCACL || !_temVolumeMinimoValido())
                                 ? null
                                 : (_dadosFinaisEstaoCompletos()
                                       ? _emitirCACL
@@ -3440,6 +3440,15 @@ class _CalcPageState extends State<CalcPage> {
     }
 
     return true; // Todos os dados finais estão preenchidos
+  }
+
+  bool _temVolumeMinimoValido() {
+    final medicoes = widget.dadosFormulario['medicoes'] ?? {};
+    final v20Inicial = _extrairNumero(medicoes['volume20Inicial']?.toString());
+    final v20Final = _extrairNumero(medicoes['volume20Final']?.toString());
+
+    // Se qualquer um dos dois for > 1, consideramos válido para habilitar os botões
+    return v20Inicial > 1 || v20Final > 1;
   }
 
   String? _formatarHorarioParaTime(String? horario) {
