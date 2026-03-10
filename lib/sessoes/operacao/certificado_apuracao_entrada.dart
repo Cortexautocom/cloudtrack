@@ -2240,6 +2240,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
           .update({
             'entrada_vinte': volume20C,
             'data_carga': timestampBrasilia,
+            'data_descarga': timestampBrasilia,
             'status_circuito_dest': '5',
             'updated_at': timestampBrasilia,
           })
