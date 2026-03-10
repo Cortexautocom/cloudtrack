@@ -207,6 +207,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             status_circuito_orig,
             status_circuito_dest,
             data_mov,
+            data_descarga,
             terminal_orig_id,
             terminal_dest_id,
             empresa_id,
@@ -249,24 +250,62 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         final statusDest = item['status_circuito_dest'];
         final statusDestInt =
             statusDest is int ? statusDest : int.tryParse(statusDest?.toString() ?? '0');
+        
+        final statusOrig = item['status_circuito_orig'];
+        final statusOrigInt =
+            statusOrig is int ? statusOrig : int.tryParse(statusOrig?.toString() ?? '0');
 
         final dataMovStr = item['data_mov']?.toString();
+        final dataDescargaStr = item['data_descarga']?.toString();
 
         bool dentroDaData = true;
 
-        if (dataInicio != null && dataFim != null && dataMovStr != null) {
+        if (dataInicio != null && dataFim != null) {
+          // Verifica se a movimentação está dentro do período selecionado pela data_mov
+          if (dataMovStr != null) {
+            try {
+              final dataMov = DateTime.parse(dataMovStr);
+              dentroDaData = !(dataMov.isBefore(dataInicio) || dataMov.isAfter(dataFim));
+            } catch (_) {}
+          }
+        }
+
+        // NOVA REGRA: Verifica se deve aparecer independente da data selecionada
+        bool deveAparecerSempre = false;
+        
+        // CRITÉRIO 1: Status 1, 2 ou 3 no terminal de destino (quando é entrada no terminal atual)
+        if (statusDestInt != null && statusDestInt >= 1 && statusDestInt <= 3 && destino == terminalAtualId) {
+          deveAparecerSempre = true;
+        }
+        
+        // CRITÉRIO 2: Status 1, 2 ou 3 no terminal de origem (quando é saída do terminal atual)
+        if (statusOrigInt != null && statusOrigInt >= 1 && statusOrigInt <= 3 && origem == terminalAtualId) {
+          deveAparecerSempre = true;
+        }
+        
+        // CRITÉRIO 3: Data de descarga igual à data selecionada no filtro
+        if (!deveAparecerSempre && dataDescargaStr != null && dataInicio != null && dataFim != null) {
           try {
-            final dataMov = DateTime.parse(dataMovStr);
-            dentroDaData = !(dataMov.isBefore(dataInicio) || dataMov.isAfter(dataFim));
+            final dataDescarga = DateTime.parse(dataDescargaStr);
+            // Considera apenas a data (ignora hora) para comparar com o período selecionado
+            final dataDescargaDate = DateTime(dataDescarga.year, dataDescarga.month, dataDescarga.day);
+            final dataInicioDate = DateTime(dataInicio.year, dataInicio.month, dataInicio.day);
+            final dataFimDate = DateTime(dataFim.year, dataFim.month, dataFim.day);
+            
+            if (dataDescargaDate.isAfter(dataInicioDate.subtract(const Duration(days: 1))) && 
+                dataDescargaDate.isBefore(dataFimDate.add(const Duration(days: 1)))) {
+              deveAparecerSempre = true;
+            }
           } catch (_) {}
         }
 
-        // ENTRADA PROGRAMADA (status 1) aparece SEMPRE
-        if (statusDestInt != null && statusDestInt <= 3 && destino == terminalAtualId) {
+        // Se deve aparecer sempre, ignora o filtro de data
+        if (deveAparecerSempre) {
           if (_tipoFiltro == 'saida') return false;
           return true;
         }
 
+        // Se não deve aparecer sempre, aplica o filtro de data normal
         if (!dentroDaData) return false;
 
         if (_tipoFiltro == 'entrada') {
@@ -324,6 +363,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
         ordensResumidas.add({
           'ordem_id': entry.key,
           'data_mov': primeira['data_mov'],
+          'data_descarga': primeira['data_descarga'],
           'status_circuito_orig': primeira['status_circuito_orig'],
           'status_circuito_dest': primeira['status_circuito_dest'],
           'tipo_op': primeira['tipo_op'],
@@ -1175,9 +1215,9 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                           item['terminal_dest_id']?.toString() == terminalAtual);
 
                       if (ehDestino && !ehOrigem) {
-                        return Icon(Icons.arrow_circle_down, size: 30, color: Colors.green.shade700);
+                        return Icon(Icons.control_point, size: 30, color: Colors.green.shade700);
                       } else if (ehOrigem && !ehDestino) {
-                        return Icon(Icons.arrow_circle_up, size: 30, color: Colors.red.shade700);
+                        return Icon(Icons.subdirectory_arrow_right, size: 30, color: Colors.red.shade700);
                       } else if (ehOrigem && ehDestino) {
                         return Icon(Icons.sync, size: 30, color: Colors.purple.shade400);
                       }
