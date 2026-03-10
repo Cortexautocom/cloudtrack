@@ -1702,8 +1702,6 @@ class _HomePageState extends State<HomePage>
                 if (_estoquePorTanqueVemDaApuracao) {
                   _estoquePorTanqueVemDaApuracao = false;
                   _mostrarFilhosDaSessao('Operação');
-                } else if (_filialParaFiltroId != null) {
-                  _mostrarCardsFilial = true;
                 } else {
                   _mostrarFilhosDaSessao('Estoques');
                 }
@@ -1745,9 +1743,7 @@ class _HomePageState extends State<HomePage>
         );
       }
       if (_mostrarTanques &&
-          (_filialSelecionadaId != null || _terminalSelecionadoId != null)) {
-        final filialIdParaGerenciamento =
-            _terminalSelecionadoId ?? _filialSelecionadaId;
+          (_filialSelecionadaId != null || _terminalSelecionadoId != null)) {        
         return GerenciamentoTanquesPage(
           key: const ValueKey('gerenciamento-tanques'),
           onVoltar: () {
@@ -1765,12 +1761,13 @@ class _HomePageState extends State<HomePage>
               }
             });
           },
-          filialSelecionadaId: filialIdParaGerenciamento,
-          onAbrirCACL: (filialId) {
+          terminalSelecionadoId: _terminalSelecionadoId ?? _filialSelecionadaId,
+          onAbrirCACL: (terminalId) {
             setState(() {
               _voltarParaTanquesApoCACL = true;
               _mostrarTanques = false;
-              _filialSelecionadaId = filialId;
+              _terminalSelecionadoId = terminalId;
+              _filialSelecionadaId = null;
               _mostrarListarCacls = true;
             });
           },

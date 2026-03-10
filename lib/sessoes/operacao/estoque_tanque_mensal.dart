@@ -7,8 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class EstoqueTanqueMensalPage extends StatefulWidget {
   final String tanqueId;
   final String referenciaTanque;
-  final String filialId;
-  final String nomeFilial;
+  final String terminalId;
+  final String nomeTerminal;
   final int mes;
   final int ano;
   final VoidCallback? onVoltar;
@@ -17,8 +17,8 @@ class EstoqueTanqueMensalPage extends StatefulWidget {
     super.key,
     required this.tanqueId,
     required this.referenciaTanque,
-    required this.filialId,
-    required this.nomeFilial,
+    required this.terminalId,
+    required this.nomeTerminal,
     required this.mes,
     required this.ano,
     this.onVoltar,
@@ -35,6 +35,9 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
   bool _erro = false;
   bool _baixandoExcel = false;
   String _mensagemErro = '';
+
+  String? _terminalId;
+  bool _carregandoTerminal = true;
 
   List<Map<String, dynamic>> _movs = [];
   List<Map<String, dynamic>> _movsOrdenadas = [];
@@ -73,7 +76,35 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
     _inicioMes = DateTime(widget.ano, widget.mes, 1);
     _fimMes = DateTime(widget.ano, widget.mes + 1, 0, 23, 59, 59);
     _syncScroll();
-    _carregar();
+    _carregarTerminalDoUsuario();
+  }
+
+  Future<void> _carregarTerminalDoUsuario() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) throw Exception('Usuário não logado');
+
+      final response = await _supabase
+          .from('usuarios')
+          .select('terminal:terminais(id, nome)')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (response != null && response['terminal'] != null) {
+        final terminal = response['terminal'] as Map;
+        _terminalId = terminal['id']?.toString();
+      }
+      
+      // Após ter o terminal, carrega os dados
+      await _carregar();
+    } catch (e) {
+      setState(() {
+        _erro = true;
+        _mensagemErro = 'Erro ao carregar terminal: $e';
+        _carregandoTerminal = false;
+        _carregando = false;
+      });
+    }
   }
 
   void _syncScroll() {
@@ -199,9 +230,20 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
   }
 
   Future<void> _carregar() async {
+    if (_terminalId == null) {
+      setState(() {
+        _erro = true;
+        _mensagemErro = 'Terminal não identificado';
+        _carregando = false;
+        _carregandoTerminal = false;
+      });
+      return;
+    }
+
     setState(() {
       _carregando = true;
       _erro = false;
+      _carregandoTerminal = false;
     });
 
     try {
@@ -228,7 +270,6 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
           .lte('data_mov', _fimMes.toIso8601String());
 
       // Ordenação: sem CACL primeiro, com CACL depois
-      // Ordenação: primeiro por data, e dentro de cada data os CACLs por último
       final List<Map<String, dynamic>> listaOrdenadaParaUI =
           List<Map<String, dynamic>>.from(dados);
 
@@ -423,8 +464,8 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
       final requestData = {
         'tanqueId': widget.tanqueId,
         'referenciaTanque': widget.referenciaTanque,
-        'filialId': widget.filialId,
-        'nomeFilial': widget.nomeFilial,
+        'terminalId': widget.terminalId,
+        'nomeTerminal': widget.nomeTerminal,
         'mes': widget.mes,
         'ano': widget.ano,
         'tipo': 'mensal',
@@ -461,14 +502,14 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
       ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       final url = html.Url.createObjectUrlFromBlob(blob);
 
-      final nomeFilialFormatado = widget.nomeFilial
+      final nomeTerminalFormatado = widget.nomeTerminal
           .replaceAll(' ', '_')
           .replaceAll(RegExp(r'[^\w_]'), '');
 
       final mes = widget.mes.toString().padLeft(2, '0');
       final ano = widget.ano.toString();
       final fileName =
-          'estoque_tanque_mensal_${widget.referenciaTanque}_${nomeFilialFormatado}_${mes}_${ano}.xlsx';
+          'estoque_tanque_mensal_${widget.referenciaTanque}_${nomeTerminalFormatado}_${mes}_${ano}.xlsx';
 
       html.AnchorElement(href: url)
         ..setAttribute('download', fileName)
@@ -600,7 +641,7 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
               "Movimentação Mensal do Tanque – ${widget.referenciaTanque}${_produtoNome != null ? ' - ${_produtoNome!}' : ''}",
             ),
             Text(
-              '${widget.nomeFilial} | $mesAno',
+              '${widget.nomeTerminal} | $mesAno',
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.normal,
@@ -641,7 +682,7 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
-        child: _carregando
+        child: _carregandoTerminal || _carregando
             ? const Center(child: CircularProgressIndicator())
             : _erro
             ? Center(child: Text(_mensagemErro))

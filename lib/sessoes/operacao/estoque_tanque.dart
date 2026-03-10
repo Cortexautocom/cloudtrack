@@ -8,8 +8,6 @@ import 'medicoes_emitir_cacl.dart';
 class EstoqueTanquePage extends StatefulWidget {
   final String tanqueId;
   final String referenciaTanque;
-  final String filialId;
-  final String nomeFilial;
   final DateTime data;
   final VoidCallback? onVoltar;
 
@@ -17,8 +15,6 @@ class EstoqueTanquePage extends StatefulWidget {
     super.key,
     required this.tanqueId,
     required this.referenciaTanque,
-    required this.filialId,
-    required this.nomeFilial,
     required this.data,
     this.onVoltar,
   });
@@ -33,6 +29,10 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   bool _carregando = true;
   bool _erro = false;
   String _mensagemErro = '';
+  
+  String? _terminalId;
+  String? _terminalNome;
+  bool _carregandoTerminal = true;
 
   List<Map<String, dynamic>> _movs = [];
   List<Map<String, dynamic>> _movsOrdenadas = [];
@@ -71,7 +71,36 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     super.initState();
     _dataFiltro = widget.data;
     _syncScroll();
-    _carregar();
+    _carregarTerminalDoUsuario();
+  }
+
+  Future<void> _carregarTerminalDoUsuario() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) throw Exception('Usuário não logado');
+
+      final response = await _supabase
+          .from('usuarios')
+          .select('terminal:terminais(id, nome)')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (response != null && response['terminal'] != null) {
+        final terminal = response['terminal'] as Map;
+        _terminalId = terminal['id']?.toString();
+        _terminalNome = terminal['nome']?.toString();
+      }
+      
+      // Após ter o terminal, carrega os dados
+      await _carregar();
+    } catch (e) {
+      setState(() {
+        _erro = true;
+        _mensagemErro = 'Erro ao carregar terminal: $e';
+        _carregandoTerminal = false;
+        _carregando = false;
+      });
+    }
   }
 
   void _syncScroll() {
@@ -103,7 +132,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         'fn_estoque_inicial_tanque',
         params: {
           'p_tanque_id': widget.tanqueId,
-          'p_data': dataStr, // yyyy-MM-dd
+          'p_data': dataStr,
         },
       );
 
@@ -148,8 +177,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       _estoqueCACL = {'amb': null, 'vinte': null};
     }
   }
-
-  
 
   Future<void> buscarUltimaSobraPerdaDoTanque() async {
     try {
@@ -196,7 +223,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           .maybeSingle();
 
       if (resp != null) {
-        // resp may be a map containing 'produtos'
         final produtoObj = resp['produtos'];
         if (produtoObj is Map && produtoObj['nome'] != null) {
           _produtoNome = produtoObj['nome'].toString();
@@ -214,9 +240,20 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   }
 
   Future<void> _carregar() async {
+    if (_terminalId == null) {
+      setState(() {
+        _erro = true;
+        _mensagemErro = 'Terminal não identificado';
+        _carregando = false;
+        _carregandoTerminal = false;
+      });
+      return;
+    }
+
     setState(() {
       _carregando = true;
       _erro = false;
+      _carregandoTerminal = false;
     });
 
     try {
@@ -244,11 +281,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           .gte('data_mov', '$dataStr 00:00:00')
           .lte('data_mov', '$dataStr 23:59:59');
 
-      // ==============================
-      // 1) Ordenação exatamente como a UI precisa:
-      //    - Primeiro: sem CACL (cronológico)
-      //    - Depois: com CACL (cronológico) -> sempre por último
-      // ==============================
       final List<Map<String, dynamic>> listaOrdenadaParaUI =
           List<Map<String, dynamic>>.from(dados);
 
@@ -261,11 +293,9 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         final aTemCacl = temCaclValido(a);
         final bTemCacl = temCaclValido(b);
 
-        // Quem tem CACL vai para o fim
         if (aTemCacl && !bTemCacl) return 1;
         if (!aTemCacl && bTemCacl) return -1;
 
-        // Dentro do mesmo grupo, ordena por data_mov e id (estável)
         final da = DateTime.parse(a['data_mov']);
         final db = DateTime.parse(b['data_mov']);
         final c = da.compareTo(db);
@@ -276,9 +306,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         return ia.compareTo(ib);
       });
 
-      // ==============================
-      // 2) Agora SIM calcula o saldo seguindo A ORDEM DA UI
-      // ==============================
       num saldoAmb = _estoqueInicial['amb'] ?? 0;
       num saldoVinte = _estoqueInicial['vinte'] ?? 0;
 
@@ -307,8 +334,8 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           'entrada_vinte': entradaVinte,
           'saida_amb': saidaAmb,
           'saida_vinte': saidaVinte,
-          'saldo_amb': saldoAmb,       // saldo acumulado ATÉ ESTA LINHA (ordem da UI)
-          'saldo_vinte': saldoVinte,   // saldo acumulado ATÉ ESTA LINHA (ordem da UI)
+          'saldo_amb': saldoAmb,
+          'saldo_vinte': saldoVinte,
         });
       }
 
@@ -424,7 +451,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
 
     if (!mounted) return;
 
-    // Após emissão do CACL, voltar até a página de tanques
     if (resultado is Map && resultado['status'] == 'cacl_emitido') {
       if (widget.onVoltar != null) {
         widget.onVoltar!();
@@ -465,8 +491,8 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       final requestData = {
         'tanqueId': widget.tanqueId,
         'referenciaTanque': widget.referenciaTanque,
-        'filialId': widget.filialId,
-        'nomeFilial': widget.nomeFilial,
+        'terminalId': _terminalId,
+        'terminalNome': _terminalNome,
         'data': _dataFiltro.toIso8601String(),
         'estoqueInicial': _estoqueInicial,
         'estoqueFinal': _estoqueFinal,
@@ -500,15 +526,15 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       final url = html.Url.createObjectUrlFromBlob(blob);
 
-      final nomeFilialFormatado = widget.nomeFilial
-          .replaceAll(' ', '_')
-          .replaceAll(RegExp(r'[^\w_]'), '');
+      final nomeTerminalFormatado = _terminalNome
+          ?.replaceAll(' ', '_')
+          .replaceAll(RegExp(r'[^\w_]'), '') ?? 'terminal';
 
       final dia = _dataFiltro.day.toString().padLeft(2, '0');
       final mes = _dataFiltro.month.toString().padLeft(2, '0');
       final ano = _dataFiltro.year.toString();
       final fileName =
-          'estoque_tanque_${widget.referenciaTanque}_${nomeFilialFormatado}_${dia}_${mes}_${ano}.xlsx';
+          'estoque_tanque_${widget.referenciaTanque}_${nomeTerminalFormatado}_${dia}_${mes}_${ano}.xlsx';
 
       html.AnchorElement(href: url)
         ..setAttribute('download', fileName)
@@ -630,7 +656,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
               "Movimentação do Tanque – ${widget.referenciaTanque}${_produtoNome != null ? ' - ${_produtoNome!}' : ''}",
             ),
             Text(
-              '${widget.nomeFilial} | ${_fmtData(_dataFiltro.toIso8601String())}',
+              '${_terminalNome ?? 'Carregando...'} | ${_fmtData(_dataFiltro.toIso8601String())}',
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.normal,
@@ -643,12 +669,10 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           onPressed: widget.onVoltar ?? () => Navigator.pop(context),
         ),
         actions: [
-          // Seletor de data
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             child: _buildCampoDataFiltro(),
           ),
-          // Botão de download Excel
           _baixandoExcel
               ? const Padding(
                   padding: EdgeInsets.all(12.0),
@@ -677,7 +701,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
-        child: _carregando
+        child: _carregandoTerminal || _carregando
             ? const Center(child: CircularProgressIndicator())
             : _erro
             ? Center(child: Text(_mensagemErro))
@@ -686,7 +710,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     );
   }
 
-  // Widget do seletor de data (copiado da ProgramacaoPage)
   Widget _buildCampoDataFiltro() {
     final String textoData =
         '${_dataFiltro.day.toString().padLeft(2, '0')}/${_dataFiltro.month.toString().padLeft(2, '0')}/${_dataFiltro.year}';
