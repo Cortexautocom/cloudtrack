@@ -255,14 +255,14 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                           ),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? const Color(0xFF222B45)
+                                ? const Color(0xFF0D47A1)
                                 : (isHovered
                                     ? const Color(0xFFE8EAF2)
                                     : const Color(0xFFF0F1F6)),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: isSelected
-                                  ? const Color(0xFF222B45)
+                                  ? const Color(0xFF0D47A1)
                                   : (isHovered
                                       ? const Color(0xFF3366FF)
                                       : const Color(0xFFE0E3EB)),
@@ -287,7 +287,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                                 style: TextStyle(
                                   color: isSelected
                                       ? const Color(0xFFF8F9FA)
-                                      : const Color(0xFF222B45),
+                                      : const Color(0xFF0D47A1),
                                   fontSize: 12,
                                   fontWeight: isSelected || isHovered
                                       ? FontWeight.w600
@@ -342,6 +342,31 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
           _construirCardInformacoesAlterar(tanque, percentual),
           const SizedBox(height: 20),
           _construirIndicadorNivel(tanque, percentual),
+          const SizedBox(height: 16),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 300),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.history, size: 18),
+                  label: const Text(
+                    'Ver movimentação do tanque',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0D47A1),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
