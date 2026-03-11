@@ -40,8 +40,7 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
 
   Map<String, num?> _estoqueInicial = {'amb': 1500, 'vinte': 1500};
   Map<String, num?> _estoqueFinal = {'amb': 2300, 'vinte': 2300};
-  Map<String, num?> _estoqueCACL = {'amb': null, 'vinte': null};
-  bool _possuiCACL = false;
+  final bool _possuiCACL = false;
 
   num? _valorSobraPerda;
   bool? _ehSobra;
@@ -382,7 +381,6 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
 
   Widget _buildBlocoResumo() {
     final estoqueFinalCalculado = _estoqueFinal['vinte'] ?? 0;
-    final estoqueCACL = _estoqueCACL['vinte'];
 
     return Container(
       width: _wTable,
@@ -403,47 +401,6 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
             estoqueFinalCalculado,
           ),
 
-          if (_possuiCACL && estoqueCACL != null)
-            _buildCampoResumo(
-              'Saldo do CACL (20ºC):',
-              estoqueCACL,
-              cor: const Color(0xFF2E7D32),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: SizedBox(
-                width: 220,
-                child: ElevatedButton(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0D47A1),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    elevation: 3,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.inventory, size: 20),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'FECHAR PRODUTO',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
           if (_possuiCACL && _valorSobraPerda != null && _ehSobra != null)
             _buildCampoResumo(
               _ehSobra! ? 'Sobra (20ºC):' : 'Perda (20ºC):',
@@ -453,7 +410,7 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
             )
           else
             _buildCampoResumo(
-              'Disponível após fechamento',
+              'Disponível',
               _estoqueFinal['vinte'] ?? 0,
               cor: Colors.grey,
             ),
