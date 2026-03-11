@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'estoque_tanque.dart';
 
 class DadosTanque {
   final String id;
@@ -349,7 +350,19 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () {},
+                  onPressed: () {
+                    final tanque = tanques[tanqueSelecionadoIndex];
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => EstoqueTanquePage(
+                          tanqueId: tanque.id,
+                          referenciaTanque: tanque.nome,
+                          data: DateTime.now(),
+                          onVoltar: () => Navigator.of(context).pop(),
+                        ),
+                      ),
+                    );
+                  },
                   icon: const Icon(Icons.history, size: 18),
                   label: const Text(
                     'Ver movimentação do tanque',
