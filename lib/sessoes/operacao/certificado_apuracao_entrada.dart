@@ -2014,71 +2014,22 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
             ),
           ),
           backgroundColor: Colors.white,
-          title: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0D47A1),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.warning_amber, color: Colors.white, size: 28),
-                const SizedBox(width: 12),
-                const Text(
-                  'Emitir Certificado',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          content: SizedBox(
+          content: const SizedBox(
             width: 400,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 8),
-                const Text(
-                  'Tem certeza que deseja emitir o certificado?',
+                SizedBox(height: 8),
+                Text(
+                  'Confirma a emissão do certificado?',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
                 ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.amber[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.amber[200]!),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.info_outline, 
-                           color: Colors.amber, size: 20),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Após a emissão, qualquer edição ou correção no documento só poderá ser realizada por um supervisor nível 3.',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color.fromARGB(255, 239, 108, 0),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
               ],
             ),
           ),
@@ -2115,7 +2066,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
                 ),
               ),
               child: const Text(
-                'Confirmar Emissão',
+                'Sim, emitir.',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
@@ -2200,11 +2151,35 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✓ Certificado emitido com sucesso!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 1),
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: const BorderSide(color: Color(0xFF0D47A1), width: 1),
+            ),
+            content: const Text(
+              'Certificado emitido com sucesso.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.black87),
+            ),
+            actions: [
+              Center(
+                child: TextButton(
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('OK'),
+                ),
+              ),
+            ],
           ),
         );
       }

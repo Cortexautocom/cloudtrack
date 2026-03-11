@@ -568,6 +568,158 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     });
   }
 
+  Future<void> _cancelarOrdem(Map<String, dynamic> ordem) async {
+    final ordemId = ordem['ordem_id']?.toString();
+    if (ordemId == null) return;
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 400),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFDF5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: const Color(0xFF9C27B0),
+              width: 1.4,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.18),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Cabeçalho
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF9C27B0),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(10),
+                    topRight: Radius.circular(10),
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.cancel_outlined, color: Color(0xFFFFFDF5), size: 22),
+                    SizedBox(width: 10),
+                    Text(
+                      'Cancelar ordem',
+                      style: TextStyle(
+                        color: Color(0xFFFFFDF5),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Conteúdo
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
+                child: Text(
+                  'Tem certeza que deseja cancelar esta ordem?',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 4, 20, 20),
+                child: Text(
+                  'Esta ação não pode ser desfeita.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.black54,
+                  ),
+                ),
+              ),
+              // Divisor
+              const Divider(height: 1, color: Color(0xFFE0D9CC)),
+              // Botões
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.black87,
+                        side: const BorderSide(color: Color(0xFFBBB5A8)),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Voltar',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF9C27B0),
+                        foregroundColor: const Color(0xFFFFFDF5),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        elevation: 2,
+                      ),
+                      child: const Text(
+                        'Cancelar ordem',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (confirmar != true) return;
+
+    try {
+      await _supabase.from('ordens').delete().eq('id', ordemId);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Ordem cancelada com sucesso.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        await _aplicarFiltros();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao cancelar ordem: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _voltarParaLista() {
     setState(() {
       _ordemSelecionada = null;
@@ -1199,6 +1351,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  // Menu de 3 pontos (lado esquerdo antes do ícone direcional é mantido; o menu vai no final)
                   // Ícone de direção (origem/destino do terminal do usuário)
                   Padding(
                     padding: const EdgeInsets.only(right: 12),
@@ -1454,6 +1607,32 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                           ),
                       ],
                     ),
+                  ),
+
+                  // Menu de 3 pontos
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, color: Colors.grey),
+                    color: const Color(0xFFFFFDF5),
+                    onSelected: (value) {
+                      if (value == 'cancelar') {
+                        _cancelarOrdem(ordem);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem<String>(
+                        value: 'cancelar',
+                        child: Row(
+                          children: [
+                            Icon(Icons.cancel_outlined, color: Colors.red, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              'Cancelar ordem',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

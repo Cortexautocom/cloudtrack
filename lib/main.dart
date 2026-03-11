@@ -45,10 +45,7 @@ class _MyAppState extends State<MyApp> {
 
   void _setupAuthListener() {
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      print('🔐 Auth state changed: ${data.event}');
-      
       if (data.event == AuthChangeEvent.passwordRecovery) {
-        print('📧 Evento de recuperação de senha detectado!');
         if (ModalRoute.of(context)?.settings.name != '/redefinir-senha') {
           Navigator.pushReplacementNamed(context, '/redefinir-senha');
         }
@@ -59,8 +56,6 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     final uri = Uri.base;
-    print('🔗 URL recebida: $uri');
-    print('🔗 Query parameters: ${uri.queryParameters}');
     
     final isRecoveryLink = uri.queryParameters.containsKey('code') || 
                            uri.toString().contains('type=recovery') ||
