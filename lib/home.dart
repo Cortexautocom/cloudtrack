@@ -2340,7 +2340,7 @@ class _HomePageState extends State<HomePage>
       switch (_filhoSelecionadoTipo) {
         case 'criar_ordem':
           return _buildPaginaPadronizada(
-            titulo: _sessaoAtual ?? '',
+            titulo: 'Criar ordem',
             conteudo: CriarOrdemPage(
               onCreated: () {
                 setState(() {

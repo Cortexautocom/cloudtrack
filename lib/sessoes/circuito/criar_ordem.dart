@@ -430,26 +430,6 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
           constraints: const BoxConstraints(maxWidth: 700),
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
-                child: Row(
-                  children: const [
-                    Icon(Icons.add_circle_outline, color: Color(0xFF0D47A1)),
-                    SizedBox(width: 8),
-                    Text(
-                      'Criar nova ordem',
-                      style: TextStyle(
-                        fontSize: 20,
-                        color: Color(0xFF0D47A1),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const Divider(height: 1),
-
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
@@ -458,6 +438,15 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        const Text(
+                          'Dados da ordem',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0D47A1),
+                          ),
+                        ),
+                        const SizedBox(height: 30),
                         Wrap(
                           spacing: 20,
                           runSpacing: 14,
