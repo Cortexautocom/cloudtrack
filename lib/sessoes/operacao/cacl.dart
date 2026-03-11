@@ -1283,31 +1283,22 @@ class _CalcPageState extends State<CalcPage> {
     required String caclId,
     required Map<String, dynamic> medicoes,
   }) async {
-    print('🟡 [SOBRA/PERDA] Início da função');
-
     try {
       if (!_mostrarCampoSobraPerda) {
-        print(
-          '🔴 [SOBRA/PERDA] Campo de sobra/perda não habilitado (origem_estoque_tanque != true)',
-        );
         return;
       }
 
       final sobraPerda = _obterValorSobraPerda(medicoes);
-      print('🟡 [SOBRA/PERDA] Valor calculado: $sobraPerda');
 
       if (sobraPerda == null || sobraPerda == 0) {
-        print('🔴 [SOBRA/PERDA] Valor nulo ou zero, nada a lançar');
         return;
       }
 
       final supabase = Supabase.instance.client;
 
       final tanqueId = _obterTanqueId();
-      print('🟡 [SOBRA/PERDA] tanqueId: $tanqueId');
 
       if (tanqueId == null || tanqueId.isEmpty) {
-        print('🔴 [SOBRA/PERDA] tanqueId inválido');
         return;
       }
 
@@ -1317,11 +1308,8 @@ class _CalcPageState extends State<CalcPage> {
           .eq('id', tanqueId)
           .maybeSingle();
 
-      print('🟡 [SOBRA/PERDA] Dados do tanque: $tanqueData');
-
       final produtoId = tanqueData?['id_produto']?.toString();
       if (produtoId == null || produtoId.isEmpty) {
-        print('🔴 [SOBRA/PERDA] produtoId não encontrado no tanque');
         return;
       }
 
@@ -1333,33 +1321,23 @@ class _CalcPageState extends State<CalcPage> {
           .eq('cacl_id', caclId)
           .maybeSingle();
 
-      print(
-        '🟡 [SOBRA/PERDA] movimentacao encontrada por cacl_id: $movExistente',
-      );
-
       movimentacaoId = movExistente?['id']?.toString();
 
       if (movimentacaoId == null || movimentacaoId.isEmpty) {
         final refId = widget.dadosFormulario['movimentacao_id_referencia']
             ?.toString()
             .trim();
-        print('🟡 [SOBRA/PERDA] movimentacao_id_referencia: $refId');
         if (refId != null && refId.isNotEmpty) {
           movimentacaoId = refId;
         }
       }
 
       if (movimentacaoId == null || movimentacaoId.isEmpty) {
-        print(
-          '🔴 [SOBRA/PERDA] movimentacaoId final não encontrado. Abortando insert.',
-        );
         return;
       }
 
       final quantidade = sobraPerda.abs().round();
       final bool isSobra = sobraPerda > 0;
-
-      print('🟡 [SOBRA/PERDA] quantidade: $quantidade | isSobra: $isSobra');
 
       final numeroControle = _numeroControle;
       String dataFormatada = '';
@@ -1377,8 +1355,6 @@ class _CalcPageState extends State<CalcPage> {
           ? 'Sobra CACL ${numeroControle ?? ''}, $dataFormatada'
           : 'Perda CACL ${numeroControle ?? ''}, $dataFormatada';
 
-      print('🟡 [SOBRA/PERDA] Descrição: $descricao');
-
       final payload = {
         'movimentacao_id': movimentacaoId,
         'tanque_id': tanqueId,
@@ -1393,15 +1369,11 @@ class _CalcPageState extends State<CalcPage> {
         'descricao': descricao,
       };
 
-      print('🟡 [SOBRA/PERDA] Payload insert movimentacoes_tanque: $payload');
-
-      final resp = await supabase
+      await supabase
           .from('movimentacoes_tanque')
           .insert(payload)
           .select('id')
           .single();
-
-      print('🟢 [SOBRA/PERDA] Insert realizado com sucesso! ID: ${resp['id']}');
     } catch (e, s) {
       print('🔴 [SOBRA/PERDA] ERRO ao inserir movimentação de sobra/perda');
       print('🔴 [SOBRA/PERDA] Exception: $e');
@@ -2395,13 +2367,8 @@ class _CalcPageState extends State<CalcPage> {
   }) async {
     final supabase = Supabase.instance.client;
 
-    void log(String msg) => debugPrint('[DENS20] $msg');
-
     try {
-      log('Entrada -> Temp: "$temperaturaAmostra" | DensObs: "$densidadeObservada"');
-
       if (temperaturaAmostra.isEmpty || densidadeObservada.isEmpty) {
-        log('Campos vazios');
         return '-';
       }
 
@@ -2418,13 +2385,11 @@ class _CalcPageState extends State<CalcPage> {
           double.tryParse(densidadeObservada.replaceAll(',', '.').trim());
 
       if (tempNum == null || densNum == null) {
-        log('Falha ao converter números');
         return '-';
       }
 
       // 🔥 CORREÇÃO: agora multiplicando por 1000 (não 10000)
       final int alvo = (densNum * 1000).round();
-      log('Temp normalizada: $tempNum | Dens normalizada: $densNum | Alvo coluna: $alvo');
 
       final temperaturasTeste = <String>{
         tempNum.toStringAsFixed(0).replaceAll('.', ','),
@@ -2437,7 +2402,6 @@ class _CalcPageState extends State<CalcPage> {
       Map<String, dynamic>? linha;
 
       for (final t in temperaturasTeste) {
-        log('Tentando temperatura_obs = "$t"');
         linha = await supabase
             .from('csv_table_1')
             .select('*')
@@ -2445,18 +2409,15 @@ class _CalcPageState extends State<CalcPage> {
             .maybeSingle();
 
         if (linha != null) {
-          log('Linha encontrada para temperatura "$t"');
           break;
         }
       }
 
       if (linha == null) {
-        log('Nenhuma linha encontrada');
         return '-';
       }
 
       int? melhorDelta;
-      String? melhorColuna;
       dynamic melhorValor;
 
       for (final entry in linha.entries) {
@@ -2472,17 +2433,13 @@ class _CalcPageState extends State<CalcPage> {
 
         if (melhorDelta == null || delta < melhorDelta) {
           melhorDelta = delta;
-          melhorColuna = entry.key;
           melhorValor = valor;
         }
       }
 
       if (melhorValor == null) {
-        log('Nenhuma coluna válida encontrada');
         return '-';
       }
-
-      log('Coluna escolhida: $melhorColuna | Delta: $melhorDelta | Valor bruto: $melhorValor');
 
       String valorFinal = melhorValor.toString().trim().replaceAll('.', ',');
 
@@ -2492,12 +2449,9 @@ class _CalcPageState extends State<CalcPage> {
       String parteDecimal = partes.length > 1 ? partes[1] : '0';
       parteDecimal = parteDecimal.padRight(4, '0').substring(0, 4);
 
-      final resultado = '$parteInteira,$parteDecimal';
-      log('Resultado final densidade20: $resultado');
-
-      return resultado;
+      return '$parteInteira,$parteDecimal';
     } catch (e) {
-      log('Erro: $e');
+      debugPrint('❌ [DENS20] Erro ao buscar densidade20C: $e');
       return '-';
     }
   }

@@ -219,7 +219,6 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
         
         // Pular cards da sessão "Vendas" (serão substituídos pelos fixos)
         if (sessaoPai == 'Vendas') {
-          debugPrint('⚠️ Ignorando card do banco da sessão Vendas: ${card['nome']}');
           continue;
         }
         
@@ -258,10 +257,6 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
         permissoes = mapaPermissoes;
         sessaoSelecionada = null; // Resetar sessão selecionada
       });
-
-      debugPrint('✅ Total de cards carregados: ${cards.length}');
-      debugPrint('✅ Cards da sessão Vendas: ${cards.where((c) => c['sessao_pai'] == 'Vendas').length}');
-      debugPrint('✅ Permissões carregadas para $usuarioNome: ${permissoes.length} cards');
       
     } catch (e) {
       debugPrint('❌ Erro ao carregar cards: $e');
@@ -298,20 +293,17 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
             'id_sessao': cardId,
             'permitido': true,
           });
-          debugPrint('✅ Permissão INSERT para card $cardId');
         } else {
           // Atualizar permissão existente
           await supabase
               .from('permissoes')
               .update({'permitido': true})
               .eq('id', existente['id']);
-          debugPrint('✅ Permissão UPDATE para card $cardId');
         }
       } else {
         // Se precisa REMOVER permissão
         if (existente != null) {
           await supabase.from('permissoes').delete().eq('id', existente['id']);
-          debugPrint('✅ Permissão DELETE para card $cardId');
         }
       }
 

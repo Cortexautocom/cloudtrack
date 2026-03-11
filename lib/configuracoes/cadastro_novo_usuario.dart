@@ -141,15 +141,6 @@ class _CadastroNovoUsuarioPageState extends State<CadastroNovoUsuarioPage> {
       final celular = celularController.text.trim();
       final funcao = funcaoController.text.trim();
 
-      debugPrint("📝 Dados capturados:");
-      debugPrint("Nome: $nome");
-      debugPrint("Nome Apelido: $nomeApelido");
-      debugPrint("Email: $email");
-      debugPrint("Celular: $celular");
-      debugPrint("Função: $funcao");
-      debugPrint("Filial ID: $filialSelecionadaId");
-      debugPrint("Empresa ID: $empresaSelecionadaId");
-
       // 1️⃣ Verifica se já existe um cadastro pendente
       final existe = await supabase
           .from('cadastros_pendentes')

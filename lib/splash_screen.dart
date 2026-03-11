@@ -28,7 +28,6 @@ class _SplashScreenState extends State<SplashScreen> {
 
     // 🧩 Se for link de recuperação (contém #access_token&type=recovery)
     if (uri.contains('type=recovery')) {
-      print('🟡 Detecção de link de recuperação! Redirecionando para RedefinirSenhaPage.');
       // 🔒 Evita qualquer navegação concorrente
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
@@ -43,7 +42,6 @@ class _SplashScreenState extends State<SplashScreen> {
     final session = supabase.auth.currentSession;
 
     if (session == null) {
-      print('🚪 Nenhuma sessão ativa. Indo para Login.');
       _irParaLogin();
       return;
     }
@@ -52,7 +50,6 @@ class _SplashScreenState extends State<SplashScreen> {
     final refresh = await supabase.auth.refreshSession();
 
     if (refresh.session == null) {
-      print('🔒 Sessão expirada. Indo para Login.');
       _irParaLogin();
       return;
     }
@@ -74,14 +71,12 @@ class _SplashScreenState extends State<SplashScreen> {
         .maybeSingle();
 
     if (usuario != null && usuario['senha_temporaria'] == true) {
-      print('🔐 Senha provisória detectada — redirecionando.');
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const EscolherSenhaPage()),
       );
     } else {
-      print('✅ Sessão válida. Indo para Home.');
       if (!mounted) return;
       Navigator.pushReplacement(
         context,

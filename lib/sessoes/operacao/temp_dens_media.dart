@@ -102,8 +102,7 @@ class _TemperaturaDensidadeMediaPageState
     });
 
     try {
-      debugPrint('==============================');
-      debugPrint('🚀 INÍCIO _carregarDados (SEM FILTROS)');
+
 
       var query = _supabase
           .from('ordens_analises')
@@ -143,8 +142,6 @@ class _TemperaturaDensidadeMediaPageState
       }
 
       final resp = await query.order('data_criacao', ascending: false).limit(1000);
-
-      debugPrint('📦 Total retornado: ${resp.length}');
 
       final List<dynamic> lista = resp;
 

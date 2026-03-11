@@ -71,42 +71,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   static const double _larguraDescricao = 240;
   static const double _larguraNumerica = 120;
 
-  // Funções de debug para identificar o problema
-  void _debugPrintParams() {
-    debugPrint('=' * 50);
-    debugPrint('🔍 PARÂMETROS RECEBIDOS EM ESTOQUEMESPAGE:');
-    debugPrint('filialId: ${widget.filialId}');
-    debugPrint('terminalId: ${widget.terminalId}');
-    debugPrint('nomeFilial: ${widget.nomeFilial}');
-    debugPrint('empresaId: ${widget.empresaId}');
-    debugPrint('mesFiltro: ${widget.mesFiltro}');
-    debugPrint('produtoFiltro: ${widget.produtoFiltro}');
-    debugPrint('tipoRelatorio: ${widget.tipoRelatorio}');
-    debugPrint('isIntraday: ${widget.isIntraday}');
-    debugPrint('dataIntraday: ${widget.dataIntraday}');
-    debugPrint('=' * 50);
-  }
-
-  void _debugPrintResolucao() {
-    debugPrint('=' * 50);
-    debugPrint('🔍 RESOLUÇÃO DE FILIAL/EMPRESA:');
-    debugPrint('_filialIdUsar: $_filialIdUsar');
-    debugPrint('_empresaId: $_empresaId');
-    debugPrint('=' * 50);
-  }
-
-  void _debugPrintQuery() {
-    debugPrint('=' * 50);
-    debugPrint('🔍 QUERY QUE SERÁ EXECUTADA:');
-    debugPrint('filialIdUsar: $_filialIdUsar');
-    debugPrint('empresaId: $_empresaId');
-    debugPrint('produtoFiltro: ${widget.produtoFiltro}');
-    debugPrint('isIntraday: ${widget.isIntraday}');
-    debugPrint('dataIntraday: ${widget.dataIntraday}');
-    debugPrint('mesFiltro: ${widget.mesFiltro}');
-    debugPrint('=' * 50);
-  }
-
   // GETTER para calcular largura total DINAMICAMENTE
   double get _larguraTabela {
     bool mostrarColunaProduto = widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
@@ -175,7 +139,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     });
 
     // Print dos parâmetros recebidos
-    _debugPrintParams();
 
     try {
       // Resolver filial e empresa a partir dos parâmetros recebidos.
@@ -184,25 +147,20 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       if (widget.filialId != null && widget.filialId!.isNotEmpty) {
         // Filial já conhecida (selecionada pelo usuário no filtro)
         _filialIdUsar = widget.filialId;
-        debugPrint('✅ Filial obtida diretamente do parâmetro: $_filialIdUsar');
 
         if (widget.empresaId != null && widget.empresaId!.isNotEmpty) {
           _empresaId = widget.empresaId;
-          debugPrint('✅ Empresa obtida diretamente do parâmetro: $_empresaId');
         } else {
           // Buscar empresa_id pela filial (necessário para nível 4 sem empresa_id)
-          debugPrint('🔍 Buscando empresa_id para filial: $_filialIdUsar');
           final filialData = await _supabase
               .from('filiais')
               .select('empresa_id')
               .eq('id', _filialIdUsar!)
               .maybeSingle();
           _empresaId = filialData?['empresa_id']?.toString();
-          debugPrint('✅ Empresa encontrada via filial: $_empresaId');
         }
       } else if (widget.terminalId != null) {
         // Sem filial explícita – descobrir pela filial que possui este terminal
-        debugPrint('🔍 Buscando filial para terminal: ${widget.terminalId}');
         final filialData = await _supabase
             .from('filiais')
             .select('id, empresa_id')
@@ -212,8 +170,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         if (filialData != null) {
           _filialIdUsar = filialData['id']?.toString();
           _empresaId = filialData['empresa_id']?.toString();
-          debugPrint('✅ Filial encontrada via terminal: $_filialIdUsar');
-          debugPrint('✅ Empresa encontrada via terminal: $_empresaId');
         } else {
           debugPrint('❌ Filial associada ao terminal não encontrada');
           throw Exception('Filial associada ao terminal não encontrada');
@@ -233,8 +189,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         throw Exception('Não foi possível identificar a empresa');
       }
 
-      _debugPrintResolucao();
-
       if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
         final produtoData = await _supabase
             .from('produtos')
@@ -243,25 +197,19 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             .maybeSingle();
         
         _nomeProdutoSelecionado = produtoData?['nome']?.toString();
-        debugPrint('✅ Nome do produto selecionado: $_nomeProdutoSelecionado');
       }
 
       // Carregar estoque inicial (do final do período anterior)
-      debugPrint('🔍 Carregando estoque inicial...');
       await _carregarEstoqueInicial();
 
-      debugPrint('🔍 Carregando dados analíticos...');
       await _carregarDadosAnalitico();
 
       if (widget.tipoRelatorio == 'sintetico') {
-        debugPrint('🔍 Carregando dados sintéticos...');
         await _carregarDadosSintetico();
       }
       
       // Calcular estoque final
       _calcularEstoqueFinal();
-      
-      debugPrint('✅ Dados carregados com sucesso! Total de movimentações: ${_movimentacoes.length}');
       
       if (mounted) {
         setState(() {
@@ -496,20 +444,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
 
   Future<void> _carregarDadosAnalitico() async {
     try {
-      _debugPrintQuery();
-      
-      // DEBUG: Verificar formato das datas no banco
-      final testeData = await _supabase
-          .from('movimentacoes')
-          .select('data_mov')
-          .eq('filial_id', _filialIdUsar!)
-          .limit(5);
-      
-      debugPrint('📅 Amostra de datas no banco:');
-      for (var item in testeData) {
-        debugPrint('  - ${item['data_mov']} (${item['data_mov'].runtimeType})');
-      }
-      
       // Query única para buscar todas as movimentações relevantes
       var query = _supabase
           .from('movimentacoes')
@@ -538,8 +472,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           .or('filial_id.eq.$_filialIdUsar,filial_destino_id.eq.$_filialIdUsar,filial_origem_id.eq.$_filialIdUsar')
           .eq('empresa_id', _empresaId!);
 
-      debugPrint('🔍 Query base construída');
-
       // FILTRO DE DATA CORRIGIDO - CONSIDERANDO APENAS O DIA
       if (widget.isIntraday && widget.dataIntraday != null) {
         // Modo Intraday: filtrar pelo dia inteiro usando range de datas
@@ -567,8 +499,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             .gte('data_mov', dataInicioStr)
             .lte('data_mov', dataFimStr);
         
-        debugPrint('📅 Filtro Intraday aplicado: data_mov entre $dataInicioStr e $dataFimStr');
-        
       } else if (widget.mesFiltro != null) {
         // Modo Mensal: intervalo do mês completo
         // Primeiro dia do mês às 00:00:00
@@ -593,21 +523,15 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         query = query
             .gte('data_mov', primeiroDiaStr)
             .lte('data_mov', ultimoDiaStr);
-        
-        debugPrint('📅 Filtro Mensal aplicado: data_mov entre $primeiroDiaStr e $ultimoDiaStr');
       }
 
       // FILTRO DE PRODUTO
       if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
         query = query.eq('produto_id', widget.produtoFiltro!);
-        debugPrint('📦 Filtro de produto aplicado: ${widget.produtoFiltro}');
-      } else if (widget.produtoFiltro == 'todos') {
-        debugPrint('📦 Filtro "todos" aplicado - sem filtro de produto específico');
       }
 
       // EXECUTAR QUERY
       final dados = await query.order('ts_mov', ascending: true);
-      debugPrint('📊 Dados retornados da query: ${dados.length} registros');
 
       // Coletar IDs de filiais destino de transferências e buscar nomes em lote
       final Set<String> filialDestinoIds = {};
@@ -635,9 +559,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       }
 
       if (dados.isEmpty) {
-        debugPrint('⚠️ Nenhum dado encontrado para os filtros aplicados');
-      } else {
-        debugPrint('✅ Primeiro registro: ${dados.first}');
+        // nenhum dado encontrado
       }
 
       // PROCESSAR DADOS
@@ -681,8 +603,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           'saldo_vinte': saldoVinte,
         });
       }
-
-      debugPrint('📊 Lista analítica gerada: ${analitico.length} registros');
 
       // Ordenar e atualizar estado
       _ordenarDados(analitico, 'data_mov', true);
@@ -830,8 +750,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         'estoqueFinal': _estoqueFinal,
       };
 
-      debugPrint('Enviando para Edge Function: $requestData');
-
       final response = await _chamarEdgeFunctionBinaria(requestData);
       
       if (response.statusCode != 200) {
@@ -844,8 +762,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       if (bytes.isEmpty) {
         throw Exception('Arquivo vazio recebido da Edge Function');
       }
-
-      debugPrint('Arquivo XLSX recebido: ${bytes.length} bytes');
 
       final blob = html.Blob(
         [bytes], 
@@ -931,10 +847,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   ) async {
     final functionUrl = '$supabaseUrl/functions/v1/down_excel_estoques';
     
-    debugPrint('URL: $functionUrl');
-    debugPrint('Token (início): ${accessToken.substring(0, 20)}...');
-    debugPrint('Dados: ${jsonEncode(requestData)}');
-    
     final response = await http.post(
       Uri.parse(functionUrl),
       headers: {
@@ -944,9 +856,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       },
       body: jsonEncode(requestData),
     );
-    
-    debugPrint('Status Code: ${response.statusCode}');
-    debugPrint('Tamanho resposta: ${response.bodyBytes.length} bytes');
     
     return response;
   }

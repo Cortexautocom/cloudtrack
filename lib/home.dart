@@ -335,10 +335,6 @@ class _HomePageState extends State<HomePage>
         }
       }
 
-      debugPrint(
-        '✅ Cards permitidos para ${usuario.nome}: ${todosCards.length}',
-      );
-
       final Map<String, List<Map<String, dynamic>>> cardsOrganizados = {};
 
       for (var card in todosCards) {
@@ -3028,7 +3024,6 @@ class _HomePageState extends State<HomePage>
   void _navegarParaCardBombeios(String tipo) {
     switch (tipo) {
       case 'bombeios':
-        debugPrint('Abrir tela de bombeios');
         break;
     }
   }

@@ -129,15 +129,11 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
     setState(() => _carregandoProdutos = true);
     
     try {
-      debugPrint('🔍 Carregando produtos (incluirTodos: $incluirTodos)...');
-      
       // Buscar apenas id e nome de todos os produtos, sem qualquer filtro
       final dados = await _supabase
           .from('produtos')
           .select('id, nome')
           .order('nome');
-
-      debugPrint('📊 Produtos encontrados: ${dados.length}');
 
       final List<Map<String, dynamic>> produtos = [];
       
@@ -159,8 +155,6 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
         _produtosDisponiveis = produtos;
         _produtoSelecionado = '';
       });
-      
-      debugPrint('✅ Produtos carregados: ${_produtosDisponiveis.length - 1} itens');
       
     } catch (e) {
       debugPrint("❌ Erro ao carregar produtos: $e");
