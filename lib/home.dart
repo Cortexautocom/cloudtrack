@@ -294,7 +294,6 @@ class _HomePageState extends State<HomePage>
           .order('sessao_pai')
           .order('ordem');
 
-      debugPrint('✅ Cards encontrados no banco: ${cardsDb.length}');
 
       final List<Map<String, dynamic>> todosCards = [];
 

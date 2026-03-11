@@ -25,7 +25,6 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(seconds: 2)); // efeito visual do splash
 
     final uri = Uri.base.toString();
-    print('🔗 URL detectada no Splash: $uri');
 
     // 🧩 Se for link de recuperação (contém #access_token&type=recovery)
     if (uri.contains('type=recovery')) {
@@ -63,7 +62,6 @@ class _SplashScreenState extends State<SplashScreen> {
     final limite = DateTime.now().subtract(const Duration(hours: 24));
     if (dataLogin.isBefore(limite)) {
       await supabase.auth.signOut();
-      print('⌛ Sessão antiga. Requer novo login.');
       _irParaLogin();
       return;
     }

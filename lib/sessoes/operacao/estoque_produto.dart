@@ -92,7 +92,7 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
       final response = await _supabase.rpc(
         'calcular_estoque_inicial_produto',
         params: {
-          'p_tanque_id': widget.produtoId,
+          'p_produto_id': widget.produtoId,
           'p_data': dataStr,
         },
       );

@@ -180,7 +180,6 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
           .order('sessao_pai')
           .order('ordem');
 
-      debugPrint('✅ Cards encontrados no banco: ${cardsData.length}');
 
       // 2. Carregar permissões deste usuário
       final permissoesData = await supabase
