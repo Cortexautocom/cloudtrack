@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../login_page.dart';
 import 'cacl_historico.dart';
 import 'cacl.dart';
 
@@ -34,13 +33,10 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
   String? terminalSelecionadoId;
   String? tanqueSelecionadoId;
   String? produtoSelecionado;
-  
-  int? _nivelUsuario;
   int? _hoverIndex;
   
   final TextEditingController dataInicialController = TextEditingController();
   final TextEditingController dataFinalController = TextEditingController();
-  final TextEditingController _terminalController = TextEditingController();
 
   Map<String, dynamic>? _usuarioData;
 
@@ -48,11 +44,11 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Não pré-selecionar datas: mostrar rótulos antes da escolha
-    dataInicial = null;
-    dataFinal = null;
-    dataInicialController.clear();
-    dataFinalController.clear();
+    // Definir datas iniciais como hoje
+    dataInicial = DateTime.now();
+    dataFinal = DateTime.now();
+    dataInicialController.text = _formatarData(dataInicial);
+    dataFinalController.text = _formatarData(dataFinal);
     _carregarDadosIniciais();
   }
 
@@ -61,7 +57,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
     WidgetsBinding.instance.removeObserver(this);
     dataInicialController.dispose();
     dataFinalController.dispose();
-    _terminalController.dispose();
     super.dispose();
   }
 
@@ -89,29 +84,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
     }
   }
 
-  Future<void> _carregarNivelUsuario() async {
-    try {
-      final supabase = Supabase.instance.client;
-      final usuarioId = UsuarioAtual.instance?.id;
-      
-      if (usuarioId != null) {
-        final response = await supabase
-            .from('usuarios')
-            .select('nivel')
-            .eq('id', usuarioId)
-            .single();
-        
-        setState(() {
-          _nivelUsuario = response['nivel'] as int? ?? 0;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _nivelUsuario = 0;
-      });
-    }
-  }
-
   Future<void> _refreshData() async {
     await _aplicarFiltros(resetarPagina: true);
   }
@@ -122,7 +94,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
     try {
       final supabase = Supabase.instance.client;
       _usuarioData = await _obterDadosUsuario();
-      await _carregarNivelUsuario();
       
       if (_usuarioData == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -134,100 +105,31 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
         return;
       }
       
-      final nivel = _usuarioData!['nivel'];
-      final terminalId = UsuarioAtual.instance?.terminalId;
-      
-      // Carregar produtos específicos do terminal
-      if (terminalId != null) {
-        // Busca produtos através dos tanques do terminal
-        final produtosResponse = await supabase
-            .from('tanques')
-            .select('''
-              id_produto,
-              produtos!inner (
-                id,
-                nome
-              )
-            ''')
-            .eq('terminal_id', terminalId)
-            .not('id_produto', 'is', null) // CORREÇÃO: usar .not().isNull() ou .neq().isNot()
-            .order('produtos(nome)');
-        
-        // Extrair produtos únicos da resposta
-        final Map<String, Map<String, dynamic>> produtosUnicos = {};
-        for (var tanque in produtosResponse) {
-          if (tanque['produtos'] != null) {
-            final produto = tanque['produtos'] as Map<String, dynamic>;
-            final produtoId = produto['id']?.toString();
-            if (produtoId != null && !produtosUnicos.containsKey(produtoId)) {
-              produtosUnicos[produtoId] = {
-                'id': produtoId,
-                'nome': produto['nome']?.toString() ?? 'Produto sem nome',
-              };
-            }
-          }
-        }
-        
-        setState(() {
-          produtosDisponiveis = produtosUnicos.values.toList()
-            ..sort((a, b) => (a['nome'] ?? '').compareTo(b['nome'] ?? ''));
-        });
-      } else {
-        // Se não tiver terminalId (admin), carrega todos os produtos
-        final produtosResponse = await supabase
-            .from('produtos')
-            .select('id, nome')
-            .order('nome');
-        setState(() {
-          produtosDisponiveis = List<Map<String, dynamic>>.from(produtosResponse);
-        });
-      }
-      
-      if (nivel == 3) {
-        final terminaisResponse = await supabase
-            .from('terminais')
-            .select('id, nome')
-            .order('nome');
-        setState(() {
-          terminais = List<Map<String, dynamic>>.from(terminaisResponse);
-        });
-      }
-      
-      if (nivel == 3) {
-        final tanquesResponse = await supabase
-            .from('tanques')
-            .select('id, referencia, terminal_id')
-            .order('referencia');
-        tanquesDisponiveis = List<Map<String, dynamic>>.from(tanquesResponse);
-      } else if (terminalId != null) {
-        final tanquesResponse = await supabase
-            .from('tanques')
-            .select('id, referencia')
-            .eq('terminal_id', terminalId)
-            .order('referencia');
-        tanquesDisponiveis = List<Map<String, dynamic>>.from(tanquesResponse);
-      }
+      // Carregar todos os produtos
+      final produtosResponse = await supabase
+          .from('produtos')
+          .select('id, nome')
+          .order('nome');
+      setState(() {
+        produtosDisponiveis = List<Map<String, dynamic>>.from(produtosResponse);
+      });
 
-      // Se usuário não é admin, obter o nome do terminal e pré-selecionar o campo
-      if (nivel != 3 && terminalId != null) {
-        try {
-          final terminalData = await supabase
-              .from('terminais')
-              .select('nome')
-              .eq('id', terminalId)
-              .single();
-          final nome = terminalData['nome']?.toString();
-          setState(() {
-            terminalSelecionadoId = terminalId;
-            _terminalController.text = nome ?? '';
-          });
-        } catch (_) {
-          setState(() {
-              _terminalController.text = '';
-            });
-        }
-      }
-      
+      // Carregar todos os terminais
+      final terminaisResponse = await supabase
+          .from('terminais')
+          .select('id, nome')
+          .order('nome');
+      setState(() {
+        terminais = List<Map<String, dynamic>>.from(terminaisResponse);
+      });
+
+      // Carregar todos os tanques
+      final tanquesResponse = await supabase
+          .from('tanques')
+          .select('id, referencia, terminal_id')
+          .order('referencia');
+      tanquesDisponiveis = List<Map<String, dynamic>>.from(tanquesResponse);
+
       await _aplicarFiltros();
       
     } catch (e) {
@@ -258,9 +160,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
         return;
       }
 
-      final nivel = _usuarioData!['nivel'];
-      final terminalId = UsuarioAtual.instance?.terminalId;
-
       var query = supabase.from('cacl').select('''
         id,
         tipo,
@@ -285,10 +184,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
         porcentagem_diferenca
       ''');
 
-      if (nivel < 3 && terminalId != null) {
-        query = query.eq('terminal_id', terminalId);
-      }
-
       if (dataInicial == null && dataFinal == null) {
         // Nenhuma data selecionada pelo usuário — mostrar apenas CACLs da data atual
         final hoje = DateTime.now().toIso8601String().split('T')[0];
@@ -303,7 +198,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
         query = query.eq('data', dataFinal!.toIso8601String().split('T')[0]);
       }
 
-      if (terminalSelecionadoId != null && nivel == 3) {
+      if (terminalSelecionadoId != null) {
         query = query.eq('terminal_id', terminalSelecionadoId!);
       }
 
@@ -401,9 +296,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
 
   Widget _buildCardFiltros() {
     if (_usuarioData == null) return const SizedBox();
-    
-    final nivel = _usuarioData!['nivel'];
-    final isAdmin = nivel == 3;
     
     return Card(
       color: const Color(0xFFFAFAFA),
@@ -504,53 +396,39 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                 const SizedBox(width: 8),
 
                 Expanded(
-                  child: isAdmin
-                      ? DropdownButtonFormField<String>(
-                          value: terminalSelecionadoId,
-                          decoration: InputDecoration(
-                            labelText: 'Terminal',
-                            border: const OutlineInputBorder(),
-                            prefixIcon: const Icon(Icons.business, size: 18),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            isDense: true,
+                  child: DropdownButtonFormField<String>(
+                    value: terminalSelecionadoId,
+                    decoration: InputDecoration(
+                      labelText: 'Terminal',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.business, size: 18),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      isDense: true,
+                    ),
+                    isExpanded: true,
+                    items: [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('Todos os terminais', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13)),
+                      ),
+                      ...terminais.map((terminal) {
+                        return DropdownMenuItem(
+                          value: terminal['id']?.toString(),
+                          child: Text(
+                            terminal['nome']?.toString() ?? '',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13),
                           ),
-                          isExpanded: true,
-                          items: [
-                            const DropdownMenuItem(
-                              value: null,
-                              child: Text('Todos os terminais', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13)),
-                            ),
-                            ...terminais.map((terminal) {
-                              return DropdownMenuItem(
-                                value: terminal['id']?.toString(),
-                                child: Text(
-                                  terminal['nome']?.toString() ?? '',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              );
-                            }).toList(),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              terminalSelecionadoId = value;
-                            });
-                            _aplicarFiltros();
-                          },
-                        )
-                      : TextFormField(
-                          controller: _terminalController,
-                          decoration: InputDecoration(
-                            labelText: 'Terminal',
-                            border: const OutlineInputBorder(),
-                            prefixIcon: const Icon(Icons.business, size: 18),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            isDense: true,
-                          ),
-                          readOnly: true,
-                          enabled: true,
-                          style: const TextStyle(fontSize: 13, color: Colors.black87),
-                        ),
+                        );
+                      }).toList(),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        terminalSelecionadoId = value;
+                      });
+                      _aplicarFiltros();
+                    },
+                  ),
                 ),
 
                 const SizedBox(width: 8),
@@ -600,22 +478,40 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         alignment: Alignment.centerLeft,
                         decoration: BoxDecoration(
-                          border: Border.all(color: const Color(0xFF0D47A1).withOpacity(0.5)),
+                          border: Border.all(color: Colors.grey.shade400),
                           borderRadius: BorderRadius.circular(4),
                           color: Colors.white,
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                        child: Stack(
+                          clipBehavior: Clip.none,
                           children: [
-                            Expanded(
-                              child: Text(
-                                textoInicial,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Color(0xFF0D47A1),
-                                  fontWeight: FontWeight.w500,
+                            Positioned(
+                              top: -27,
+                              left: 0,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  'Data inicial',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade700,
+                                  ),
                                 ),
                               ),
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    textoInicial,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -671,22 +567,40 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         alignment: Alignment.centerLeft,
                         decoration: BoxDecoration(
-                          border: Border.all(color: const Color(0xFF0D47A1).withOpacity(0.5)),
+                          border: Border.all(color: Colors.grey.shade400),
                           borderRadius: BorderRadius.circular(4),
                           color: Colors.white,
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                        child: Stack(
+                          clipBehavior: Clip.none,
                           children: [
-                            Expanded(
-                              child: Text(
-                                textoFinal,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Color(0xFF0D47A1),
-                                  fontWeight: FontWeight.w500,
+                            Positioned(
+                              top: -27,
+                              left: 0,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  'Data final',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey.shade700,
+                                  ),
                                 ),
                               ),
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    textoFinal,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -773,9 +687,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
       );
     }
     
-    final nivel = _usuarioData?['nivel'];
-    final terminalId = UsuarioAtual.instance?.terminalId;
-    
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       body: Column(
@@ -808,29 +719,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                           color: Color(0xFF0D47A1),
                         ),
                       ),
-                      if (nivel != null && nivel < 3 && terminalId != null)
-                        FutureBuilder(
-                          future: Supabase.instance.client
-                              .from('terminais')
-                              .select('nome')
-                              .eq('id', terminalId)
-                              .single(),
-                          builder: (context, snapshot) {
-                            if (snapshot.hasData) {
-                              final nomeTerminal = snapshot.data!['nome'];
-                              return Text(
-                                nomeTerminal,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              );
-                            }
-                            return const SizedBox();
-                          },
-                        ),
+
                     ],
                   ),
                 ),
@@ -940,11 +829,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                       child: GestureDetector(
                                         onTap: () async {
                                           final caclId = cacl['id'].toString();
-                                          final nivelUsuario = _nivelUsuario ?? 0;
-
-                                          if (nivelUsuario == 2 && isCancelado) {
-                                            return;
-                                          }
 
                                           if (!context.mounted) return;
 
