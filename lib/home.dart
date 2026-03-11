@@ -1030,308 +1030,311 @@ class _HomePageState extends State<HomePage>
   Widget build(BuildContext context) {
     final usuario = UsuarioAtual.instance;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          Container(
-            height: 60,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  offset: Offset(0, 2),
-                  blurRadius: 4,
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(left: 10),
-                  child: InkWell(
-                    onTap: _resetarTodasFlags,
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: Image.asset(
-                        'assets/logo_top_home3.png',
-                        fit: BoxFit.contain,
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: Column(
+          children: [
+            Container(
+              height: 60,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    offset: Offset(0, 2),
+                    blurRadius: 4,
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 10),
+                    child: InkWell(
+                      onTap: _resetarTodasFlags,
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: Image.asset(
+                          'assets/logo_top_home3.png',
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(right: 20),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        mainAxisSize: MainAxisSize.min,
-                        children: (usuario?.nivel == 3)
-                            ? [
-                                Text(
-                                  usuario?.nome ?? '',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Color(0xFF0D47A1),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ]
-                            : [
-                                Text(
-                                  usuario?.nome ?? '',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Color(0xFF0D47A1),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  (usuario?.nivel == 1 || usuario?.nivel == 2)
-                                      ? (_usuarioTerminalNome ??
-                                            (UsuarioAtual
-                                                            .instance
-                                                            ?.terminalId ==
-                                                        null ||
-                                                    UsuarioAtual
-                                                        .instance!
-                                                        .terminalId!
-                                                        .isEmpty
-                                                ? 'Sem terminal'
-                                                : 'Carregando...'))
-                                      : (_usuarioFilialNome ??
-                                            (UsuarioAtual.instance?.filialId ==
-                                                        null ||
-                                                    UsuarioAtual
-                                                        .instance!
-                                                        .filialId!
-                                                        .isEmpty
-                                                ? 'Sem filial'
-                                                : 'Carregando...')),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey[600],
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                      ),
-                      const SizedBox(width: 10),
-                      PopupMenuButton<String>(
-                        icon: const Icon(
-                          Icons.account_circle,
-                          color: Color(0xFF0D47A1),
-                          size: 30,
-                        ),
-                        onSelected: (value) async {
-                          if (value == 'Perfil') {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const PerfilPage(),
-                              ),
-                            );
-                          }
-
-                          if (value == 'Sair') {
-                            await Supabase.instance.client.auth.signOut();
-                            UsuarioAtual.instance = null;
-                            if (context.mounted) {
-                              Navigator.pushAndRemoveUntil(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const LoginPage(),
-                                ),
-                                (route) => false,
-                              );
-                            }
-                          }
-                        },
-                        itemBuilder: (context) {
-                          return {'Perfil', 'Sair'}.map((choice) {
-                            return PopupMenuItem<String>(
-                              value: choice,
-                              child: Text(choice),
-                            );
-                          }).toList();
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          Expanded(
-            child: Row(
-              children: [
-                Container(
-                  width: 180,
-                  color: const Color(0xFFF5F5F5),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 20),
-                      Expanded(
-                        child: ListView.builder(
-                          itemCount: menuItems.length,
-                          itemBuilder: (context, index) {
-                            bool isSelected = selectedIndex == index;
-                            final nomeItem = menuItems[index];
-                            final nomeFormatado = _formatarNomeMenu(nomeItem);
-
-                            return MouseRegion(
-                              onEnter: (_) =>
-                                  setState(() => _hoveredMenuIndex = index),
-                              onExit: (_) =>
-                                  setState(() => _hoveredMenuIndex = -1),
-                              child: InkWell(
-                                onTap: () {
-                                  _resetarTodasFlags();
-
-                                  setState(() {
-                                    selectedIndex = index;
-                                  });
-
-                                  final itemSelecionado = menuItems[index];
-
-                                  if (itemSelecionado == 'Vendas' ||
-                                      _filhosPorSessao.containsKey(
-                                        itemSelecionado,
-                                      )) {
-                                    _mostrarFilhosDaSessao(itemSelecionado);
-                                  }
-                                },
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 10,
-                                    horizontal: 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? Colors.white
-                                        : (_hoveredMenuIndex == index
-                                              ? const Color(0xFFFAFBFF)
-                                              : const Color(0xFFF5F5F5)),
-                                    border: Border(
-                                      left: BorderSide(
-                                        color: isSelected
-                                            ? const Color(0xFF64A7FF)
-                                            : Colors.transparent,
-                                        width: 4,
-                                      ),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 20),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          mainAxisSize: MainAxisSize.min,
+                          children: (usuario?.nivel == 3)
+                              ? [
+                                  Text(
+                                    usuario?.nome ?? '',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Color(0xFF0D47A1),
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment
-                                        .center, // Centraliza verticalmente
-                                    children: [
-                                      Icon(
-                                        _getMenuIcon(nomeItem),
-                                        color: isSelected
-                                            ? _getCorPorSessao(nomeItem)
-                                            : Colors.grey[700],
-                                        size: 20,
+                                ]
+                              : [
+                                  Text(
+                                    usuario?.nome ?? '',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Color(0xFF0D47A1),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    (usuario?.nivel == 1 || usuario?.nivel == 2)
+                                        ? (_usuarioTerminalNome ??
+                                              (UsuarioAtual
+                                                              .instance
+                                                              ?.terminalId ==
+                                                          null ||
+                                                      UsuarioAtual
+                                                          .instance!
+                                                          .terminalId!
+                                                          .isEmpty
+                                                  ? 'Sem terminal'
+                                                  : 'Carregando...'))
+                                        : (_usuarioFilialNome ??
+                                              (UsuarioAtual.instance?.filialId ==
+                                                          null ||
+                                                      UsuarioAtual
+                                                          .instance!
+                                                          .filialId!
+                                                          .isEmpty
+                                                  ? 'Sem filial'
+                                                  : 'Carregando...')),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                        ),
+                        const SizedBox(width: 10),
+                        PopupMenuButton<String>(
+                          icon: const Icon(
+                            Icons.account_circle,
+                            color: Color(0xFF0D47A1),
+                            size: 30,
+                          ),
+                          onSelected: (value) async {
+                            if (value == 'Perfil') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const PerfilPage(),
+                                ),
+                              );
+                            }
+
+                            if (value == 'Sair') {
+                              await Supabase.instance.client.auth.signOut();
+                              UsuarioAtual.instance = null;
+                              if (context.mounted) {
+                                Navigator.pushAndRemoveUntil(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const LoginPage(),
+                                  ),
+                                  (route) => false,
+                                );
+                              }
+                            }
+                          },
+                          itemBuilder: (context) {
+                            return {'Perfil', 'Sair'}.map((choice) {
+                              return PopupMenuItem<String>(
+                                value: choice,
+                                child: Text(choice),
+                              );
+                            }).toList();
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            Expanded(
+              child: Row(
+                children: [
+                  Container(
+                    width: 180,
+                    color: const Color(0xFFF5F5F5),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 20),
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: menuItems.length,
+                            itemBuilder: (context, index) {
+                              bool isSelected = selectedIndex == index;
+                              final nomeItem = menuItems[index];
+                              final nomeFormatado = _formatarNomeMenu(nomeItem);
+
+                              return MouseRegion(
+                                onEnter: (_) =>
+                                    setState(() => _hoveredMenuIndex = index),
+                                onExit: (_) =>
+                                    setState(() => _hoveredMenuIndex = -1),
+                                child: InkWell(
+                                  onTap: () {
+                                    _resetarTodasFlags();
+
+                                    setState(() {
+                                      selectedIndex = index;
+                                    });
+
+                                    final itemSelecionado = menuItems[index];
+
+                                    if (itemSelecionado == 'Vendas' ||
+                                        _filhosPorSessao.containsKey(
+                                          itemSelecionado,
+                                        )) {
+                                      _mostrarFilhosDaSessao(itemSelecionado);
+                                    }
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 10,
+                                      horizontal: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : (_hoveredMenuIndex == index
+                                                ? const Color(0xFFFAFBFF)
+                                                : const Color(0xFFF5F5F5)),
+                                      border: Border(
+                                        left: BorderSide(
+                                          color: isSelected
+                                              ? const Color(0xFF64A7FF)
+                                              : Colors.transparent,
+                                          width: 4,
+                                        ),
                                       ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        // Adiciona Expanded para melhor controle
-                                        child: AnimatedContainer(
-                                          duration: const Duration(
-                                            milliseconds: 200,
-                                          ),
-                                          transform: Matrix4.translationValues(
-                                            _hoveredMenuIndex == index
-                                                ? 6.0
-                                                : 0.0,
-                                            0,
-                                            0,
-                                          ),
-                                          child: AnimatedDefaultTextStyle(
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment
+                                          .center, // Centraliza verticalmente
+                                      children: [
+                                        Icon(
+                                          _getMenuIcon(nomeItem),
+                                          color: isSelected
+                                              ? _getCorPorSessao(nomeItem)
+                                              : Colors.grey[700],
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          // Adiciona Expanded para melhor controle
+                                          child: AnimatedContainer(
                                             duration: const Duration(
                                               milliseconds: 200,
                                             ),
-                                            style: TextStyle(
-                                              fontWeight:
-                                                  (isSelected ||
-                                                      _hoveredMenuIndex ==
-                                                          index)
-                                                  ? FontWeight.bold
-                                                  : FontWeight.w500,
-                                              color: isSelected
-                                                  ? _getCorPorSessao(nomeItem)
-                                                  : Colors.grey[800],
-                                              fontSize: 13,
-                                              height: 1.1,
+                                            transform: Matrix4.translationValues(
+                                              _hoveredMenuIndex == index
+                                                  ? 6.0
+                                                  : 0.0,
+                                              0,
+                                              0,
                                             ),
-                                            child: Text(
-                                              nomeFormatado,
-                                              maxLines: 2,
-                                              overflow: TextOverflow.visible,
+                                            child: AnimatedDefaultTextStyle(
+                                              duration: const Duration(
+                                                milliseconds: 200,
+                                              ),
+                                              style: TextStyle(
+                                                fontWeight:
+                                                    (isSelected ||
+                                                        _hoveredMenuIndex ==
+                                                            index)
+                                                    ? FontWeight.bold
+                                                    : FontWeight.w500,
+                                                color: isSelected
+                                                    ? _getCorPorSessao(nomeItem)
+                                                    : Colors.grey[800],
+                                                fontSize: 13,
+                                                height: 1.1,
+                                              ),
+                                              child: Text(
+                                                nomeFormatado,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.visible,
+                                              ),
                                             ),
                                           ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
 
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 400),
-                    transitionBuilder: (child, animation) =>
-                        FadeTransition(opacity: animation, child: child),
-                    child: _buildPageContent(usuario),
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 400),
+                      transitionBuilder: (child, animation) =>
+                          FadeTransition(opacity: animation, child: child),
+                      child: _buildPageContent(usuario),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
 
-          Container(
-            height: 50,
-            width: double.infinity,
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'PowerTank Terminais 2026, All rights reserved.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[600],
-                    letterSpacing: 0.3,
+            Container(
+              height: 50,
+              width: double.infinity,
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'PowerTank Terminais 2026, All rights reserved.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey[600],
+                      letterSpacing: 0.3,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '© Norton Tecnology - 550 California St, W-325, San Francisco, CA - EUA.',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey[500],
-                    letterSpacing: 0.2,
+                  const SizedBox(height: 2),
+                  Text(
+                    '© Norton Tecnology - 550 California St, W-325, San Francisco, CA - EUA.',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey[500],
+                      letterSpacing: 0.2,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
