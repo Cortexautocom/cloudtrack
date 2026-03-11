@@ -250,6 +250,7 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
 
     try {
       final dataEmissao = DateFormat('dd/MM/yyyy').parse(_dataCtrl.text);
+      final agoraSaoPaulo = DateTime.now().toUtc().subtract(const Duration(hours: 3));
       final usuario = UsuarioAtual.instance;
       final quantidadeAmb = int.tryParse(_qtdAmbCtrl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
 
@@ -258,7 +259,7 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
         'filial_id': usuario.filialId,
         'usuario_id': usuario.id,
         'terminal_id': _terminalSelecionado,
-        'data_ordem': dataEmissao.toUtc().toIso8601String(),
+        'data_ordem': agoraSaoPaulo.toIso8601String(),
         'tipo': _tipoOp,
       }).select().single();
 
@@ -299,12 +300,41 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
         'placa': _placaCtrl.text.isEmpty ? null : [_placaCtrl.text.toUpperCase()],
         'tipo_op': _tipoOp,
         'tipo_mov': _tipoOperacao,
+        'data_carga': dataEmissao.toIso8601String(),
       });
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ordem criada com sucesso')),
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: const BorderSide(color: Color(0xFF0D47A1), width: 1),
+          ),
+          content: const Text(
+            'Ordem criada com sucesso',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.black87),
+          ),
+          actions: [
+            Center(
+              child: TextButton(
+                style: TextButton.styleFrom(
+                  backgroundColor: const Color(0xFF0D47A1),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('OK'),
+              ),
+            ),
+          ],
+        ),
       );
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -562,7 +592,7 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
                                 ),
                                 const SizedBox(width: 20),
                                 Expanded(
-                                  child: _campo('Quantidade (20ºC)', _qtd20Ctrl, milhar: true, max: 5, focusNode: _qtd20Focus, nextFocus: _produtoFocus),
+                                  child: _campo('Quantidade faturada (20ºC)', _qtd20Ctrl, milhar: true, max: 5, focusNode: _qtd20Focus, nextFocus: _produtoFocus),
                                 ),
                               ],
                             ),
