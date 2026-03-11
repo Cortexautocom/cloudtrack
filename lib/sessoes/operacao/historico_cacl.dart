@@ -170,7 +170,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
         terminal_id,
         created_at,
         status,
-        solicita_canc,
         horario_inicial,
         horario_final,
         volume_produto_inicial,
@@ -812,7 +811,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                   itemBuilder: (context, index) {
                                     final cacl = cacles[index];
                                     final status = cacl['status']?.toString();
-                                    final solicitaCanc = cacl['solicita_canc'] as bool?;
                                     final isCancelado = status?.toLowerCase() == 'cancelado';
                                     final statusColor = _getStatusColor(status);
                                     final statusText = _getStatusText(status);
@@ -966,15 +964,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                                         ),
                                                       ),
                                                     ),
-                                                    if (solicitaCanc == true && !isCancelado)
-                                                      Padding(
-                                                        padding: const EdgeInsets.only(left: 4),
-                                                        child: Icon(
-                                                          Icons.warning_amber_rounded,
-                                                          size: 14,
-                                                          color: Colors.red.shade700,
-                                                        ),
-                                                      ),
+
                                                   ],
                                                 ),
                                               ),

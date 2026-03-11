@@ -262,7 +262,6 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
             produto,
             tanque_id,
             status,
-            solicita_canc,
             horario_inicial,
             horario_final,
             tanques:tanque_id (referencia)
@@ -355,13 +354,9 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
     }
   }
 
-  Color _getCardColor(String? status, bool? solicitaCanc) {
+  Color _getCardColor(String? status) {
     if (status?.toLowerCase() == 'cancelado') {
       return Colors.grey.shade50;
-    }
-
-    if (solicitaCanc == true) {
-      return Colors.red.shade50;
     }
 
     switch (status?.toLowerCase()) {
@@ -377,13 +372,9 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
     }
   }
 
-  Color _getBorderColor(String? status, bool? solicitaCanc) {
+  Color _getBorderColor(String? status) {
     if (status?.toLowerCase() == 'cancelado') {
       return Colors.grey.shade300;
-    }
-
-    if (solicitaCanc == true) {
-      return Colors.red.shade300;
     }
 
     switch (status?.toLowerCase()) {
@@ -1183,11 +1174,10 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                   itemBuilder: (context, index) {
                     final cacl = _caclesTanque[index];
                     final status = cacl['status']?.toString();
-                    final solicitaCanc = cacl['solicita_canc'] as bool?;
                     final isCancelado = status?.toLowerCase() == 'cancelado';
                     final statusColor = _getStatusColor(status);
-                    final cardColor = _getCardColor(status, solicitaCanc);
-                    final borderColor = _getBorderColor(status, solicitaCanc);
+                    final cardColor = _getCardColor(status);
+                    final borderColor = _getBorderColor(status);
                     final statusText = _getStatusText(status);
                     final tanqueRef =
                         cacl['tanques']?['referencia']?.toString() ?? '-';

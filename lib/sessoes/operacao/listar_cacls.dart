@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 //import 'cacl.dart';
-import '../../login_page.dart';
 import 'medicoes_emitir_cacl.dart';
 import 'editar_cacl.dart';
 import 'cacl_historico.dart';
@@ -29,7 +28,6 @@ class ListarCaclsPage extends StatefulWidget {
 class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingObserver {
   bool _carregando = true;
   List<Map<String, dynamic>> _cacles = [];
-  int? _nivelUsuario;
   int? _hoverIndex;
   DateTime? _dataFiltro;
 
@@ -37,34 +35,9 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _carregarNivelUsuario();
     // fixar data inicial
     _dataFiltro = DateTime.now();
     _carregarCaclsSimples();
-  }
-
-  Future<void> _carregarNivelUsuario() async {
-    try {
-      final supabase = Supabase.instance.client;
-      final usuarioId = UsuarioAtual.instance?.id;
-      
-      if (usuarioId != null) {
-        final response = await supabase
-            .from('usuarios')
-            .select('nivel')
-            .eq('id', usuarioId)
-            .single();
-        
-        setState(() {
-          _nivelUsuario = response['nivel'] as int? ?? 0;
-        });
-      }
-    } catch (e) {
-      debugPrint('❌ Erro ao carregar nível do usuário: $e');
-      setState(() {
-        _nivelUsuario = 0;
-      });
-    }
   }
 
   @override
@@ -129,8 +102,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
             volume_produto_final,
             volume_total_liquido_inicial,
             volume_total_liquido_final,
-            base,
-            solicita_canc
+            base
           ''')
           .eq('filial_id', widget.filialId)
           .order('created_at', ascending: false);
@@ -174,120 +146,28 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
     }
   }
 
-  Future<void> _solicitarCancelamento(String caclId) async {
+  Future<void> _cancelarCacl(String caclId) async {
     try {
       final supabase = Supabase.instance.client;
       
       await supabase
           .from('cacl')
-          .update({'solicita_canc': true})
+          .update({'status': 'cancelado'})
           .eq('id', caclId);
       
       if (mounted) {
-        // Atualiza localmente
-        setState(() {
-          final index = _cacles.indexWhere((c) => c['id'] == caclId);
-          if (index != -1) {
-            _cacles[index]['solicita_canc'] = true;
-          }
-        });
-        
-        // Mostra mensagem de confirmação
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Cancelamento solicitado ao supervisor. Aguarde.'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('❌ Erro ao solicitar cancelamento: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao solicitar cancelamento: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _confirmarCancelamento(String caclId) async {
-    try {
-      final supabase = Supabase.instance.client;
-      
-      await supabase
-          .from('cacl')
-          .update({
-            'status': 'cancelado',
-            'solicita_canc': false  // Marca como false ao cancelar
-          })
-          .eq('id', caclId);
-      
-      if (mounted) {
-        // Atualiza localmente
         setState(() {
           final index = _cacles.indexWhere((c) => c['id'] == caclId);
           if (index != -1) {
             _cacles[index]['status'] = 'cancelado';
-            _cacles[index]['solicita_canc'] = false;
           }
         });
         
-        // Mostra mensagem de confirmação
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('CACL cancelado com sucesso.'),
+          const SnackBar(
+            content: Text('CACL cancelado com sucesso.'),
             backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('❌ Erro ao cancelar CACL: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao cancelar CACL: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _cancelarDireto(String caclId) async {
-    try {
-      final supabase = Supabase.instance.client;
-      
-      await supabase
-          .from('cacl')
-          .update({
-            'status': 'cancelado',
-            'solicita_canc': false  // Marca como false ao cancelar
-          })
-          .eq('id', caclId);
-      
-      if (mounted) {
-        // Atualiza localmente
-        setState(() {
-          final index = _cacles.indexWhere((c) => c['id'] == caclId);
-          if (index != -1) {
-            _cacles[index]['status'] = 'cancelado';
-            _cacles[index]['solicita_canc'] = false;
-          }
-        });
-        
-        // Mostra mensagem de confirmação
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('CACL cancelado com sucesso.'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
+            duration: Duration(seconds: 3),
           ),
         );
       }
@@ -331,17 +211,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
     }
   }
 
-  Color _getCardColor(String? status, bool? solicitaCanc) {
-    // Para nível 3, card vermelho apenas se tiver solicitação pendente
-    if (status?.toLowerCase() == 'cancelado') {
-      return Colors.grey.shade50;
-    }
-
-    if (solicitaCanc == true) {
-      return Colors.red.shade50;
-    }
-
-    
+  Color _getCardColor(String? status) {
     switch (status?.toLowerCase()) {
       case 'emitido':
         return Colors.green.shade50;
@@ -355,17 +225,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
     }
   }
 
-  Color _getBorderColor(String? status, bool? solicitaCanc) {
-    // Para nível 3, borda vermelha apenas se tiver solicitação pendente
-    if (status?.toLowerCase() == 'cancelado') {
-      return Colors.grey.shade300;
-    }
-
-    if (solicitaCanc == true) {
-      return Colors.red.shade300;
-    }
-
-    
+  Color _getBorderColor(String? status) {
     switch (status?.toLowerCase()) {
       case 'emitido':
         return Colors.green.shade300;
@@ -625,11 +485,10 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                         itemBuilder: (context, index) {
                           final cacl = _cacles[index];
                           final status = cacl['status']?.toString();
-                          final solicitaCanc = cacl['solicita_canc'] as bool?;
                           final isCancelado = status?.toLowerCase() == 'cancelado';
                           final statusColor = _getStatusColor(status);
-                          final cardColor = _getCardColor(status, solicitaCanc);
-                          final borderColor = _getBorderColor(status, solicitaCanc);
+                          final cardColor = _getCardColor(status);
+                          final borderColor = _getBorderColor(status);
                           final statusText = _getStatusText(status);
                           final tanqueNome = cacl['tanques']?['referencia']?.toString();
                           final tanque = tanqueNome ?? '-';
@@ -651,21 +510,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                             },
                             child: GestureDetector(
                               onTap: () async {
-                                // Verifica se o usuário pode clicar no CACL
-                                final nivelUsuario = _nivelUsuario ?? 0;
-                                final isCancelado = status?.toLowerCase() == 'cancelado';
-                                
-                                // Regras de permissão:
-                                // - Nível 1: Pode clicar em qualquer CACL
-                                // - Nível 2: NÃO pode clicar em CACLs cancelados
-                                // - Nível 3: Pode clicar em qualquer CACL (incluindo cancelados)
-                                if (nivelUsuario == 2 && isCancelado) {
-                                  // Nível 2 não pode clicar em CACLs cancelados
-                                  return;
-                                }
-                                
-                                final caclId = cacl['id'].toString(); // Captura o ID
-                                print('📤 [ListarCaclsPage] Navegando para CaclHistoricoPage com ID: $caclId');
+                                final caclId = cacl['id'].toString();
 
                                 if (!context.mounted) return;
 
@@ -913,92 +758,11 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                                                     constraints: const BoxConstraints(),
                                                   ),
                                                 
-                                                // Botão Solicitar Cancelamento (níveis 1 e 2) - Laranja se não solicitado, Vermelho se solicitado
-                                                if (!isCancelado && 
-                                                    (_nivelUsuario == 1 || _nivelUsuario == 2))
+                                                // Botão Cancelar CACL
+                                                if (!isCancelado)
                                                   ElevatedButton(
                                                     onPressed: () {
-                                                      if (solicitaCanc == true) {
-                                                        // Se já solicitado, mostra mensagem
-                                                        ScaffoldMessenger.of(context).showSnackBar(
-                                                          const SnackBar(
-                                                            content: Text('Cancelamento já solicitado. Aguarde a análise do supervisor.'),
-                                                            backgroundColor: Colors.orange,
-                                                            duration: Duration(seconds: 3),
-                                                          ),
-                                                        );
-                                                      } else {
-                                                        _showDialogSolicitarCancelamento(cacl);
-                                                      }
-                                                    },
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: solicitaCanc == true 
-                                                          ? Colors.red.shade50 
-                                                          : Colors.orange.shade50,
-                                                      foregroundColor: solicitaCanc == true 
-                                                          ? Colors.red.shade800 
-                                                          : Colors.orange.shade800,
-                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                      minimumSize: const Size(0, 0),
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius: BorderRadius.circular(6),
-                                                        side: BorderSide(
-                                                          color: solicitaCanc == true 
-                                                              ? Colors.red.shade300 
-                                                              : Colors.orange.shade300,
-                                                        ),
-                                                      ),
-                                                      elevation: 0,
-                                                    ),
-                                                    child: Text(
-                                                      solicitaCanc == true 
-                                                          ? 'Cancelamento\nsolicitado' 
-                                                          : 'Solicitar\ncancelamento',
-                                                      textAlign: TextAlign.center,
-                                                      style: TextStyle(
-                                                        fontSize: 10,
-                                                        fontWeight: FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                
-                                                // Botão Confirmar Cancelamento (nível 3) - Quando solicita_canc = true
-                                                if (!isCancelado && 
-                                                    _nivelUsuario == 3 && 
-                                                    solicitaCanc == true)
-                                                  ElevatedButton(
-                                                    onPressed: () {
-                                                      _showDialogConfirmarCancelamento(cacl);
-                                                    },
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: Colors.red.shade50,
-                                                      foregroundColor: Colors.red.shade800,
-                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                      minimumSize: const Size(0, 0),
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius: BorderRadius.circular(6),
-                                                        side: BorderSide(color: Colors.red.shade300),
-                                                      ),
-                                                      elevation: 0,
-                                                    ),
-                                                    child: const Text(
-                                                      'Cancelamento\nsolicitado',
-                                                      textAlign: TextAlign.center,
-                                                      style: TextStyle(
-                                                        fontSize: 10,
-                                                        fontWeight: FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                
-                                                // Botão Cancelar CACL direto (nível 3) - Quando solicita_canc = false/null e não está cancelado
-                                                if (!isCancelado && 
-                                                    _nivelUsuario == 3 && 
-                                                    (solicitaCanc == false || solicitaCanc == null) &&
-                                                    status?.toLowerCase() != 'cancelado')
-                                                  ElevatedButton(
-                                                    onPressed: () {
-                                                      _showDialogCancelarDireto(cacl);
+                                                      _showDialogCancelarCacl(cacl);
                                                     },
                                                     style: ElevatedButton.styleFrom(
                                                       backgroundColor: Colors.red.shade50,
@@ -1039,7 +803,7 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
     );
   }
 
-  void _showDialogSolicitarCancelamento(Map<String, dynamic> cacl) {
+  void _showDialogCancelarCacl(Map<String, dynamic> cacl) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -1058,243 +822,6 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Cabeçalho com ícone
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.warning_amber_rounded,
-                        color: Colors.orange.shade700,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'Solicitar Cancelamento',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF0D47A1),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Mensagem
-                  const Padding(
-                    padding: EdgeInsets.only(left: 36),
-                    child: Text(
-                      'Deseja solicitar o cancelamento deste CACL?\n\nEsta solicitação será enviada ao supervisor para análise.',
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: Colors.black87,
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  
-                  // Botões alinhados à direita
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: const Text(
-                          'Voltar à lista',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color.fromARGB(255, 102, 102, 102),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton(
-                        onPressed: () async {
-                          Navigator.pop(context);
-                          await _solicitarCancelamento(cacl['id'].toString());
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange.shade600,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          elevation: 2,
-                          shadowColor: Colors.orange.withOpacity(0.3),
-                        ),
-                        child: const Text(
-                          'Sim, quero solicitar',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showDialogConfirmarCancelamento(Map<String, dynamic> cacl) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          elevation: 8,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 600,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Cabeçalho com ícone
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.check_circle_outline_rounded,
-                        color: Colors.red.shade700,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'Confirmar Cancelamento',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF0D47A1),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Mensagem
-                  const Padding(
-                    padding: EdgeInsets.only(left: 36),
-                    child: Text(
-                      'O operador solicitou cancelamento deste CACL.\n\nDeseja confirmar o cancelamento?',
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: Colors.black87,
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  
-                  // Botões alinhados à direita
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: const Text(
-                          'Voltar',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color.fromARGB(255, 102, 102, 102),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton(
-                        onPressed: () async {
-                          Navigator.pop(context);
-                          await _confirmarCancelamento(cacl['id'].toString());
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red.shade600,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          elevation: 2,
-                          shadowColor: Colors.red.withOpacity(0.3),
-                        ),
-                        child: const Text(
-                          'Confirmar Cancelamento',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showDialogCancelarDireto(Map<String, dynamic> cacl) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          elevation: 8,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 600,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Cabeçalho com ícone
                   Row(
                     children: [
                       Icon(
@@ -1316,8 +843,6 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                     ],
                   ),
                   const SizedBox(height: 16),
-                  
-                  // Mensagem
                   const Padding(
                     padding: EdgeInsets.only(left: 36),
                     child: Text(
@@ -1330,21 +855,14 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                     ),
                   ),
                   const SizedBox(height: 28),
-                  
-                  // Botões alinhados à direita
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
                         style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
                         child: const Text(
                           'Voltar',
@@ -1359,27 +877,19 @@ class _ListarCaclsPageState extends State<ListarCaclsPage> with WidgetsBindingOb
                       ElevatedButton(
                         onPressed: () async {
                           Navigator.pop(context);
-                          await _cancelarDireto(cacl['id'].toString());
+                          await _cancelarCacl(cacl['id'].toString());
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red.shade600,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 10,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           elevation: 2,
                           shadowColor: Colors.red.withOpacity(0.3),
                         ),
                         child: const Text(
                           'Sim, cancelar CACL',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
