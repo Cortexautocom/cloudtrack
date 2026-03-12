@@ -1,5 +1,7 @@
+import 'package:cloudtrack/login_page.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// ===============================
 /// MODELO DE DADOS DO ESTOQUE
@@ -148,11 +150,70 @@ class EstoqueLinha extends StatelessWidget {
 /// ===============================
 /// PÁGINA DE ESTOQUE GERAL (COMPACTA)
 /// ===============================
-class EstoqueGeralPage extends StatelessWidget {
+class EstoqueGeralPage extends StatefulWidget {
   const EstoqueGeralPage({super.key});
 
   @override
+  State<EstoqueGeralPage> createState() => _EstoqueGeralPageState();
+}
+
+class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
+  final SupabaseClient _supabase = Supabase.instance.client;
+
+  List<Map<String, dynamic>> _terminais = [];
+  String? _terminalSelecionadoId;
+  bool _carregando = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarTerminais();
+  }
+
+  Future<void> _carregarTerminais() async {
+    final empresaId = UsuarioAtual.instance?.empresaId;
+    if (empresaId == null) {
+      if (mounted) setState(() => _carregando = false);
+      return;
+    }
+
+    try {
+      final resp = await _supabase
+          .from('relacoes_terminais')
+          .select('terminal_id, terminais(id, nome)')
+          .eq('empresa_id', empresaId)
+          .not('terminal_id', 'is', null);
+
+      final lista = <Map<String, dynamic>>[];
+      final vistos = <String>{};
+
+      for (final row in List<Map<String, dynamic>>.from(resp)) {
+        final terminal = row['terminais'] as Map<String, dynamic>?;
+        if (terminal == null) continue;
+        final id = terminal['id']?.toString() ?? '';
+        if (id.isEmpty || vistos.contains(id)) continue;
+        vistos.add(id);
+        lista.add({'id': id, 'nome': terminal['nome']?.toString() ?? id});
+      }
+
+      lista.sort((a, b) => a['nome'].compareTo(b['nome']));
+
+      if (mounted) {
+        setState(() {
+          _terminais = lista;
+          _terminalSelecionadoId = lista.isNotEmpty ? lista.first['id'] : null;
+          _carregando = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erro ao carregar terminais: $e');
+      if (mounted) setState(() => _carregando = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // dados estáticos por enquanto; futuramente filtrar por _terminalSelecionadoId
     final produtos = [
       EstoqueProduto(
         nome: 'Diesel S10',
@@ -199,6 +260,68 @@ class EstoqueGeralPage extends StatelessWidget {
                 ),
               ],
             ),
+
+            const SizedBox(height: 12),
+
+            // NAVEGAÇÃO POR TERMINAIS
+            if (_carregando)
+              const SizedBox(
+                height: 36,
+                child: Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              )
+            else if (_terminais.isNotEmpty)
+              SizedBox(
+                height: 36,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _terminais.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final terminal = _terminais[index];
+                    final selecionado = terminal['id'] == _terminalSelecionadoId;
+                    return MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () => setState(
+                            () => _terminalSelecionadoId = terminal['id']),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: selecionado
+                                ? const Color(0xFF0D47A1).withOpacity(0.1)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: const Color(0xFF0D47A1),
+                              width: selecionado ? 1.5 : 0.8,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              terminal['nome'],
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: selecionado
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                color: const Color(0xFF0D47A1),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
 
             const SizedBox(height: 12),
             const Divider(),
