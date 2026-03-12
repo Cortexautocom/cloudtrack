@@ -288,7 +288,7 @@ class _LoginPageState extends State<LoginPage> {
           Positioned(
             top: 80,
             left: 80,
-            child: Image.asset('assets/logo_top_login3.png'),
+            child: Image.asset('assets/logo_top_login20.png'),
           ),
           Center(
             child: Container(
