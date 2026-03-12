@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // <-- ADICIONE ESTA LINHA
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'configuracoes/cadastro_novo_usuario.dart';
 import 'configuracoes/esqueci_senha.dart';
@@ -194,6 +195,9 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> loginUser() async {
+    // Finaliza o contexto de autofill antes de iniciar o login
+    TextInput.finishAutofillContext();
+    
     setState(() => _isLoading = true);
 
     final supabase = Supabase.instance.client;
@@ -301,96 +305,101 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ],
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    "Entre com suas credenciais",
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 30),
-                  TextField(
-                    controller: emailController,
-                    decoration: InputDecoration(
-                      labelText: 'E-mail',
-                      prefixIcon: const Icon(Icons.email_outlined),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+              child: AutofillGroup(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "Entre com suas credenciais",
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  TextField(
-                    controller: passwordController,
-                    obscureText: _obscureText,
-                    onSubmitted: (_) => _isLoading ? null : loginUser(),
-                    decoration: InputDecoration(
-                      labelText: 'Senha',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscureText
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                        ),
-                        onPressed: () =>
-                            setState(() => _obscureText = !_obscureText),
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 25),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0A4B78),
-                        shape: RoundedRectangleBorder(
+                    const SizedBox(height: 30),
+                    TextField(
+                      controller: emailController,
+                      autofillHints: const [AutofillHints.username, AutofillHints.email],
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: InputDecoration(
+                        labelText: 'E-mail',
+                        prefixIcon: const Icon(Icons.email_outlined),
+                        border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      onPressed: _isLoading ? null : loginUser,
-                      child: _isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text(
-                              'Entrar',
-                              style: TextStyle(
-                                  fontSize: 16, color: Colors.white),
-                            ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const EsqueciSenhaPage()),
-                      );
-                    },
-                    child: const Text(
-                      "Esqueci minha senha",
-                      style: TextStyle(color: Color(0xFF0A4B78)),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: passwordController,
+                      obscureText: _obscureText,
+                      autofillHints: const [AutofillHints.password],
+                      onSubmitted: (_) => _isLoading ? null : loginUser(),
+                      decoration: InputDecoration(
+                        labelText: 'Senha',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscureText
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                          ),
+                          onPressed: () =>
+                              setState(() => _obscureText = !_obscureText),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) =>
-                                const CadastroNovoUsuarioPage()),
-                      );
-                    },
-                    child: const Text(
-                      "Me cadastrar",
-                      style: TextStyle(color: Color(0xFF0A4B78)),
+                    const SizedBox(height: 25),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0A4B78),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: _isLoading ? null : loginUser,
+                        child: _isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : const Text(
+                                'Entrar',
+                                style: TextStyle(
+                                    fontSize: 16, color: Colors.white),
+                              ),
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 20),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const EsqueciSenhaPage()),
+                        );
+                      },
+                      child: const Text(
+                        "Esqueci minha senha",
+                        style: TextStyle(color: Color(0xFF0A4B78)),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) =>
+                                  const CadastroNovoUsuarioPage()),
+                        );
+                      },
+                      child: const Text(
+                        "Me cadastrar",
+                        style: TextStyle(color: Color(0xFF0A4B78)),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
