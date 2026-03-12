@@ -40,8 +40,8 @@ class EstoqueLinha extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 70,
-      margin: const EdgeInsets.symmetric(vertical: 6),
+      height: 55,
+      margin: const EdgeInsets.symmetric(vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -69,7 +69,7 @@ class EstoqueLinha extends StatelessWidget {
             ),
           ),
 
-          _miniBox("Abertura", produto.abertura, const Color.fromARGB(255, 81, 81, 81)),
+          _miniBox("Abertura", produto.abertura, const Color.fromARGB(255, 87, 87, 87)),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 8),
             child: Text("+", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
@@ -84,19 +84,19 @@ class EstoqueLinha extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: 8),
             child: Text("=", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
           ),
-          _miniBox("Final", produto.finalDoDia, Colors.teal),
+          _miniBox("Final", produto.finalDoDia, const Color.fromARGB(255, 87, 87, 87)),
           
-          const SizedBox(width: 12),
+          const SizedBox(width: 30),
           // LINHA DIVISORA SUTIL
           Container(
-            height: 40,
+            height: 30,
             width: 1,
             color: Colors.grey.withOpacity(0.3),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 30),
 
           _miniBox(
-            "Espaço",
+            "Espaço Disp.",
             produto.espaco,
             produto.espaco >= 0 ? Colors.grey.shade800 : Colors.red.shade900,
           ),
@@ -108,6 +108,7 @@ class EstoqueLinha extends StatelessWidget {
   Widget _miniBox(String label, double value, Color color) {
     return Container(
       width: 90, // Largura suficiente para 3 dígitos + ponto (ex: 1.200) em fonte 12
+      height: 44,
       margin: const EdgeInsets.symmetric(horizontal: 1.5),
       padding: const EdgeInsets.symmetric(vertical: 2),
       decoration: BoxDecoration(
@@ -126,7 +127,7 @@ class EstoqueLinha extends StatelessWidget {
               color: color,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 2),
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
