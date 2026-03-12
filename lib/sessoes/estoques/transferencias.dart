@@ -117,8 +117,8 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
             motoristas!motorista_id(nome),
             produtos!produto_id(nome),
             transportadoras!transportadora_id(nome_dois),
-            origem_filial:filiais!filial_origem_id(nome_dois),
-            destino_filial:filiais!filial_destino_id(nome_dois)
+            terminal_origem:terminais!terminal_orig_id(nome_dois),
+            terminal_destino:terminais!terminal_dest_id(nome_dois)
           ''')
           .eq("tipo_op", "transf")
           .gte("data_mov", inicio)
@@ -170,8 +170,8 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
             motoristas!motorista_id(nome),
             produtos!produto_id(nome),
             transportadoras!transportadora_id(nome_dois),
-            origem_filial:filiais!filial_origem_id(nome_dois),
-            destino_filial:filiais!filial_destino_id(nome_dois)
+            terminal_origem:terminais!terminal_orig_id(nome_dois),
+            terminal_destino:terminais!terminal_dest_id(nome_dois)
           ''')
           .eq("tipo_op", "transf")
           .order("data_mov", ascending: true)
@@ -213,8 +213,8 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
           (t['motoristas']?['nome']?.toString().toLowerCase() ?? '').contains(query) ||
           (t['produtos']?['nome']?.toString().toLowerCase() ?? '').contains(query) ||
           (t['transportadoras']?['nome_dois']?.toString().toLowerCase() ?? '').contains(query) ||
-          (t['origem_filial']?['nome_dois']?.toString().toLowerCase() ?? '').contains(query) ||
-          (t['destino_filial']?['nome_dois']?.toString().toLowerCase() ?? '').contains(query);
+          (t['terminal_origem']?['nome_dois']?.toString().toLowerCase() ?? '').contains(query) ||
+          (t['terminal_destino']?['nome_dois']?.toString().toLowerCase() ?? '').contains(query);
     }).toList();
   }
 
@@ -356,11 +356,9 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
                                 t['transportadoras']?['nome_dois']?.toString() ??
                                     '';
                             final origemNome =
-                                t['origem_filial']?['nome_dois']?.toString() ??
-                                    '';
+                                t['terminal_origem']?['nome_dois']?.toString() ?? '';
                             final destinoNome =
-                                t['destino_filial']?['nome_dois']?.toString() ??
-                                    '';
+                                t['terminal_destino']?['nome_dois']?.toString() ?? '';
 
                             final quantidade = t['quantidade']?.toString() ?? '';
                             final quantidadeFormatada =

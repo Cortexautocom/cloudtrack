@@ -142,7 +142,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
   String? _usuarioId;
   
   List<Map<String, dynamic>> _produtos = [];
-  List<Map<String, dynamic>> _filiais = [];
+  List<Map<String, dynamic>> _terminais = [];
   List<String> _datasFormatadas = [];
   List<DateTime> _datasDisponiveis = [];
   
@@ -171,7 +171,6 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     super.initState();
     _carregarDadosUsuario();
     _carregarProdutos();
-    _carregarFiliais();
     _gerarDatasDisponiveis();
     
     _cavaloFocusNode.addListener(() {
@@ -337,6 +336,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
             
         if (usuarioData != null) {
           _empresaId = usuarioData['empresa_id']?.toString();
+          _carregarTerminais();
         }
       }
     } catch (e) {
@@ -421,19 +421,37 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     }
   }
 
-  Future<void> _carregarFiliais() async {
+  Future<void> _carregarTerminais() async {
+    if (_empresaId == null) return;
     try {
       final supabase = Supabase.instance.client;
       final response = await supabase
-          .from('filiais')
-          .select('id, nome_dois, terminal_id_1')
-          .order('nome_dois');
-      
+          .from('relacoes_terminais')
+          .select('terminal_id, terminais!inner(id, nome)')
+          .eq('empresa_id', _empresaId!);
+
+      final lista = List<Map<String, dynamic>>.from(response);
+      final Map<String, Map<String, dynamic>> uniqueMap = {};
+
+      for (final item in lista) {
+        final terminalId = item['terminal_id']?.toString();
+        final terminalData = item['terminais'] as Map<String, dynamic>?;
+        if (terminalId != null && terminalData != null && !uniqueMap.containsKey(terminalId)) {
+          uniqueMap[terminalId] = {
+            'id': terminalId,
+            'nome': terminalData['nome']?.toString() ?? '',
+          };
+        }
+      }
+
+      final terminais = uniqueMap.values.toList()
+        ..sort((a, b) => (a['nome'] as String).compareTo(b['nome'] as String));
+
       setState(() {
-        _filiais = List<Map<String, dynamic>>.from(response);
+        _terminais = terminais;
       });
     } catch (e) {
-      debugPrint('Erro ao carregar filiais: $e');
+      debugPrint('Erro ao carregar terminais: $e');
     }
   }
 
@@ -668,24 +686,8 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     try {
       final supabase = Supabase.instance.client;
 
-      // Buscar dados da filial de origem
-      final filialOrigemResponse = await supabase
-          .from('filiais')
-          .select('empresa_id, terminal_id_1')
-          .eq('id', _origemId!)
-          .single();
-
-      final empresaIdOrdem = filialOrigemResponse['empresa_id'];
-      final terminalOrigId = filialOrigemResponse['terminal_id_1']?.toString();
-
-      // Buscar terminal_id_1 da filial de destino
-      final filialDestinoResponse = await supabase
-          .from('filiais')
-          .select('terminal_id_1')
-          .eq('id', _destinoId!)
-          .single();
-
-      final terminalDestId = filialDestinoResponse['terminal_id_1']?.toString();
+      final terminalOrigId = _origemId;
+      final terminalDestId = _destinoId;
 
       // VALIDAÇÃO: Verificar apenas se o terminal de destino possui tanques com o produto selecionado
       if (terminalDestId != null && _produtoId != null) {
@@ -698,11 +700,11 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         
         if (tanquesDestino.isEmpty) {
           // Terminal de destino não tem tanque para este produto
-          final destinoNome = _filiais
+          final destinoNome = _terminais
               .firstWhere(
-                (f) => f['id']?.toString() == _destinoId,
-                orElse: () => {'nome_dois': 'Destino'},
-              )['nome_dois']
+                (t) => t['id']?.toString() == _destinoId,
+                orElse: () => {'nome': 'Destino'},
+              )['nome']
               ?.toString() ?? 'Destino';
           
           final produtoNome = _produtos
@@ -807,11 +809,11 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       final ordemResponse = await supabase
           .from('ordens')
           .insert({
-            'empresa_id': empresaIdOrdem,
-            'filial_id': _origemId,
+            'empresa_id': _empresaId,
+            'filial_id': null,
             'usuario_id': _usuarioId,
             'tipo': 'transferencia',
-            'data_ordem': dataHoraSP, // Agora insere com data e hora completas
+            'data_ordem': dataHoraSP,
           })
           .select('id')
           .single();
@@ -819,20 +821,20 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       final ordemId = ordemResponse['id'];
 
       final quantidade = int.parse(_quantidadeController.text.replaceAll('.', ''));
-      
-      final origemNome = _filiais
+
+      final origemNome = _terminais
         .firstWhere(
-          (f) => f['id']?.toString() == _origemId,
-          orElse: () => {'nome_dois': ''},
-        )['nome_dois']
+          (t) => t['id']?.toString() == _origemId,
+          orElse: () => {'nome': ''},
+        )['nome']
         ?.toString() ??
         '';
-      
-      final destinoNome = _filiais
+
+      final destinoNome = _terminais
         .firstWhere(
-          (f) => f['id']?.toString() == _destinoId,
-          orElse: () => {'nome_dois': ''},
-        )['nome_dois']
+          (t) => t['id']?.toString() == _destinoId,
+          orElse: () => {'nome': ''},
+        )['nome']
         ?.toString() ??
         '';
 
@@ -855,8 +857,8 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         'motorista_id': _motoristaId,
         'transportadora_id': _transportadoraId,
         'data_mov': _dataSelecionada.toIso8601String().split('T')[0],
-        'filial_origem_id': _origemId,
-        'filial_destino_id': _destinoId,
+        'filial_origem_id': null,
+        'filial_destino_id': null,
         'updated_at': DateTime.now().toIso8601String(),
         'filial_id': null,
         'tipo_mov': null,
@@ -1386,12 +1388,12 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                                         _origemId = id;
                                       });
                                     },
-                                    items: _filiais.map((filial) {
+                                    items: _terminais.map((terminal) {
                                       return DropdownMenuItem<String>(
-                                        value: filial['id']?.toString(),
+                                        value: terminal['id']?.toString(),
                                         child: Padding(
                                           padding: const EdgeInsets.symmetric(horizontal: 12),
-                                          child: Text(filial['nome_dois']?.toString() ?? ''),
+                                          child: Text(terminal['nome']?.toString() ?? ''),
                                         ),
                                       );
                                     }).toList(),
@@ -1440,12 +1442,12 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
                                         _destinoId = id;
                                       });
                                     },
-                                    items: _filiais.map((filial) {
+                                    items: _terminais.map((terminal) {
                                       return DropdownMenuItem<String>(
-                                        value: filial['id']?.toString(),
+                                        value: terminal['id']?.toString(),
                                         child: Padding(
                                           padding: const EdgeInsets.symmetric(horizontal: 12),
-                                          child: Text(filial['nome_dois']?.toString() ?? ''),
+                                          child: Text(terminal['nome']?.toString() ?? ''),
                                         ),
                                       );
                                     }).toList(),
