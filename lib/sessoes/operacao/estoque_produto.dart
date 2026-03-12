@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../login_page.dart';
 
 class EstoqueProdutoPage extends StatefulWidget {
   final String? filialId;
@@ -30,20 +31,20 @@ class EstoqueProdutoPage extends StatefulWidget {
 class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  bool _carregando = false;
+  bool _carregando = true;
   bool _erro = false;
   String _mensagemErro = '';
+  
+  String? _terminalId;
+  String? _terminalNome;
+  bool _carregandoTerminal = true;
 
-  // Dados fictícios para o layout
   List<Map<String, dynamic>> _movs = [];
   List<Map<String, dynamic>> _movsOrdenadas = [];
 
-  Map<String, num?> _estoqueInicial = {'amb': 1500, 'vinte': 1500};
-  Map<String, num?> _estoqueFinal = {'amb': 2300, 'vinte': 2300};
-  final bool _possuiCACL = false;
+  Map<String, num?> _estoqueInicial = {'amb': 0, 'vinte': 0};
+  Map<String, num?> _estoqueFinal = {'amb': null, 'vinte': null};
 
-  num? _valorSobraPerda;
-  bool? _ehSobra;
   String? _produtoNome;
 
   late DateTime _dataFiltro;
@@ -71,88 +72,40 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
     _dataFiltro = widget.dataFiltro ?? DateTime.now();
     _syncScroll();
     _produtoNome = widget.produtoNome;
-    
-    // Carregar apenas o estoque inicial do banco
-    _carregarEstoqueInicialDoBanco();
-    
-    // Dados fictícios para o layout
-    _gerarDadosFicticios();
+    _carregarTerminalDoUsuario();
   }
 
-  Future<void> _carregarEstoqueInicialDoBanco() async {
+  Future<void> _carregarTerminalDoUsuario() async {
     try {
-      setState(() {
-        _carregando = true;
-      });
+      final usuario = UsuarioAtual.instance;
+      if (usuario == null) throw Exception('Usuário não logado');
 
-      final dataStr = _dataFiltro.toIso8601String().split('T')[0];
+      if (usuario.nivel < 3) {
+        // Níveis 1 e 2: terminal vem do login
+        _terminalId = usuario.terminalId;
+        _terminalNome = usuario.terminalNome;
+      } else {
+        // Nível 3: terminal vem por parâmetro da página anterior
+        _terminalId = widget.terminalId;
+        if (_terminalId != null && _terminalId!.isNotEmpty) {
+          final response = await _supabase
+              .from('terminais')
+              .select('id, nome')
+              .eq('id', _terminalId!)
+              .maybeSingle();
+          _terminalNome = response?['nome']?.toString();
+        }
+      }
 
-      // Única busca real no banco - calcular_estoque_inicial_produto
-      final response = await _supabase.rpc(
-        'calcular_estoque_inicial_produto',
-        params: {
-          'p_produto_id': widget.produtoId,
-          'p_data': dataStr,
-        },
-      );
-
-      final num saldo = (response ?? 0) as num;
-
-      setState(() {
-        _estoqueInicial = {
-          'amb': saldo,
-          'vinte': saldo,
-        };
-        _carregando = false;
-      });
+      await _carregar();
     } catch (e) {
-      debugPrint('Erro ao buscar estoque inicial: $e');
       setState(() {
+        _erro = true;
+        _mensagemErro = 'Erro ao carregar terminal: $e';
+        _carregandoTerminal = false;
         _carregando = false;
-        // Mantém os valores fictícios em caso de erro
       });
     }
-  }
-
-  void _gerarDadosFicticios() {
-    // Dados de exemplo para o layout
-    _movs = [
-      {
-        'id': '1',
-        'data_mov': DateTime.now().subtract(const Duration(days: 1)).toIso8601String(),
-        'descricao': 'Entrada de produto',
-        'entrada_amb': 500,
-        'entrada_vinte': 500,
-        'saida_amb': 0,
-        'saida_vinte': 0,
-        'saldo_amb': 2000,
-        'saldo_vinte': 2000,
-      },
-      {
-        'id': '2',
-        'data_mov': DateTime.now().toIso8601String(),
-        'descricao': 'Saída para produção',
-        'entrada_amb': 0,
-        'entrada_vinte': 0,
-        'saida_amb': 200,
-        'saida_vinte': 200,
-        'saldo_amb': 1800,
-        'saldo_vinte': 1800,
-      },
-      {
-        'id': '3',
-        'data_mov': DateTime.now().toIso8601String(),
-        'descricao': 'Ajuste de estoque',
-        'entrada_amb': 500,
-        'entrada_vinte': 500,
-        'saida_amb': 0,
-        'saida_vinte': 0,
-        'saldo_amb': 2300,
-        'saldo_vinte': 2300,
-      },
-    ];
-
-    _movsOrdenadas = List.from(_movs);
   }
 
   void _syncScroll() {
@@ -174,6 +127,132 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
     _hHeader.dispose();
     _hBody.dispose();
     super.dispose();
+  }
+
+  Future<void> _carregarEstoqueInicialDoBanco() async {
+    try {
+      final dataStr = _dataFiltro.toIso8601String().split('T')[0];
+
+      final response = await _supabase.rpc(
+        'calcular_estoque_inicial_produto',
+        params: {
+          'p_produto_id': widget.produtoId,
+          'p_data': dataStr,
+        },
+      );
+
+      final num saldo = (response ?? 0) as num;
+
+      _estoqueInicial = {
+        'amb': saldo,
+        'vinte': saldo,
+      };
+    } catch (e) {
+      debugPrint('Erro ao buscar estoque inicial via função: $e');
+      _estoqueInicial = {'amb': 0, 'vinte': 0};
+    }
+  }
+
+  Future<void> _carregar() async {
+    final terminalId = _terminalId;
+    if (terminalId == null || terminalId.isEmpty) {
+      setState(() {
+        _erro = true;
+        _mensagemErro = 'Terminal não identificado';
+        _carregando = false;
+        _carregandoTerminal = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _carregando = true;
+      _erro = false;
+      _carregandoTerminal = false;
+    });
+
+    try {
+      await _carregarEstoqueInicialDoBanco();
+
+      final dataStr = _dataFiltro.toIso8601String().split('T')[0];
+
+      // Buscar movimentações do produto no terminal
+      final dados = await _supabase
+          .from('movimentacoes_tanque')
+          .select('''
+            id,
+            movimentacao_id,
+            data_mov,
+            cliente,
+            descricao,
+            entrada_amb,
+            entrada_vinte,
+            saida_amb,
+            saida_vinte,
+            tanques!inner (
+              id_produto,
+              terminais!inner (
+                id
+              )
+            )
+          ''')
+          .eq('tanques.id_produto', widget.produtoId)
+          .eq('tanques.terminais.id', terminalId)
+          .gte('data_mov', '$dataStr 00:00:00')
+          .lte('data_mov', '$dataStr 23:59:59')
+          .order('data_mov', ascending: true);
+
+      final List<Map<String, dynamic>> listaOrdenadaParaUI =
+          List<Map<String, dynamic>>.from(dados);
+
+      num saldoAmb = _estoqueInicial['amb'] ?? 0;
+      num saldoVinte = _estoqueInicial['vinte'] ?? 0;
+
+      final List<Map<String, dynamic>> listaComSaldo = [];
+
+      for (final m in listaOrdenadaParaUI) {
+        final num entradaAmb = (m['entrada_amb'] ?? 0) as num;
+        final num entradaVinte = (m['entrada_vinte'] ?? 0) as num;
+        final num saidaAmb = (m['saida_amb'] ?? 0) as num;
+        final num saidaVinte = (m['saida_vinte'] ?? 0) as num;
+
+        final String cliente = (m['cliente']?.toString().trim() ?? '');
+        final String desc = (m['descricao']?.toString().trim() ?? '');
+        final String descricao = cliente.isNotEmpty ? cliente : desc;
+
+        saldoAmb += entradaAmb - saidaAmb;
+        saldoVinte += entradaVinte - saidaVinte;
+
+        listaComSaldo.add({
+          'id': m['id'],
+          'movimentacao_id': m['movimentacao_id'],
+          'data_mov': m['data_mov'],
+          'descricao': descricao,
+          'entrada_amb': entradaAmb,
+          'entrada_vinte': entradaVinte,
+          'saida_amb': saidaAmb,
+          'saida_vinte': saidaVinte,
+          'saldo_amb': saldoAmb,
+          'saldo_vinte': saldoVinte,
+        });
+      }
+
+      _movs = List<Map<String, dynamic>>.from(listaComSaldo);
+      _movsOrdenadas = List<Map<String, dynamic>>.from(listaComSaldo);
+
+      _estoqueFinal = {
+        'amb': _movs.isEmpty ? null : _movs.last['saldo_amb'],
+        'vinte': _movs.isEmpty ? null : _movs.last['saldo_vinte'],
+      };
+
+      setState(() => _carregando = false);
+    } catch (e) {
+      setState(() {
+        _carregando = false;
+        _erro = true;
+        _mensagemErro = e.toString();
+      });
+    }
   }
 
   void _ordenar(String col, bool asc) {
@@ -260,7 +339,7 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
               "Movimentação do Produto – ${_produtoNome ?? widget.produtoNome}",
             ),
             Text(
-              '${widget.nomeFilial} | ${_fmtData(_dataFiltro.toIso8601String())}',
+              '${widget.nomeFilial}${_terminalNome != null ? ' - ${_terminalNome!}' : ''} | ${_fmtData(_dataFiltro.toIso8601String())}',
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.normal,
@@ -283,13 +362,13 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _carregarEstoqueInicialDoBanco,
+            onPressed: _carregar,
           ),
         ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
-        child: _carregando
+        child: _carregandoTerminal || _carregando
             ? const Center(child: CircularProgressIndicator())
             : _erro
             ? Center(child: Text(_mensagemErro))
@@ -335,7 +414,7 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
               dataSelecionada.day,
             );
           });
-          _carregarEstoqueInicialDoBanco();
+          _carregar();
         }
       },
       borderRadius: BorderRadius.circular(4),
@@ -394,26 +473,12 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _buildCampoResumo(
-            'Estoque final calculado (20ºC):',
+            'Estoque final (20ºC):',
             estoqueFinalCalculado,
           ),
-
-          if (_possuiCACL && _valorSobraPerda != null && _ehSobra != null)
-            _buildCampoResumo(
-              _ehSobra! ? 'Sobra (20ºC):' : 'Perda (20ºC):',
-              _valorSobraPerda!,
-              cor: _ehSobra! ? const Color(0xFF0D47A1) : Colors.red,
-              negrito: true,
-            )
-          else
-            _buildCampoResumo(
-              'Disponível',
-              _estoqueFinal['vinte'] ?? 0,
-              cor: Colors.grey,
-            ),
         ],
       ),
     );
