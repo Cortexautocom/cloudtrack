@@ -586,7 +586,7 @@ class _HomePageState extends State<HomePage>
       'criar_ordem': Icons.add_circle_outline,
       'frascos_amostra': Icons.science_outlined,
       'estoque_fiscal': Icons.receipt_long,
-      'estoque_produto': Icons.inventory_2,
+      'estoque_produto': Icons.opacity,
     };
     return mapaIcones[tipo] ?? Icons.apps;
   }

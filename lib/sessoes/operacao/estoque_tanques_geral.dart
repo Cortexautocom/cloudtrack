@@ -83,7 +83,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     try {
       final resp = await supabase
           .from('tanques')
-          .select('id, referencia, capacidade, lastro, produtos (nome)')
+          .select('id, referencia, capacidade, lastro, produtos(nome)')
           .eq('terminal_id', widget.terminalSelecionadoId!)
           .order('referencia');
 
@@ -94,6 +94,8 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
       for (final t in List<Map<String, dynamic>>.from(resp)) {
         final id = t['id'].toString();
         final referencia = t['referencia']?.toString() ?? 'Tanque';
+        final produtoNome = t['produtos']?['nome']?.toString();
+        final nomeCompleto = produtoNome != null ? '$referencia - $produtoNome' : referencia;
         final capacidadeVal = (t['capacidade'] as num).toDouble();
 
         double estoqueInicial = 0.0;
@@ -124,7 +126,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
             
         lista.add(DadosTanque(
           id: id,
-          nome: referencia,
+          nome: nomeCompleto,
           capacidadeTotal: capacidadeVal,
           lastro: lastroVal,
           detalhes: detalhes,

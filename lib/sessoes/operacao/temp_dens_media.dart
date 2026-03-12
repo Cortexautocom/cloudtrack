@@ -102,8 +102,6 @@ class _TemperaturaDensidadeMediaPageState
     });
 
     try {
-
-
       var query = _supabase
           .from('ordens_analises')
           .select('''
@@ -116,7 +114,7 @@ class _TemperaturaDensidadeMediaPageState
             produto_nome,
             placa_cavalo,
             terminais(nome),
-            movimentacoes(cliente)
+            movimentacoes!inner(cliente, descricao, tipo_mov)
           ''');
 
       // Aplicar filtro por data (se preenchido). O campo `data_criacao` é timestamp
@@ -141,6 +139,9 @@ class _TemperaturaDensidadeMediaPageState
         }
       }
 
+      // Adicionar filtro para tipo_mov = 'saida'
+      query = query.filter('movimentacoes.tipo_mov', 'eq', 'saida');
+
       final resp = await query.order('data_criacao', ascending: false).limit(1000);
 
       final List<dynamic> lista = resp;
@@ -152,13 +153,24 @@ class _TemperaturaDensidadeMediaPageState
         String placa = row['placa_cavalo']?.toString() ?? '';
 
         // ===== CORREÇÃO AQUI =====
+        // Primeiro tenta pegar cliente, se for NULL ou vazio, pega descricao
         final movs = row['movimentacoes'];
 
         if (movs is List && movs.isNotEmpty) {
-          descricao = movs.first['cliente']?.toString() ?? '';
+          // Se for lista, pega o primeiro item
+          final primeiroMov = movs.first;
+          // Tenta pegar cliente, se não existir ou for vazio, pega descricao
+          descricao = primeiroMov['cliente']?.toString() ?? '';
+          if (descricao.isEmpty) {
+            descricao = primeiroMov['descricao']?.toString() ?? '';
+          }
         } 
         else if (movs is Map<String, dynamic>) {
+          // Se for objeto único
           descricao = movs['cliente']?.toString() ?? '';
+          if (descricao.isEmpty) {
+            descricao = movs['descricao']?.toString() ?? '';
+          }
         }
 
         String terminalNome = '';
@@ -226,6 +238,62 @@ class _TemperaturaDensidadeMediaPageState
 
       return true;
     }).toList();
+  }
+
+  // Função para calcular as médias
+  Map<String, double> _calcularMedias(List<Map<String, dynamic>> registros) {
+    if (registros.isEmpty) {
+      return {
+        'densidade': 0,
+        'temp_amostra': 0,
+        'temp_ct': 0,
+      };
+    }
+
+    double somaDensidade = 0;
+    double somaTempAmostra = 0;
+    double somaTempCt = 0;
+    int countDensidade = 0;
+    int countTempAmostra = 0;
+    int countTempCt = 0;
+
+    for (var r in registros) {
+      // Densidade
+      final densidade = r['densidade'];
+      if (densidade != null) {
+        final valor = double.tryParse(densidade.toString());
+        if (valor != null) {
+          somaDensidade += valor;
+          countDensidade++;
+        }
+      }
+
+      // Temperatura da amostra
+      final tempAmostra = r['temp_amostra'];
+      if (tempAmostra != null) {
+        final valor = double.tryParse(tempAmostra.toString());
+        if (valor != null) {
+          somaTempAmostra += valor;
+          countTempAmostra++;
+        }
+      }
+
+      // Temperatura do CT
+      final tempCt = r['temp_ct'];
+      if (tempCt != null) {
+        final valor = double.tryParse(tempCt.toString());
+        if (valor != null) {
+          somaTempCt += valor;
+          countTempCt++;
+        }
+      }
+    }
+
+    return {
+      'densidade': countDensidade > 0 ? somaDensidade / countDensidade : 0,
+      'temp_amostra': countTempAmostra > 0 ? somaTempAmostra / countTempAmostra : 0,
+      'temp_ct': countTempCt > 0 ? somaTempCt / countTempCt : 0,
+    };
   }
 
   // removed layout helpers no longer used by the simplified list view
@@ -504,6 +572,7 @@ class _TemperaturaDensidadeMediaPageState
       return _buildErro();
     }
     final registros = _registrosFiltrados;
+    final medias = _calcularMedias(registros);
 
     return Scaffold(
       appBar: null,
@@ -569,14 +638,14 @@ class _TemperaturaDensidadeMediaPageState
           Expanded(
             child: registros.isEmpty
                 ? _buildVazio()
-                : _buildTable(registros),
+                : _buildTable(registros, medias),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTable(List<Map<String, dynamic>> registros) {
+  Widget _buildTable(List<Map<String, dynamic>> registros, Map<String, double> medias) {
     return LayoutBuilder(
       builder: (context, constraints) {
         return Padding(
@@ -676,71 +745,157 @@ class _TemperaturaDensidadeMediaPageState
               child: SingleChildScrollView(
                 controller: _verticalScrollController,
                 child: Column(
-                  children: List.generate(registros.length, (index) {
-                    final r = registros[index];
-                    final isEven = index.isEven;
-                    return Container(
-                      color: isEven ? const Color(0xFFF0F1F6) : const Color(0xFFF8F9FA),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: Center(
-                              child: Text(
-                                r['descricao']?.toString() ?? '',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: Color(0xFF222B45),
-                                  fontWeight: FontWeight.bold,
+                  children: [
+                    ...List.generate(registros.length, (index) {
+                      final r = registros[index];
+                      final isEven = index.isEven;
+                      return Container(
+                        color: isEven ? const Color(0xFFF0F1F6) : const Color(0xFFF8F9FA),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: Center(
+                                child: Text(
+                                  r['descricao']?.toString() ?? '',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Color(0xFF222B45),
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              r['placa']?.toString() ?? '',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 12),
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                r['placa']?.toString() ?? '',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 12),
+                              ),
                             ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              r['produto']?.toString() ?? '',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 12),
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                r['produto']?.toString() ?? '',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 12),
+                              ),
                             ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              r['densidade']?.toString() ?? '',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 12),
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                r['densidade']?.toString() ?? '',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 12),
+                              ),
                             ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              r['temp_amostra']?.toString() ?? '',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 12),
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                r['temp_amostra']?.toString() ?? '',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 12),
+                              ),
                             ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              r['temp_ct']?.toString() ?? '',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 12),
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                r['temp_ct']?.toString() ?? '',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 12),
+                              ),
                             ),
+                          ],
+                        ),
+                      );
+                    }),
+                    
+                    // Linha de totais (médias)
+                    if (registros.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE3F2FD),
+                          border: Border.all(color: const Color(0xFF0D47A1).withOpacity(0.3)),
+                          borderRadius: const BorderRadius.only(
+                            bottomLeft: Radius.circular(8),
+                            bottomRight: Radius.circular(8),
                           ),
-                        ],
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: Center(
+                                child: Text(
+                                  'MÉDIAS',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Color(0xFF0D47A1),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Container(), // Vazio para coluna Placa
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Container(), // Vazio para coluna Produto
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Center(
+                                child: Text(
+                                  medias['densidade']?.toStringAsFixed(3) ?? '0.000',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Color(0xFF0D47A1),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Center(
+                                child: Text(
+                                  medias['temp_amostra']?.toStringAsFixed(1) ?? '0.0',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Color(0xFF0D47A1),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Center(
+                                child: Text(
+                                  medias['temp_ct']?.toStringAsFixed(1) ?? '0.0',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Color(0xFF0D47A1),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    );
-                  }),
+                    ],
+                  ],
                 ),
               ),
             ),
