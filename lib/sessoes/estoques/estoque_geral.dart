@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 /// ===============================
 /// MODELO DE DADOS DO ESTOQUE
@@ -57,23 +58,43 @@ class EstoqueLinha extends StatelessWidget {
         children: [
           // PRODUTO
           SizedBox(
-            width: 180,
+            width: 130,
             child: Text(
               produto.nome,
               style: const TextStyle(
-                fontSize: 16,
+                fontSize: 14,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF0D47A1),
               ),
             ),
           ),
 
-          _miniBox("Abert.", produto.abertura, Colors.blue),
-          _miniBox("Entr.", produto.entradasTotais, Colors.indigo),
-          _miniBox("Saída", produto.saida, Colors.red),
-          _miniBox("Tanque", produto.tanque, Colors.green),
-          _miniBox("Trans.", produto.transito, Colors.orange),
+          _miniBox("Abertura", produto.abertura, const Color.fromARGB(255, 81, 81, 81)),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8),
+            child: Text("+", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
+          ),
+          _miniBox("Entradas", produto.entradasTotais, Colors.indigo),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8),
+            child: Text("-", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
+          ),
+          _miniBox("Saídas", produto.saida, Colors.red),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8),
+            child: Text("=", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
+          ),
           _miniBox("Final", produto.finalDoDia, Colors.teal),
+          
+          const SizedBox(width: 12),
+          // LINHA DIVISORA SUTIL
+          Container(
+            height: 40,
+            width: 1,
+            color: Colors.grey.withOpacity(0.3),
+          ),
+          const SizedBox(width: 12),
+
           _miniBox(
             "Espaço",
             produto.espaco,
@@ -85,37 +106,39 @@ class EstoqueLinha extends StatelessWidget {
   }
 
   Widget _miniBox(String label, double value, Color color) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color, width: 1.5),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              label,
+    return Container(
+      width: 90, // Largura suficiente para 3 dígitos + ponto (ex: 1.200) em fonte 12
+      margin: const EdgeInsets.symmetric(horizontal: 1.5),
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: color, width: 0.8),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              NumberFormat.decimalPattern('pt_BR').format(value),
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              value.toStringAsFixed(0),
-              style: TextStyle(
-                fontSize: 15,
                 fontWeight: FontWeight.bold,
                 color: color,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

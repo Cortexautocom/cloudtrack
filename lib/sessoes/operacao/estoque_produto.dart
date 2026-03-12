@@ -36,7 +36,6 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
   String _mensagemErro = '';
   
   String? _terminalId;
-  String? _terminalNome;
   bool _carregandoTerminal = true;
 
   List<Map<String, dynamic>> _movs = [];
@@ -83,18 +82,9 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
       if (usuario.nivel < 3) {
         // Níveis 1 e 2: terminal vem do login
         _terminalId = usuario.terminalId;
-        _terminalNome = usuario.terminalNome;
       } else {
         // Nível 3: terminal vem por parâmetro da página anterior
         _terminalId = widget.terminalId;
-        if (_terminalId != null && _terminalId!.isNotEmpty) {
-          final response = await _supabase
-              .from('terminais')
-              .select('id, nome')
-              .eq('id', _terminalId!)
-              .maybeSingle();
-          _terminalNome = response?['nome']?.toString();
-        }
       }
 
       await _carregar();
@@ -339,7 +329,7 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
               "Movimentação do Produto – ${_produtoNome ?? widget.produtoNome}",
             ),
             Text(
-              '${widget.nomeFilial}${_terminalNome != null ? ' - ${_terminalNome!}' : ''} | ${_fmtData(_dataFiltro.toIso8601String())}',
+              '${widget.nomeFilial} | ${_fmtData(_dataFiltro.toIso8601String())}',
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.normal,
