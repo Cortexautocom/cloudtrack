@@ -865,9 +865,6 @@ class _CalcPageState extends State<CalcPage> {
   Future<void> _emitirCACL() async {
     if (_isEmittingCACL) return;
 
-    print('🔵 [CACL] Iniciando emissão...');
-    print('🔵 [CACL] Dados Formulário: ${widget.dadosFormulario}');
-
     setState(() {
       _isEmittingCACL = true;
     });
@@ -875,7 +872,6 @@ class _CalcPageState extends State<CalcPage> {
     try {
       final supabase = Supabase.instance.client;
       final medicoes = widget.dadosFormulario['medicoes'] ?? {};
-      print('🔵 [CACL] Medições: $medicoes');
 
       final session = supabase.auth.currentSession;
       if (session == null) {
@@ -896,15 +892,18 @@ class _CalcPageState extends State<CalcPage> {
           widget.dadosFormulario['cacl_verificacao'] ?? false;
       final bool caclMovimentacao =
           widget.dadosFormulario['cacl_movimentacao'] ?? false;
-      print('🔵 [CACL] Tipo: ${caclVerificacao ? 'Verificacao' : (caclMovimentacao ? 'Movimentacao' : 'N/A')}');
+
+      if (caclVerificacao) {
+        tipoCACL = 'verificacao';
+      } else if (caclMovimentacao) {
+        tipoCACL = 'movimentacao';
+      }
 
       final dataOriginal = widget.dadosFormulario['data']?.toString() ?? '';
       final dataFormatada = _formatarDataParaSQL(dataOriginal);
       final timestampReferencia = _obterTimestampBrasiliaComDataReferencia();
-      print('🔵 [CACL] Data Formatada SQL: $dataFormatada');
 
       final tanqueIdParaSalvar = _obterTanqueId();
-      print('🔵 [CACL] Tanque ID extraído: $tanqueIdParaSalvar');
 
       final dadosParaInserir = {
         'data': dataFormatada,
@@ -984,8 +983,6 @@ class _CalcPageState extends State<CalcPage> {
         'created_by': session.user.id,
         'estoque_final_calculado': _obterEstoqueFinalCalculado20(),
       };
-      
-      print('🔵 [CACL] Payload final para Insert: $dadosParaInserir');
 
       final entradaSaida20 =
           _extrairNumero(medicoes['volume20Final']?.toString()) -
@@ -1014,7 +1011,6 @@ class _CalcPageState extends State<CalcPage> {
       String? numeroControleGerado = _numeroControle;
 
       if (idParaUpdate != null && idParaUpdate.isNotEmpty) {
-        print('🔵 [CACL] Tentando UPDATE no ID: $idParaUpdate');
         try {
           final verificaExistencia = await supabase
               .from('cacl')
@@ -1023,7 +1019,6 @@ class _CalcPageState extends State<CalcPage> {
               .maybeSingle();
 
           if (verificaExistencia == null) {
-            print('🟠 [CACL] Registro não encontrado para update, tentando insert');
             throw Exception('CACL não encontrado para atualização');
           }
 
@@ -1031,7 +1026,6 @@ class _CalcPageState extends State<CalcPage> {
               .from('cacl')
               .update(dadosParaInserir)
               .eq('id', idParaUpdate);
-          print('🔵 [CACL] Update concluído com sucesso');
 
           final resultadoAtualizado = await supabase
               .from('cacl')
@@ -1060,7 +1054,7 @@ class _CalcPageState extends State<CalcPage> {
             );
           }
         } catch (e) {
-          print('🟠 [CACL] Erro no Update (tentando fallback insert): $e');
+          print('🔴 [CACL] Erro no Update (tentando fallback insert): $e');
           dadosParaInserir['created_by'] = session.user.id;
 
           final resultadoInserir = await supabase
@@ -1068,7 +1062,6 @@ class _CalcPageState extends State<CalcPage> {
               .insert(dadosParaInserir)
               .select('id, numero_controle')
               .single();
-          print('🔵 [CACL] Fallback Insert concluído com ID: ${resultadoInserir['id']}');
 
           if (resultadoInserir['numero_controle'] != null) {
             setState(() {
@@ -1092,13 +1085,11 @@ class _CalcPageState extends State<CalcPage> {
           }
         }
       } else {
-        print('🔵 [CACL] Iniciando INSERT (novo registro)');
         final resultadoInserir = await supabase
             .from('cacl')
             .insert(dadosParaInserir)
             .select('id, numero_controle')
             .single();
-        print('🔵 [CACL] Insert concluído com ID: ${resultadoInserir['id']}');
 
         if (resultadoInserir['numero_controle'] != null) {
           setState(() {
@@ -1126,14 +1117,12 @@ class _CalcPageState extends State<CalcPage> {
           caclIdSalvo.isNotEmpty &&
           numeroControleGerado != null &&
           numeroControleGerado!.isNotEmpty) {
-        print('🔵 [CACL] Iniciando salvamento de movimentação vinculada');
         try {
           await _salvarMovimentacaoCACL(
             caclId: caclIdSalvo,
             numeroControle: numeroControleGerado!,
             dadosCacl: dadosParaInserir,
           );
-          print('🔵 [CACL] Movimentação vinculada salva');
         } catch (e) {
           print('🔴 [CACL] Erro ao salvar movimentação vinculada: $e');
         }
