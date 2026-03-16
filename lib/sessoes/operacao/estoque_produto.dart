@@ -164,7 +164,19 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
     try {
       await _carregarEstoqueInicialDoBanco();
 
-      final dataStr = _dataFiltro.toIso8601String().split('T')[0];
+      final String dataInicio;
+      final String dataFim;
+
+      if (widget.isIntraday) {
+        final dataStr = _dataFiltro.toIso8601String().split('T')[0];
+        dataInicio = '$dataStr 00:00:00';
+        dataFim = '$dataStr 23:59:59';
+      } else {
+        final inicio = DateTime(_dataFiltro.year, _dataFiltro.month, 1);
+        final fim = DateTime(_dataFiltro.year, _dataFiltro.month + 1, 0);
+        dataInicio = '${inicio.year}-${inicio.month.toString().padLeft(2, '0')}-01 00:00:00';
+        dataFim = '${fim.year}-${fim.month.toString().padLeft(2, '0')}-${fim.day.toString().padLeft(2, '0')} 23:59:59';
+      }
 
       // Buscar movimentações do produto no terminal
       final dados = await _supabase
@@ -188,8 +200,8 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
           ''')
           .eq('tanques.id_produto', widget.produtoId)
           .eq('tanques.terminais.id', terminalId)
-          .gte('data_mov', '$dataStr 00:00:00')
-          .lte('data_mov', '$dataStr 23:59:59')
+          .gte('data_mov', dataInicio)
+          .lte('data_mov', dataFim)
           .order('data_mov', ascending: true);
 
       final List<Map<String, dynamic>> listaOrdenadaParaUI =
@@ -329,7 +341,9 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
               "Movimentação do Produto – ${_produtoNome ?? widget.produtoNome}",
             ),
             Text(
-              '${widget.nomeFilial} | ${_fmtData(_dataFiltro.toIso8601String())}',
+              widget.isIntraday
+                  ? '${widget.nomeFilial} | ${_fmtData(_dataFiltro.toIso8601String())}'
+                  : '${widget.nomeFilial} | ${_dataFiltro.month.toString().padLeft(2, '0')}/${_dataFiltro.year}',
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.normal,
@@ -368,8 +382,9 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
   }
 
   Widget _buildCampoDataFiltro() {
-    final String textoData =
-        '${_dataFiltro.day.toString().padLeft(2, '0')}/${_dataFiltro.month.toString().padLeft(2, '0')}/${_dataFiltro.year}';
+    final String textoData = widget.isIntraday
+        ? '${_dataFiltro.day.toString().padLeft(2, '0')}/${_dataFiltro.month.toString().padLeft(2, '0')}/${_dataFiltro.year}'
+        : '${_dataFiltro.month.toString().padLeft(2, '0')}/${_dataFiltro.year}';
 
     return InkWell(
       onTap: () async {
@@ -378,7 +393,8 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
           initialDate: _dataFiltro,
           firstDate: DateTime(2020, 1, 1),
           lastDate: DateTime.now().add(const Duration(days: 365)),
-          helpText: 'Selecionar data',
+          initialDatePickerMode: widget.isIntraday ? DatePickerMode.day : DatePickerMode.year,
+          helpText: widget.isIntraday ? 'Selecionar data' : 'Selecionar mês',
           cancelText: 'Cancelar',
           confirmText: 'Confirmar',
           builder: (context, child) {
@@ -398,11 +414,9 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
 
         if (dataSelecionada != null) {
           setState(() {
-            _dataFiltro = DateTime(
-              dataSelecionada.year,
-              dataSelecionada.month,
-              dataSelecionada.day,
-            );
+            _dataFiltro = widget.isIntraday
+                ? DateTime(dataSelecionada.year, dataSelecionada.month, dataSelecionada.day)
+                : DateTime(dataSelecionada.year, dataSelecionada.month, 1);
           });
           _carregar();
         }
@@ -586,7 +600,7 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
             itemBuilder: (context, i) {
               if (i == 0) {
                 return _linhaResumo(
-                  'Estoque Inicial',
+                  widget.isIntraday ? 'Estoque Inicial' : 'Estoque Inicial do Mês',
                   _estoqueInicial['amb'],
                   _estoqueInicial['vinte'],
                   cor: Colors.blue,
@@ -675,7 +689,7 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
       alignment: Alignment.centerLeft,
       color: Colors.grey.shade100,
       child: Text(
-        '${_movsOrdenadas.length} movimentação(ões)',
+        '${_movsOrdenadas.length} movimentação(ões) ${widget.isIntraday ? 'no dia' : 'no mês'}',
         style: TextStyle(
           fontSize: 12,
           color: Colors.grey.shade600,
