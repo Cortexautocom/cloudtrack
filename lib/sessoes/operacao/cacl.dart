@@ -433,6 +433,11 @@ class _CalcPageState extends State<CalcPage> {
                   ?.toString();
             }
 
+            if (resultado['estoque_final_calculado'] != null) {
+              widget.dadosFormulario['estoque_final_calculado_20'] =
+                  resultado['estoque_final_calculado'];
+            }
+
             widget.dadosFormulario['medicoes'] = medicoesAtualizadas;
 
             setState(() {
