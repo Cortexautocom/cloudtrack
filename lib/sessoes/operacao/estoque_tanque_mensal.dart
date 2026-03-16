@@ -269,60 +269,28 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
           .gte('data_mov', _inicioMes.toIso8601String())
           .lte('data_mov', _fimMes.toIso8601String());
 
-      // Ordenação: sem CACL primeiro, com CACL depois
+      // Ordenação: por data (crescente); dentro da mesma data, registros com 'CACL' vão por último
       final List<Map<String, dynamic>> listaOrdenadaParaUI =
           List<Map<String, dynamic>>.from(dados);
 
-      bool temCaclValido(Map<String, dynamic> m) {
-        final c = m['cacl_id']?.toString().trim();
-        return c != null && c.isNotEmpty && c.toLowerCase() != 'null';
-      }
-
-      // Primeiro, ordena por data (crescente)
       listaOrdenadaParaUI.sort((a, b) {
         final da = DateTime.parse(a['data_mov']);
         final db = DateTime.parse(b['data_mov']);
-        return da.compareTo(db);
+        final cmp = da.compareTo(db);
+        if (cmp != 0) return cmp;
+        
+        // Dentro da mesma data: verifica se contém 'CACL' em qualquer campo relevante
+        bool temCacl(Map<String, dynamic> m) {
+          final cliente = (m['cliente']?.toString() ?? '').toUpperCase();
+          final descricao = (m['descricao']?.toString() ?? '').toUpperCase();
+          return cliente.contains('CACL') || descricao.contains('CACL');
+        }
+        
+        final aTemCacl = temCacl(a) ? 1 : 0;
+        final bTemCacl = temCacl(b) ? 1 : 0;
+        
+        return aTemCacl.compareTo(bTemCacl);
       });
-
-      // Depois, reagrupa mantendo a ordem por data, mas colocando CACLs no final de cada dia
-      final Map<String, List<Map<String, dynamic>>> movsPorDia = {};
-      for (final mov in listaOrdenadaParaUI) {
-        final data = DateTime.parse(mov['data_mov']);
-        final chave = '${data.year}-${data.month}-${data.day}';
-        movsPorDia.putIfAbsent(chave, () => []).add(mov);
-      }
-
-      // Para cada dia, ordena: sem CACL primeiro, com CACL depois
-      final List<Map<String, dynamic>> listaReordenada = [];
-      for (final data in movsPorDia.keys.toList()..sort()) {
-        final movsDoDia = movsPorDia[data]!;
-        
-        // Separa movimentos do dia em duas listas
-        final semCacl = movsDoDia.where((m) => !temCaclValido(m)).toList();
-        final comCacl = movsDoDia.where(temCaclValido).toList();
-        
-        // Mantém a ordem cronológica original dentro de cada grupo
-        semCacl.sort((a, b) {
-          final da = DateTime.parse(a['data_mov']);
-          final db = DateTime.parse(b['data_mov']);
-          return da.compareTo(db);
-        });
-        
-        comCacl.sort((a, b) {
-          final da = DateTime.parse(a['data_mov']);
-          final db = DateTime.parse(b['data_mov']);
-          return da.compareTo(db);
-        });
-        
-        // Adiciona primeiro os sem CACL, depois os com CACL
-        listaReordenada.addAll(semCacl);
-        listaReordenada.addAll(comCacl);
-      }
-
-      // Substitui a lista original pela reordenada
-      listaOrdenadaParaUI.clear();
-      listaOrdenadaParaUI.addAll(listaReordenada);
 
       // Calcula saldo acumulado
       num saldoAmb = _estoqueInicial['amb'] ?? 0;
@@ -413,22 +381,11 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
       return 0;
     });
 
-    final semCacl = ord.where((m) => !_temCaclIdValido(m)).toList();
-    final comCacl = ord.where(_temCaclIdValido).toList();
-    final ordenadasParaUI = [...semCacl, ...comCacl];
-
     setState(() {
-      _movsOrdenadas = ordenadasParaUI;
+      _movsOrdenadas = ord;
       _coluna = col;
       _asc = asc;
     });
-  }
-
-  bool _temCaclIdValido(Map<String, dynamic> mov) {
-    final caclId = mov['cacl_id']?.toString().trim();
-    return caclId != null &&
-        caclId.isNotEmpty &&
-        caclId.toLowerCase() != 'null';
   }
 
   void _onSort(String col) {
@@ -478,8 +435,6 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
         'produtoNome': _produtoNome,
       };
 
-      debugPrint('Enviando para Edge Function (mensal): $requestData');
-
       final response = await _chamarEdgeFunctionBinaria(requestData);
 
       if (response.statusCode != 200) {
@@ -494,8 +449,6 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
       if (bytes.isEmpty) {
         throw Exception('Arquivo vazio recebido da Edge Function');
       }
-
-      debugPrint('Arquivo XLSX recebido: ${bytes.length} bytes');
 
       final blob = html.Blob([
         bytes,
@@ -575,10 +528,6 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
   ) async {
     final functionUrl = '$supabaseUrl/functions/v1/down_excel_estoque_tanque';
 
-    debugPrint('URL: $functionUrl');
-    debugPrint('Token (início): ${accessToken.substring(0, 20)}...');
-    debugPrint('Dados: ${jsonEncode(requestData)}');
-
     final response = await http.post(
       Uri.parse(functionUrl),
       headers: {
@@ -589,9 +538,6 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
       },
       body: jsonEncode(requestData),
     );
-
-    debugPrint('Status Code: ${response.statusCode}');
-    debugPrint('Tamanho resposta: ${response.bodyBytes.length} bytes');
 
     return response;
   }
