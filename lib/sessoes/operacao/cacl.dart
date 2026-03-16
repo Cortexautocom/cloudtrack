@@ -865,6 +865,9 @@ class _CalcPageState extends State<CalcPage> {
   Future<void> _emitirCACL() async {
     if (_isEmittingCACL) return;
 
+    print('🔵 [CACL] Iniciando emissão...');
+    print('🔵 [CACL] Dados Formulário: ${widget.dadosFormulario}');
+
     setState(() {
       _isEmittingCACL = true;
     });
@@ -872,9 +875,11 @@ class _CalcPageState extends State<CalcPage> {
     try {
       final supabase = Supabase.instance.client;
       final medicoes = widget.dadosFormulario['medicoes'] ?? {};
+      print('🔵 [CACL] Medições: $medicoes');
 
       final session = supabase.auth.currentSession;
       if (session == null) {
+        print('🔴 [CACL] Erro: Sessão Supabase é nula');
         if (context.mounted) {
           _mostrarSnackBar(
             const SnackBar(
@@ -891,18 +896,15 @@ class _CalcPageState extends State<CalcPage> {
           widget.dadosFormulario['cacl_verificacao'] ?? false;
       final bool caclMovimentacao =
           widget.dadosFormulario['cacl_movimentacao'] ?? false;
-
-      if (caclVerificacao) {
-        tipoCACL = 'verificacao';
-      } else if (caclMovimentacao) {
-        tipoCACL = 'movimentacao';
-      }
+      print('🔵 [CACL] Tipo: ${caclVerificacao ? 'Verificacao' : (caclMovimentacao ? 'Movimentacao' : 'N/A')}');
 
       final dataOriginal = widget.dadosFormulario['data']?.toString() ?? '';
       final dataFormatada = _formatarDataParaSQL(dataOriginal);
       final timestampReferencia = _obterTimestampBrasiliaComDataReferencia();
+      print('🔵 [CACL] Data Formatada SQL: $dataFormatada');
 
       final tanqueIdParaSalvar = _obterTanqueId();
+      print('🔵 [CACL] Tanque ID extraído: $tanqueIdParaSalvar');
 
       final dadosParaInserir = {
         'data': dataFormatada,
@@ -980,7 +982,10 @@ class _CalcPageState extends State<CalcPage> {
 
         'updated_at': timestampReferencia,
         'created_by': session.user.id,
+        'estoque_final_calculado': _obterEstoqueFinalCalculado20(),
       };
+      
+      print('🔵 [CACL] Payload final para Insert: $dadosParaInserir');
 
       final entradaSaida20 =
           _extrairNumero(medicoes['volume20Final']?.toString()) -
@@ -1009,6 +1014,7 @@ class _CalcPageState extends State<CalcPage> {
       String? numeroControleGerado = _numeroControle;
 
       if (idParaUpdate != null && idParaUpdate.isNotEmpty) {
+        print('🔵 [CACL] Tentando UPDATE no ID: $idParaUpdate');
         try {
           final verificaExistencia = await supabase
               .from('cacl')
@@ -1017,6 +1023,7 @@ class _CalcPageState extends State<CalcPage> {
               .maybeSingle();
 
           if (verificaExistencia == null) {
+            print('🟠 [CACL] Registro não encontrado para update, tentando insert');
             throw Exception('CACL não encontrado para atualização');
           }
 
@@ -1024,6 +1031,7 @@ class _CalcPageState extends State<CalcPage> {
               .from('cacl')
               .update(dadosParaInserir)
               .eq('id', idParaUpdate);
+          print('🔵 [CACL] Update concluído com sucesso');
 
           final resultadoAtualizado = await supabase
               .from('cacl')
@@ -1051,7 +1059,8 @@ class _CalcPageState extends State<CalcPage> {
               ),
             );
           }
-        } catch (_) {
+        } catch (e) {
+          print('🟠 [CACL] Erro no Update (tentando fallback insert): $e');
           dadosParaInserir['created_by'] = session.user.id;
 
           final resultadoInserir = await supabase
@@ -1059,6 +1068,7 @@ class _CalcPageState extends State<CalcPage> {
               .insert(dadosParaInserir)
               .select('id, numero_controle')
               .single();
+          print('🔵 [CACL] Fallback Insert concluído com ID: ${resultadoInserir['id']}');
 
           if (resultadoInserir['numero_controle'] != null) {
             setState(() {
@@ -1082,11 +1092,13 @@ class _CalcPageState extends State<CalcPage> {
           }
         }
       } else {
+        print('🔵 [CACL] Iniciando INSERT (novo registro)');
         final resultadoInserir = await supabase
             .from('cacl')
             .insert(dadosParaInserir)
             .select('id, numero_controle')
             .single();
+        print('🔵 [CACL] Insert concluído com ID: ${resultadoInserir['id']}');
 
         if (resultadoInserir['numero_controle'] != null) {
           setState(() {
@@ -1114,13 +1126,17 @@ class _CalcPageState extends State<CalcPage> {
           caclIdSalvo.isNotEmpty &&
           numeroControleGerado != null &&
           numeroControleGerado!.isNotEmpty) {
+        print('🔵 [CACL] Iniciando salvamento de movimentação vinculada');
         try {
           await _salvarMovimentacaoCACL(
             caclId: caclIdSalvo,
             numeroControle: numeroControleGerado!,
             dadosCacl: dadosParaInserir,
           );
-        } catch (e) {}
+          print('🔵 [CACL] Movimentação vinculada salva');
+        } catch (e) {
+          print('🔴 [CACL] Erro ao salvar movimentação vinculada: $e');
+        }
       }
 
       if (mounted) {
@@ -1144,7 +1160,9 @@ class _CalcPageState extends State<CalcPage> {
         await _irParaEstoqueTanqueAposEmissao();
       }
       return;
-    } catch (e) {
+    } catch (e, stack) {
+      print('🔴 [CACL] ERRO FATAL NA EMISSÃO: $e');
+      print('🔴 [CACL] STACKTRACE: $stack');
       if (context.mounted) {
         _mostrarSnackBar(
           SnackBar(
@@ -1267,6 +1285,7 @@ class _CalcPageState extends State<CalcPage> {
         'anp': false,
         'status_circuito_orig': 1,
         'status_circuito_dest': 1,
+        'estoque_final_calculado': _obterEstoqueFinalCalculado20(),
       };
 
       await supabase
@@ -1367,6 +1386,7 @@ class _CalcPageState extends State<CalcPage> {
         'saida_amb': 0,
         'saida_vinte': isSobra ? 0 : quantidade,
         'descricao': descricao,
+        'estoque_final_calculado': _obterEstoqueFinalCalculado20(),
       };
 
       await supabase
@@ -3306,6 +3326,7 @@ class _CalcPageState extends State<CalcPage> {
 
         'created_by': session.user.id,
         'updated_at': timestampReferencia,
+        'estoque_final_calculado': _obterEstoqueFinalCalculado20(),
       };
 
       dadosParaInserir.remove('numero_controle');
@@ -3409,67 +3430,80 @@ class _CalcPageState extends State<CalcPage> {
     if (horario == null || horario.isEmpty || horario == '-') return null;
 
     final horarioLimpo = horario.trim();
+    final agoraUtc = DateTime.now().toUtc();
+    final brasiliaData = agoraUtc.subtract(const Duration(hours: 3));
+
+    int horas;
+    int minutos;
+
     if (horarioLimpo.contains('T')) {
       try {
-        return DateTime.parse(horarioLimpo).toIso8601String();
+        final dt = DateTime.parse(horarioLimpo);
+        horas = dt.hour;
+        minutos = dt.minute;
       } catch (_) {
         return null;
       }
+    } else {
+      final match = RegExp(r'(\d{1,2}):(\d{2})').firstMatch(horarioLimpo);
+      if (match == null) return null;
+      horas = int.tryParse(match.group(1) ?? '') ?? -1;
+      minutos = int.tryParse(match.group(2) ?? '') ?? -1;
     }
 
-    final match = RegExp(r'(\d{1,2}):(\d{2})').firstMatch(horarioLimpo);
-    if (match == null) return null;
-
-    final horas = int.tryParse(match.group(1) ?? '') ?? -1;
-    final minutos = int.tryParse(match.group(2) ?? '') ?? -1;
     if (horas < 0 || horas > 23 || minutos < 0 || minutos > 59) return null;
 
     final dataDisplay = widget.dadosFormulario['data']?.toString() ?? '';
     DateTime baseDate;
+
     if (dataDisplay.contains('/')) {
       final partes = dataDisplay.split('/');
       if (partes.length == 3) {
-        final dataRef = _obterDataParaEstoque();
-        final dia = int.tryParse(partes[0]) ?? dataRef.day;
-        final mes = int.tryParse(partes[1]) ?? dataRef.month;
-        final ano = int.tryParse(partes[2]) ?? dataRef.year;
+        final dia = int.tryParse(partes[0]) ?? brasiliaData.day;
+        final mes = int.tryParse(partes[1]) ?? brasiliaData.month;
+        final ano = int.tryParse(partes[2]) ?? brasiliaData.year;
         baseDate = DateTime(ano, mes, dia, horas, minutos);
       } else {
-        final dataRef = _obterDataParaEstoque();
         baseDate = DateTime(
-          dataRef.year,
-          dataRef.month,
-          dataRef.day,
+          brasiliaData.year,
+          brasiliaData.month,
+          brasiliaData.day,
           horas,
           minutos,
         );
       }
     } else if (dataDisplay.contains('-')) {
       try {
-        final data = DateTime.parse(dataDisplay);
-        baseDate = DateTime(data.year, data.month, data.day, horas, minutos);
+        final dt = DateTime.parse(dataDisplay);
+        baseDate = DateTime(dt.year, dt.month, dt.day, horas, minutos);
       } catch (_) {
-        final dataRef = _obterDataParaEstoque();
         baseDate = DateTime(
-          dataRef.year,
-          dataRef.month,
-          dataRef.day,
+          brasiliaData.year,
+          brasiliaData.month,
+          brasiliaData.day,
           horas,
           minutos,
         );
       }
     } else {
-      final dataRef = _obterDataParaEstoque();
       baseDate = DateTime(
-        dataRef.year,
-        dataRef.month,
-        dataRef.day,
+        brasiliaData.year,
+        brasiliaData.month,
+        brasiliaData.day,
         horas,
         minutos,
       );
     }
 
-    return baseDate.toIso8601String();
+    // Formato compatível com timestamp without time zone: YYYY-MM-DD HH:MM:SS
+    final y = baseDate.year.toString();
+    final m = baseDate.month.toString().padLeft(2, '0');
+    final d = baseDate.day.toString().padLeft(2, '0');
+    final h = baseDate.hour.toString().padLeft(2, '0');
+    final min = baseDate.minute.toString().padLeft(2, '0');
+    final s = baseDate.second.toString().padLeft(2, '0');
+
+    return '$y-$m-$d $h:$min:$s';
   }
 
   double? _extrairNumeroFormatado(String? valor) {
