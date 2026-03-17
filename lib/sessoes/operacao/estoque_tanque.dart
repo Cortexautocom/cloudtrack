@@ -180,10 +180,16 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
 
   Future<void> buscarUltimaSobraPerdaDoTanque() async {
     try {
+      final dataStr = _dataFiltro.toIso8601String().split('T')[0];
+      final inicioDoDia = '$dataStr 00:00:00';
+      final fimDoDia = '$dataStr 23:59:59';
+
       final response = await _supabase
           .from('movimentacoes_tanque')
           .select('descricao, entrada_vinte, saida_vinte')
           .eq('tanque_id', widget.tanqueId)
+          .gte('data_mov', inicioDoDia)
+          .lte('data_mov', fimDoDia)
           .or("descricao.ilike.Sobra CACL%,descricao.ilike.Perda CACL%")
           .order('data_mov', ascending: false)
           .limit(1)
@@ -863,10 +869,27 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
               negrito: true,
             )
           else
-            _buildCampoResumo(
-              'Disponível após fechamento',
-              _estoqueFinal['vinte'] ?? 0,
-              cor: Colors.grey,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  'Sobra/Perda (20ºC):',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '-',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey.shade400,
+                  ),
+                ),
+              ],
             ),
         ],
       ),
