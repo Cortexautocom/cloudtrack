@@ -798,7 +798,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   }
 
   Widget _buildBlocoResumo() {
-    final estoqueFinalCalculado = _estoqueFinal['vinte'] ?? 0;
+    final estoqueFinalCalculado = _estoqueFinal['amb'] ?? 0;
     final estoqueCACL = _estoqueCACL['vinte'];
 
     return Container(
@@ -816,7 +816,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildCampoResumo(
-            'Estoque final calculado (20ºC):',
+            'Estoque final calculado (Amb):',
             estoqueFinalCalculado,
           ),
 
