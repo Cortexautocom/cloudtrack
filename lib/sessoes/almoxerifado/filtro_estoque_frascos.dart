@@ -312,30 +312,194 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
   }
 
   Future<void> _selecionarMes(BuildContext context) async {
-    final DateTime? selecionado = await showDatePicker(
+    DateTime tempDate = _mesSelecionado ?? DateTime.now();
+    
+    final DateTime? selecionado = await showDialog<DateTime>(
       context: context,
-      initialDate: _mesSelecionado ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-      initialDatePickerMode: DatePickerMode.year,
-      helpText: 'Selecione o mês',
-      fieldLabelText: 'Mês de referência',
-      fieldHintText: 'MM/AAAA',
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF0D47A1),
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF0D47A1),
-              ),
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            width: 350,
+            padding: const EdgeInsets.all(20),
+            child: StatefulBuilder(
+              builder: (context, setStateDialog) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_month,
+                          color: const Color.fromARGB(255, 255, 128, 0),
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Selecionar Mês',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: const Color.fromARGB(255, 255, 128, 0),
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(context).pop(),
+                          color: Colors.grey.shade600,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    
+                    // Ano
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              Icons.chevron_left,
+                              color: const Color.fromARGB(255, 255, 128, 0),
+                            ),
+                            onPressed: () {
+                              setStateDialog(() {
+                                tempDate = DateTime(
+                                  tempDate.year - 1,
+                                  tempDate.month,
+                                );
+                              });
+                            },
+                          ),
+                          Text(
+                            '${tempDate.year}',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              color: const Color.fromARGB(255, 255, 128, 0),
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.chevron_right,
+                              color: const Color.fromARGB(255, 255, 128, 0),
+                            ),
+                            onPressed: () {
+                              setStateDialog(() {
+                                tempDate = DateTime(
+                                  tempDate.year + 1,
+                                  tempDate.month,
+                                );
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 10),
+                    
+                    // Grid de meses
+                    GridView.count(
+                      shrinkWrap: true,
+                      crossAxisCount: 3,
+                      childAspectRatio: 1.8,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: List.generate(12, (index) {
+                        final month = index + 1;
+                        final isSelected = month == tempDate.month;
+                        final isCurrentMonth = month == DateTime.now().month && 
+                            tempDate.year == DateTime.now().year;
+                        
+                        return GestureDetector(
+                          onTap: () {
+                            setStateDialog(() {
+                              tempDate = DateTime(tempDate.year, month);
+                            });
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? const Color.fromARGB(255, 255, 128, 0)
+                                  : isCurrentMonth
+                                      ? const Color.fromARGB(30, 255, 128, 0) // Versão mais clara
+                                      : Colors.transparent,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: Text(
+                                _getMonthNameShort(month),
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? Colors.black
+                                      : isCurrentMonth
+                                          ? const Color.fromARGB(255, 255, 128, 0)
+                                          : Colors.black87,
+                                  fontWeight: isSelected || isCurrentMonth
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Botões
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.black87,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          child: const Text('CANCELAR'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(tempDate),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color.fromARGB(255, 255, 128, 0),
+                            foregroundColor: Colors.black,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'SELECIONAR',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
             ),
           ),
-          child: child!,
         );
       },
     );
@@ -347,30 +511,223 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
     }
   }
 
+  // Método auxiliar para nomes abreviados dos meses
+  String _getMonthNameShort(int month) {
+    const months = [
+      'JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN',
+      'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'
+    ];
+    return months[month - 1];
+  }
+
   Future<void> _selecionarDataIntraday(BuildContext context) async {
-    final DateTime? selecionado = await showDatePicker(
+    DateTime tempDate = _dataSelecionada;
+    
+    final DateTime? selecionado = await showDialog<DateTime>(
       context: context,
-      initialDate: _dataSelecionada,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      helpText: 'Selecione a data',
-      fieldLabelText: 'Data específica',
-      fieldHintText: 'DD/MM/AAAA',
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF0D47A1),
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF0D47A1),
-              ),
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            width: 350,
+            padding: const EdgeInsets.all(20),
+            child: StatefulBuilder(
+              builder: (context, setStateDialog) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today,
+                          color: const Color.fromARGB(255, 255, 128, 0),
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Selecionar Data',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: const Color.fromARGB(255, 255, 128, 0),
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(context).pop(),
+                          color: Colors.grey.shade600,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    
+                    // Mês e Ano
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              Icons.chevron_left,
+                              color: const Color.fromARGB(255, 255, 128, 0),
+                            ),
+                            onPressed: () {
+                              setStateDialog(() {
+                                tempDate = DateTime(
+                                  tempDate.year,
+                                  tempDate.month - 1,
+                                  tempDate.day,
+                                );
+                              });
+                            },
+                          ),
+                          Text(
+                            '${_getMonthName(tempDate.month)} ${tempDate.year}',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: const Color.fromARGB(255, 255, 128, 0),
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.chevron_right,
+                              color: const Color.fromARGB(255, 255, 128, 0),
+                            ),
+                            onPressed: () {
+                              setStateDialog(() {
+                                tempDate = DateTime(
+                                  tempDate.year,
+                                  tempDate.month + 1,
+                                  tempDate.day,
+                                );
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    // Dias da semana
+                    GridView.count(
+                      shrinkWrap: true,
+                      crossAxisCount: 7,
+                      childAspectRatio: 1.0,
+                      children: ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day) {
+                        return Center(
+                          child: Text(
+                            day,
+                            style: TextStyle(
+                              color: const Color.fromARGB(255, 255, 128, 0),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    
+                    // Dias do mês
+                    GridView.count(
+                      shrinkWrap: true,
+                      crossAxisCount: 7,
+                      childAspectRatio: 1.0,
+                      children: _getDaysInMonth(tempDate).map((day) {
+                        final isSelected = day != null && 
+                            day == tempDate.day;
+                        
+                        final isToday = day != null && 
+                            day == DateTime.now().day && 
+                            tempDate.month == DateTime.now().month &&
+                            tempDate.year == DateTime.now().year;
+                        
+                        return GestureDetector(
+                          onTap: day != null ? () {
+                            setStateDialog(() {
+                              tempDate = DateTime(tempDate.year, tempDate.month, day);
+                            });
+                          } : null,
+                          child: Container(
+                            margin: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? const Color.fromARGB(255, 255, 128, 0)
+                                  : isToday
+                                      ? const Color.fromARGB(30, 255, 128, 0) // Versão mais clara
+                                      : Colors.transparent,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                day != null ? day.toString() : '',
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? Colors.black
+                                      : isToday
+                                          ? const Color.fromARGB(255, 255, 128, 0)
+                                          : Colors.black87,
+                                  fontWeight: isSelected || isToday
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Botões
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.black87,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          child: const Text('CANCELAR'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(tempDate),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color.fromARGB(255, 255, 128, 0),
+                            foregroundColor: Colors.black,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'SELECIONAR',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
             ),
           ),
-          child: child!,
         );
       },
     );
@@ -380,6 +737,44 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
         _dataSelecionada = selecionado;
       });
     }
+  }
+
+  // Métodos auxiliares
+  String _getMonthName(int month) {
+    const months = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    return months[month - 1];
+  }
+
+  List<int?> _getDaysInMonth(DateTime date) {
+    final firstDay = DateTime(date.year, date.month, 1);
+    final lastDay = DateTime(date.year, date.month + 1, 0);
+    
+    // Dias do mês anterior para preencher o início
+    final firstWeekday = firstDay.weekday;
+    // Ajuste para começar na segunda-feira (segunda = 1, domingo = 7)
+    final startOffset = firstWeekday == 7 ? 0 : firstWeekday;
+    
+    List<int?> days = [];
+    
+    // Dias do mês anterior
+    for (int i = 0; i < startOffset; i++) {
+      days.add(null);
+    }
+    
+    // Dias do mês atual
+    for (int i = 1; i <= lastDay.day; i++) {
+      days.add(i);
+    }
+    
+    // Completar para ter 42 dias (6 semanas)
+    while (days.length < 42) {
+      days.add(null);
+    }
+    
+    return days;
   }
 
   void _consultarEstoque() {
@@ -1129,7 +1524,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                       : 'O tipo de relatório determina o nível de detalhamento da consulta.',
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.orange.shade700,
+                    color: const Color.fromARGB(255, 255, 128, 0),
                   ),
                 ),
               ],
