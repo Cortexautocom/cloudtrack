@@ -89,19 +89,27 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
   }
 
   void _carregarDadosMock() {
-    // Dados fictícios para teste de layout
-    final List<Map<String, dynamic>> mock = [
-      {'data': '2026-03-01', 'placa': 'ABC-1234', 'entradas': 10, 'saidas': 3, 'saldo': 7},
-      {'data': '2026-03-03', 'placa': 'DEF-5678', 'entradas': 5,  'saidas': 5, 'saldo': 7},
-      {'data': '2026-03-05', 'placa': 'GHI-9012', 'entradas': 8,  'saidas': 2, 'saldo': 13},
-      {'data': '2026-03-07', 'placa': 'ABC-1234', 'entradas': 0,  'saidas': 4, 'saldo': 9},
-      {'data': '2026-03-10', 'placa': 'JKL-3456', 'entradas': 12, 'saidas': 6, 'saldo': 15},
-      {'data': '2026-03-12', 'placa': 'MNO-7890', 'entradas': 4,  'saidas': 1, 'saldo': 18},
-      {'data': '2026-03-14', 'placa': 'DEF-5678', 'entradas': 7,  'saidas': 7, 'saldo': 18},
-      {'data': '2026-03-15', 'placa': 'PQR-2345', 'entradas': 6,  'saidas': 2, 'saldo': 22},
-      {'data': '2026-03-17', 'placa': 'GHI-9012', 'entradas': 3,  'saidas': 3, 'saldo': 22},
-      {'data': '2026-03-18', 'placa': 'STU-6789', 'entradas': 9,  'saidas': 4, 'saldo': 27},
-    ];
+    // Dados fictícios para teste de layout com 40+ entradas para scroll
+    final List<Map<String, dynamic>> mock = [];
+    int saldoAcumulado = 20; // Início com um saldo fictício
+
+    for (int i = 1; i <= 45; i++) {
+      int dia = (i % 28) + 1;
+      String data = '2026-03-${dia.toString().padLeft(2, '0')}';
+      String placa = i % 2 == 0 ? 'ABC-${1000 + i}' : 'XYZ-${5000 + i}';
+      int entradas = i % 5 == 0 ? 10 : 0;
+      int saidas = i % 3 == 0 ? 2 : 1;
+      
+      saldoAcumulado = saldoAcumulado + entradas - saidas;
+      
+      mock.add({
+        'data': data,
+        'placa': placa,
+        'entradas': entradas,
+        'saidas': saidas,
+        'saldo': saldoAcumulado,
+      });
+    }
 
     int totalEntradas = 0;
     int totalSaidas = 0;
@@ -221,32 +229,37 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Painel de filtros (somente leitura)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Wrap(
-                spacing: 32,
-                runSpacing: 12,
-                children: [
-                  _buildInfoFiltro(Icons.store, 'Terminal', widget.nomeTerminal),
-                  _buildInfoFiltro(Icons.business, 'Empresa', widget.empresaNome ?? '-'),
-                  _buildInfoFiltro(
-                    Icons.calendar_today,
-                    widget.isIntraday ? 'Data' : 'Mês',
-                    _fmtPeriodo(),
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
                   ),
-                  _buildInfoFiltro(
-                    Icons.assessment,
-                    'Tipo',
-                    widget.tipoRelatorio == 'sintetico' ? 'Sintético' : 'Analítico',
+                  child: Wrap(
+                    spacing: 32,
+                    runSpacing: 12,
+                    children: [
+                      _buildInfoFiltro(Icons.store, 'Terminal', widget.nomeTerminal),
+                      _buildInfoFiltro(Icons.business, 'Empresa', widget.empresaNome ?? '-'),
+                      _buildInfoFiltro(
+                        Icons.calendar_today,
+                        widget.isIntraday ? 'Data' : 'Mês',
+                        _fmtPeriodo(),
+                      ),
+                      _buildInfoFiltro(
+                        Icons.assessment,
+                        'Tipo',
+                        widget.tipoRelatorio == 'sintetico' ? 'Sintético' : 'Analítico',
+                      ),
+                      if (widget.isIntraday)
+                        _buildInfoFiltro(Icons.access_time, 'Modo', 'Intraday'),
+                    ],
                   ),
-                  if (widget.isIntraday)
-                    _buildInfoFiltro(Icons.access_time, 'Modo', 'Intraday'),
-                ],
+                ),
               ),
             ),
             
@@ -256,36 +269,45 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
             Expanded(
               child: _carregandoDados
                   ? const Center(child: CircularProgressIndicator(color: Color(0xFF0D47A1)))
-                  : _movimentacoes.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.inbox, size: 64, color: Colors.grey.shade400),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Nenhuma movimentação encontrada',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Selecione um terminal e empresa para consultar',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey.shade500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : _buildTabela(),
+                  : Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 900),
+                        child: _movimentacoes.isEmpty
+                            ? Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.inbox, size: 64, color: Colors.grey.shade400),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Nenhuma movimentação encontrada',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Selecione um terminal e empresa para consultar',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : _buildTabela(),
+                      ),
+                    ),
             ),
             
             // Rodapé com resumo
-            if (_movimentacoes.isNotEmpty) _buildRodape(),
+            if (_movimentacoes.isNotEmpty)
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 900),
+                  child: _buildRodape(),
+                ),
+              ),
           ],
         ),
       ),
