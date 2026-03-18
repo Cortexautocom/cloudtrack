@@ -59,7 +59,21 @@ class _CalcPageState extends State<CalcPage> {
   String? _obterVolume20DisponivelRaw(Map<String, dynamic> medicoes) {
     final volume20FinalRaw = medicoes['volume20Final']?.toString().trim();
     final volume20InicialRaw = medicoes['volume20Inicial']?.toString().trim();
-
+    
+    // ✅ REGRA: Se for CACL de verificação, usa SEMPRE a medição inicial
+    final bool isVerificacao = widget.dadosFormulario['cacl_verificacao'] == true;
+    
+    if (isVerificacao) {
+      // Para verificação, retorna apenas o volume inicial se for válido
+      bool validoInicial(String? valor) {
+        if (valor == null || valor.isEmpty || valor == '-') return false;
+        return valor.replaceAll(RegExp(r'[^0-9]'), '').isNotEmpty;
+      }
+      
+      return validoInicial(volume20InicialRaw) ? volume20InicialRaw : null;
+    }
+    
+    // Para movimentação (comportamento atual): prioriza final, fallback para inicial
     bool valido(String? valor) {
       if (valor == null || valor.isEmpty || valor == '-') return false;
       return valor.replaceAll(RegExp(r'[^0-9]'), '').isNotEmpty;
@@ -1616,12 +1630,13 @@ class _CalcPageState extends State<CalcPage> {
                       _obterValorMedicao(medicoes['fatorCorrecaoInicial']),
                       _obterValorMedicao(medicoes['fatorCorrecaoFinal']),
                     ),
-                    _linhaMedicao(
+                  ], medicoes,
+                  extraAposEstoque: _linhaMedicao(
                       "Volume total do produto, considerada a temperatura padrão (20 ºC):",
                       _obterValorMedicao(medicoes['volume20Inicial']),
                       _obterValorMedicao(medicoes['volume20Final']),
                     ),
-                  ], medicoes),
+                  ),
 
                   const SizedBox(height: 25),
 
@@ -1931,7 +1946,7 @@ class _CalcPageState extends State<CalcPage> {
     );
   }
 
-  Widget _tabelaMedicoes(List<TableRow> linhas, Map<String, dynamic> medicoes) {
+  Widget _tabelaMedicoes(List<TableRow> linhas, Map<String, dynamic> medicoes, {TableRow? extraAposEstoque}) {
     return Table(
       border: TableBorder.all(
         color: Colors.black54,
@@ -2041,6 +2056,9 @@ class _CalcPageState extends State<CalcPage> {
               ),
             ],
           ),
+
+        if (extraAposEstoque != null)
+          extraAposEstoque,
 
         if (_mostrarCampoSobraPerda)
           TableRow(
