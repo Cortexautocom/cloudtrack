@@ -31,7 +31,8 @@ import 'sessoes/operacao/temp_dens_media.dart';
 import 'sessoes/ajuda/desenvolvedor.dart';
 import 'sessoes/ajuda/suporte.dart';
 import 'sessoes/circuito/criar_ordem.dart';
-import 'sessoes/almoxerifado/frascos_amostra.dart';
+import 'sessoes/almoxerifado/frascos_amostras.dart';
+import 'sessoes/almoxerifado/filtro_estoque_frascos.dart';
 import 'sessoes/operacao/estoque_produto.dart';
 import 'sessoes/operacao/filtro_estoque_produto.dart';
 
@@ -849,6 +850,7 @@ class _HomePageState extends State<HomePage>
       _mostrarListarCacls = false;
       _mostrarFiltrosEstoque = false;
       _mostrarFiltroMovimentacoes = false;      
+      _mostrarFrascosAmostra = false;
       _mostrarEscolherTerminal = false;
       _mostrarEstoquePorEmpresa = false;
       _mostrarFiliaisDaEmpresa = false;
@@ -964,6 +966,7 @@ class _HomePageState extends State<HomePage>
       _mostrarFiliaisDaEmpresa = false;
       _mostrarEstoquePorEmpresa = false;
       _mostrarFiltrosEstoque = false;
+      _mostrarFrascosAmostra = false;
       _mostrarCalcGerado = false;
       _mostrarTempDensMedia = false;
       _mostrarMenuAjuda = false;
@@ -1005,6 +1008,7 @@ class _HomePageState extends State<HomePage>
       _mostrarEstoquePorEmpresa = false;
       _mostrarEstoquePorTanque = false;
       _mostrarFiltrosEstoque = false;
+      _mostrarFrascosAmostra = false;
       _mostrarCalcGerado = false;
       _mostrarTempDensMedia = false;
       _mostrarEstoqueProduto = false;
@@ -1389,7 +1393,23 @@ class _HomePageState extends State<HomePage>
 
       case 'Almoxerifado':
         if (_mostrarFrascosAmostra) {
-          return FrascosAmostraPage(
+          return FiltroEstoqueFrascosPage(
+            terminalId: _terminalParaFiltroId,
+            empresaId: _empresaParaFiltroId,
+            nomeTerminal: _terminalParaFiltroNome ?? '',
+            empresaNome: _empresaParaFiltroNome,
+            onConsultarEstoque: ({
+              required String? terminalId,
+              required String? empresaId,
+              required String nomeTerminal,
+              String? empresaNome,
+              DateTime? mesFiltro,
+              required String tipoRelatorio,
+              required bool isIntraday,
+              DateTime? dataIntraday,
+            }) {
+              // TODO: navegar para a página de resultado
+            },
             onVoltar: () {
               setState(() {
                 _mostrarFrascosAmostra = false;
@@ -1595,7 +1615,23 @@ class _HomePageState extends State<HomePage>
     // SEÇÃO: Almoxerifado
     if (sessaoAtual == 'Almoxerifado') {
       if (_mostrarFrascosAmostra) {
-        return FrascosAmostraPage(
+        return FiltroEstoqueFrascosPage(
+          terminalId: _terminalParaFiltroId,
+          empresaId: _empresaParaFiltroId,
+          nomeTerminal: _terminalParaFiltroNome ?? '',
+          empresaNome: _empresaParaFiltroNome,
+          onConsultarEstoque: ({
+            required String? terminalId,
+            required String? empresaId,
+            required String nomeTerminal,
+            String? empresaNome,
+            DateTime? mesFiltro,
+            required String tipoRelatorio,
+            required bool isIntraday,
+            DateTime? dataIntraday,
+          }) {
+            // TODO: navegar para a página de resultado
+          },
           onVoltar: () {
             setState(() {
               _mostrarFrascosAmostra = false;
