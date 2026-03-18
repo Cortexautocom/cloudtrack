@@ -12,6 +12,7 @@ class EstoqueTanqueMensalPage extends StatefulWidget {
   final int mes;
   final int ano;
   final VoidCallback? onVoltar;
+  final bool mostrarDetalhado;
 
   const EstoqueTanqueMensalPage({
     super.key,
@@ -22,6 +23,7 @@ class EstoqueTanqueMensalPage extends StatefulWidget {
     required this.mes,
     required this.ano,
     this.onVoltar,
+    this.mostrarDetalhado = true,
   });
 
   @override
@@ -41,6 +43,7 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
 
   List<Map<String, dynamic>> _movs = [];
   List<Map<String, dynamic>> _movsOrdenadas = [];
+  List<Map<String, dynamic>> _movsConsolidadas = [];
 
   Map<String, num?> _estoqueInicial = {'amb': 0, 'vinte': 0};
   Map<String, num?> _estoqueFinal = {'amb': null, 'vinte': null};
@@ -328,6 +331,7 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
 
       _movs = List<Map<String, dynamic>>.from(listaComSaldo);
       _movsOrdenadas = List<Map<String, dynamic>>.from(listaComSaldo);
+      _movsConsolidadas = _consolidarPorData(_movs);
 
       _estoqueFinal = {
         'amb': _movs.isEmpty ? null : _movs.last['saldo_amb'],
@@ -342,6 +346,48 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
         _mensagemErro = e.toString();
       });
     }
+  }
+
+  List<Map<String, dynamic>> _consolidarPorData(List<Map<String, dynamic>> movs) {
+    final Map<String, Map<String, num>> porData = {};
+    final List<String> ordem = [];
+    for (final m in movs) {
+      final dataKey = m['data_mov'].toString().substring(0, 10);
+      if (!porData.containsKey(dataKey)) {
+        porData[dataKey] = {'entrada_vinte': 0, 'saida_vinte': 0, 'entrada_amb': 0, 'saida_amb': 0};
+        ordem.add(dataKey);
+      }
+      porData[dataKey]!['entrada_vinte'] =
+          porData[dataKey]!['entrada_vinte']! + ((m['entrada_vinte'] ?? 0) as num);
+      porData[dataKey]!['saida_vinte'] =
+          porData[dataKey]!['saida_vinte']! + ((m['saida_vinte'] ?? 0) as num);
+      porData[dataKey]!['entrada_amb'] =
+          porData[dataKey]!['entrada_amb']! + ((m['entrada_amb'] ?? 0) as num);
+      porData[dataKey]!['saida_amb'] =
+          porData[dataKey]!['saida_amb']! + ((m['saida_amb'] ?? 0) as num);
+    }
+    num saldoVinte = _estoqueInicial['vinte'] ?? 0;
+    num saldoAmb = _estoqueInicial['amb'] ?? 0;
+    final result = <Map<String, dynamic>>[];
+    for (final dataKey in ordem) {
+      final entradaVinte = porData[dataKey]!['entrada_vinte']!;
+      final saidaVinte = porData[dataKey]!['saida_vinte']!;
+      final entradaAmb = porData[dataKey]!['entrada_amb']!;
+      final saidaAmb = porData[dataKey]!['saida_amb']!;
+      saldoVinte += entradaVinte - saidaVinte;
+      saldoAmb += entradaAmb - saidaAmb;
+      result.add({
+        'data_mov': '${dataKey}T00:00:00',
+        'descricao': 'Consolidado',
+        'entrada_amb': entradaAmb,
+        'entrada_vinte': entradaVinte,
+        'saida_amb': saidaAmb,
+        'saida_vinte': saidaVinte,
+        'saldo_amb': saldoAmb,
+        'saldo_vinte': saldoVinte,
+      });
+    }
+    return result;
   }
 
   void _ordenar(String col, bool asc) {
@@ -619,10 +665,11 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
                   tooltip: 'Baixar Excel',
                   onPressed: _baixarExcel,
                 ),
-          IconButton(
-            icon: const Icon(Icons.sort),
-            onPressed: () => _onSort('data_mov'),
-          ),
+          if (widget.mostrarDetalhado)
+            IconButton(
+              icon: const Icon(Icons.sort),
+              onPressed: () => _onSort('data_mov'),
+            ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _carregar),
         ],
       ),
@@ -784,6 +831,9 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
   }
 
   Widget _corpo() {
+    if (!widget.mostrarDetalhado) {
+      return _corpoConsolidado();
+    }
     return Scrollbar(
       controller: _hBody,
       thumbVisibility: true,
@@ -815,6 +865,68 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
               }
 
               final e = _movsOrdenadas[i - 1];
+              return Container(
+                height: _hRow,
+                color: (i - 1) % 2 == 0 ? Colors.grey.shade50 : Colors.white,
+                child: Row(
+                  children: [
+                    _cell(_fmtData(e['data_mov']), _wData),
+                    _cell(e['descricao'] ?? '-', _wDesc),
+                    _cell(_fmtNum(e['entrada_amb']), _wNum, bg: _bgEntrada()),
+                    _cell(_fmtNum(e['entrada_vinte']), _wNum, bg: _bgEntrada()),
+                    _cell(_fmtNum(e['saida_amb']), _wNum, bg: _bgSaida()),
+                    _cell(_fmtNum(e['saida_vinte']), _wNum, bg: _bgSaida()),
+                    _cell(
+                      _fmtNum(e['saldo_amb']),
+                      _wNum,
+                      cor: (e['saldo_amb'] ?? 0) < 0 ? Colors.red : null,
+                    ),
+                    _cell(
+                      _fmtNum(e['saldo_vinte']),
+                      _wNum,
+                      cor: (e['saldo_vinte'] ?? 0) < 0 ? Colors.red : null,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _corpoConsolidado() {
+    return Scrollbar(
+      controller: _hBody,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _hBody,
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: _wTable,
+          child: ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _movsConsolidadas.length + 2,
+            itemBuilder: (context, i) {
+              if (i == 0) {
+                return _linhaResumo(
+                  'Estoque Inicial do Mês',
+                  _estoqueInicial['amb'],
+                  _estoqueInicial['vinte'],
+                  cor: Colors.blue,
+                );
+              }
+              if (i == _movsConsolidadas.length + 1) {
+                return _linhaResumo(
+                  'Estoque Final',
+                  _estoqueFinal['amb'],
+                  _estoqueFinal['vinte'],
+                  cor: Colors.grey.shade700,
+                );
+              }
+              final e = _movsConsolidadas[i - 1];
               return Container(
                 height: _hRow,
                 color: (i - 1) % 2 == 0 ? Colors.grey.shade50 : Colors.white,
@@ -888,7 +1000,9 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
       alignment: Alignment.centerLeft,
       color: Colors.grey.shade100,
       child: Text(
-        '${_movsOrdenadas.length} movimentação(ões) no mês',
+        widget.mostrarDetalhado
+            ? '${_movsOrdenadas.length} movimentação(ões) no mês'
+            : '${_movsConsolidadas.length} dia(s) com movimentação no mês',
         style: TextStyle(
           fontSize: 12,
           color: Colors.grey.shade600,

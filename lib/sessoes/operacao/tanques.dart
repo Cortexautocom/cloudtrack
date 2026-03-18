@@ -1655,6 +1655,7 @@ class _SelecaoTipoVisualizacaoBottomSheet extends StatefulWidget {
 class _SelecaoTipoVisualizacaoBottomSheetState extends State<_SelecaoTipoVisualizacaoBottomSheet> {
   bool _tipoDataEspecifica = true;
   bool _tipoMensal = false;
+  bool _mostrarDetalhado = true;
   
   DateTime _dataSelecionada = DateTime.now();
   int _mesSelecionado = DateTime.now().month;
@@ -1808,6 +1809,27 @@ class _SelecaoTipoVisualizacaoBottomSheetState extends State<_SelecaoTipoVisuali
                         ],
                       ),
                       const SizedBox(height: 32),
+                      InkWell(
+                        onTap: () {
+                          setState(() => _mostrarDetalhado = !_mostrarDetalhado);
+                          setStateDialog(() {});
+                        },
+                        child: Row(
+                          children: [
+                            Checkbox(
+                              value: _mostrarDetalhado,
+                              onChanged: (val) {
+                                setState(() => _mostrarDetalhado = val ?? true);
+                                setStateDialog(() {});
+                              },
+                              activeColor: const Color(0xFF0D47A1),
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            const Text('Mostrar detalhado', style: TextStyle(fontSize: 14)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                       Row(
                         children: [
                           Expanded(
@@ -1838,6 +1860,7 @@ class _SelecaoTipoVisualizacaoBottomSheetState extends State<_SelecaoTipoVisuali
                                       nomeTerminal: widget.nomeTerminal,
                                       mes: tempMes,
                                       ano: tempAno,
+                                      mostrarDetalhado: _mostrarDetalhado,
                                       onVoltar: () {
                                         Navigator.of(ctx).pop();
                                         widget.onVoltar();
@@ -1906,6 +1929,7 @@ class _SelecaoTipoVisualizacaoBottomSheetState extends State<_SelecaoTipoVisuali
             nomeTerminal: widget.nomeTerminal,
             mes: _mesSelecionado,
             ano: _anoSelecionado,
+            mostrarDetalhado: _mostrarDetalhado,
             onVoltar: () {
               Navigator.of(ctx).pop();
               widget.onVoltar();
@@ -2054,7 +2078,26 @@ class _SelecaoTipoVisualizacaoBottomSheetState extends State<_SelecaoTipoVisuali
                   ),
                 ),
               ),
-              
+
+              if (_tipoMensal)
+                InkWell(
+                  onTap: () => setState(() => _mostrarDetalhado = !_mostrarDetalhado),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 10, left: 4),
+                    child: Row(
+                      children: [
+                        Checkbox(
+                          value: _mostrarDetalhado,
+                          onChanged: (val) => setState(() => _mostrarDetalhado = val ?? true),
+                          activeColor: const Color(0xFF0D47A1),
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        const Text('Mostrar detalhado', style: TextStyle(fontSize: 14)),
+                      ],
+                    ),
+                  ),
+                ),
+
               const SizedBox(height: 24),
               
               Row(
