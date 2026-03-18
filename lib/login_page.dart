@@ -422,7 +422,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '© Norton Tecnology - 550 California St, W-325, San Francisco, CA - EUA.',
+                    '© Norton Technology - 550 California St, W-325, San Francisco, CA - EUA.',
                     style: TextStyle(
                       color: Colors.grey.shade400,
                       fontSize: 13,

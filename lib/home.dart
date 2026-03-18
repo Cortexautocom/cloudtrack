@@ -1337,7 +1337,7 @@ class _HomePageState extends State<HomePage>
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '© Norton Tecnology - 550 California St, W-325, San Francisco, CA - EUA.',
+                    '© Norton Technology - 550 California St, W-325, San Francisco, CA - EUA.',
                     style: TextStyle(
                       fontSize: 10,
                       color: Colors.grey[500],
