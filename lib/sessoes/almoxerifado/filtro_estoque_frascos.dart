@@ -65,6 +65,10 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
 
     final usuario = UsuarioAtual.instance;
 
+    // Se widget.empresaId for nulo mas o usuário logado tiver uma empresa, 
+    // usa a do usuário como padrão para garantir que as restrições funcionem.
+    final empresaIdEfetivo = widget.empresaId ?? usuario?.empresaId;
+
     // Terminal: usar o do widget, ou o do usuário logado, ou o primeiro disponível
     final terminalIdInicial =
         widget.terminalId ?? usuario?.terminalId ?? '';
@@ -107,17 +111,52 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
     setState(() => _carregandoTerminais = true);
 
     try {
-      final dados = await _supabase
-          .from('terminais')
-          .select('id, nome')
-          .order('nome');
+      final usuario = UsuarioAtual.instance;
+      final empresaIdEfetivo =
+          (widget.empresaId ?? usuario?.empresaId ?? '').trim();
+      List<Map<String, dynamic>> terminais = [];
 
-      final List<Map<String, dynamic>> terminais = [];
-      for (var terminal in dados) {
-        terminais.add({
-          'id': terminal['id'].toString(),
-          'nome': terminal['nome'].toString(),
-        });
+      if (empresaIdEfetivo.isNotEmpty) {
+        // Há empresa definida: exibe apenas os terminais em que ela atua,
+        // buscando os vínculos na tabela relacoes_terminais.
+        final relacoes = await _supabase
+            .from('relacoes_terminais')
+            .select('terminal_id')
+            .eq('empresa_id', empresaIdEfetivo);
+
+        final terminaisIds = relacoes
+            .map((r) => r['terminal_id']?.toString())
+            .where((id) => id != null && id.isNotEmpty)
+            .toSet()
+            .toList();
+
+        if (terminaisIds.isNotEmpty) {
+          final dados = await _supabase
+              .from('terminais')
+              .select('id, nome')
+              .inFilter('id', terminaisIds)
+              .order('nome');
+
+          terminais = dados
+              .map((t) => {
+                    'id': t['id'].toString(),
+                    'nome': t['nome'].toString(),
+                  })
+              .toList();
+        }
+      } else {
+        // Sem empresa definida (administradores): todos os terminais.
+        final dados = await _supabase
+            .from('terminais')
+            .select('id, nome')
+            .order('nome');
+
+        terminais = dados
+            .map((t) => {
+                  'id': t['id'].toString(),
+                  'nome': t['nome'].toString(),
+                })
+            .toList();
       }
 
       setState(() {
@@ -143,44 +182,133 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
 
     try {
       final usuario = UsuarioAtual.instance;
-      final empresaId = widget.empresaId ?? usuario?.empresaId ?? '';
+      final nivelUsuario = usuario?.nivel ?? 0;
+      List<Map<String, dynamic>> empresas = [];
 
-      if (empresaId.isEmpty) {
-        setState(() {
-          _empresasDisponiveis = [];
-          _empresaSelecionadaId = null;
-          _empresaSelecionadaNome = null;
-        });
+      // Prioriza widget.empresaId, senão usa usuario.empresaId
+      final empresaIdEfetivo = widget.empresaId ?? usuario?.empresaId;
+
+      // Se houver uma empresa definida (via widget ou via usuário logado), ela deve ser fixa
+      if (empresaIdEfetivo != null && empresaIdEfetivo.isNotEmpty) {
+        // Se já temos o nome da empresa via widget ou se podemos inferir, evitamos o fetch.
+        // Como o UsuarioAtual não guarda o nome da empresa, apenas o ID, precisamos buscar uma única vez.
+        if (widget.empresaNome != null && widget.empresaNome!.isNotEmpty) {
+          setState(() {
+            _empresasDisponiveis = [
+              {'id': empresaIdEfetivo, 'nome': widget.empresaNome!},
+            ];
+            _empresaSelecionadaId = empresaIdEfetivo;
+            _empresaSelecionadaNome = widget.empresaNome;
+          });
+          return;
+        }
+
+        final dados = await _supabase
+            .from('empresas')
+            .select('id, nome_dois')
+            .eq('id', empresaIdEfetivo)
+            .limit(1);
+
+        if (dados.isNotEmpty) {
+          final e = dados.first;
+          final nome = (e['nome_dois'] ?? '').toString();
+          setState(() {
+            _empresasDisponiveis = [
+              {'id': e['id'].toString(), 'nome': nome},
+            ];
+            _empresaSelecionadaId = e['id'].toString();
+            _empresaSelecionadaNome = nome;
+          });
+        }
         return;
       }
 
-      final dados = await _supabase
-          .from('empresas')
-          .select('id, nome_dois')
-          .eq('id', empresaId)
-          .limit(1);
+      if (nivelUsuario == 4) {
+        // Nível 4: empresas que atuam no terminal do usuário
+        final terminalId = widget.terminalId ?? usuario?.terminalId ?? '';
 
-      if (dados.isNotEmpty) {
-        final empresa = dados.first;
-        final nome = (empresa['nome_dois'] ?? '').toString();
-        setState(() {
-          _empresasDisponiveis = [
-            {'id': empresa['id'].toString(), 'nome': nome},
-          ];
-          _empresaSelecionadaId = empresa['id'].toString();
-          _empresaSelecionadaNome = nome;
-        });
+        if (terminalId.isNotEmpty) {
+          // Busca as empresas através da tabela relacoes_terminais
+          final relacoes = await _supabase
+              .from('relacoes_terminais')
+              .select('empresa_id')
+              .eq('terminal_id', terminalId);
+
+          final empresasIds = relacoes
+              .map((r) => r['empresa_id']?.toString())
+              .where((id) => id != null && id.isNotEmpty)
+              .toSet()
+              .toList(); // Remove duplicatas
+
+          if (empresasIds.isNotEmpty) {
+            final dados = await _supabase
+                .from('empresas')
+                .select('id, nome_dois')
+                .inFilter('id', empresasIds)
+                .order('nome_dois');
+
+            empresas = dados
+                .map((e) => {
+                      'id': e['id'].toString(),
+                      'nome': (e['nome_dois'] ?? '').toString(),
+                    })
+                .toList();
+          }
+        }
+      } else if (nivelUsuario == 3) {
+        // Nível 3: apenas a empresa do usuário
+        final empresaId = widget.empresaId ?? usuario?.empresaId ?? '';
+
+        if (empresaId.isNotEmpty) {
+          final dados = await _supabase
+              .from('empresas')
+              .select('id, nome_dois')
+              .eq('id', empresaId)
+              .limit(1);
+
+          if (dados.isNotEmpty) {
+            empresas = dados
+                .map((e) => {
+                      'id': e['id'].toString(),
+                      'nome': (e['nome_dois'] ?? '').toString(),
+                    })
+                .toList();
+          }
+        }
       } else {
-        setState(() {
-          _empresasDisponiveis = [];
-          _empresaSelecionadaId = null;
-          _empresaSelecionadaNome = null;
-        });
+        // Níveis 1 e 2: empresa fixa do usuário (manter comportamento atual)
+        final empresaId = widget.empresaId ?? usuario?.empresaId ?? '';
+
+        if (empresaId.isNotEmpty) {
+          final dados = await _supabase
+              .from('empresas')
+              .select('id, nome_dois')
+              .eq('id', empresaId)
+              .limit(1);
+
+          if (dados.isNotEmpty) {
+            empresas = dados
+                .map((e) => {
+                      'id': e['id'].toString(),
+                      'nome': (e['nome_dois'] ?? '').toString(),
+                    })
+                .toList();
+          }
+        }
       }
-    } catch (e) {
-      debugPrint('❌ Erro ao carregar empresa: $e');
+
       setState(() {
-        _empresasDisponiveis = [];
+        _empresasDisponiveis = [
+          {'id': '', 'nome': '<selecione>'}
+        ];
+        _empresasDisponiveis.addAll(empresas);
+      });
+    } catch (e) {
+      debugPrint('❌ Erro ao carregar empresas: $e');
+      setState(() {
+        _empresasDisponiveis = [
+          {'id': '', 'nome': '<selecione>'}
+        ];
         _empresaSelecionadaId = null;
         _empresaSelecionadaNome = null;
       });
@@ -578,7 +706,13 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                     else
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: (widget.empresaId != null &&
+                                      widget.empresaId!.isNotEmpty) ||
+                                  (UsuarioAtual.instance?.empresaId != null &&
+                                      UsuarioAtual.instance!.empresaId!
+                                          .isNotEmpty)
+                              ? Colors.grey.shade100
+                              : Colors.white,
                           border: Border.all(
                               color: Colors.grey.shade400, width: 1),
                           borderRadius: BorderRadius.circular(4),
@@ -588,25 +722,41 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                             value: _empresaSelecionadaId,
                             isExpanded: true,
                             itemHeight: 50,
-                            icon: const Icon(Icons.arrow_drop_down, size: 20),
+                            icon: (widget.empresaId != null &&
+                                        widget.empresaId!.isNotEmpty) ||
+                                    (UsuarioAtual.instance?.empresaId != null &&
+                                        UsuarioAtual.instance!.empresaId!
+                                            .isNotEmpty)
+                                ? const Visibility(
+                                    visible: false,
+                                    child: Icon(Icons.arrow_drop_down),
+                                  )
+                                : const Icon(Icons.arrow_drop_down, size: 20),
                             style: const TextStyle(
                                 fontSize: 13, color: Colors.black),
-                            onChanged: (String? novoValor) {
-                              setState(() {
-                                _empresaSelecionadaId = novoValor;
-                                if (novoValor != null &&
-                                    novoValor.isNotEmpty) {
-                                  final empresa =
-                                      _empresasDisponiveis.firstWhere(
-                                    (e) => e['id'] == novoValor,
-                                    orElse: () => {'id': '', 'nome': ''},
-                                  );
-                                  _empresaSelecionadaNome = empresa['nome'];
-                                } else {
-                                  _empresaSelecionadaNome = null;
-                                }
-                              });
-                            },
+                            onChanged: (widget.empresaId != null &&
+                                        widget.empresaId!.isNotEmpty) ||
+                                    (UsuarioAtual.instance?.empresaId != null &&
+                                        UsuarioAtual.instance!.empresaId!
+                                            .isNotEmpty)
+                                ? null
+                                : (String? novoValor) {
+                                    setState(() {
+                                      _empresaSelecionadaId = novoValor;
+                                      if (novoValor != null &&
+                                          novoValor.isNotEmpty) {
+                                        final empresa =
+                                            _empresasDisponiveis.firstWhere(
+                                          (e) => e['id'] == novoValor,
+                                          orElse: () => {'id': '', 'nome': ''},
+                                        );
+                                        _empresaSelecionadaNome =
+                                            empresa['nome'];
+                                      } else {
+                                        _empresaSelecionadaNome = null;
+                                      }
+                                    });
+                                  },
                             items: _empresasDisponiveis
                                 .map<DropdownMenuItem<String>>((empresa) {
                               return DropdownMenuItem<String>(
