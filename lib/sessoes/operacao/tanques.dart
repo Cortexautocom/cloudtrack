@@ -468,6 +468,8 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _SelecaoTipoVisualizacaoBottomSheet(
         tanqueId: tanqueId,
@@ -1942,42 +1944,47 @@ class _SelecaoTipoVisualizacaoBottomSheetState extends State<_SelecaoTipoVisuali
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 400),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, -5),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Center(
-                child: Text(
-                  'Selecionar Período',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0D47A1),
+    return GestureDetector(
+      onTap: () => Navigator.pop(context),
+      behavior: HitTestBehavior.opaque,
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: GestureDetector(
+          onTap: () {},
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, -5),
                   ),
-                ),
+                ],
               ),
-              const SizedBox(height: 20),
-              
-              InkWell(
-                onTap: _selecionarData,
-                child: Container(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Center(
+                    child: Text(
+                      'Selecionar Período',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0D47A1),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  InkWell(
+                    onTap: _selecionarData,
+                    child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     border: Border.all(
@@ -2133,6 +2140,8 @@ class _SelecaoTipoVisualizacaoBottomSheetState extends State<_SelecaoTipoVisuali
           ),
         ),
       ),
+    ),
+    ),
     );
   }
 
