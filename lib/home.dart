@@ -82,6 +82,13 @@ class _HomePageState extends State<HomePage>
   bool _mostrarAcompanhamentoOrdens = false;
   bool _mostrarSuporte = false;
   bool _mostrarFrascosAmostra = false;
+  bool _mostrarResultadoFrascos = false;
+
+  // Parâmetros de filtro para a página de resultado de frascos
+  DateTime? _frascosMesFiltro;
+  String _frascosTipoRelatorio = 'sintetico';
+  bool _frascosIsIntraday = false;
+  DateTime? _frascosDataIntraday;
 
   // FLAGS PARA SESSÕES ESPECÍFICAS
   bool _mostrarCalcGerado = false;
@@ -851,6 +858,7 @@ class _HomePageState extends State<HomePage>
       _mostrarFiltrosEstoque = false;
       _mostrarFiltroMovimentacoes = false;      
       _mostrarFrascosAmostra = false;
+      _mostrarResultadoFrascos = false;
       _mostrarEscolherTerminal = false;
       _mostrarEstoquePorEmpresa = false;
       _mostrarFiliaisDaEmpresa = false;
@@ -967,6 +975,7 @@ class _HomePageState extends State<HomePage>
       _mostrarEstoquePorEmpresa = false;
       _mostrarFiltrosEstoque = false;
       _mostrarFrascosAmostra = false;
+      _mostrarResultadoFrascos = false;
       _mostrarCalcGerado = false;
       _mostrarTempDensMedia = false;
       _mostrarMenuAjuda = false;
@@ -1009,6 +1018,7 @@ class _HomePageState extends State<HomePage>
       _mostrarEstoquePorTanque = false;
       _mostrarFiltrosEstoque = false;
       _mostrarFrascosAmostra = false;
+      _mostrarResultadoFrascos = false;
       _mostrarCalcGerado = false;
       _mostrarTempDensMedia = false;
       _mostrarEstoqueProduto = false;
@@ -1393,6 +1403,23 @@ class _HomePageState extends State<HomePage>
 
       case 'Almoxerifado':
         if (_mostrarFrascosAmostra) {
+          if (_mostrarResultadoFrascos) {
+            return FrascosAmostraPage(
+              onVoltar: () {
+                setState(() {
+                  _mostrarResultadoFrascos = false;
+                });
+              },
+              terminalId: _terminalParaFiltroId,
+              empresaId: _empresaParaFiltroId,
+              nomeTerminal: _terminalParaFiltroNome ?? '',
+              empresaNome: _empresaParaFiltroNome,
+              mesFiltro: _frascosMesFiltro,
+              tipoRelatorio: _frascosTipoRelatorio,
+              isIntraday: _frascosIsIntraday,
+              dataIntraday: _frascosDataIntraday,
+            );
+          }
           return FiltroEstoqueFrascosPage(
             terminalId: _terminalParaFiltroId,
             empresaId: _empresaParaFiltroId,
@@ -1408,7 +1435,17 @@ class _HomePageState extends State<HomePage>
               required bool isIntraday,
               DateTime? dataIntraday,
             }) {
-              // TODO: navegar para a página de resultado
+              setState(() {
+                _terminalParaFiltroId = terminalId;
+                _empresaParaFiltroId = empresaId;
+                _terminalParaFiltroNome = nomeTerminal;
+                _empresaParaFiltroNome = empresaNome;
+                _frascosMesFiltro = mesFiltro;
+                _frascosTipoRelatorio = tipoRelatorio;
+                _frascosIsIntraday = isIntraday;
+                _frascosDataIntraday = dataIntraday;
+                _mostrarResultadoFrascos = true;
+              });
             },
             onVoltar: () {
               setState(() {
@@ -1615,6 +1652,23 @@ class _HomePageState extends State<HomePage>
     // SEÇÃO: Almoxerifado
     if (sessaoAtual == 'Almoxerifado') {
       if (_mostrarFrascosAmostra) {
+        if (_mostrarResultadoFrascos) {
+          return FrascosAmostraPage(
+            onVoltar: () {
+              setState(() {
+                _mostrarResultadoFrascos = false;
+              });
+            },
+            terminalId: _terminalParaFiltroId,
+            empresaId: _empresaParaFiltroId,
+            nomeTerminal: _terminalParaFiltroNome ?? '',
+            empresaNome: _empresaParaFiltroNome,
+            mesFiltro: _frascosMesFiltro,
+            tipoRelatorio: _frascosTipoRelatorio,
+            isIntraday: _frascosIsIntraday,
+            dataIntraday: _frascosDataIntraday,
+          );
+        }
         return FiltroEstoqueFrascosPage(
           terminalId: _terminalParaFiltroId,
           empresaId: _empresaParaFiltroId,
@@ -1630,7 +1684,17 @@ class _HomePageState extends State<HomePage>
             required bool isIntraday,
             DateTime? dataIntraday,
           }) {
-            // TODO: navegar para a página de resultado
+            setState(() {
+              _terminalParaFiltroId = terminalId;
+              _empresaParaFiltroId = empresaId;
+              _terminalParaFiltroNome = nomeTerminal;
+              _empresaParaFiltroNome = empresaNome;
+              _frascosMesFiltro = mesFiltro;
+              _frascosTipoRelatorio = tipoRelatorio;
+              _frascosIsIntraday = isIntraday;
+              _frascosDataIntraday = dataIntraday;
+              _mostrarResultadoFrascos = true;
+            });
           },
           onVoltar: () {
             setState(() {

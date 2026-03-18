@@ -64,12 +64,6 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
     await _carregarTerminaisDisponiveis();
 
     final usuario = UsuarioAtual.instance;
-
-    // Se widget.empresaId for nulo mas o usuário logado tiver uma empresa, 
-    // usa a do usuário como padrão para garantir que as restrições funcionem.
-    final empresaIdEfetivo = widget.empresaId ?? usuario?.empresaId;
-
-    // Terminal: usar o do widget, ou o do usuário logado, ou o primeiro disponível
     final terminalIdInicial =
         widget.terminalId ?? usuario?.terminalId ?? '';
 

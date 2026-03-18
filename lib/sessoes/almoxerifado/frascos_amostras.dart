@@ -1,15 +1,27 @@
-/*// C:\Users\Public\Desenvolvimento\cloudtrack\lib\sessoes\almoxerifado\frascos_amostras.dart
-
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../login_page.dart';
 
 class FrascosAmostraPage extends StatefulWidget {
   final VoidCallback onVoltar;
+  final String? terminalId;
+  final String? empresaId;
+  final String nomeTerminal;
+  final String? empresaNome;
+  final DateTime? mesFiltro;
+  final String tipoRelatorio;
+  final bool isIntraday;
+  final DateTime? dataIntraday;
 
   const FrascosAmostraPage({
     super.key,
     required this.onVoltar,
+    this.terminalId,
+    this.empresaId,
+    required this.nomeTerminal,
+    this.empresaNome,
+    this.mesFiltro,
+    this.tipoRelatorio = 'sintetico',
+    this.isIntraday = false,
+    this.dataIntraday,
   });
 
   @override
@@ -17,21 +29,7 @@ class FrascosAmostraPage extends StatefulWidget {
 }
 
 class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
-  final SupabaseClient _supabase = Supabase.instance.client;
-  
-  // Controles de filtro
-  String? _terminalSelecionadoId;
-  String? _terminalSelecionadoNome;
-  String? _empresaSelecionadaId;
-  String? _empresaSelecionadaNome;
-  
-  // Listas para dropdowns
-  List<Map<String, dynamic>> _terminaisDisponiveis = [];
-  List<Map<String, dynamic>> _empresasDisponiveis = [];
-  
   // Flags de carregamento
-  bool _carregandoTerminais = false;
-  bool _carregandoEmpresas = false;
   bool _carregandoDados = false;
   
   // Dados da tabela
@@ -46,7 +44,6 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
   // Dimensões da tabela (igual ao EstoqueTanquePage)
   static const double _hCab = 40;
   static const double _hRow = 40;
-  static const double _hFoot = 32;
   
   static const double _wData = 120;
   static const double _wPlaca = 180;
@@ -67,7 +64,7 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
   void initState() {
     super.initState();
     _syncScroll();
-    _inicializarFiltros();
+    _carregarDadosMock();
   }
 
   void _syncScroll() {
@@ -91,313 +88,35 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
     super.dispose();
   }
 
-  Future<void> _inicializarFiltros() async {
-    final usuario = UsuarioAtual.instance;
-    if (usuario == null) return;
+  void _carregarDadosMock() {
+    // Dados fictícios para teste de layout
+    final List<Map<String, dynamic>> mock = [
+      {'data': '2026-03-01', 'placa': 'ABC-1234', 'entradas': 10, 'saidas': 3, 'saldo': 7},
+      {'data': '2026-03-03', 'placa': 'DEF-5678', 'entradas': 5,  'saidas': 5, 'saldo': 7},
+      {'data': '2026-03-05', 'placa': 'GHI-9012', 'entradas': 8,  'saidas': 2, 'saldo': 13},
+      {'data': '2026-03-07', 'placa': 'ABC-1234', 'entradas': 0,  'saidas': 4, 'saldo': 9},
+      {'data': '2026-03-10', 'placa': 'JKL-3456', 'entradas': 12, 'saidas': 6, 'saldo': 15},
+      {'data': '2026-03-12', 'placa': 'MNO-7890', 'entradas': 4,  'saidas': 1, 'saldo': 18},
+      {'data': '2026-03-14', 'placa': 'DEF-5678', 'entradas': 7,  'saidas': 7, 'saldo': 18},
+      {'data': '2026-03-15', 'placa': 'PQR-2345', 'entradas': 6,  'saidas': 2, 'saldo': 22},
+      {'data': '2026-03-17', 'placa': 'GHI-9012', 'entradas': 3,  'saidas': 3, 'saldo': 22},
+      {'data': '2026-03-18', 'placa': 'STU-6789', 'entradas': 9,  'saidas': 4, 'saldo': 27},
+    ];
 
-    // 1. Carregar terminais disponíveis
-    await _carregarTerminaisDisponiveis();
-
-    // 2. Verificar se usuário tem terminal no widget
-    if (usuario.terminalId != null && usuario.terminalId!.isNotEmpty) {
-      // Usuário tem terminal: campo bloqueado
-      final terminalId = usuario.terminalId;
-      _terminalSelecionadoId = terminalId;
-      
-      // Buscar nome do terminal
-      final terminal = _terminaisDisponiveis.firstWhere(
-        (t) => t['id'] == terminalId,
-        orElse: () => {'id': '', 'nome': ''},
-      );
-      _terminalSelecionadoNome = terminal['nome'];
-
-      // Carregar empresas deste terminal
-      await _carregarEmpresasDoTerminal(terminalId!);
-    } else {
-      // Usuário não tem terminal: campo livre com primeiro terminal
-      if (_terminaisDisponiveis.isNotEmpty) {
-        final primeiroTerminal = _terminaisDisponiveis.firstWhere(
-          (t) => t['id'] != '',
-          orElse: () => _terminaisDisponiveis.isNotEmpty ? _terminaisDisponiveis.first : {'id': '', 'nome': ''},
-        );
-        
-        if (primeiroTerminal['id'] != '') {
-          _terminalSelecionadoId = primeiroTerminal['id'];
-          _terminalSelecionadoNome = primeiroTerminal['nome'];
-          
-          // Carregar empresas do primeiro terminal
-          await _carregarEmpresasDoTerminal(primeiroTerminal['id']);
-        }
-      }
-    }
-
-    // 3. Verificar empresa do usuário
-    if (usuario.empresaId != null && usuario.empresaId!.isNotEmpty) {
-      // Usuário tem empresa: campo bloqueado
-      final empresaId = usuario.empresaId;
-      _empresaSelecionadaId = empresaId;
-      
-      // Buscar nome da empresa
-      final empresa = _empresasDisponiveis.firstWhere(
-        (e) => e['id'] == empresaId,
-        orElse: () => {'id': '', 'nome': ''},
-      );
-      _empresaSelecionadaNome = empresa['nome'];
-    } else {
-      // Usuário não tem empresa: selecionar primeira disponível
-      if (_empresasDisponiveis.isNotEmpty) {
-        final primeiraEmpresa = _empresasDisponiveis.firstWhere(
-          (e) => e['id'] != '',
-          orElse: () => _empresasDisponiveis.isNotEmpty ? _empresasDisponiveis.first : {'id': '', 'nome': ''},
-        );
-        
-        if (primeiraEmpresa['id'] != '') {
-          _empresaSelecionadaId = primeiraEmpresa['id'];
-          _empresaSelecionadaNome = primeiraEmpresa['nome'];
-        }
-      }
-    }
-
-    // 4. Carregar dados do mês atual
-    final terminalId = _terminalSelecionadoId;
-    final empresaId = _empresaSelecionadaId;
-    
-    if (terminalId != null && terminalId.isNotEmpty && 
-        empresaId != null && empresaId.isNotEmpty) {
-      await _carregarDados();
-    }
-  }
-
-  Future<void> _carregarTerminaisDisponiveis() async {
-    setState(() => _carregandoTerminais = true);
-
-    try {
-      final usuario = UsuarioAtual.instance;
-      if (usuario == null) return;
-
-      // Lógica igual ao filtro_movimentacoes: buscar todos os terminais
-      final dados = await _supabase
-          .from('terminais')
-          .select('id, nome')
-          .order('nome');
-
-      final List<Map<String, dynamic>> terminais = [];
-      
-      // Adicionar opção "selecione" apenas se usuário não tiver terminal fixo
-      if (usuario.terminalId == null || usuario.terminalId!.isEmpty) {
-        terminais.add({'id': '', 'nome': '<selecione>'});
-      }
-      
-      for (var terminal in dados) {
-        terminais.add({
-          'id': terminal['id'].toString(),
-          'nome': terminal['nome'].toString(),
-        });
-      }
-
-      setState(() {
-        _terminaisDisponiveis = terminais;
-      });
-    } catch (e) {
-      debugPrint('❌ Erro ao carregar terminais: $e');
-      setState(() {
-        _terminaisDisponiveis = [
-          {'id': '', 'nome': '<selecione>'}
-        ];
-      });
-    } finally {
-      setState(() => _carregandoTerminais = false);
-    }
-  }
-
-  Future<void> _carregarEmpresasDoTerminal(String terminalId) async {
-    if (terminalId.isEmpty) {
-      setState(() {
-        _empresasDisponiveis = [];
-        _empresaSelecionadaId = null;
-        _empresaSelecionadaNome = null;
-      });
-      return;
-    }
-
-    setState(() => _carregandoEmpresas = true);
-
-    try {
-      // Buscar empresas que operam neste terminal
-      final dados = await _supabase
-          .from('empresas')
-          .select('id, nome, nome_abrev')
-          .eq('terminal_orig_id', terminalId)
-          .order('nome');
-
-      final List<Map<String, dynamic>> empresas = [];
-      
-      final usuario = UsuarioAtual.instance;
-      
-      // Adicionar opção "selecione" apenas se usuário não tiver empresa fixa
-      if (usuario?.empresaId == null || usuario!.empresaId!.isEmpty) {
-        empresas.add({'id': '', 'nome': '<selecione>'});
-      }
-      
-      for (var empresa in dados) {
-        empresas.add({
-          'id': empresa['id'].toString(),
-          'nome': empresa['nome_abrev'] ?? empresa['nome'] ?? '',
-        });
-      }
-
-      setState(() {
-        _empresasDisponiveis = empresas;
-      });
-    } catch (e) {
-      debugPrint('❌ Erro ao carregar empresas do terminal: $e');
-      setState(() {
-        _empresasDisponiveis = [
-          {'id': '', 'nome': '<selecione>'}
-        ];
-      });
-    } finally {
-      setState(() => _carregandoEmpresas = false);
-    }
-  }
-
-  Future<void> _carregarDados() async {
-    final terminalId = _terminalSelecionadoId;
-    final empresaId = _empresaSelecionadaId;
-    
-    if (terminalId == null || terminalId.isEmpty ||
-        empresaId == null || empresaId.isEmpty) {
-      return;
+    int totalEntradas = 0;
+    int totalSaidas = 0;
+    for (var item in mock) {
+      totalEntradas += item['entradas'] as int;
+      totalSaidas += item['saidas'] as int;
     }
 
     setState(() {
-      _carregandoDados = true;
-      _movimentacoes = [];
-      _movimentacoesOrdenadas = [];
-      _totalEntradas = 0;
-      _totalSaidas = 0;
-      _saldoFinal = 0;
+      _movimentacoes = mock;
+      _movimentacoesOrdenadas = List.from(mock);
+      _totalEntradas = totalEntradas;
+      _totalSaidas = totalSaidas;
+      _saldoFinal = mock.isNotEmpty ? mock.last['saldo'] as int : 0;
     });
-
-    try {
-      // Definir período: mês atual (01 até último dia)
-      final now = DateTime.now();
-      final primeiroDia = DateTime(now.year, now.month, 1);
-      final ultimoDia = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
-
-      final primeiroDiaStr = primeiroDia.toIso8601String().split('T')[0];
-      final ultimoDiaStr = ultimoDia.toIso8601String().split('T')[0];
-
-      // Buscar movimentações de saída do período
-      final dados = await _supabase
-          .from('movimentacoes')
-          .select('''
-            id,
-            data_mov,
-            placa,
-            quantidade,
-            tipo_op
-          ''')
-          .eq('terminal_orig_id', terminalId)
-          .eq('empresa_id', empresaId)
-          .gte('data_mov', '$primeiroDiaStr 00:00:00')
-          .lte('data_mov', '$ultimoDiaStr 23:59:59')
-          .neq('tipo_op', 'ENTRADA') // Apenas saídas
-          .order('data_mov');
-
-      // Agrupar por dia e placa
-      final Map<String, Map<String, dynamic>> movimentacoesAgrupadas = {};
-
-      for (var mov in dados) {
-        final data = DateTime.parse(mov['data_mov']);
-        final dataStr = '${data.year}-${data.month.toString().padLeft(2, '0')}-${data.day.toString().padLeft(2, '0')}';
-        
-        // Extrair placa do array ou usar valor padrão
-        String placa = 'SEM PLACA';
-        if (mov['placa'] != null) {
-          if (mov['placa'] is List) {
-            final List placas = mov['placa'] as List;
-            if (placas.isNotEmpty) {
-              placa = placas.first.toString();
-            }
-          } else if (mov['placa'] is String) {
-            placa = mov['placa'] as String;
-          }
-        }
-        
-        final key = '$dataStr|$placa';
-
-        if (!movimentacoesAgrupadas.containsKey(key)) {
-          movimentacoesAgrupadas[key] = {
-            'data': dataStr,
-            'placa': placa,
-            'entradas': 0,
-            'saidas': 0,
-            'movimentacoes': [],
-          };
-        }
-
-        // Cada movimentação de saída = 1 frasco
-        final saidasAtual = movimentacoesAgrupadas[key]!['saidas'] as int;
-        movimentacoesAgrupadas[key]!['saidas'] = saidasAtual + 1;
-        movimentacoesAgrupadas[key]!['movimentacoes'].add(mov);
-      }
-
-      // Calcular saldo acumulado (iniciando em zero)
-      int saldoAcumulado = 0;
-      final List<Map<String, dynamic>> listaComSaldo = [];
-
-      // Ordenar por data
-      final keysOrdenadas = movimentacoesAgrupadas.keys.toList()..sort();
-
-      for (final key in keysOrdenadas) {
-        final item = movimentacoesAgrupadas[key]!;
-        
-        final entradas = item['entradas'] as int;
-        final saidas = item['saidas'] as int;
-        
-        saldoAcumulado = saldoAcumulado + entradas - saidas;
-        
-        listaComSaldo.add({
-          'data': item['data'],
-          'placa': item['placa'],
-          'entradas': entradas,
-          'saidas': saidas,
-          'saldo': saldoAcumulado,
-        });
-      }
-
-      // Calcular totais
-      int totalEntradas = 0;
-      int totalSaidas = 0;
-      for (var item in listaComSaldo) {
-        totalEntradas += item['entradas'] as int;
-        totalSaidas += item['saidas'] as int;
-      }
-      final saldoFinal = listaComSaldo.isNotEmpty ? listaComSaldo.last['saldo'] as int : 0;
-
-      setState(() {
-        _movimentacoes = listaComSaldo;
-        _movimentacoesOrdenadas = List.from(listaComSaldo);
-        _totalEntradas = totalEntradas;
-        _totalSaidas = totalSaidas;
-        _saldoFinal = saldoFinal;
-        _carregandoDados = false;
-      });
-
-    } catch (e) {
-      debugPrint('❌ Erro ao carregar dados: $e');
-      setState(() {
-        _carregandoDados = false;
-      });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao carregar dados: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
   }
 
   void _ordenar(String col, bool asc) {
@@ -459,21 +178,37 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
   Color _bgEntrada() => Colors.green.shade50.withOpacity(0.3);
   Color _bgSaida() => Colors.red.shade50.withOpacity(0.3);
 
+  String _fmtPeriodo() {
+    if (widget.isIntraday && widget.dataIntraday != null) {
+      final d = widget.dataIntraday!;
+      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    }
+    if (widget.mesFiltro != null) {
+      return '${widget.mesFiltro!.month.toString().padLeft(2, '0')}/${widget.mesFiltro!.year}';
+    }
+    return '-';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final usuario = UsuarioAtual.instance;
-    final bool terminalBloqueado = usuario?.terminalId != null && usuario!.terminalId!.isNotEmpty;
-    final bool empresaBloqueada = usuario?.empresaId != null && usuario!.empresaId!.isNotEmpty;
-
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         elevation: 1,
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF0D47A1),
-        title: const Text(
-          'Frascos de Amostra Testemunha',
-          style: TextStyle(fontWeight: FontWeight.w600),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Frascos de Amostra Testemunha',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            Text(
+              widget.nomeTerminal,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+            ),
+          ],
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -485,229 +220,32 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Filtros
+            // Painel de filtros (somente leitura)
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.grey.shade300),
               ),
-              child: Row(
+              child: Wrap(
+                spacing: 32,
+                runSpacing: 12,
                 children: [
-                  // Campo Terminal
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Terminal',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF0D47A1),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        if (_carregandoTerminais)
-                          Container(
-                            height: 40,
-                            alignment: Alignment.center,
-                            child: const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Color(0xFF0D47A1),
-                              ),
-                            ),
-                          )
-                        else
-                          Container(
-                            decoration: BoxDecoration(
-                              color: terminalBloqueado ? Colors.grey.shade100 : Colors.white,
-                              border: Border.all(
-                                color: terminalBloqueado ? Colors.grey.shade400 : Colors.grey.shade400,
-                                width: 1,
-                              ),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: _terminalSelecionadoId,
-                                isExpanded: true,
-                                itemHeight: 50,
-                                icon: const Icon(Icons.arrow_drop_down, size: 20),
-                                style: const TextStyle(fontSize: 13, color: Colors.black),
-                                onChanged: terminalBloqueado
-                                    ? null
-                                    : (String? novoValor) {
-                                        setState(() {
-                                          _terminalSelecionadoId = novoValor;
-                                          final terminal = _terminaisDisponiveis.firstWhere(
-                                            (t) => t['id'] == novoValor,
-                                            orElse: () => {'id': '', 'nome': ''},
-                                          );
-                                          _terminalSelecionadoNome = terminal['nome'];
-                                          
-                                          // Recarregar empresas do novo terminal
-                                          if (novoValor != null && novoValor.isNotEmpty) {
-                                            _carregarEmpresasDoTerminal(novoValor);
-                                          }
-                                          
-                                          // Limpar empresa selecionada
-                                          _empresaSelecionadaId = null;
-                                          _empresaSelecionadaNome = null;
-                                        });
-                                      },
-                                items: _terminaisDisponiveis.map<DropdownMenuItem<String>>((terminal) {
-                                  return DropdownMenuItem<String>(
-                                    value: terminal['id']!,
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                                      child: Text(
-                                        terminal['nome']!,
-                                        style: TextStyle(
-                                          color: terminal['id']!.isEmpty
-                                              ? Colors.grey.shade600
-                                              : Colors.black,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
+                  _buildInfoFiltro(Icons.store, 'Terminal', widget.nomeTerminal),
+                  _buildInfoFiltro(Icons.business, 'Empresa', widget.empresaNome ?? '-'),
+                  _buildInfoFiltro(
+                    Icons.calendar_today,
+                    widget.isIntraday ? 'Data' : 'Mês',
+                    _fmtPeriodo(),
                   ),
-                  
-                  const SizedBox(width: 16),
-                  
-                  // Campo Empresa
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Empresa',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF0D47A1),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        if (_carregandoEmpresas)
-                          Container(
-                            height: 40,
-                            alignment: Alignment.center,
-                            child: const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Color(0xFF0D47A1),
-                              ),
-                            ),
-                          )
-                        else
-                          Container(
-                            decoration: BoxDecoration(
-                              color: empresaBloqueada ? Colors.grey.shade100 : Colors.white,
-                              border: Border.all(
-                                color: empresaBloqueada ? Colors.grey.shade400 : Colors.grey.shade400,
-                                width: 1,
-                              ),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: _empresaSelecionadaId,
-                                isExpanded: true,
-                                itemHeight: 50,
-                                icon: const Icon(Icons.arrow_drop_down, size: 20),
-                                style: const TextStyle(fontSize: 13, color: Colors.black),
-                                onChanged: empresaBloqueada
-                                    ? null
-                                    : (String? novoValor) {
-                                        setState(() {
-                                          _empresaSelecionadaId = novoValor;
-                                          final empresa = _empresasDisponiveis.firstWhere(
-                                            (e) => e['id'] == novoValor,
-                                            orElse: () => {'id': '', 'nome': ''},
-                                          );
-                                          _empresaSelecionadaNome = empresa['nome'];
-                                          
-                                          // Recarregar dados
-                                          final terminalId = _terminalSelecionadoId;
-                                          if (terminalId != null && terminalId.isNotEmpty &&
-                                              novoValor != null && novoValor.isNotEmpty) {
-                                            _carregarDados();
-                                          }
-                                        });
-                                      },
-                                items: _empresasDisponiveis.map<DropdownMenuItem<String>>((empresa) {
-                                  return DropdownMenuItem<String>(
-                                    value: empresa['id']!,
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                                      child: Text(
-                                        empresa['nome']!,
-                                        style: TextStyle(
-                                          color: empresa['id']!.isEmpty
-                                              ? Colors.grey.shade600
-                                              : Colors.black,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
+                  _buildInfoFiltro(
+                    Icons.assessment,
+                    'Tipo',
+                    widget.tipoRelatorio == 'sintetico' ? 'Sintético' : 'Analítico',
                   ),
-                  
-                  const SizedBox(width: 16),
-                  
-                  // Botão Consultar
-                  SizedBox(
-                    width: 100,
-                    height: 40,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        final terminalId = _terminalSelecionadoId;
-                        final empresaId = _empresaSelecionadaId;
-                        
-                        if (terminalId != null && terminalId.isNotEmpty &&
-                            empresaId != null && empresaId.isNotEmpty) {
-                          _carregarDados();
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0D47A1),
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.search, size: 16),
-                          SizedBox(width: 4),
-                          Text(
-                            'Consultar',
-                            style: TextStyle(fontSize: 13),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  if (widget.isIntraday)
+                    _buildInfoFiltro(Icons.access_time, 'Modo', 'Intraday'),
                 ],
               ),
             ),
@@ -878,6 +416,37 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
     );
   }
 
+  Widget _buildInfoFiltro(IconData icon, String label, String valor) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: Colors.grey.shade500),
+        const SizedBox(width: 6),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade500,
+              ),
+            ),
+            Text(
+              valor,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildRodape() {
     return Container(
       width: double.infinity,
@@ -934,4 +503,4 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
       ],
     );
   }
-}*/
+}
