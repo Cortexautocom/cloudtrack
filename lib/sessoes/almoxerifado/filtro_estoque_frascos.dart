@@ -70,7 +70,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
     if (terminalIdInicial.isNotEmpty) {
       final encontrado = _terminaisDisponiveis.firstWhere(
         (t) => t['id'] == terminalIdInicial,
-        orElse: () => {'id': '', 'nome': ''},
+        orElse: () => <String, dynamic>{'id': '', 'nome': ''},
       );
       if (encontrado['id'] != '') {
         _terminalSelecionadoId = encontrado['id'];
@@ -90,7 +90,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
   void _selecionarPrimeiroTerminal() {
     final primeiro = _terminaisDisponiveis.firstWhere(
       (t) => t['id'] != '',
-      orElse: () => {'id': '', 'nome': ''},
+      orElse: () => <String, dynamic>{'id': '', 'nome': ''},
     );
     if (primeiro['id'] != '') {
       _terminalSelecionadoId = primeiro['id'];
@@ -106,9 +106,37 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
 
     try {
       final usuario = UsuarioAtual.instance;
+      final nivelUsuario = usuario?.nivel ?? 0;
       final empresaIdEfetivo =
           (widget.empresaId ?? usuario?.empresaId ?? '').trim();
       List<Map<String, dynamic>> terminais = [];
+
+      if (nivelUsuario == 4) {
+        // Nível 4: terminal fixo do usuário, bloqueado para alteração
+        final terminalId =
+            (widget.terminalId ?? usuario?.terminalId ?? '').trim();
+        if (terminalId.isNotEmpty) {
+          final dados = await _supabase
+              .from('terminais')
+              .select('id, nome')
+              .eq('id', terminalId)
+              .limit(1);
+          if (dados.isNotEmpty) {
+            terminais = dados
+                .map<Map<String, dynamic>>((t) => {
+                      'id': t['id'].toString(),
+                      'nome': t['nome'].toString(),
+                    })
+                .toList();
+          }
+        }
+        setState(() {
+          _terminaisDisponiveis = terminais.isNotEmpty
+              ? terminais
+              : <Map<String, dynamic>>[{'id': '', 'nome': '<selecione>'}];
+        });
+        return;
+      }
 
       if (empresaIdEfetivo.isNotEmpty) {
         // Há empresa definida: exibe apenas os terminais em que ela atua,
@@ -132,7 +160,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
               .order('nome');
 
           terminais = dados
-              .map((t) => {
+              .map<Map<String, dynamic>>((t) => {
                     'id': t['id'].toString(),
                     'nome': t['nome'].toString(),
                   })
@@ -146,7 +174,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
             .order('nome');
 
         terminais = dados
-            .map((t) => {
+            .map<Map<String, dynamic>>((t) => {
                   'id': t['id'].toString(),
                   'nome': t['nome'].toString(),
                 })
@@ -154,7 +182,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
       }
 
       setState(() {
-        _terminaisDisponiveis = [
+        _terminaisDisponiveis = <Map<String, dynamic>>[
           {'id': '', 'nome': '<selecione>'}
         ];
         _terminaisDisponiveis.addAll(terminais);
@@ -162,7 +190,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
     } catch (e) {
       debugPrint('❌ Erro ao carregar terminais: $e');
       setState(() {
-        _terminaisDisponiveis = [
+        _terminaisDisponiveis = <Map<String, dynamic>>[
           {'id': '', 'nome': '<selecione>'}
         ];
       });
@@ -188,7 +216,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
         // Como o UsuarioAtual não guarda o nome da empresa, apenas o ID, precisamos buscar uma única vez.
         if (widget.empresaNome != null && widget.empresaNome!.isNotEmpty) {
           setState(() {
-            _empresasDisponiveis = [
+            _empresasDisponiveis = <Map<String, dynamic>>[
               {'id': empresaIdEfetivo, 'nome': widget.empresaNome!},
             ];
             _empresaSelecionadaId = empresaIdEfetivo;
@@ -207,7 +235,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
           final e = dados.first;
           final nome = (e['nome_dois'] ?? '').toString();
           setState(() {
-            _empresasDisponiveis = [
+            _empresasDisponiveis = <Map<String, dynamic>>[
               {'id': e['id'].toString(), 'nome': nome},
             ];
             _empresaSelecionadaId = e['id'].toString();
@@ -242,7 +270,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                 .order('nome_dois');
 
             empresas = dados
-                .map((e) => {
+                .map<Map<String, dynamic>>((e) => {
                       'id': e['id'].toString(),
                       'nome': (e['nome_dois'] ?? '').toString(),
                     })
@@ -262,7 +290,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
 
           if (dados.isNotEmpty) {
             empresas = dados
-                .map((e) => {
+                .map<Map<String, dynamic>>((e) => {
                       'id': e['id'].toString(),
                       'nome': (e['nome_dois'] ?? '').toString(),
                     })
@@ -282,7 +310,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
 
           if (dados.isNotEmpty) {
             empresas = dados
-                .map((e) => {
+                .map<Map<String, dynamic>>((e) => {
                       'id': e['id'].toString(),
                       'nome': (e['nome_dois'] ?? '').toString(),
                     })
@@ -292,7 +320,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
       }
 
       setState(() {
-        _empresasDisponiveis = [
+        _empresasDisponiveis = <Map<String, dynamic>>[
           {'id': '', 'nome': '<selecione>'}
         ];
         _empresasDisponiveis.addAll(empresas);
@@ -300,7 +328,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
     } catch (e) {
       debugPrint('❌ Erro ao carregar empresas: $e');
       setState(() {
-        _empresasDisponiveis = [
+        _empresasDisponiveis = <Map<String, dynamic>>[
           {'id': '', 'nome': '<selecione>'}
         ];
         _empresaSelecionadaId = null;
@@ -1000,7 +1028,9 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                     else
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: (UsuarioAtual.instance?.nivel ?? 0) == 4
+                              ? Colors.grey.shade100
+                              : Colors.white,
                           border: Border.all(
                               color: Colors.grey.shade400, width: 1),
                           borderRadius: BorderRadius.circular(4),
@@ -1010,25 +1040,34 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                             value: _terminalSelecionadoId,
                             isExpanded: true,
                             itemHeight: 50,
-                            icon: const Icon(Icons.arrow_drop_down, size: 20),
+                            icon: (UsuarioAtual.instance?.nivel ?? 0) == 4
+                                ? const Visibility(
+                                    visible: false,
+                                    child: Icon(Icons.arrow_drop_down),
+                                  )
+                                : const Icon(Icons.arrow_drop_down, size: 20),
                             style: const TextStyle(
                                 fontSize: 13, color: Colors.black),
-                            onChanged: (String? novoValor) {
-                              setState(() {
-                                _terminalSelecionadoId = novoValor;
-                                if (novoValor != null &&
-                                    novoValor.isNotEmpty) {
-                                  final terminal =
-                                      _terminaisDisponiveis.firstWhere(
-                                    (t) => t['id'] == novoValor,
-                                    orElse: () => {'id': '', 'nome': ''},
-                                  );
-                                  _terminalSelecionadoNome = terminal['nome'];
-                                } else {
-                                  _terminalSelecionadoNome = null;
-                                }
-                              });
-                            },
+                            onChanged: (UsuarioAtual.instance?.nivel ?? 0) == 4
+                                ? null
+                                : (String? novoValor) {
+                                    setState(() {
+                                      _terminalSelecionadoId = novoValor;
+                                      if (novoValor != null &&
+                                          novoValor.isNotEmpty) {
+                                        final terminal =
+                                            _terminaisDisponiveis.firstWhere(
+                                          (t) => t['id'] == novoValor,
+                                          orElse: () =>
+                                              <String, dynamic>{'id': '', 'nome': ''},
+                                        );
+                                        _terminalSelecionadoNome =
+                                            terminal['nome'];
+                                      } else {
+                                        _terminalSelecionadoNome = null;
+                                      }
+                                    });
+                                  },
                             items: _terminaisDisponiveis
                                 .map<DropdownMenuItem<String>>((terminal) {
                               return DropdownMenuItem<String>(
@@ -1137,7 +1176,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                                         final empresa =
                                             _empresasDisponiveis.firstWhere(
                                           (e) => e['id'] == novoValor,
-                                          orElse: () => {'id': '', 'nome': ''},
+                                          orElse: () => <String, dynamic>{'id': '', 'nome': ''},
                                         );
                                         _empresaSelecionadaNome =
                                             empresa['nome'];

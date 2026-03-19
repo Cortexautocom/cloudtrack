@@ -701,12 +701,61 @@ class _HomePageState extends State<HomePage>
   Future<void> _carregarEmpresas() async {
     setState(() => carregandoEmpresas = true);
     final supabase = Supabase.instance.client;
+    final usuario = UsuarioAtual.instance;
+    final nivelUsuario = usuario?.nivel ?? 0;
 
     try {
-      final dados = await supabase
-          .from('empresas')
-          .select('id, nome, nome_abrev, cnpj')
-          .order('nome');
+      List<Map<String, dynamic>> dados = [];
+
+      if (nivelUsuario == 3) {
+        // Nível 3: apenas a empresa do próprio usuário
+        final empresaId = usuario?.empresaId ?? '';
+        if (empresaId.isNotEmpty) {
+          final result = await supabase
+              .from('empresas')
+              .select('id, nome, nome_abrev, cnpj')
+              .eq('id', empresaId)
+              .limit(1);
+          dados = List<Map<String, dynamic>>.from(result);
+        }
+      } else if (nivelUsuario == 4) {
+        // Nível 4: empresas que operam no terminal do usuário
+        final terminalId = usuario?.terminalId ?? '';
+        debugPrint('🔍 [Nível 4] terminalId=$terminalId');
+        if (terminalId.isNotEmpty) {
+          final relacoes = await supabase
+              .from('relacoes_terminais')
+              .select('empresa_id')
+              .eq('terminal_id', terminalId);
+
+          debugPrint('🔍 [Nível 4] relacoes_terminais retornou ${relacoes.length} registros');
+
+          final empresasIds = relacoes
+              .map((r) => r['empresa_id']?.toString())
+              .whereType<String>()
+              .where((id) => id.isNotEmpty)
+              .toSet()
+              .toList();
+
+          debugPrint('🔍 [Nível 4] empresasIds=$empresasIds');
+
+          if (empresasIds.isNotEmpty) {
+            final result = await supabase
+                .from('empresas')
+                .select('id, nome, nome_abrev, cnpj')
+                .inFilter('id', empresasIds)
+                .order('nome');
+            dados = List<Map<String, dynamic>>.from(result);
+          }
+        }
+      } else {
+        // Demais níveis (administradores): todas as empresas
+        final result = await supabase
+            .from('empresas')
+            .select('id, nome, nome_abrev, cnpj')
+            .order('nome');
+        dados = List<Map<String, dynamic>>.from(result);
+      }
 
       setState(() {
         empresas = dados.map((empresa) {
