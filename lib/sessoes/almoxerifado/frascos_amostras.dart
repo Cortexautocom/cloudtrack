@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FrascosAmostraPage extends StatefulWidget {
   final VoidCallback onVoltar;
@@ -29,19 +30,22 @@ class FrascosAmostraPage extends StatefulWidget {
 }
 
 class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
+  final SupabaseClient _supabase = Supabase.instance.client;
+  
   // Flags de carregamento
   bool _carregandoDados = false;
+  String? _erro;
   
   // Dados da tabela
   List<Map<String, dynamic>> _movimentacoes = [];
   List<Map<String, dynamic>> _movimentacoesOrdenadas = [];
   
-  // Controles de scroll (igual ao EstoqueTanquePage)
+  // Controles de scroll
   final ScrollController _vertical = ScrollController();
   final ScrollController _hHeader = ScrollController();
   final ScrollController _hBody = ScrollController();
   
-  // Dimensões da tabela (igual ao EstoqueTanquePage)
+  // Dimensões da tabela
   static const double _hCab = 40;
   static const double _hRow = 40;
   
@@ -49,7 +53,13 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
   static const double _wPlaca = 180;
   static const double _wNum = 130;
   
-  double get _wTable => _wData + _wPlaca + (_wNum * 3);
+  double get _wTable {
+    if (widget.tipoRelatorio == 'sintetico') {
+      return _wData + (_wNum * 4); // Data + entradas + saídas + saldo
+    } else {
+      return _wData + _wPlaca + (_wNum * 3); // Data + Placa + entradas + saídas + saldo
+    }
+  }
   
   // Ordenação
   String _coluna = 'data_mov';
@@ -64,7 +74,7 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
   void initState() {
     super.initState();
     _syncScroll();
-    _carregarDadosMock();
+    _carregarDados();
   }
 
   void _syncScroll() {
@@ -88,42 +98,199 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
     super.dispose();
   }
 
-  void _carregarDadosMock() {
-    // Dados fictícios para teste de layout com 40+ entradas para scroll
-    final List<Map<String, dynamic>> mock = [];
-    int saldoAcumulado = 20; // Início com um saldo fictício
+  Future<void> _carregarDados() async {
+    if (widget.terminalId == null || widget.terminalId!.isEmpty ||
+        widget.empresaId == null || widget.empresaId!.isEmpty) {
+      setState(() {
+        _erro = 'Terminal e empresa são obrigatórios';
+      });
+      return;
+    }
 
-    for (int i = 1; i <= 45; i++) {
-      int dia = (i % 28) + 1;
-      String data = '2026-03-${dia.toString().padLeft(2, '0')}';
-      String placa = i % 2 == 0 ? 'ABC-${1000 + i}' : 'XYZ-${5000 + i}';
-      int entradas = i % 5 == 0 ? 10 : 0;
-      int saidas = i % 3 == 0 ? 2 : 1;
-      
+    setState(() {
+      _carregandoDados = true;
+      _erro = null;
+    });
+
+    try {
+      // Definir período da consulta
+      final DateTime dataInicio;
+      final DateTime dataFim;
+
+      if (widget.isIntraday && widget.dataIntraday != null) {
+        dataInicio = DateTime(
+          widget.dataIntraday!.year,
+          widget.dataIntraday!.month,
+          widget.dataIntraday!.day,
+        );
+        dataFim = DateTime(
+          widget.dataIntraday!.year,
+          widget.dataIntraday!.month,
+          widget.dataIntraday!.day,
+          23, 59, 59,
+        );
+      } else if (widget.mesFiltro != null) {
+        dataInicio = DateTime(
+          widget.mesFiltro!.year,
+          widget.mesFiltro!.month,
+          1,
+        );
+        dataFim = DateTime(
+          widget.mesFiltro!.year,
+          widget.mesFiltro!.month + 1,
+          0,
+          23, 59, 59,
+        );
+      } else {
+        setState(() {
+          _erro = 'Período não definido';
+          _carregandoDados = false;
+        });
+        return;
+      }
+
+      // Buscar movimentações do período
+      final response = await _supabase
+          .from('movimentacoes')
+          .select('''
+            id,
+            data_mov,
+            placa,
+            entrada_amb,
+            saida_amb,
+            tipo_op
+          ''')
+          .eq('terminal_orig_id', widget.terminalId!)
+          .eq('empresa_id', widget.empresaId!)
+          .gte('data_mov', dataInicio.toIso8601String())
+          .lte('data_mov', dataFim.toIso8601String())
+          .order('data_mov', ascending: true);
+
+      if (widget.tipoRelatorio == 'sintetico') {
+        _processarDadosSintetico(response);
+      } else {
+        _processarDadosAnalitico(response);
+      }
+
+    } catch (e) {
+      debugPrint('❌ Erro ao carregar dados: $e');
+      setState(() {
+        _erro = 'Erro ao carregar dados: ${e.toString()}';
+        _carregandoDados = false;
+      });
+    }
+  }
+
+  void _processarDadosAnalitico(List<dynamic> response) {
+    final List<Map<String, dynamic>> movimentacoes = [];
+    int saldoAcumulado = 0;
+    int totalEntradas = 0;
+    int totalSaidas = 0;
+
+    for (var item in response) {
+      int entradas = 0;
+      if (item['tipo_op'] == 'compra_frasco') {
+        entradas = (item['entrada_amb'] as int?) ?? 0;
+      }
+
+      int saidas = 0;
+      if (item['tipo_op'] == 'venda' || item['tipo_op'] == 'transf') {
+        saidas = 1;
+      }
+
+      String placa = '';
+      if (item['placa'] != null) {
+        final placas = item['placa'] as List<dynamic>;
+        placa = placas.join(' / ');
+      }
+
+      totalEntradas += entradas;
+      totalSaidas += saidas;
       saldoAcumulado = saldoAcumulado + entradas - saidas;
-      
-      mock.add({
-        'data': data,
+
+      movimentacoes.add({
+        'data': item['data_mov'],
         'placa': placa,
         'entradas': entradas,
         'saidas': saidas,
         'saldo': saldoAcumulado,
+        'quantidade': 1, // Para ordenação
       });
     }
 
+    setState(() {
+      _movimentacoes = movimentacoes;
+      _movimentacoesOrdenadas = List.from(movimentacoes);
+      _totalEntradas = totalEntradas;
+      _totalSaidas = totalSaidas;
+      _saldoFinal = saldoAcumulado;
+      _carregandoDados = false;
+    });
+  }
+
+  void _processarDadosSintetico(List<dynamic> response) {
+    // Agrupar por data
+    final Map<String, Map<String, dynamic>> grupos = {};
+    int saldoAcumulado = 0;
     int totalEntradas = 0;
     int totalSaidas = 0;
-    for (var item in mock) {
-      totalEntradas += item['entradas'] as int;
-      totalSaidas += item['saidas'] as int;
+
+    for (var item in response) {
+      final String data = item['data_mov'].split('T')[0]; // Pega apenas YYYY-MM-DD
+      
+      if (!grupos.containsKey(data)) {
+        grupos[data] = {
+          'data': item['data_mov'],
+          'entradas': 0,
+          'saidas': 0,
+          'movimentacoes': 0,
+          'placa': 'Múltiplas',
+        };
+      }
+
+      int entradas = 0;
+      if (item['tipo_op'] == 'compra_frasco') {
+        entradas = (item['entrada_amb'] as int?) ?? 0;
+      }
+
+      int saidas = 0;
+      if (item['tipo_op'] == 'venda' || item['tipo_op'] == 'transf') {
+        saidas = 1;
+      }
+
+      grupos[data]!['entradas'] = (grupos[data]!['entradas'] as int) + entradas;
+      grupos[data]!['saidas'] = (grupos[data]!['saidas'] as int) + saidas;
+      grupos[data]!['movimentacoes'] = (grupos[data]!['movimentacoes'] as int) + 1;
+
+      totalEntradas += entradas;
+      totalSaidas += saidas;
+    }
+
+    // Calcular saldo acumulado por data
+    final List<Map<String, dynamic>> movimentacoes = [];
+    final datasOrdenadas = grupos.keys.toList()..sort();
+
+    for (var data in datasOrdenadas) {
+      final grupo = grupos[data]!;
+      saldoAcumulado = saldoAcumulado + (grupo['entradas'] as int) - (grupo['saidas'] as int);
+      
+      movimentacoes.add({
+        'data': grupo['data'],
+        'placa': '${grupo['movimentacoes']} movimentações',
+        'entradas': grupo['entradas'],
+        'saidas': grupo['saidas'],
+        'saldo': saldoAcumulado,
+        'quantidade': grupo['movimentacoes'], // Para ordenação
+      });
     }
 
     setState(() {
-      _movimentacoes = mock;
-      _movimentacoesOrdenadas = List.from(mock);
+      _movimentacoes = movimentacoes;
+      _movimentacoesOrdenadas = List.from(movimentacoes);
       _totalEntradas = totalEntradas;
       _totalSaidas = totalSaidas;
-      _saldoFinal = mock.isNotEmpty ? mock.last['saldo'] as int : 0;
+      _saldoFinal = saldoAcumulado;
+      _carregandoDados = false;
     });
   }
 
@@ -133,12 +300,18 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
       dynamic va, vb;
       switch (col) {
         case 'data':
-          va = a['data'] as String;
-          vb = b['data'] as String;
+          va = DateTime.parse(a['data'] as String);
+          vb = DateTime.parse(b['data'] as String);
           break;
         case 'placa':
-          va = (a['placa'] as String? ?? '').toLowerCase();
-          vb = (b['placa'] as String? ?? '').toLowerCase();
+          if (widget.tipoRelatorio == 'sintetico') {
+            // Ordenar por quantidade de movimentações
+            va = a['quantidade'] as int? ?? 0;
+            vb = b['quantidade'] as int? ?? 0;
+          } else {
+            va = (a['placa'] as String? ?? '').toLowerCase();
+            vb = (b['placa'] as String? ?? '').toLowerCase();
+          }
           break;
         case 'entradas':
         case 'saidas':
@@ -148,6 +321,9 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
           break;
         default:
           return 0;
+      }
+      if (va is DateTime && vb is DateTime) {
+        return asc ? va.compareTo(vb) : vb.compareTo(va);
       }
       if (va is String && vb is String) {
         return asc ? va.compareTo(vb) : vb.compareTo(va);
@@ -176,11 +352,12 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
   }
 
   String _fmtData(String dataStr) {
-    final partes = dataStr.split('-');
-    if (partes.length == 3) {
-      return '${partes[2]}/${partes[1]}/${partes[0]}';
+    try {
+      final date = DateTime.parse(dataStr);
+      return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+    } catch (e) {
+      return dataStr;
     }
-    return dataStr;
   }
 
   Color _bgEntrada() => Colors.green.shade50.withOpacity(0.3);
@@ -222,13 +399,49 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
           icon: const Icon(Icons.arrow_back),
           onPressed: widget.onVoltar,
         ),
+        actions: [
+          // Indicador do tipo de relatório
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0D47A1).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  widget.tipoRelatorio == 'sintetico' 
+                      ? Icons.view_week 
+                      : Icons.view_list,
+                  size: 16,
+                  color: const Color(0xFF0D47A1),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  widget.tipoRelatorio == 'sintetico' ? 'Sintético' : 'Analítico',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0D47A1),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _carregarDados,
+            tooltip: 'Recarregar dados',
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Painel de filtros (somente leitura)
+            // Painel de filtros
             Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 900),
@@ -269,39 +482,66 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
             Expanded(
               child: _carregandoDados
                   ? const Center(child: CircularProgressIndicator(color: Color(0xFF0D47A1)))
-                  : Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 900),
-                        child: _movimentacoes.isEmpty
-                            ? Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.inbox, size: 64, color: Colors.grey.shade400),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    'Nenhuma movimentação encontrada',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Selecione um terminal e empresa para consultar',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey.shade500,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : _buildTabela(),
-                      ),
-                    ),
+                  : _erro != null
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
+                              const SizedBox(height: 16),
+                              Text(
+                                _erro!,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.red.shade700,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 8),
+                              ElevatedButton(
+                                onPressed: _carregarDados,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF0D47A1),
+                                ),
+                                child: const Text('Tentar novamente'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 900),
+                            child: _movimentacoes.isEmpty
+                                ? Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.inbox, size: 64, color: Colors.grey.shade400),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'Nenhuma movimentação encontrada',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Não há registros de frascos de amostra para o período selecionado',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.grey.shade500,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
+                                  )
+                                : _buildTabela(),
+                          ),
+                        ),
             ),
             
             // Rodapé com resumo
-            if (_movimentacoes.isNotEmpty)
+            if (_movimentacoes.isNotEmpty && _erro == null)
               Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 900),
@@ -354,7 +594,10 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
             child: Row(
               children: [
                 _th('Data', _wData, () => _onSort('data')),
-                _th('Placa', _wPlaca, () => _onSort('placa')),
+                if (widget.tipoRelatorio == 'sintetico')
+                  _th('Movimentações', _wNum, () => _onSort('placa'))
+                else
+                  _th('Placa', _wPlaca, () => _onSort('placa')),
                 _th('Qtd entrada', _wNum, () => _onSort('entradas')),
                 _th('Qtd saída', _wNum, () => _onSort('saidas')),
                 _th('Saldo', _wNum, () => _onSort('saldo')),
@@ -405,7 +648,10 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
                 child: Row(
                   children: [
                     _cell(_fmtData(item['data'] as String), _wData),
-                    _cell(item['placa'] as String? ?? '-', _wPlaca),
+                    if (widget.tipoRelatorio == 'sintetico')
+                      _cell(item['placa'] as String? ?? '-', _wNum)
+                    else
+                      _cell(item['placa'] as String? ?? '-', _wPlaca),
                     _cell(_fmtNum(item['entradas'] as int?), _wNum, bg: _bgEntrada()),
                     _cell(_fmtNum(item['saidas'] as int?), _wNum, bg: _bgSaida()),
                     _cell(
