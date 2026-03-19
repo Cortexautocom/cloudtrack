@@ -803,6 +803,34 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
                 ? const Center(child: CircularProgressIndicator())
                 : _buildBodyContent(),
           ),
+          Container(
+            height: 50,
+            width: double.infinity,
+            color: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'PowerTank Terminais 2026, All rights reserved.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[600],
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '\u00a9 Norton Technology - 550 California St, W-325, San Francisco, CA - EUA.',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey[500],
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -914,11 +942,13 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
                   scrollDirection: Axis.horizontal,
                   child: SizedBox(
                     width: _obterLarguraTabela(),
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _movimentacoesFiltradas.length,
-                      itemBuilder: (context, index) {
+                    child: Column(
+                      children: [
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _movimentacoesFiltradas.length,
+                          itemBuilder: (context, index) {
                         final t = _movimentacoesFiltradas[index];
                         final statusCircuito = t['status_circuito'];
                         final statusTexto = _obterTextoStatus(statusCircuito);
@@ -958,6 +988,9 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
                           ),
                         );
                       },
+                        ),
+                        _buildTotalizadorLinha(),
+                      ],
                     ),
                   ),
                 ),
@@ -1422,5 +1455,60 @@ class _ProgramacaoPageState extends State<ProgramacaoPage> {
     } catch (e) {
       return quantidade;
     }
+  }
+
+  Widget _buildTotalizadorLinha() {
+    final totais = List.filled(5, 0.0);
+
+    for (final t in _movimentacoesFiltradas) {
+      final produtoId = t['produto_id']?.toString();
+      if (produtoId == null) continue;
+      final info = _mapaProdutosColuna[produtoId];
+      if (info == null) continue;
+      final col = info['coluna'] as int;
+      if (col < 0 || col >= 5) continue;
+      totais[col] += double.tryParse(t['saida_amb']?.toString() ?? '0') ?? 0;
+    }
+
+    return Container(
+      height: 40,
+      color: Colors.orange.shade50,
+      child: Row(
+        children: [
+          _cellTot('', 50),
+          _cellTot('TOTAL', 120, isLabel: true),
+          _cellTot('', 100),
+          _cellTot('', 220),
+          _cellTot('', 80),
+          _cellTot('', 60),
+          _cellTot('', 100),
+          for (int i = 0; i < 5; i++)
+            _cellTot(
+              totais[i] > 0 ? _formatarQuantidade(totais[i].toStringAsFixed(0)) : '',
+              90,
+              isNumber: true,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _cellTot(String texto, double largura,
+      {bool isLabel = false, bool isNumber = false}) {
+    return Container(
+      width: largura,
+      alignment: Alignment.center,
+      child: Text(
+        texto,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight:
+              (isLabel || isNumber) ? FontWeight.bold : FontWeight.normal,
+          color:
+              isLabel ? const Color(0xFF0D47A1) : Colors.grey.shade800,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
   }
 }

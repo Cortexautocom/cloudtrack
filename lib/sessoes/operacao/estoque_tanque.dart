@@ -1011,7 +1011,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           child: ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: _movsOrdenadas.length + 2,
+            itemCount: _movsOrdenadas.length + 3,
             itemBuilder: (context, i) {
               if (i == 0) {
                 return _linhaResumo(
@@ -1022,6 +1022,9 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
                 );
               }
               if (i == _movsOrdenadas.length + 1) {
+                return _linhaTotais();
+              }
+              if (i == _movsOrdenadas.length + 2) {
                 return _linhaResumo(
                   'Estoque Final',
                   _estoqueFinal['amb'],
@@ -1058,6 +1061,30 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             },
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _linhaTotais() {
+    num totalEntradaAmb = _movsOrdenadas.fold<num>(0, (s, m) => s + ((m['entrada_amb'] ?? 0) as num));
+    num totalEntradaVinte = _movsOrdenadas.fold<num>(0, (s, m) => s + ((m['entrada_vinte'] ?? 0) as num));
+    num totalSaidaAmb = _movsOrdenadas.fold<num>(0, (s, m) => s + ((m['saida_amb'] ?? 0) as num));
+    num totalSaidaVinte = _movsOrdenadas.fold<num>(0, (s, m) => s + ((m['saida_vinte'] ?? 0) as num));
+
+    return Container(
+      height: _hRow,
+      color: Colors.orange.shade50,
+      child: Row(
+        children: [
+          _cell('', _wData),
+          _cell('Totais', _wDesc, cor: Colors.orange.shade800, fw: FontWeight.bold),
+          _cell(_fmtNum(totalEntradaAmb), _wNum, bg: _bgEntrada(), cor: Colors.orange.shade800, fw: FontWeight.bold),
+          _cell(_fmtNum(totalEntradaVinte), _wNum, bg: _bgEntrada(), cor: Colors.orange.shade800, fw: FontWeight.bold),
+          _cell(_fmtNum(totalSaidaAmb), _wNum, bg: _bgSaida(), cor: Colors.orange.shade800, fw: FontWeight.bold),
+          _cell(_fmtNum(totalSaidaVinte), _wNum, bg: _bgSaida(), cor: Colors.orange.shade800, fw: FontWeight.bold),
+          _cell('-', _wNum),
+          _cell('-', _wNum),
+        ],
       ),
     );
   }
