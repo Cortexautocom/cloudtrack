@@ -1147,6 +1147,17 @@ class _CalcPageState extends State<CalcPage> {
         }
       }
 
+      if (caclIdSalvo.isNotEmpty) {
+        try {
+          await _inserirMovimentacaoTanqueSobraPerda(
+            caclId: caclIdSalvo,
+            medicoes: medicoes,
+          );
+        } catch (e) {
+          print('🔴 [CACL] Erro ao inserir movimentação de tanque: $e');
+        }
+      }
+
       if (mounted) {
         setState(() {
           _caclJaEmitido =
@@ -2034,7 +2045,7 @@ class _CalcPageState extends State<CalcPage> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                 child: Text(
-                  "Estoque final calculado:",
+                  "Estoque final calculado (20ºC):",
                   style: const TextStyle(fontSize: 11),
                 ),
               ),

@@ -798,7 +798,14 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   }
 
   Widget _buildBlocoResumo() {
-    final estoqueFinalCalculado = _estoqueFinal['amb'] ?? 0;
+    num? estoqueFinalCalculado;
+    for (int i = _movsOrdenadas.length - 1; i >= 0; i--) {
+      if (!_temCaclIdValido(_movsOrdenadas[i])) {
+        estoqueFinalCalculado = _movsOrdenadas[i]['saldo_vinte'] as num?;
+        break;
+      }
+    }
+    estoqueFinalCalculado ??= _estoqueInicial['vinte'] ?? 0;
     final estoqueCACL = _estoqueCACL['vinte'];
 
     return Container(
@@ -816,13 +823,13 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildCampoResumo(
-            'Estoque final calculado (Amb):',
+            'Estoque final calculado (20º):',
             estoqueFinalCalculado,
           ),
 
           if (_possuiCACL && estoqueCACL != null)
             _buildCampoResumo(
-              'Saldo do CACL (20ºC):',
+              'Saldo apurado no CACL (20ºC):',
               estoqueCACL,
               cor: const Color(0xFF2E7D32),
             )
