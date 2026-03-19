@@ -205,30 +205,19 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
     try {
       final usuario = UsuarioAtual.instance;
       final nivelUsuario = usuario?.nivel ?? 0;
-      List<Map<String, dynamic>> empresas = [];
+      
+      // Verifica se o usuário TEM empresa fixa (níveis 1,2,3 com empresaId)
+      final temEmpresaFixa = (nivelUsuario == 1 || nivelUsuario == 2 || nivelUsuario == 3) && 
+                            usuario?.empresaId?.isNotEmpty == true;
 
-      // Prioriza widget.empresaId, senão usa usuario.empresaId
-      final empresaIdEfetivo = widget.empresaId ?? usuario?.empresaId;
-
-      // Se houver uma empresa definida (via widget ou via usuário logado), ela deve ser fixa
-      if (empresaIdEfetivo != null && empresaIdEfetivo.isNotEmpty) {
-        // Se já temos o nome da empresa via widget ou se podemos inferir, evitamos o fetch.
-        // Como o UsuarioAtual não guarda o nome da empresa, apenas o ID, precisamos buscar uma única vez.
-        if (widget.empresaNome != null && widget.empresaNome!.isNotEmpty) {
-          setState(() {
-            _empresasDisponiveis = <Map<String, dynamic>>[
-              {'id': empresaIdEfetivo, 'nome': widget.empresaNome!},
-            ];
-            _empresaSelecionadaId = empresaIdEfetivo;
-            _empresaSelecionadaNome = widget.empresaNome;
-          });
-          return;
-        }
-
+      // Se tem empresa fixa, carrega apenas ela e bloqueia
+      if (temEmpresaFixa) {
+        final empresaId = usuario?.empresaId ?? '';
+        
         final dados = await _supabase
             .from('empresas')
             .select('id, nome_dois')
-            .eq('id', empresaIdEfetivo)
+            .eq('id', empresaId)
             .limit(1);
 
         if (dados.isNotEmpty) {
@@ -245,6 +234,9 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
         return;
       }
 
+      // Se não tem empresa fixa, carrega todas as empresas disponíveis
+      List<Map<String, dynamic>> empresas = [];
+
       if (nivelUsuario == 4) {
         // Nível 4: empresas que atuam no terminal do usuário
         final terminalId = widget.terminalId ?? usuario?.terminalId ?? '';
@@ -260,7 +252,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
               .map((r) => r['empresa_id']?.toString())
               .where((id) => id != null && id.isNotEmpty)
               .toSet()
-              .toList(); // Remove duplicatas
+              .toList();
 
           if (empresasIds.isNotEmpty) {
             final dados = await _supabase
@@ -277,46 +269,19 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                 .toList();
           }
         }
-      } else if (nivelUsuario == 3) {
-        // Nível 3: apenas a empresa do usuário
-        final empresaId = widget.empresaId ?? usuario?.empresaId ?? '';
-
-        if (empresaId.isNotEmpty) {
-          final dados = await _supabase
-              .from('empresas')
-              .select('id, nome_dois')
-              .eq('id', empresaId)
-              .limit(1);
-
-          if (dados.isNotEmpty) {
-            empresas = dados
-                .map<Map<String, dynamic>>((e) => {
-                      'id': e['id'].toString(),
-                      'nome': (e['nome_dois'] ?? '').toString(),
-                    })
-                .toList();
-          }
-        }
       } else {
-        // Níveis 1 e 2: empresa fixa do usuário (manter comportamento atual)
-        final empresaId = widget.empresaId ?? usuario?.empresaId ?? '';
+        // Outros níveis sem empresa fixa (ex: admin)
+        final dados = await _supabase
+            .from('empresas')
+            .select('id, nome_dois')
+            .order('nome_dois');
 
-        if (empresaId.isNotEmpty) {
-          final dados = await _supabase
-              .from('empresas')
-              .select('id, nome_dois')
-              .eq('id', empresaId)
-              .limit(1);
-
-          if (dados.isNotEmpty) {
-            empresas = dados
-                .map<Map<String, dynamic>>((e) => {
-                      'id': e['id'].toString(),
-                      'nome': (e['nome_dois'] ?? '').toString(),
-                    })
-                .toList();
-          }
-        }
+        empresas = dados
+            .map<Map<String, dynamic>>((e) => {
+                  'id': e['id'].toString(),
+                  'nome': (e['nome_dois'] ?? '').toString(),
+                })
+            .toList();
       }
 
       setState(() {
@@ -324,7 +289,20 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
           {'id': '', 'nome': '<selecione>'}
         ];
         _empresasDisponiveis.addAll(empresas);
+        
+        // Se veio uma empresa selecionada via widget (de consulta anterior), seleciona ela
+        if (widget.empresaId != null && widget.empresaId!.isNotEmpty) {
+          final encontrada = empresas.firstWhere(
+            (e) => e['id'] == widget.empresaId,
+            orElse: () => <String, dynamic>{},
+          );
+          if (encontrada.isNotEmpty) {
+            _empresaSelecionadaId = encontrada['id'];
+            _empresaSelecionadaNome = encontrada['nome'];
+          }
+        }
       });
+
     } catch (e) {
       debugPrint('❌ Erro ao carregar empresas: $e');
       setState(() {
@@ -459,7 +437,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                               color: isSelected
                                   ? const Color.fromARGB(255, 255, 128, 0)
                                   : isCurrentMonth
-                                      ? const Color.fromARGB(30, 255, 128, 0) // Versão mais clara
+                                      ? const Color.fromARGB(30, 255, 128, 0)
                                       : Colors.transparent,
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -539,7 +517,6 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
     }
   }
 
-  // Método auxiliar para nomes abreviados dos meses
   String _getMonthNameShort(int month) {
     const months = [
       'JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN',
@@ -688,7 +665,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                               color: isSelected
                                   ? const Color.fromARGB(255, 255, 128, 0)
                                   : isToday
-                                      ? const Color.fromARGB(30, 255, 128, 0) // Versão mais clara
+                                      ? const Color.fromARGB(30, 255, 128, 0)
                                       : Colors.transparent,
                               shape: BoxShape.circle,
                             ),
@@ -767,7 +744,6 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
     }
   }
 
-  // Métodos auxiliares
   String _getMonthName(int month) {
     const months = [
       'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -780,24 +756,19 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
     final firstDay = DateTime(date.year, date.month, 1);
     final lastDay = DateTime(date.year, date.month + 1, 0);
     
-    // Dias do mês anterior para preencher o início
     final firstWeekday = firstDay.weekday;
-    // Ajuste para começar na segunda-feira (segunda = 1, domingo = 7)
     final startOffset = firstWeekday == 7 ? 0 : firstWeekday;
     
     List<int?> days = [];
     
-    // Dias do mês anterior
     for (int i = 0; i < startOffset; i++) {
       days.add(null);
     }
     
-    // Dias do mês atual
     for (int i = 1; i <= lastDay.day; i++) {
       days.add(i);
     }
     
-    // Completar para ter 42 dias (6 semanas)
     while (days.length < 42) {
       days.add(null);
     }
@@ -859,6 +830,12 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
 
   @override
   Widget build(BuildContext context) {
+    final usuario = UsuarioAtual.instance;
+    final nivelUsuario = usuario?.nivel ?? 0;
+    final temEmpresaFixa = (nivelUsuario == 1 || nivelUsuario == 2 || nivelUsuario == 3) && 
+                          usuario?.empresaId?.isNotEmpty == true;
+    final temTerminalFixo = nivelUsuario == 4;
+
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
@@ -892,7 +869,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
         padding: const EdgeInsets.all(20),
         child: _carregando
             ? _buildCarregando()
-            : _buildConteudo(),
+            : _buildConteudo(temEmpresaFixa, temTerminalFixo),
       ),
     );
   }
@@ -913,12 +890,12 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
     );
   }
 
-  Widget _buildConteudo() {
+  Widget _buildConteudo(bool temEmpresaFixa, bool temTerminalFixo) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildCardFiltros(),
+          _buildCardFiltros(temEmpresaFixa, temTerminalFixo),
           const SizedBox(height: 20),
           _buildCardResumo(),
           const SizedBox(height: 20),
@@ -930,7 +907,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
     );
   }
 
-  Widget _buildCardFiltros() {
+  Widget _buildCardFiltros(bool temEmpresaFixa, bool temTerminalFixo) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1028,7 +1005,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                     else
                       Container(
                         decoration: BoxDecoration(
-                          color: (UsuarioAtual.instance?.nivel ?? 0) == 4
+                          color: temTerminalFixo
                               ? Colors.grey.shade100
                               : Colors.white,
                           border: Border.all(
@@ -1040,7 +1017,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                             value: _terminalSelecionadoId,
                             isExpanded: true,
                             itemHeight: 50,
-                            icon: (UsuarioAtual.instance?.nivel ?? 0) == 4
+                            icon: temTerminalFixo
                                 ? const Visibility(
                                     visible: false,
                                     child: Icon(Icons.arrow_drop_down),
@@ -1048,7 +1025,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                                 : const Icon(Icons.arrow_drop_down, size: 20),
                             style: const TextStyle(
                                 fontSize: 13, color: Colors.black),
-                            onChanged: (UsuarioAtual.instance?.nivel ?? 0) == 4
+                            onChanged: temTerminalFixo
                                 ? null
                                 : (String? novoValor) {
                                     setState(() {
@@ -1134,11 +1111,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                     else
                       Container(
                         decoration: BoxDecoration(
-                          color: (widget.empresaId != null &&
-                                      widget.empresaId!.isNotEmpty) ||
-                                  (UsuarioAtual.instance?.empresaId != null &&
-                                      UsuarioAtual.instance!.empresaId!
-                                          .isNotEmpty)
+                          color: temEmpresaFixa
                               ? Colors.grey.shade100
                               : Colors.white,
                           border: Border.all(
@@ -1150,11 +1123,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                             value: _empresaSelecionadaId,
                             isExpanded: true,
                             itemHeight: 50,
-                            icon: (widget.empresaId != null &&
-                                        widget.empresaId!.isNotEmpty) ||
-                                    (UsuarioAtual.instance?.empresaId != null &&
-                                        UsuarioAtual.instance!.empresaId!
-                                            .isNotEmpty)
+                            icon: temEmpresaFixa
                                 ? const Visibility(
                                     visible: false,
                                     child: Icon(Icons.arrow_drop_down),
@@ -1162,11 +1131,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                                 : const Icon(Icons.arrow_drop_down, size: 20),
                             style: const TextStyle(
                                 fontSize: 13, color: Colors.black),
-                            onChanged: (widget.empresaId != null &&
-                                        widget.empresaId!.isNotEmpty) ||
-                                    (UsuarioAtual.instance?.empresaId != null &&
-                                        UsuarioAtual.instance!.empresaId!
-                                            .isNotEmpty)
+                            onChanged: temEmpresaFixa
                                 ? null
                                 : (String? novoValor) {
                                     setState(() {
