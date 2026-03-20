@@ -430,7 +430,7 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
                       _buildInfoFiltro(Icons.business, 'Empresa', widget.empresaNome ?? '-'),
                       _buildInfoFiltro(
                         Icons.calendar_today,
-                        widget.isIntraday ? 'Data' : 'Mês',
+                        'Período',
                         _fmtPeriodo(),
                       ),
                       _buildInfoFiltro(
@@ -438,8 +438,6 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
                         'Tipo',
                         widget.tipoRelatorio == 'sintetico' ? 'Sintético' : 'Analítico',
                       ),
-                      if (widget.isIntraday)
-                        _buildInfoFiltro(Icons.access_time, 'Modo', 'Intraday'),
                     ],
                   ),
                 ),
