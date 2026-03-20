@@ -311,7 +311,7 @@ class _HomePageState extends State<HomePage>
         // Cards que devem ser sempre incluídos (sem filtro de permissão)
         final cardsObrigatorios = ['estoque_por_tanque'];
         final tipoRaw = card['tipo']?.toString() ?? '';
-        final tipo = tipoRaw == 'movimentaces' ? 'movimentacoes' : tipoRaw;
+        final tipo = (tipoRaw == 'movimentaces' || tipoRaw == 'entradas_e_saidas') ? 'movimentacoes' : tipoRaw;
 
         // Remover card isolado de CACL: acesso passa a ser feito via Estoque por tanque
         if (tipo == 'cacl') continue;
@@ -608,9 +608,9 @@ class _HomePageState extends State<HomePage>
       'compacto_final': 'Visão compacta do final do dia',
       'estoque_por_empresa': 'Movimentações por empresa',
       'estoque_por_tanque': 'Acompanhar estoques por tanque',
-      'movimentacoes': 'Acompanhar entradas e saídas em geral',
+      'movimentacoes': 'Relatório Entradas e Saídas',
       'movimentacao_por_empresa': 'Movimentações por empresa',
-      'movimentaces': 'Acompanhar entradas e saídas em geral',
+      'movimentaces': 'Relatório Entradas e Saídas',
       'transferencias': 'Gerenciar transferências entre filiais',
       'acompanhar_ordem': 'Acompanhar situação da ordem',
       'visao_geral_circuito': 'Panorama completo dos circuitos',
@@ -943,7 +943,7 @@ class _HomePageState extends State<HomePage>
           {
             'id': 'fallback-mov',
             'icon': Icons.swap_horiz,
-            'label': 'Movimentações',
+            'label': 'Relatório Entradas e Saídas',
             'descricao': 'Acompanhar entradas e saídas em geral',
             'tipo': 'movimentacoes',
             'sessao_pai': 'Vendas',
@@ -3361,7 +3361,7 @@ class _HomePageState extends State<HomePage>
       {
         'id': 'movimentacoes-filial',
         'icon': Icons.swap_horiz,
-        'label': 'Movimentações',
+        'label': 'Relatório Entradas e Saídas',
         'descricao': 'Consultar movimentações da filial',
         'tipo': 'movimentacoes',
       },
