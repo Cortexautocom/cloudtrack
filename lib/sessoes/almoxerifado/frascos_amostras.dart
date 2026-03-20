@@ -7,10 +7,9 @@ class FrascosAmostraPage extends StatefulWidget {
   final String? empresaId;
   final String nomeTerminal;
   final String? empresaNome;
-  final DateTime? mesFiltro;
+  final DateTime dataInicial;
+  final DateTime dataFinal;
   final String tipoRelatorio;
-  final bool isIntraday;
-  final DateTime? dataIntraday;
 
   const FrascosAmostraPage({
     super.key,
@@ -19,10 +18,9 @@ class FrascosAmostraPage extends StatefulWidget {
     this.empresaId,
     required this.nomeTerminal,
     this.empresaNome,
-    this.mesFiltro,
+    required this.dataInicial,
+    required this.dataFinal,
     this.tipoRelatorio = 'sintetico',
-    this.isIntraday = false,
-    this.dataIntraday,
   });
 
   @override
@@ -114,40 +112,17 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
 
     try {
       // Definir período da consulta
-      final DateTime dataInicio;
-      final DateTime dataFim;
-
-      if (widget.isIntraday && widget.dataIntraday != null) {
-        dataInicio = DateTime(
-          widget.dataIntraday!.year,
-          widget.dataIntraday!.month,
-          widget.dataIntraday!.day,
-        );
-        dataFim = DateTime(
-          widget.dataIntraday!.year,
-          widget.dataIntraday!.month,
-          widget.dataIntraday!.day,
-          23, 59, 59,
-        );
-      } else if (widget.mesFiltro != null) {
-        dataInicio = DateTime(
-          widget.mesFiltro!.year,
-          widget.mesFiltro!.month,
-          1,
-        );
-        dataFim = DateTime(
-          widget.mesFiltro!.year,
-          widget.mesFiltro!.month + 1,
-          0,
-          23, 59, 59,
-        );
-      } else {
-        setState(() {
-          _erro = 'Período não definido';
-          _carregandoDados = false;
-        });
-        return;
-      }
+      final DateTime dataInicio = DateTime(
+        widget.dataInicial.year,
+        widget.dataInicial.month,
+        widget.dataInicial.day,
+      );
+      final DateTime dataFim = DateTime(
+        widget.dataFinal.year,
+        widget.dataFinal.month,
+        widget.dataFinal.day,
+        23, 59, 59,
+      );
 
       // Buscar movimentações do período
       final response = await _supabase
@@ -364,14 +339,9 @@ class _FrascosAmostraPageState extends State<FrascosAmostraPage> {
   Color _bgSaida() => Colors.red.shade50.withOpacity(0.3);
 
   String _fmtPeriodo() {
-    if (widget.isIntraday && widget.dataIntraday != null) {
-      final d = widget.dataIntraday!;
-      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
-    }
-    if (widget.mesFiltro != null) {
-      return '${widget.mesFiltro!.month.toString().padLeft(2, '0')}/${widget.mesFiltro!.year}';
-    }
-    return '-';
+    final di = widget.dataInicial;
+    final df = widget.dataFinal;
+    return '${di.day.toString().padLeft(2, '0')}/${di.month.toString().padLeft(2, '0')}/${di.year} a ${df.day.toString().padLeft(2, '0')}/${df.month.toString().padLeft(2, '0')}/${df.year}';
   }
 
   @override

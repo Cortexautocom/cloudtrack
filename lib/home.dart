@@ -18,7 +18,7 @@ import 'sessoes/operacao/historico_cacl.dart';
 import 'sessoes/operacao/listar_cacls.dart';
 import 'sessoes/estoques/estoque_downloads.dart';
 import 'sessoes/estoques/filtro_estoque.dart';
-import 'sessoes/estoques/filtro_movimentacoes.dart';
+import 'sessoes/estoques/filtro_vendas.dart';
 import 'sessoes/estoques/estoque_mes.dart';
 import 'sessoes/estoques/compacto_final.dart';
 import 'sessoes/gestao_de_frota/motoristas_page.dart';
@@ -85,10 +85,9 @@ class _HomePageState extends State<HomePage>
   bool _mostrarResultadoFrascos = false;
 
   // Parâmetros de filtro para a página de resultado de frascos
-  DateTime? _frascosMesFiltro;
+  DateTime _frascosDataInicial = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  DateTime _frascosDataFinal = DateTime.now();
   String _frascosTipoRelatorio = 'sintetico';
-  bool _frascosIsIntraday = false;
-  DateTime? _frascosDataIntraday;
 
   // FLAGS PARA SESSÕES ESPECÍFICAS
   bool _mostrarCalcGerado = false;
@@ -353,6 +352,11 @@ class _HomePageState extends State<HomePage>
           sessaoPai = 'Operação';
         }
 
+        // Reatribuir Movimentações para Vendas
+        if (card['tipo']?.toString() == 'movimentacoes') {
+          sessaoPai = 'Vendas';
+        }
+
         cardsOrganizados.putIfAbsent(sessaoPai, () => []);
         // Inserir no início para manter a ordem da consulta reversed
         cardsOrganizados[sessaoPai]!.insert(0, card);
@@ -447,14 +451,7 @@ class _HomePageState extends State<HomePage>
         'tipo': 'movimentacao_por_empresa',
         'sessao_pai': 'Estoques',
       },
-      {
-        'id': 'fallback-mov',
-        'icon': Icons.swap_horiz,
-        'label': 'Movimentações',
-        'descricao': 'Acompanhar entradas e saídas em geral',
-        'tipo': 'movimentacoes',
-        'sessao_pai': 'Estoques',
-      },
+
       {
         'id': 'fallback-transf',
         'icon': Icons.low_priority,
@@ -939,16 +936,26 @@ class _HomePageState extends State<HomePage>
 
   void _mostrarFilhosDaSessao(String nomeSessao) {
     if (nomeSessao == 'Vendas') {
-      // Usar as filiais fixas para programação
-      if (_filiaisProgramacao.isEmpty) {
-        _mostrarSemPermissao();
-        return;
-      }
+      // Combinar cards do banco (ou fallback) + filiais de programação
+      // Excluir programacao_filial do banco para evitar duplicação com _filiaisProgramacao
+      final cardsVendas = <Map<String, dynamic>>[
+        ...(_filhosPorSessao['Vendas'] ?? [
+          {
+            'id': 'fallback-mov',
+            'icon': Icons.swap_horiz,
+            'label': 'Movimentações',
+            'descricao': 'Acompanhar entradas e saídas em geral',
+            'tipo': 'movimentacoes',
+            'sessao_pai': 'Vendas',
+          },
+        ]).where((c) => c['tipo'] != 'programacao_filial'),
+        ..._filiaisProgramacao,
+      ];
 
       setState(() {
         _mostrarFilhosSessao = true;
         _sessaoAtual = nomeSessao;
-        _filhosSessaoAtual = List.from(_filiaisProgramacao);
+        _filhosSessaoAtual = List.from(cardsVendas);
       });
       return;
     }
@@ -1463,10 +1470,9 @@ class _HomePageState extends State<HomePage>
               empresaId: _empresaParaFiltroId,
               nomeTerminal: _terminalParaFiltroNome ?? '',
               empresaNome: _empresaParaFiltroNome,
-              mesFiltro: _frascosMesFiltro,
+              dataInicial: _frascosDataInicial,
+              dataFinal: _frascosDataFinal,
               tipoRelatorio: _frascosTipoRelatorio,
-              isIntraday: _frascosIsIntraday,
-              dataIntraday: _frascosDataIntraday,
             );
           }
           return FiltroEstoqueFrascosPage(
@@ -1479,20 +1485,18 @@ class _HomePageState extends State<HomePage>
               required String? empresaId,
               required String nomeTerminal,
               String? empresaNome,
-              DateTime? mesFiltro,
+              required DateTime dataInicial,
+              required DateTime dataFinal,
               required String tipoRelatorio,
-              required bool isIntraday,
-              DateTime? dataIntraday,
             }) {
               setState(() {
                 _terminalParaFiltroId = terminalId;
                 _empresaParaFiltroId = empresaId;
                 _terminalParaFiltroNome = nomeTerminal;
                 _empresaParaFiltroNome = empresaNome;
-                _frascosMesFiltro = mesFiltro;
+                _frascosDataInicial = dataInicial;
+                _frascosDataFinal = dataFinal;
                 _frascosTipoRelatorio = tipoRelatorio;
-                _frascosIsIntraday = isIntraday;
-                _frascosDataIntraday = dataIntraday;
                 _mostrarResultadoFrascos = true;
               });
             },
@@ -1712,10 +1716,9 @@ class _HomePageState extends State<HomePage>
             empresaId: _empresaParaFiltroId,
             nomeTerminal: _terminalParaFiltroNome ?? '',
             empresaNome: _empresaParaFiltroNome,
-            mesFiltro: _frascosMesFiltro,
+            dataInicial: _frascosDataInicial,
+            dataFinal: _frascosDataFinal,
             tipoRelatorio: _frascosTipoRelatorio,
-            isIntraday: _frascosIsIntraday,
-            dataIntraday: _frascosDataIntraday,
           );
         }
         return FiltroEstoqueFrascosPage(
@@ -1728,20 +1731,18 @@ class _HomePageState extends State<HomePage>
             required String? empresaId,
             required String nomeTerminal,
             String? empresaNome,
-            DateTime? mesFiltro,
+            required DateTime dataInicial,
+            required DateTime dataFinal,
             required String tipoRelatorio,
-            required bool isIntraday,
-            DateTime? dataIntraday,
           }) {
             setState(() {
               _terminalParaFiltroId = terminalId;
               _empresaParaFiltroId = empresaId;
               _terminalParaFiltroNome = nomeTerminal;
               _empresaParaFiltroNome = empresaNome;
-              _frascosMesFiltro = mesFiltro;
+              _frascosDataInicial = dataInicial;
+              _frascosDataFinal = dataFinal;
               _frascosTipoRelatorio = tipoRelatorio;
-              _frascosIsIntraday = isIntraday;
-              _frascosDataIntraday = dataIntraday;
               _mostrarResultadoFrascos = true;
             });
           },
@@ -1767,26 +1768,6 @@ class _HomePageState extends State<HomePage>
       if (_mostrarFiltrosEstoque &&
           (_filialParaFiltroId != null || _terminalParaFiltroId != null)) {
         return _buildFiltrosEstoquePage();
-      }
-      
-      if (_mostrarFiltroMovimentacoes) {
-        return FiltroMovimentacoesPage(
-          filialId: _filialParaFiltroId,
-          terminalId: _terminalParaFiltroId,
-          nomeFilial: _filialParaFiltroNome ?? _terminalParaFiltroNome ?? '',
-          empresaId: _empresaParaFiltroId,
-          empresaNome: _empresaParaFiltroNome,
-          onVoltar: () {
-            setState(() {
-              _mostrarFiltroMovimentacoes = false;
-              if (usuario?.nivel == 4) {
-                _mostrarFiliaisDaEmpresa = true;
-              } else {
-                _mostrarFilhosDaSessao('Estoques');
-              }
-            });
-          },
-        );
       }
       
       if (_mostrarDownloads) {
@@ -2216,6 +2197,22 @@ class _HomePageState extends State<HomePage>
 
     // SEÇÃO: Vendas
     if (sessaoAtual == 'Vendas') {
+      if (_mostrarFiltroMovimentacoes) {
+        return FiltroVendasPage(
+          filialId: _filialParaFiltroId,
+          terminalId: _terminalParaFiltroId,
+          nomeFilial: _filialParaFiltroNome ?? _terminalParaFiltroNome ?? '',
+          empresaId: _empresaParaFiltroId,
+          empresaNome: _empresaParaFiltroNome,
+          onVoltar: () {
+            setState(() {
+              _mostrarFiltroMovimentacoes = false;
+              _mostrarFilhosDaSessao('Vendas');
+            });
+          },
+        );
+      }
+
       if (_mostrarFilhosSessao && _sessaoAtual == 'Vendas') {
         return _buildFilhosSessaoPage();
       }
@@ -2921,48 +2918,10 @@ class _HomePageState extends State<HomePage>
         }
         break;
 
-      case 'movimentacoes':
-      case 'movimentaces':
       case 'estoque_fiscal':
         // Validar se usuário tem filial OU terminal vinculado
         if (usuario == null) return;
 
-        // --- REGRAS PARA MOVIMENTAÇÕES ---
-        if (tipo == 'movimentacoes' || tipo == 'movimentaces') {
-          // Nível 1 e 2 (Operacional/Terminal): vinculados a Terminal/Filial mas podem mudar
-          if (usuario.nivel == 1 || usuario.nivel == 2) {
-            setState(() {
-              _terminalParaFiltroId = usuario.terminalId;
-              _terminalParaFiltroNome = _usuarioTerminalNome ?? 'Seu Terminal';
-              _filialParaFiltroId = null;
-              _filialParaFiltroNome = null;
-              _empresaParaFiltroId = null;
-              _empresaParaFiltroNome = null;
-              _mostrarFiltroMovimentacoes = true;
-              _mostrarCardsFilial = false;
-              _mostrarFiliaisDaEmpresa = false;
-            });
-            return;
-          }
-
-          // Nível 3 (Gerencial/Filial): não vinculados a filial específica, campos livres
-          if (usuario.nivel == 3) {
-            setState(() {
-              _filialParaFiltroId = null; // Campos começam livres
-              _filialParaFiltroNome = null;
-              _terminalParaFiltroId = null;
-              _terminalParaFiltroNome = null;
-              _empresaParaFiltroId = null;
-              _empresaParaFiltroNome = null;
-              _mostrarFiltroMovimentacoes = true;
-              _mostrarCardsFilial = false;
-              _mostrarFiliaisDaEmpresa = false;
-            });
-            return;
-          }
-        }
-
-        // --- REGRAS PADRÃO (ESTOQUES / OUTROS) ---
         // Para nível 1 e 2, usar terminal_id
         if (usuario.nivel == 1 || usuario.nivel == 2) {
           if (usuario.terminalId == null || usuario.terminalId!.isEmpty) {
@@ -2983,13 +2942,7 @@ class _HomePageState extends State<HomePage>
             _filialParaFiltroNome = null;
             _empresaParaFiltroId = null;
             _empresaParaFiltroNome = null;
-
-            if (tipo == 'movimentacoes' || tipo == 'movimentaces') {
-              _mostrarFiltroMovimentacoes = true;
-            } else {
-              _mostrarFiltrosEstoque = true;
-            }
-
+            _mostrarFiltrosEstoque = true;
             _mostrarCardsFilial = false;
             _mostrarFiliaisDaEmpresa = false;
           });
@@ -3016,13 +2969,7 @@ class _HomePageState extends State<HomePage>
             _terminalParaFiltroNome = null;
             _empresaParaFiltroId = null;
             _empresaParaFiltroNome = null;
-
-            if (tipo == 'movimentacoes' || tipo == 'movimentaces') {
-              _mostrarFiltroMovimentacoes = true;
-            } else {
-              _mostrarFiltrosEstoque = true;
-            }
-
+            _mostrarFiltrosEstoque = true;
             _mostrarCardsFilial = false;
             _mostrarFiliaisDaEmpresa = false;
           });
@@ -3032,7 +2979,6 @@ class _HomePageState extends State<HomePage>
         // Para nível 4 (Master), mostrar seleção de empresa primeiro
         setState(() {
           _mostrarEstoquePorEmpresa = true;
-          // passamos o tipo para saber qual filtro abrir depois da seleção da filial
           _contextoEscolhaTerminal = tipo;
           _carregarEmpresas();
         });
@@ -3122,6 +3068,11 @@ class _HomePageState extends State<HomePage>
 
   void _navegarParaCardVendas(String tipo, Map<String, dynamic> card) {
     switch (tipo) {
+      case 'movimentacoes':
+      case 'movimentaces':
+        _navegarParaMovimentacoesVendas();
+        break;
+
       case 'programacao_filial':
         final filialId = card['filial_id'];
         final filialNome = card['filial_nome'];
@@ -3144,6 +3095,56 @@ class _HomePageState extends State<HomePage>
         );
         break;
     }
+  }
+
+  void _navegarParaMovimentacoesVendas() {
+    final usuario = UsuarioAtual.instance;
+    if (usuario == null) return;
+
+    // Nível 1 e 2 (Operacional/Terminal)
+    if (usuario.nivel == 1 || usuario.nivel == 2) {
+      setState(() {
+        _terminalParaFiltroId = usuario.terminalId;
+        _terminalParaFiltroNome = _usuarioTerminalNome ?? 'Seu Terminal';
+        _filialParaFiltroId = null;
+        _filialParaFiltroNome = null;
+        _empresaParaFiltroId = null;
+        _empresaParaFiltroNome = null;
+        _mostrarFiltroMovimentacoes = true;
+        _mostrarCardsFilial = false;
+        _mostrarFiliaisDaEmpresa = false;
+      });
+      return;
+    }
+
+    // Nível 3 (Gerencial/Filial)
+    if (usuario.nivel == 3) {
+      setState(() {
+        _filialParaFiltroId = null;
+        _filialParaFiltroNome = null;
+        _terminalParaFiltroId = null;
+        _terminalParaFiltroNome = null;
+        _empresaParaFiltroId = null;
+        _empresaParaFiltroNome = null;
+        _mostrarFiltroMovimentacoes = true;
+        _mostrarCardsFilial = false;
+        _mostrarFiliaisDaEmpresa = false;
+      });
+      return;
+    }
+
+    // Nível 4 (Master): campos livres, vai direto para filtro
+    setState(() {
+      _filialParaFiltroId = null;
+      _filialParaFiltroNome = null;
+      _terminalParaFiltroId = null;
+      _terminalParaFiltroNome = null;
+      _empresaParaFiltroId = null;
+      _empresaParaFiltroNome = null;
+      _mostrarFiltroMovimentacoes = true;
+      _mostrarCardsFilial = false;
+      _mostrarFiliaisDaEmpresa = false;
+    });
   }
 
   void _navegarParaCardBombeios(String tipo) {

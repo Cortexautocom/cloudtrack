@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class MovimentacoesPage extends StatefulWidget {
+class RelatorioVendasPage extends StatefulWidget {
   final String? filialId;
   final String? terminalId;
   final String nomeFilial;
@@ -14,7 +14,7 @@ class MovimentacoesPage extends StatefulWidget {
   final String? produtoFiltro;
   final String tipoRelatorio;
 
-  const MovimentacoesPage({
+  const RelatorioVendasPage({
     super.key,
     this.filialId,
     this.terminalId,
@@ -27,13 +27,13 @@ class MovimentacoesPage extends StatefulWidget {
   });
 
   @override
-  State<MovimentacoesPage> createState() => _MovimentacoesPageState();
+  State<RelatorioVendasPage> createState() => _RelatorioVendasPageState();
 }
 
-class _MovimentacoesPageState extends State<MovimentacoesPage> {
+class _RelatorioVendasPageState extends State<RelatorioVendasPage> {
   final SupabaseClient _supabase = Supabase.instance.client;
-  List<Map<String, dynamic>> _movimentacoes = [];
-  List<Map<String, dynamic>> _movimentacoesOrdenadas = [];
+  List<Map<String, dynamic>> _vendas = [];
+  List<Map<String, dynamic>> _vendasOrdenadas = [];
   String? _empresaId;
   String? _filialIdUsar;
   bool _carregando = true;
@@ -248,12 +248,12 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
         query = query.eq('produto_id', widget.produtoFiltro!);
       }
 
-      final movimentacoesAnteriores = await query;
+      final registrosAnteriores = await query;
 
       num saldoAmb = 0;
       num saldoVinte = 0;
 
-      for (var mov in movimentacoesAnteriores) {
+      for (var mov in registrosAnteriores) {
         saldoAmb += (mov['entrada_amb'] ?? 0) as num;
         saldoAmb -= (mov['saida_amb'] ?? 0) as num;
         saldoVinte += (mov['entrada_vinte'] ?? 0) as num;
@@ -275,21 +275,21 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
   }
 
   void _calcularEstoqueFinal() {
-    if (_movimentacoesOrdenadas.isEmpty) {
+    if (_vendasOrdenadas.isEmpty) {
       _estoqueFinal = Map.from(_estoqueInicial);
       return;
     }
 
-    // Pegar o último saldo das movimentações
-    final ultimaMov = _movimentacoesOrdenadas.last;
+    // Pegar o último saldo das vendas
+    final ultimaMov = _vendasOrdenadas.last;
     _estoqueFinal = {
       'ambiente': ultimaMov['saldo_amb'] ?? 0,
       'vinte_graus': ultimaMov['saldo_vinte'] ?? 0,
     };
   }
 
-  // FUNÇÃO: Normalização de movimentação
-  Map<String, dynamic> _normalizarMovimentacao(
+  // FUNÇÃO: Normalização de venda
+  Map<String, dynamic> _normalizarVenda(
     Map<String, dynamic> mov,
     String filialId,
   ) {
@@ -344,7 +344,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
 
   Future<void> _carregarDadosAnalitico() async {
     try {
-      // Query única para buscar todas as movimentações relevantes
+      // Query única para buscar todas as vendas relevantes
       var query = _supabase
           .from('movimentacoes')
           .select('''
@@ -436,7 +436,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
       num saldoVinte = _estoqueInicial['vinte_graus'] as num;
 
       for (var mov in dados) {
-        final normalizado = _normalizarMovimentacao(
+        final normalizado = _normalizarVenda(
           mov,
           _filialIdUsar!,
         );
@@ -484,7 +484,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
       
       final Map<String, List<Map<String, dynamic>>> porDia = {};
       
-      for (var mov in _movimentacoes) {
+      for (var mov in _vendas) {
         final dataStr = (mov['data_mov'] as String).substring(0, 10);
         if (!porDia.containsKey(dataStr)) {
           porDia[dataStr] = [];
@@ -547,8 +547,8 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
 
       // Atualizar estado com dados sintéticos
       setState(() {
-        _movimentacoes = sintetico;
-        _movimentacoesOrdenadas = List.from(sintetico);
+        _vendas = sintetico;
+        _vendasOrdenadas = List.from(sintetico);
       });
 
     } catch (e) {
@@ -558,7 +558,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
   }
 
   Future<void> _baixarExcel() async {
-    if (_movimentacoesOrdenadas.isEmpty) {
+    if (_vendasOrdenadas.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Não há dados para exportar'),
@@ -624,7 +624,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
       final diaFim = widget.dataFinal.day.toString().padLeft(2, '0');
       final mesFim = widget.dataFinal.month.toString().padLeft(2, '0');
       final anoFim = widget.dataFinal.year.toString();
-      final fileName = 'movimentacoes_${nomeFormatado}_${diaIni}_${mesIni}_${anoIni}_a_${diaFim}_${mesFim}_${anoFim}.xlsx';
+      final fileName = 'relatorio_vendas_${nomeFormatado}_${diaIni}_${mesIni}_${anoIni}_a_${diaFim}_${mesFim}_${anoFim}.xlsx';
       
       html.AnchorElement(href: url)
         ..setAttribute('download', fileName)
@@ -758,8 +758,8 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
     });
     
     setState(() {
-      _movimentacoes = dados;
-      _movimentacoesOrdenadas = dadosOrdenados;
+      _vendas = dados;
+      _vendasOrdenadas = dadosOrdenados;
       _colunaOrdenacao = coluna;
       _ordenacaoAscendente = ascendente;
     });
@@ -774,7 +774,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
       ascendente = coluna == 'data_mov' ? true : true;
     }
     
-    _ordenarDados(_movimentacoes, coluna, ascendente);
+    _ordenarDados(_vendas, coluna, ascendente);
   }
 
   String _getSubtitleFiltros() {
@@ -809,7 +809,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Movimentações – ${widget.nomeFilial}',
+              'Relatório de Vendas – ${widget.nomeFilial}',
               style: const TextStyle(
                 fontWeight: FontWeight.w600,
               ),
@@ -828,7 +828,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          if (!_carregando && !_erro && _movimentacoesOrdenadas.isNotEmpty)
+          if (!_carregando && !_erro && _vendasOrdenadas.isNotEmpty)
             _baixandoExcel
                 ? const Padding(
                     padding: EdgeInsets.all(8.0),
@@ -856,7 +856,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
               },
             ),
           
-          if (!_carregando && !_erro && _movimentacoes.isNotEmpty)
+          if (!_carregando && !_erro && _vendas.isNotEmpty)
             PopupMenuButton<String>(
               icon: const Icon(Icons.sort),
               tooltip: 'Ordenar por',
@@ -906,7 +906,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                   ? _buildCarregando()
                   : _erro
                       ? _buildErro()
-                      : _movimentacoes.isEmpty
+                      : _vendas.isEmpty
                           ? _buildSemDados()
                           : Column(
                               children: [
@@ -1175,15 +1175,15 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
           child: ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: _movimentacoesOrdenadas.length + 1, // +1 para a linha de totais
+            itemCount: _vendasOrdenadas.length + 1, // +1 para a linha de totais
             itemBuilder: (context, index) {
               // Última linha: Totais
-              if (index == _movimentacoesOrdenadas.length) {
+              if (index == _vendasOrdenadas.length) {
                 num totalEntradaAmb = 0;
                 num totalEntradaVinte = 0;
                 num totalSaidaAmb = 0;
                 num totalSaidaVinte = 0;
-                for (final mov in _movimentacoesOrdenadas) {
+                for (final mov in _vendasOrdenadas) {
                   totalEntradaAmb += (mov['entrada_amb'] ?? 0) as num;
                   totalEntradaVinte += (mov['entrada_vinte'] ?? 0) as num;
                   totalSaidaAmb += (mov['saida_amb'] ?? 0) as num;
@@ -1213,8 +1213,8 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                 );
               }
 
-              // Linhas normais das movimentações
-              final e = _movimentacoesOrdenadas[index];
+              // Linhas normais das vendas
+              final e = _vendasOrdenadas[index];
 
               return Container(
                 height: _alturaLinha,
@@ -1322,7 +1322,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       alignment: Alignment.centerLeft,
       child: Text(
-        '${_movimentacoesOrdenadas.length} ${widget.tipoRelatorio == 'sintetico' ? 'dias' : 'movimentação(ões)'}',
+        '${_vendasOrdenadas.length} ${widget.tipoRelatorio == 'sintetico' ? 'dias' : 'venda(s)'}',
         style: TextStyle(
           fontSize: 12,
           color: Colors.grey.shade600,

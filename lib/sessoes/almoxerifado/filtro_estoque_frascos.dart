@@ -12,10 +12,9 @@ class FiltroEstoqueFrascosPage extends StatefulWidget {
     required String? empresaId,
     required String nomeTerminal,
     String? empresaNome,
-    DateTime? mesFiltro,
+    required DateTime dataInicial,
+    required DateTime dataFinal,
     required String tipoRelatorio,
-    required bool isIntraday,
-    DateTime? dataIntraday,
   }) onConsultarEstoque;
   final VoidCallback onVoltar;
 
@@ -37,7 +36,8 @@ class FiltroEstoqueFrascosPage extends StatefulWidget {
 class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  DateTime? _mesSelecionado;
+  DateTime _dataInicial = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  DateTime _dataFinal = DateTime.now();
   String? _terminalSelecionadoId;
   String? _terminalSelecionadoNome;
   String? _empresaSelecionadaId;
@@ -48,13 +48,10 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
   bool _carregandoTerminais = false;
   bool _carregandoEmpresas = false;
   bool _carregando = false;
-  bool _intraday = false;
-  DateTime _dataSelecionada = DateTime.now();
 
   @override
   void initState() {
     super.initState();
-    _mesSelecionado = DateTime.now();
     _inicializarFiltros();
   }
 
@@ -317,9 +314,9 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
     }
   }
 
-  Future<void> _selecionarMes(BuildContext context) async {
-    DateTime tempDate = _mesSelecionado ?? DateTime.now();
-    
+  Future<void> _selecionarDataInicial(BuildContext context) async {
+    DateTime tempDate = _dataInicial;
+
     final DateTime? selecionado = await showDialog<DateTime>(
       context: context,
       builder: (BuildContext context) {
@@ -339,240 +336,32 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                     // Header
                     Row(
                       children: [
-                        Icon(
-                          Icons.calendar_month,
-                          color: const Color.fromARGB(255, 255, 128, 0),
-                          size: 24,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Selecionar Mês',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: const Color.fromARGB(255, 255, 128, 0),
-                          ),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () => Navigator.of(context).pop(),
-                          color: Colors.grey.shade600,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    
-                    // Ano
-                    Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              Icons.chevron_left,
-                              color: const Color.fromARGB(255, 255, 128, 0),
-                            ),
-                            onPressed: () {
-                              setStateDialog(() {
-                                tempDate = DateTime(
-                                  tempDate.year - 1,
-                                  tempDate.month,
-                                );
-                              });
-                            },
-                          ),
-                          Text(
-                            '${tempDate.year}',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                              color: const Color.fromARGB(255, 255, 128, 0),
-                            ),
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.chevron_right,
-                              color: const Color.fromARGB(255, 255, 128, 0),
-                            ),
-                            onPressed: () {
-                              setStateDialog(() {
-                                tempDate = DateTime(
-                                  tempDate.year + 1,
-                                  tempDate.month,
-                                );
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 10),
-                    
-                    // Grid de meses
-                    GridView.count(
-                      shrinkWrap: true,
-                      crossAxisCount: 3,
-                      childAspectRatio: 1.8,
-                      physics: const NeverScrollableScrollPhysics(),
-                      children: List.generate(12, (index) {
-                        final month = index + 1;
-                        final isSelected = month == tempDate.month;
-                        final isCurrentMonth = month == DateTime.now().month && 
-                            tempDate.year == DateTime.now().year;
-                        
-                        return GestureDetector(
-                          onTap: () {
-                            setStateDialog(() {
-                              tempDate = DateTime(tempDate.year, month);
-                            });
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? const Color.fromARGB(255, 255, 128, 0)
-                                  : isCurrentMonth
-                                      ? const Color.fromARGB(30, 255, 128, 0)
-                                      : Colors.transparent,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Center(
-                              child: Text(
-                                _getMonthNameShort(month),
-                                style: TextStyle(
-                                  color: isSelected
-                                      ? Colors.black
-                                      : isCurrentMonth
-                                          ? const Color.fromARGB(255, 255, 128, 0)
-                                          : Colors.black87,
-                                  fontWeight: isSelected || isCurrentMonth
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
-                    
-                    const SizedBox(height: 20),
-                    
-                    // Botões
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.black87,
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                          ),
-                          child: const Text('CANCELAR'),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: () => Navigator.of(context).pop(tempDate),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color.fromARGB(255, 255, 128, 0),
-                            foregroundColor: Colors.black,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text(
-                            'SELECIONAR',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
-
-    if (selecionado != null) {
-      setState(() {
-        _mesSelecionado = DateTime(selecionado.year, selecionado.month);
-      });
-    }
-  }
-
-  String _getMonthNameShort(int month) {
-    const months = [
-      'JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN',
-      'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'
-    ];
-    return months[month - 1];
-  }
-
-  Future<void> _selecionarDataIntraday(BuildContext context) async {
-    DateTime tempDate = _dataSelecionada;
-    
-    final DateTime? selecionado = await showDialog<DateTime>(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Container(
-            width: 350,
-            padding: const EdgeInsets.all(20),
-            child: StatefulBuilder(
-              builder: (context, setStateDialog) {
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Header
-                    Row(
-                      children: [
-                        Icon(
+                        const Icon(
                           Icons.calendar_today,
-                          color: const Color.fromARGB(255, 255, 128, 0),
+                          color: Color(0xFF0D47A1),
                           size: 24,
                         ),
                         const SizedBox(width: 12),
-                        Text(
-                          'Selecionar Data',
+                        const Text(
+                          'Data inicial',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
-                            color: const Color.fromARGB(255, 255, 128, 0),
+                            color: Color(0xFF0D47A1),
                           ),
                         ),
                         const Spacer(),
                         IconButton(
                           icon: const Icon(Icons.close),
                           onPressed: () => Navigator.of(context).pop(),
-                          color: Colors.grey.shade600,
+                          color: Colors.grey,
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         ),
                       ],
                     ),
                     const SizedBox(height: 10),
-                    
+
                     // Mês e Ano
                     Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -580,9 +369,9 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           IconButton(
-                            icon: Icon(
+                            icon: const Icon(
                               Icons.chevron_left,
-                              color: const Color.fromARGB(255, 255, 128, 0),
+                              color: Color(0xFF0D47A1),
                             ),
                             onPressed: () {
                               setStateDialog(() {
@@ -596,16 +385,16 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                           ),
                           Text(
                             '${_getMonthName(tempDate.month)} ${tempDate.year}',
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
-                              color: const Color.fromARGB(255, 255, 128, 0),
+                              color: Color(0xFF0D47A1),
                             ),
                           ),
                           IconButton(
-                            icon: Icon(
+                            icon: const Icon(
                               Icons.chevron_right,
-                              color: const Color.fromARGB(255, 255, 128, 0),
+                              color: Color(0xFF0D47A1),
                             ),
                             onPressed: () {
                               setStateDialog(() {
@@ -620,7 +409,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                         ],
                       ),
                     ),
-                    
+
                     // Dias da semana
                     GridView.count(
                       shrinkWrap: true,
@@ -630,42 +419,42 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                         return Center(
                           child: Text(
                             day,
-                            style: TextStyle(
-                              color: const Color.fromARGB(255, 255, 128, 0),
+                            style: const TextStyle(
+                              color: Color(0xFF0D47A1),
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         );
                       }).toList(),
                     ),
-                    
+
                     // Dias do mês
                     GridView.count(
                       shrinkWrap: true,
                       crossAxisCount: 7,
                       childAspectRatio: 1.0,
                       children: _getDaysInMonth(tempDate).map((day) {
-                        final isSelected = day != null && 
-                            day == tempDate.day;
-                        
-                        final isToday = day != null && 
-                            day == DateTime.now().day && 
+                        final isSelected = day != null && day == tempDate.day;
+                        final isToday = day != null &&
+                            day == DateTime.now().day &&
                             tempDate.month == DateTime.now().month &&
                             tempDate.year == DateTime.now().year;
-                        
+
                         return GestureDetector(
-                          onTap: day != null ? () {
-                            setStateDialog(() {
-                              tempDate = DateTime(tempDate.year, tempDate.month, day);
-                            });
-                          } : null,
+                          onTap: day != null
+                              ? () {
+                                  setStateDialog(() {
+                                    tempDate = DateTime(tempDate.year, tempDate.month, day);
+                                  });
+                                }
+                              : null,
                           child: Container(
                             margin: const EdgeInsets.all(2),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? const Color.fromARGB(255, 255, 128, 0)
+                                  ? const Color(0xFF0D47A1)
                                   : isToday
-                                      ? const Color.fromARGB(30, 255, 128, 0)
+                                      ? const Color(0x220D47A1)
                                       : Colors.transparent,
                               shape: BoxShape.circle,
                             ),
@@ -674,9 +463,9 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                                 day != null ? day.toString() : '',
                                 style: TextStyle(
                                   color: isSelected
-                                      ? Colors.black
+                                      ? Colors.white
                                       : isToday
-                                          ? const Color.fromARGB(255, 255, 128, 0)
+                                          ? const Color(0xFF0D47A1)
                                           : Colors.black87,
                                   fontWeight: isSelected || isToday
                                       ? FontWeight.bold
@@ -688,9 +477,9 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                         );
                       }).toList(),
                     ),
-                    
+
                     const SizedBox(height: 20),
-                    
+
                     // Botões
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -707,8 +496,8 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                         ElevatedButton(
                           onPressed: () => Navigator.of(context).pop(tempDate),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color.fromARGB(255, 255, 128, 0),
-                            foregroundColor: Colors.black,
+                            backgroundColor: const Color(0xFF0D47A1),
+                            foregroundColor: Colors.white,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 20,
@@ -739,7 +528,232 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
 
     if (selecionado != null) {
       setState(() {
-        _dataSelecionada = selecionado;
+        _dataInicial = selecionado;
+        if (_dataInicial.isAfter(_dataFinal)) {
+          _dataFinal = _dataInicial;
+        }
+      });
+    }
+  }
+
+  Future<void> _selecionarDataFinal(BuildContext context) async {
+    DateTime tempDate = _dataFinal;
+
+    final DateTime? selecionado = await showDialog<DateTime>(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            width: 350,
+            padding: const EdgeInsets.all(20),
+            child: StatefulBuilder(
+              builder: (context, setStateDialog) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.calendar_today,
+                          color: Color(0xFF0D47A1),
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Data final',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0D47A1),
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(context).pop(),
+                          color: Colors.grey,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Mês e Ano
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              Icons.chevron_left,
+                              color: Color(0xFF0D47A1),
+                            ),
+                            onPressed: () {
+                              setStateDialog(() {
+                                tempDate = DateTime(
+                                  tempDate.year,
+                                  tempDate.month - 1,
+                                  tempDate.day,
+                                );
+                              });
+                            },
+                          ),
+                          Text(
+                            '${_getMonthName(tempDate.month)} ${tempDate.year}',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF0D47A1),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.chevron_right,
+                              color: Color(0xFF0D47A1),
+                            ),
+                            onPressed: () {
+                              setStateDialog(() {
+                                tempDate = DateTime(
+                                  tempDate.year,
+                                  tempDate.month + 1,
+                                  tempDate.day,
+                                );
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Dias da semana
+                    GridView.count(
+                      shrinkWrap: true,
+                      crossAxisCount: 7,
+                      childAspectRatio: 1.0,
+                      children: ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day) {
+                        return Center(
+                          child: Text(
+                            day,
+                            style: const TextStyle(
+                              color: Color(0xFF0D47A1),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                    // Dias do mês
+                    GridView.count(
+                      shrinkWrap: true,
+                      crossAxisCount: 7,
+                      childAspectRatio: 1.0,
+                      children: _getDaysInMonth(tempDate).map((day) {
+                        final isSelected = day != null && day == tempDate.day;
+                        final isToday = day != null &&
+                            day == DateTime.now().day &&
+                            tempDate.month == DateTime.now().month &&
+                            tempDate.year == DateTime.now().year;
+
+                        return GestureDetector(
+                          onTap: day != null
+                              ? () {
+                                  setStateDialog(() {
+                                    tempDate = DateTime(tempDate.year, tempDate.month, day);
+                                  });
+                                }
+                              : null,
+                          child: Container(
+                            margin: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? const Color(0xFF0D47A1)
+                                  : isToday
+                                      ? const Color(0x220D47A1)
+                                      : Colors.transparent,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                day != null ? day.toString() : '',
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? Colors.white
+                                      : isToday
+                                          ? const Color(0xFF0D47A1)
+                                          : Colors.black87,
+                                  fontWeight: isSelected || isToday
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Botões
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.black87,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          child: const Text('CANCELAR'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(tempDate),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D47A1),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'SELECIONAR',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selecionado != null) {
+      setState(() {
+        _dataFinal = selecionado;
+        if (_dataFinal.isBefore(_dataInicial)) {
+          _dataInicial = _dataFinal;
+        }
       });
     }
   }
@@ -777,10 +791,10 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
   }
 
   void _consultarEstoque() {
-    if (!_intraday && _mesSelecionado == null) {
+    if (_dataInicial.isAfter(_dataFinal)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Por favor, selecione um mês.'),
+          content: Text('A data inicial não pode ser posterior à data final.'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -812,19 +826,18 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
       empresaId: _empresaSelecionadaId,
       nomeTerminal: _terminalSelecionadoNome ?? 'Terminal não selecionado',
       empresaNome: _empresaSelecionadaNome,
-      mesFiltro: _intraday ? null : _mesSelecionado,
+      dataInicial: _dataInicial,
+      dataFinal: _dataFinal,
       tipoRelatorio: _tipoRelatorio,
-      isIntraday: _intraday,
-      dataIntraday: _intraday ? _dataSelecionada : null,
     );
   }
 
   void _resetarFiltros() {
+    final agora = DateTime.now();
     setState(() {
-      _mesSelecionado = DateTime.now();
+      _dataInicial = DateTime(agora.year, agora.month, 1);
+      _dataFinal = agora;
       _tipoRelatorio = 'sintetico';
-      _intraday = false;
-      _dataSelecionada = DateTime.now();
     });
   }
 
@@ -938,31 +951,6 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
             ),
           ),
           const SizedBox(height: 20),
-
-          // Checkbox Intraday
-          Row(
-            children: [
-              Checkbox(
-                value: _intraday,
-                onChanged: (value) {
-                  setState(() {
-                    _intraday = value ?? false;
-                  });
-                },
-                activeColor: const Color(0xFF0D47A1),
-              ),
-              const Text(
-                'Intraday (movimentações diárias)',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF424242),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
 
           // Linha com os filtros
           Row(
@@ -1177,58 +1165,82 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
 
               const SizedBox(width: 16),
 
-              // Campo Mês de Referência ou Data Específica
+              // Campo Data Inicial
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _intraday ? 'Data específica *' : 'Mês de referência *',
+                    const Text(
+                      'Data inicial *',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xFF0D47A1),
+                        color: Color(0xFF0D47A1),
                       ),
                     ),
                     const SizedBox(height: 4),
                     InkWell(
-                      onTap: _intraday
-                          ? () => _selecionarDataIntraday(context)
-                          : () => _selecionarMes(context),
+                      onTap: () => _selecionarDataInicial(context),
                       child: Container(
                         width: double.infinity,
                         height: 50,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 0,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          border: Border.all(
-                            color: Colors.grey.shade400,
-                            width: 1,
-                          ),
+                          border: Border.all(color: Colors.grey.shade400, width: 1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              _intraday
-                                  ? '${_dataSelecionada.day.toString().padLeft(2, '0')}/${_dataSelecionada.month.toString().padLeft(2, '0')}/${_dataSelecionada.year}'
-                                  : (_mesSelecionado != null
-                                      ? '${_mesSelecionado!.month.toString().padLeft(2, '0')}/${_mesSelecionado!.year}'
-                                      : 'Selecione o mês'),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Colors.black,
-                              ),
+                              '${_dataInicial.day.toString().padLeft(2, '0')}/${_dataInicial.month.toString().padLeft(2, '0')}/${_dataInicial.year}',
+                              style: const TextStyle(fontSize: 13, color: Colors.black),
                             ),
-                            Icon(
-                              Icons.calendar_today,
-                              color: Colors.grey.shade600,
-                              size: 16,
+                            Icon(Icons.calendar_today, color: Colors.grey.shade600, size: 16),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 16),
+
+              // Campo Data Final
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Data final *',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0D47A1),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    InkWell(
+                      onTap: () => _selecionarDataFinal(context),
+                      child: Container(
+                        width: double.infinity,
+                        height: 50,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: Colors.grey.shade400, width: 1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${_dataFinal.day.toString().padLeft(2, '0')}/${_dataFinal.month.toString().padLeft(2, '0')}/${_dataFinal.year}',
+                              style: const TextStyle(fontSize: 13, color: Colors.black),
                             ),
+                            Icon(Icons.calendar_today, color: Colors.grey.shade600, size: 16),
                           ],
                         ),
                       ),
@@ -1349,19 +1361,9 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
               ),
               _buildItemResumo(
                 icon: Icons.calendar_today,
-                label: _intraday ? 'Data' : 'Mês',
-                value: _intraday
-                    ? '${_dataSelecionada.day.toString().padLeft(2, '0')}/${_dataSelecionada.month.toString().padLeft(2, '0')}/${_dataSelecionada.year}'
-                    : (_mesSelecionado != null
-                        ? '${_mesSelecionado!.month.toString().padLeft(2, '0')}/${_mesSelecionado!.year}'
-                        : 'Não selecionado'),
+                label: 'Período',
+                value: '${_dataInicial.day.toString().padLeft(2, '0')}/${_dataInicial.month.toString().padLeft(2, '0')}/${_dataInicial.year} a ${_dataFinal.day.toString().padLeft(2, '0')}/${_dataFinal.month.toString().padLeft(2, '0')}/${_dataFinal.year}',
               ),
-              if (_intraday)
-                _buildItemResumo(
-                  icon: Icons.access_time,
-                  label: 'Modo',
-                  value: 'Intraday (diário)',
-                ),
               _buildItemResumo(
                 icon: Icons.assessment,
                 label: 'Tipo de relatório',
@@ -1512,9 +1514,7 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _intraday
-                      ? 'Campos obrigatórios: Terminal, Empresa e Data específica'
-                      : 'Campos obrigatórios: Terminal, Empresa e Mês de referência',
+                  'Campos obrigatórios: Terminal, Empresa, Data inicial e Data final',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -1523,12 +1523,10 @@ class _FiltroEstoqueFrascosPageState extends State<FiltroEstoqueFrascosPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _intraday
-                      ? 'Modo Intraday: mostra apenas movimentações da data selecionada.'
-                      : 'O tipo de relatório determina o nível de detalhamento da consulta.',
+                  'O tipo de relatório determina o nível de detalhamento da consulta.',
                   style: TextStyle(
                     fontSize: 11,
-                    color: const Color.fromARGB(255, 255, 128, 0),
+                    color: Colors.orange.shade700,
                   ),
                 ),
               ],

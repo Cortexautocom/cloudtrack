@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
-import 'movimentacoes.dart';
+import 'relatorio_vendas.dart';
 
-class FiltroMovimentacoesPage extends StatefulWidget {
+class FiltroVendasPage extends StatefulWidget {
   final String? filialId;
   final String? terminalId;
   final String nomeFilial;
@@ -11,7 +11,7 @@ class FiltroMovimentacoesPage extends StatefulWidget {
   final String? empresaNome;
   final VoidCallback onVoltar;
 
-  const FiltroMovimentacoesPage({
+  const FiltroVendasPage({
     super.key,
     this.filialId,
     this.terminalId,
@@ -22,10 +22,10 @@ class FiltroMovimentacoesPage extends StatefulWidget {
   });
 
   @override
-  State<FiltroMovimentacoesPage> createState() => _FiltroMovimentacoesPageState();
+  State<FiltroVendasPage> createState() => _FiltroVendasPageState();
 }
 
-class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
+class _FiltroVendasPageState extends State<FiltroVendasPage> {
   final SupabaseClient _supabase = Supabase.instance.client;
   DateTime _dataInicial = DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime _dataFinal = DateTime.now();
@@ -656,7 +656,7 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => MovimentacoesPage(
+        builder: (context) => RelatorioVendasPage(
           filialId: filialToPass,
           terminalId: widget.terminalId,
           nomeFilial: _filialSelecionadaNome ?? 'Filial não selecionada',
@@ -693,7 +693,7 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Filtros de Movimentações',
+              'Filtros de Vendas',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
               ),
