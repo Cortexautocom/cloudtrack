@@ -349,8 +349,8 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       _movsOrdenadas = List<Map<String, dynamic>>.from(listaComSaldo);
 
       _estoqueFinal = {
-        'amb': _movs.isEmpty ? null : _movs.last['saldo_amb'],
-        'vinte': _movs.isEmpty ? null : _movs.last['saldo_vinte'],
+        'amb': _movs.isEmpty ? (_estoqueInicial['amb'] ?? 0) : _movs.last['saldo_amb'],
+        'vinte': _movs.isEmpty ? (_estoqueInicial['vinte'] ?? 0) : _movs.last['saldo_vinte'],
       };
 
       if (_possuiCACL) {
