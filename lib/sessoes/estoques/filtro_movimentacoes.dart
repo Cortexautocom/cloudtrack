@@ -27,7 +27,8 @@ class FiltroMovimentacoesPage extends StatefulWidget {
 
 class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
   final SupabaseClient _supabase = Supabase.instance.client;
-  DateTime? _mesSelecionado;
+  DateTime _dataInicial = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  DateTime _dataFinal = DateTime.now();
   String? _produtoSelecionado;
   String? _filialSelecionadaId;
   String? _filialSelecionadaNome;
@@ -37,14 +38,10 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
   bool _carregandoProdutos = false;
   bool _carregandoFiliais = false;
   bool _carregando = false;
-  bool _intraday = false;
-  DateTime _dataSelecionada = DateTime.now();
 
   @override
   void initState() {
     super.initState();
-    _mesSelecionado = DateTime.now();
-
     final usuario = UsuarioAtual.instance;
     // Inicializar filial a partir do usuário logado (filial_id é opcional para todos os níveis)
     _filialSelecionadaId = usuario?.filialId ?? '';
@@ -114,23 +111,20 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
     }
   }
 
-  Future<void> _carregarProdutosDisponiveis({bool incluirTodos = false}) async {
+  Future<void> _carregarProdutosDisponiveis() async {
     setState(() => _carregandoProdutos = true);
     
     try {
-      // Buscar apenas id e nome de todos os produtos, sem qualquer filtro
+      // Buscar apenas produtos dos grupos 2 e 3
       final dados = await _supabase
           .from('produtos')
           .select('id, nome')
+          .or('grupo.eq.1,grupo.eq.3')
           .order('nome');
 
       final List<Map<String, dynamic>> produtos = [];
-      
-      // Adicionar "Todos os produtos" apenas no modo intraday
-      if (incluirTodos) {
-        produtos.add({'id': 'todos', 'nome': 'Todos os produtos'});
-      }
-      
+
+      produtos.add({'id': 'todos', 'nome': 'Todos os produtos'});
       produtos.add({'id': '', 'nome': '<selecione>'});
       
       for (var produto in dados) {
@@ -158,83 +152,487 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
     }
   }
 
-  Future<void> _selecionarMes(BuildContext context) async {
-    final DateTime? selecionado = await showDatePicker(
+  Future<void> _selecionarDataInicial(BuildContext context) async {
+    DateTime tempDate = _dataInicial;
+
+    final DateTime? selecionado = await showDialog<DateTime>(
       context: context,
-      initialDate: _mesSelecionado ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-      initialDatePickerMode: DatePickerMode.year,
-      helpText: 'Selecione o mês',
-      fieldLabelText: 'Mês de referência',
-      fieldHintText: 'MM/AAAA',
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF0D47A1),
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF0D47A1),
-              ),
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            width: 350,
+            padding: const EdgeInsets.all(20),
+            child: StatefulBuilder(
+              builder: (context, setStateDialog) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.calendar_today,
+                          color: Color(0xFF0D47A1),
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Data inicial',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0D47A1),
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(context).pop(),
+                          color: Colors.grey,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Mês e Ano
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              Icons.chevron_left,
+                              color: Color(0xFF0D47A1),
+                            ),
+                            onPressed: () {
+                              setStateDialog(() {
+                                tempDate = DateTime(
+                                  tempDate.year,
+                                  tempDate.month - 1,
+                                  tempDate.day,
+                                );
+                              });
+                            },
+                          ),
+                          Text(
+                            '${_getMonthName(tempDate.month)} ${tempDate.year}',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF0D47A1),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.chevron_right,
+                              color: Color(0xFF0D47A1),
+                            ),
+                            onPressed: () {
+                              setStateDialog(() {
+                                tempDate = DateTime(
+                                  tempDate.year,
+                                  tempDate.month + 1,
+                                  tempDate.day,
+                                );
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Dias da semana
+                    GridView.count(
+                      shrinkWrap: true,
+                      crossAxisCount: 7,
+                      childAspectRatio: 1.0,
+                      children: ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day) {
+                        return Center(
+                          child: Text(
+                            day,
+                            style: const TextStyle(
+                              color: Color(0xFF0D47A1),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                    // Dias do mês
+                    GridView.count(
+                      shrinkWrap: true,
+                      crossAxisCount: 7,
+                      childAspectRatio: 1.0,
+                      children: _getDaysInMonth(tempDate).map((day) {
+                        final isSelected = day != null && day == tempDate.day;
+                        final isToday = day != null &&
+                            day == DateTime.now().day &&
+                            tempDate.month == DateTime.now().month &&
+                            tempDate.year == DateTime.now().year;
+
+                        return GestureDetector(
+                          onTap: day != null
+                              ? () {
+                                  setStateDialog(() {
+                                    tempDate = DateTime(tempDate.year, tempDate.month, day);
+                                  });
+                                }
+                              : null,
+                          child: Container(
+                            margin: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? const Color(0xFF0D47A1)
+                                  : isToday
+                                      ? const Color(0x220D47A1)
+                                      : Colors.transparent,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                day != null ? day.toString() : '',
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? Colors.white
+                                      : isToday
+                                          ? const Color(0xFF0D47A1)
+                                          : Colors.black87,
+                                  fontWeight: isSelected || isToday
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Botões
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.black87,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          child: const Text('CANCELAR'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(tempDate),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D47A1),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'SELECIONAR',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
             ),
           ),
-          child: child!,
         );
       },
     );
-    
+
     if (selecionado != null) {
       setState(() {
-        _mesSelecionado = DateTime(selecionado.year, selecionado.month);
+        _dataInicial = selecionado;
+        if (_dataInicial.isAfter(_dataFinal)) {
+          _dataFinal = _dataInicial;
+        }
       });
     }
   }
 
-  Future<void> _selecionarDataIntraday(BuildContext context) async {
-    final DateTime? selecionado = await showDatePicker(
+  Future<void> _selecionarDataFinal(BuildContext context) async {
+    DateTime tempDate = _dataFinal;
+
+    final DateTime? selecionado = await showDialog<DateTime>(
       context: context,
-      initialDate: _dataSelecionada,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      helpText: 'Selecione a data',
-      fieldLabelText: 'Data específica',
-      fieldHintText: 'DD/MM/AAAA',
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF0D47A1),
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF0D47A1),
-              ),
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            width: 350,
+            padding: const EdgeInsets.all(20),
+            child: StatefulBuilder(
+              builder: (context, setStateDialog) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.calendar_today,
+                          color: Color(0xFF0D47A1),
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Data final',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0D47A1),
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(context).pop(),
+                          color: Colors.grey,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Mês e Ano
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              Icons.chevron_left,
+                              color: Color(0xFF0D47A1),
+                            ),
+                            onPressed: () {
+                              setStateDialog(() {
+                                tempDate = DateTime(
+                                  tempDate.year,
+                                  tempDate.month - 1,
+                                  tempDate.day,
+                                );
+                              });
+                            },
+                          ),
+                          Text(
+                            '${_getMonthName(tempDate.month)} ${tempDate.year}',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF0D47A1),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.chevron_right,
+                              color: Color(0xFF0D47A1),
+                            ),
+                            onPressed: () {
+                              setStateDialog(() {
+                                tempDate = DateTime(
+                                  tempDate.year,
+                                  tempDate.month + 1,
+                                  tempDate.day,
+                                );
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Dias da semana
+                    GridView.count(
+                      shrinkWrap: true,
+                      crossAxisCount: 7,
+                      childAspectRatio: 1.0,
+                      children: ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day) {
+                        return Center(
+                          child: Text(
+                            day,
+                            style: const TextStyle(
+                              color: Color(0xFF0D47A1),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                    // Dias do mês
+                    GridView.count(
+                      shrinkWrap: true,
+                      crossAxisCount: 7,
+                      childAspectRatio: 1.0,
+                      children: _getDaysInMonth(tempDate).map((day) {
+                        final isSelected = day != null && day == tempDate.day;
+                        final isToday = day != null &&
+                            day == DateTime.now().day &&
+                            tempDate.month == DateTime.now().month &&
+                            tempDate.year == DateTime.now().year;
+
+                        return GestureDetector(
+                          onTap: day != null
+                              ? () {
+                                  setStateDialog(() {
+                                    tempDate = DateTime(tempDate.year, tempDate.month, day);
+                                  });
+                                }
+                              : null,
+                          child: Container(
+                            margin: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? const Color(0xFF0D47A1)
+                                  : isToday
+                                      ? const Color(0x220D47A1)
+                                      : Colors.transparent,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                day != null ? day.toString() : '',
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? Colors.white
+                                      : isToday
+                                          ? const Color(0xFF0D47A1)
+                                          : Colors.black87,
+                                  fontWeight: isSelected || isToday
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Botões
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.black87,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          child: const Text('CANCELAR'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(tempDate),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D47A1),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'SELECIONAR',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
             ),
           ),
-          child: child!,
         );
       },
     );
-    
+
     if (selecionado != null) {
       setState(() {
-        _dataSelecionada = selecionado;
+        _dataFinal = selecionado;
+        if (_dataFinal.isBefore(_dataInicial)) {
+          _dataInicial = _dataFinal;
+        }
       });
     }
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    return months[month - 1];
+  }
+
+  List<int?> _getDaysInMonth(DateTime date) {
+    final firstDay = DateTime(date.year, date.month, 1);
+    final lastDay = DateTime(date.year, date.month + 1, 0);
+
+    final firstWeekday = firstDay.weekday;
+    final startOffset = firstWeekday == 7 ? 0 : firstWeekday;
+
+    List<int?> days = [];
+
+    for (int i = 0; i < startOffset; i++) {
+      days.add(null);
+    }
+
+    for (int i = 1; i <= lastDay.day; i++) {
+      days.add(i);
+    }
+
+    while (days.length < 42) {
+      days.add(null);
+    }
+
+    return days;
   }
 
   void _irParaEstoqueMes() {
-    // Validar mês apenas se não for intraday
-    if (!_intraday && _mesSelecionado == null) {
+    if (_dataInicial.isAfter(_dataFinal)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Por favor, selecione um mês.'),
+          content: Text('A data inicial não pode ser posterior à data final.'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -245,17 +643,6 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Por favor, selecione um produto.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    // Validar: "Todos os produtos" só é permitido no modo intraday
-    if (!_intraday && _produtoSelecionado == 'todos') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('A opção "Todos os produtos" só está disponível no modo Intraday.'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -274,26 +661,24 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
           terminalId: widget.terminalId,
           nomeFilial: _filialSelecionadaNome ?? 'Filial não selecionada',
           empresaId: widget.empresaId,
-          mesFiltro: _intraday ? null : _mesSelecionado,
+          dataInicial: _dataInicial,
+          dataFinal: _dataFinal,
           produtoFiltro: _produtoSelecionado,
           tipoRelatorio: _tipoRelatorio,
-          isIntraday: _intraday,
-          dataIntraday: _intraday ? _dataSelecionada : null,
         ),
       ),
     );
   }
 
   void _resetarFiltros() {
+    final agora = DateTime.now();
     setState(() {
-      _mesSelecionado = DateTime.now();
+      _dataInicial = DateTime(agora.year, agora.month, 1);
+      _dataFinal = agora;
       _produtoSelecionado = '';
       _tipoRelatorio = 'sintetico';
-      _intraday = false;
-      _dataSelecionada = DateTime.now();
     });
-    // Recarregar produtos sem opção "Todos" (modo mensal)
-    _carregarProdutosDisponiveis(incluirTodos: false);
+    _carregarProdutosDisponiveis();
   }
 
   @override
@@ -400,38 +785,6 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
           ),
           const SizedBox(height: 20),
 
-          // Checkbox Intraday
-          Row(
-            children: [
-              Checkbox(
-                value: _intraday,
-                onChanged: (value) {
-                  final novoIntraday = value ?? false;
-                  // Se estava com "Todos" selecionado e desmarcou intraday, resetar produto
-                  if (!novoIntraday && _produtoSelecionado == 'todos') {
-                    _produtoSelecionado = '';
-                  }
-                  setState(() {
-                    _intraday = novoIntraday;
-                  });
-                  // Recarregar lista de produtos com a regra correta
-                  _carregarProdutosDisponiveis(incluirTodos: novoIntraday);
-                },
-                activeColor: const Color(0xFF0D47A1),
-              ),
-              const Text(
-                'Intraday (movimentações diárias)',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF424242),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
           // Linha com os filtros
           Row(
             children: [
@@ -523,56 +876,39 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
 
               const SizedBox(width: 16),
 
-              // Campo Mês de Referência ou Data Específica
+              // Campo Data Inicial
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _intraday ? 'Data específica *' : 'Mês de referência *',
+                    const Text(
+                      'Data inicial *',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: _intraday ? Colors.grey : const Color(0xFF0D47A1),
+                        color: Color(0xFF0D47A1),
                       ),
                     ),
                     const SizedBox(height: 4),
                     InkWell(
-                      onTap: _intraday ? () => _selecionarDataIntraday(context) : () => _selecionarMes(context),
+                      onTap: () => _selecionarDataInicial(context),
                       child: Container(
                         width: double.infinity,
-                        height: 50, // Ajustado para coincidir com itemHeight do Dropdown
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 0, // Removido vertical padding para centralizar via Row/Align
-                        ),
+                        height: 50,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          border: Border.all(
-                            color: Colors.grey.shade400,
-                            width: 1,
-                          ),
+                          border: Border.all(color: Colors.grey.shade400, width: 1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              _intraday
-                                ? '${_dataSelecionada.day.toString().padLeft(2, '0')}/${_dataSelecionada.month.toString().padLeft(2, '0')}/${_dataSelecionada.year}'
-                                : (_mesSelecionado != null
-                                    ? '${_mesSelecionado!.month.toString().padLeft(2, '0')}/${_mesSelecionado!.year}'
-                                    : 'Selecione o mês'),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Colors.black,
-                              ),
+                              '${_dataInicial.day.toString().padLeft(2, '0')}/${_dataInicial.month.toString().padLeft(2, '0')}/${_dataInicial.year}',
+                              style: const TextStyle(fontSize: 13, color: Colors.black),
                             ),
-                            Icon(
-                              Icons.calendar_today,
-                              color: Colors.grey.shade600,
-                              size: 16,
-                            ),
+                            Icon(Icons.calendar_today, color: Colors.grey.shade600, size: 16),
                           ],
                         ),
                       ),
@@ -580,9 +916,52 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
                   ],
                 ),
               ),
-              
+
               const SizedBox(width: 16),
-              
+
+              // Campo Data Final
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Data final *',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0D47A1),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    InkWell(
+                      onTap: () => _selecionarDataFinal(context),
+                      child: Container(
+                        width: double.infinity,
+                        height: 50,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: Colors.grey.shade400, width: 1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${_dataFinal.day.toString().padLeft(2, '0')}/${_dataFinal.month.toString().padLeft(2, '0')}/${_dataFinal.year}',
+                              style: const TextStyle(fontSize: 13, color: Colors.black),
+                            ),
+                            Icon(Icons.calendar_today, color: Colors.grey.shade600, size: 16),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 16),
+
               // Campo Produto
               Expanded(
                 child: Column(
@@ -767,19 +1146,9 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
                 ),
               _buildItemResumo(
                 icon: Icons.calendar_today,
-                label: _intraday ? 'Data' : 'Mês',
-                value: _intraday
-                  ? '${_dataSelecionada.day.toString().padLeft(2, '0')}/${_dataSelecionada.month.toString().padLeft(2, '0')}/${_dataSelecionada.year}'
-                  : (_mesSelecionado != null
-                      ? '${_mesSelecionado!.month.toString().padLeft(2, '0')}/${_mesSelecionado!.year}'
-                      : 'Não selecionado'),
+                label: 'Período',
+                value: '${_dataInicial.day.toString().padLeft(2, '0')}/${_dataInicial.month.toString().padLeft(2, '0')}/${_dataInicial.year} a ${_dataFinal.day.toString().padLeft(2, '0')}/${_dataFinal.month.toString().padLeft(2, '0')}/${_dataFinal.year}',
               ),
-              if (_intraday)
-                _buildItemResumo(
-                  icon: Icons.access_time,
-                  label: 'Modo',
-                  value: 'Intraday (diário)',
-                ),
               _buildItemResumo(
                 icon: Icons.inventory_2,
                 label: 'Produto',
@@ -940,9 +1309,7 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _intraday
-                    ? 'Campos obrigatórios: Data específica e Produto'
-                    : 'Campos obrigatórios: Mês de referência e Produto',
+                  'Campos obrigatórios: Data inicial, Data final e Produto',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -951,9 +1318,7 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _intraday
-                    ? 'Modo Intraday: mostra apenas movimentações da data selecionada.'
-                    : 'O tipo de relatório determina o nível de detalhamento da consulta.',
+                  'O tipo de relatório determina o nível de detalhamento da consulta.',
                   style: TextStyle(
                     fontSize: 11,
                     color: Colors.orange.shade700,

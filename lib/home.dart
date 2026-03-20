@@ -3484,11 +3484,10 @@ class _HomePageState extends State<HomePage>
             required String? terminalId,
             required String nomeFilial,
             String? empresaId,
-            DateTime? mesFiltro,
+            required DateTime dataInicial,
+            required DateTime dataFinal,
             String? produtoFiltro,
             required String tipoRelatorio,
-            required bool isIntraday,
-            DateTime? dataIntraday,
           }) {
             Navigator.push(
               context,
@@ -3498,11 +3497,10 @@ class _HomePageState extends State<HomePage>
                   terminalId: terminalId,
                   nomeFilial: nomeFilial,
                   empresaId: empresaId,
-                  mesFiltro: mesFiltro,
+                  dataInicial: dataInicial,
+                  dataFinal: dataFinal,
                   produtoFiltro: produtoFiltro,
                   tipoRelatorio: tipoRelatorio,
-                  isIntraday: isIntraday,
-                  dataIntraday: dataIntraday,
                 ),
               ),
             );

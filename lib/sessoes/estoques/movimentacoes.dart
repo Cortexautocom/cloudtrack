@@ -9,11 +9,10 @@ class MovimentacoesPage extends StatefulWidget {
   final String? terminalId;
   final String nomeFilial;
   final String? empresaId;
-  final DateTime? mesFiltro;
+  final DateTime dataInicial;
+  final DateTime dataFinal;
   final String? produtoFiltro;
   final String tipoRelatorio;
-  final bool isIntraday;
-  final DateTime? dataIntraday;
 
   const MovimentacoesPage({
     super.key,
@@ -21,11 +20,10 @@ class MovimentacoesPage extends StatefulWidget {
     this.terminalId,
     required this.nomeFilial,
     this.empresaId,
-    this.mesFiltro,
+    required this.dataInicial,
+    required this.dataFinal,
     this.produtoFiltro,
     required this.tipoRelatorio,
-    this.isIntraday = false,
-    this.dataIntraday,
   });
 
   @override
@@ -229,79 +227,12 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
 
   Future<void> _carregarEstoqueInicial() async {
     try {
-      // Se for intraday, buscar estoque até o dia anterior
-      if (widget.isIntraday && widget.dataIntraday != null) {
-        final diaAnterior = widget.dataIntraday!.subtract(const Duration(days: 1));
-        
-        final movimentacoesAnteriores = await _supabase
-            .from('movimentacoes')
-            .select('''
-              entrada_amb,
-              entrada_vinte,
-              saida_amb,
-              saida_vinte
-            ''')
-            .or('filial_id.eq.$_filialIdUsar,filial_destino_id.eq.$_filialIdUsar,filial_origem_id.eq.$_filialIdUsar')
-            .eq('empresa_id', _empresaId!)
-            .lte('data_mov', diaAnterior.toIso8601String().split('T')[0]);
+      // Buscar saldo acumulado até o dia anterior à data inicial
+      final diaAnterior = widget.dataInicial.subtract(const Duration(days: 1));
+      final diaAnteriorStr =
+          '${diaAnterior.year}-${diaAnterior.month.toString().padLeft(2, '0')}-${diaAnterior.day.toString().padLeft(2, '0')}T23:59:59.999';
 
-        if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
-          final movsProduto = await _supabase
-              .from('movimentacoes')
-              .select('''
-                entrada_amb,
-                entrada_vinte,
-                saida_amb,
-                saida_vinte
-              ''')
-              .or('filial_id.eq.$_filialIdUsar,filial_destino_id.eq.$_filialIdUsar,filial_origem_id.eq.$_filialIdUsar')
-              .eq('empresa_id', _empresaId!)
-              .eq('produto_id', widget.produtoFiltro!)
-              .lte('data_mov', diaAnterior.toIso8601String().split('T')[0]);
-
-          if (movsProduto.isNotEmpty) {
-            num saldoAmb = 0;
-            num saldoVinte = 0;
-
-            for (var mov in movsProduto) {
-              saldoAmb += (mov['entrada_amb'] ?? 0) as num;
-              saldoAmb -= (mov['saida_amb'] ?? 0) as num;
-              saldoVinte += (mov['entrada_vinte'] ?? 0) as num;
-              saldoVinte -= (mov['saida_vinte'] ?? 0) as num;
-            }
-
-            _estoqueInicial = {
-              'ambiente': saldoAmb,
-              'vinte_graus': saldoVinte,
-            };
-            return;
-          }
-        }
-
-        num saldoAmb = 0;
-        num saldoVinte = 0;
-
-        for (var mov in movimentacoesAnteriores) {
-          saldoAmb += (mov['entrada_amb'] ?? 0) as num;
-          saldoAmb -= (mov['saida_amb'] ?? 0) as num;
-          saldoVinte += (mov['entrada_vinte'] ?? 0) as num;
-          saldoVinte -= (mov['saida_vinte'] ?? 0) as num;
-        }
-
-        _estoqueInicial = {
-          'ambiente': saldoAmb,
-          'vinte_graus': saldoVinte,
-        };
-        return;
-      }
-      
-      // Lógica original para modo mensal
-      if (widget.mesFiltro == null) return;
-      
-      final ultimoDiaMesAnterior = DateTime(widget.mesFiltro!.year, widget.mesFiltro!.month, 0);
-
-      // Buscar saldo final do mês anterior
-      final movimentacoesAnteriores = await _supabase
+      var query = _supabase
           .from('movimentacoes')
           .select('''
             entrada_amb,
@@ -311,43 +242,14 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
           ''')
           .or('filial_id.eq.$_filialIdUsar,filial_destino_id.eq.$_filialIdUsar,filial_origem_id.eq.$_filialIdUsar')
           .eq('empresa_id', _empresaId!)
-          .lte('data_mov', ultimoDiaMesAnterior.toIso8601String());
+          .lte('data_mov', diaAnteriorStr);
 
       if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
-        // Se há filtro de produto, aplicar também para estoque inicial
-        final movsProduto = await _supabase
-            .from('movimentacoes')
-            .select('''
-              entrada_amb,
-              entrada_vinte,
-              saida_amb,
-              saida_vinte
-            ''')
-            .or('filial_id.eq.$_filialIdUsar,filial_destino_id.eq.$_filialIdUsar,filial_origem_id.eq.$_filialIdUsar')
-            .eq('empresa_id', _empresaId!)
-            .eq('produto_id', widget.produtoFiltro!)
-            .lte('data_mov', ultimoDiaMesAnterior.toIso8601String());
-
-        if (movsProduto.isNotEmpty) {
-          num saldoAmb = 0;
-          num saldoVinte = 0;
-
-          for (var mov in movsProduto) {
-            saldoAmb += (mov['entrada_amb'] ?? 0) as num;
-            saldoAmb -= (mov['saida_amb'] ?? 0) as num;
-            saldoVinte += (mov['entrada_vinte'] ?? 0) as num;
-            saldoVinte -= (mov['saida_vinte'] ?? 0) as num;
-          }
-
-          _estoqueInicial = {
-            'ambiente': saldoAmb,
-            'vinte_graus': saldoVinte,
-          };
-          return;
-        }
+        query = query.eq('produto_id', widget.produtoFiltro!);
       }
 
-      // Cálculo geral (sem filtro de produto ou quando não há movimentações específicas)
+      final movimentacoesAnteriores = await query;
+
       num saldoAmb = 0;
       num saldoVinte = 0;
 
@@ -470,58 +372,24 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
           .or('filial_id.eq.$_filialIdUsar,filial_destino_id.eq.$_filialIdUsar,filial_origem_id.eq.$_filialIdUsar')
           .eq('empresa_id', _empresaId!);
 
-      // FILTRO DE DATA CORRIGIDO - CONSIDERANDO APENAS O DIA
-      if (widget.isIntraday && widget.dataIntraday != null) {
-        // Modo Intraday: filtrar pelo dia inteiro usando range de datas
-        // Criar DateTime para o início do dia (00:00:00.000)
-        final dataInicio = DateTime(
-          widget.dataIntraday!.year,
-          widget.dataIntraday!.month,
-          widget.dataIntraday!.day,
-          0, 0, 0, 0,
-        );
-        
-        // Criar DateTime para o final do dia (23:59:59.999)
-        final dataFim = DateTime(
-          widget.dataIntraday!.year,
-          widget.dataIntraday!.month,
-          widget.dataIntraday!.day,
-          23, 59, 59, 999,
-        );
-        
-        final dataInicioStr = dataInicio.toIso8601String();
-        final dataFimStr = dataFim.toIso8601String();
-        
-        // Aplicar filtro de range
-        query = query
-            .gte('data_mov', dataInicioStr)
-            .lte('data_mov', dataFimStr);
-        
-      } else if (widget.mesFiltro != null) {
-        // Modo Mensal: intervalo do mês completo
-        // Primeiro dia do mês às 00:00:00
-        final primeiroDia = DateTime(
-          widget.mesFiltro!.year, 
-          widget.mesFiltro!.month, 
-          1, 
-          0, 0, 0, 0
-        );
-        
-        // Último dia do mês às 23:59:59.999
-        final ultimoDia = DateTime(
-          widget.mesFiltro!.year, 
-          widget.mesFiltro!.month + 1, 
-          0, 
-          23, 59, 59, 999
-        );
-        
-        final primeiroDiaStr = primeiroDia.toIso8601String();
-        final ultimoDiaStr = ultimoDia.toIso8601String();
-        
-        query = query
-            .gte('data_mov', primeiroDiaStr)
-            .lte('data_mov', ultimoDiaStr);
-      }
+      // FILTRO DE DATA: usar dataInicial e dataFinal
+      final dataInicioStr = DateTime(
+        widget.dataInicial.year,
+        widget.dataInicial.month,
+        widget.dataInicial.day,
+        0, 0, 0, 0,
+      ).toIso8601String();
+
+      final dataFimStr = DateTime(
+        widget.dataFinal.year,
+        widget.dataFinal.month,
+        widget.dataFinal.day,
+        23, 59, 59, 999,
+      ).toIso8601String();
+
+      query = query
+          .gte('data_mov', dataInicioStr)
+          .lte('data_mov', dataFimStr);
 
       // FILTRO DE PRODUTO
       if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
@@ -617,7 +485,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
       final Map<String, List<Map<String, dynamic>>> porDia = {};
       
       for (var mov in _movimentacoes) {
-        final dataStr = mov['data_mov'] as String;
+        final dataStr = (mov['data_mov'] as String).substring(0, 10);
         if (!porDia.containsKey(dataStr)) {
           porDia[dataStr] = [];
         }
@@ -700,26 +568,6 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
       return;
     }
 
-    if (!widget.isIntraday && widget.mesFiltro == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('É necessário selecionar um mês para exportar'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-    
-    if (widget.isIntraday && widget.dataIntraday == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('É necessário selecionar uma data para exportar'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
     setState(() {
       _baixandoExcel = true;
     });
@@ -739,9 +587,8 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
         'terminalId': widget.terminalId,
         'nomeFilial': widget.nomeFilial,
         'empresaId': widget.empresaId,
-        'isIntraday': widget.isIntraday,
-        'mesFiltro': widget.isIntraday ? null : widget.mesFiltro!.toIso8601String(),
-        'dataIntraday': widget.isIntraday ? widget.dataIntraday!.toIso8601String() : null,
+        'dataInicial': widget.dataInicial.toIso8601String(),
+        'dataFinal': widget.dataFinal.toIso8601String(),
         'produtoFiltro': widget.produtoFiltro,
         'tipoRelatorio': widget.tipoRelatorio,
         'estoqueInicial': _estoqueInicial,
@@ -771,17 +618,13 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
           .replaceAll(' ', '_')
           .replaceAll(RegExp(r'[^\w_]'), '');
       
-      final String fileName;
-      if (widget.isIntraday && widget.dataIntraday != null) {
-        final dia = widget.dataIntraday!.day.toString().padLeft(2, '0');
-        final mes = widget.dataIntraday!.month.toString().padLeft(2, '0');
-        final ano = widget.dataIntraday!.year.toString();
-        fileName = 'movimentacoes_${nomeFormatado}_${dia}_${mes}_${ano}.xlsx';
-      } else {
-        final mes = widget.mesFiltro!.month.toString().padLeft(2, '0');
-        final ano = widget.mesFiltro!.year.toString();
-        fileName = 'movimentacoes_${nomeFormatado}_${mes}_${ano}.xlsx';
-      }
+      final diaIni = widget.dataInicial.day.toString().padLeft(2, '0');
+      final mesIni = widget.dataInicial.month.toString().padLeft(2, '0');
+      final anoIni = widget.dataInicial.year.toString();
+      final diaFim = widget.dataFinal.day.toString().padLeft(2, '0');
+      final mesFim = widget.dataFinal.month.toString().padLeft(2, '0');
+      final anoFim = widget.dataFinal.year.toString();
+      final fileName = 'movimentacoes_${nomeFormatado}_${diaIni}_${mesIni}_${anoIni}_a_${diaFim}_${mesFim}_${anoFim}.xlsx';
       
       html.AnchorElement(href: url)
         ..setAttribute('download', fileName)
@@ -936,24 +779,21 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
 
   String _getSubtitleFiltros() {
     List<String> filtros = [];
-    
-    if (widget.isIntraday && widget.dataIntraday != null) {
-      final dia = widget.dataIntraday!.day.toString().padLeft(2, '0');
-      final mes = widget.dataIntraday!.month.toString().padLeft(2, '0');
-      final ano = widget.dataIntraday!.year;
-      filtros.add('Data: $dia/$mes/$ano');
-    } else if (widget.mesFiltro != null) {
-      filtros.add('Mês: ${widget.mesFiltro!.month.toString().padLeft(2, '0')}/${widget.mesFiltro!.year}');
-    }
-    
+
+    final diaIni = widget.dataInicial.day.toString().padLeft(2, '0');
+    final mesIni = widget.dataInicial.month.toString().padLeft(2, '0');
+    final diaFim = widget.dataFinal.day.toString().padLeft(2, '0');
+    final mesFim = widget.dataFinal.month.toString().padLeft(2, '0');
+    filtros.add('Período: $diaIni/$mesIni/${widget.dataInicial.year} a $diaFim/$mesFim/${widget.dataFinal.year}');
+
     if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
       filtros.add('Produto: ${_nomeProdutoSelecionado ?? widget.produtoFiltro}');
     } else if (widget.produtoFiltro == 'todos') {
       filtros.add('Produto: Todos os produtos');
     }
-    
+
     filtros.add('Relatório: ${widget.tipoRelatorio == 'sintetico' ? 'Sintético' : 'Analítico'}');
-    
+
     return filtros.join(' | ');
   }
 
@@ -1007,7 +847,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                     tooltip: 'Baixar relatório Excel (XLSX)',
                   ),
           
-          if (!_carregando && (widget.isIntraday || widget.mesFiltro != null || widget.produtoFiltro != null))
+          if (!_carregando && widget.produtoFiltro != null)
             IconButton(
               icon: const Icon(Icons.filter_alt),
               tooltip: 'Alterar filtros',
@@ -1070,7 +910,7 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
                           ? _buildSemDados()
                           : Column(
                               children: [
-                                if (widget.isIntraday || widget.mesFiltro != null || widget.produtoFiltro != null)
+                                if (widget.produtoFiltro != null)
                                   _buildIndicadorFiltros(),
                                 const SizedBox(height: 16),
                                 Expanded(child: _buildTabelaComEstoque()),
@@ -1166,11 +1006,9 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
             ),
           ),
           const SizedBox(height: 10),
-          Text(
-            widget.isIntraday || widget.mesFiltro != null || widget.produtoFiltro != null
-                ? 'Não há movimentações para os filtros aplicados.'
-                : 'Não há movimentações para esta filial.',
-            style: const TextStyle(color: Colors.grey),
+          const Text(
+            'Não há movimentações para os filtros aplicados.',
+            style: TextStyle(color: Colors.grey),
           ),
           const SizedBox(height: 20),
           ElevatedButton(
@@ -1182,19 +1020,18 @@ class _MovimentacoesPageState extends State<MovimentacoesPage> {
             ),
             child: const Text('Atualizar'),
           ),
-          if (widget.mesFiltro != null || widget.produtoFiltro != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                child: const Text(
-                  'Alterar filtros',
-                  style: TextStyle(color: Color(0xFF0D47A1)),
-                ),
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text(
+                'Alterar filtros',
+                style: TextStyle(color: Color(0xFF0D47A1)),
               ),
             ),
+          ),
         ],
       ),
     );
