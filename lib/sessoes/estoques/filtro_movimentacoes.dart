@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
+import 'movimentacoes.dart';
 
 class FiltroMovimentacoesPage extends StatefulWidget {
   final String? filialId;
@@ -8,17 +9,6 @@ class FiltroMovimentacoesPage extends StatefulWidget {
   final String nomeFilial;
   final String? empresaId;
   final String? empresaNome;
-  final Function({
-    required String? filialId,
-    required String? terminalId,
-    required String nomeFilial,
-    String? empresaId,
-    DateTime? mesFiltro,
-    String? produtoFiltro,
-    required String tipoRelatorio,
-    required bool isIntraday,
-    DateTime? dataIntraday,
-  }) onConsultarEstoque;
   final VoidCallback onVoltar;
 
   const FiltroMovimentacoesPage({
@@ -28,7 +18,6 @@ class FiltroMovimentacoesPage extends StatefulWidget {
     required this.nomeFilial,
     this.empresaId,
     this.empresaNome,
-    required this.onConsultarEstoque,
     required this.onVoltar,
   });
 
@@ -277,16 +266,21 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
         ? _filialSelecionadaId
         : null;
 
-    widget.onConsultarEstoque(
-      filialId: filialToPass,
-      terminalId: widget.terminalId,
-      nomeFilial: _filialSelecionadaNome ?? 'Filial não selecionada',
-      empresaId: widget.empresaId,
-      mesFiltro: _intraday ? null : _mesSelecionado,
-      produtoFiltro: _produtoSelecionado,
-      tipoRelatorio: _tipoRelatorio,
-      isIntraday: _intraday,
-      dataIntraday: _intraday ? _dataSelecionada : null,
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MovimentacoesPage(
+          filialId: filialToPass,
+          terminalId: widget.terminalId,
+          nomeFilial: _filialSelecionadaNome ?? 'Filial não selecionada',
+          empresaId: widget.empresaId,
+          mesFiltro: _intraday ? null : _mesSelecionado,
+          produtoFiltro: _produtoSelecionado,
+          tipoRelatorio: _tipoRelatorio,
+          isIntraday: _intraday,
+          dataIntraday: _intraday ? _dataSelecionada : null,
+        ),
+      ),
     );
   }
 
@@ -314,7 +308,7 @@ class _FiltroMovimentacoesPageState extends State<FiltroMovimentacoesPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Filtros de Estoque',
+              'Filtros de Movimentações',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
               ),

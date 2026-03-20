@@ -1776,33 +1776,6 @@ class _HomePageState extends State<HomePage>
           nomeFilial: _filialParaFiltroNome ?? _terminalParaFiltroNome ?? '',
           empresaId: _empresaParaFiltroId,
           empresaNome: _empresaParaFiltroNome,
-          onConsultarEstoque: ({
-            required String? filialId,
-            required String? terminalId,
-            required String nomeFilial,
-            String? empresaId,
-            DateTime? mesFiltro,
-            String? produtoFiltro,
-            required String tipoRelatorio,
-            required bool isIntraday,
-            DateTime? dataIntraday,
-          }) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => EstoqueMesPage(
-                  filialId: filialId,
-                  terminalId: terminalId,
-                  nomeFilial: nomeFilial,
-                  mesFiltro: mesFiltro,
-                  produtoFiltro: produtoFiltro,
-                  tipoRelatorio: tipoRelatorio,
-                  isIntraday: isIntraday,
-                  dataIntraday: dataIntraday,
-                ),
-              ),
-            );
-          },
           onVoltar: () {
             setState(() {
               _mostrarFiltroMovimentacoes = false;

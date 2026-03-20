@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class EstoqueMesPage extends StatefulWidget {
+class MovimentacoesPage extends StatefulWidget {
   final String? filialId;
   final String? terminalId;
   final String nomeFilial;
@@ -15,7 +15,7 @@ class EstoqueMesPage extends StatefulWidget {
   final bool isIntraday;
   final DateTime? dataIntraday;
 
-  const EstoqueMesPage({
+  const MovimentacoesPage({
     super.key,
     this.filialId,
     this.terminalId,
@@ -29,10 +29,10 @@ class EstoqueMesPage extends StatefulWidget {
   });
 
   @override
-  State<EstoqueMesPage> createState() => _EstoqueMesPageState();
+  State<MovimentacoesPage> createState() => _MovimentacoesPageState();
 }
 
-class _EstoqueMesPageState extends State<EstoqueMesPage> {
+class _MovimentacoesPageState extends State<MovimentacoesPage> {
   final SupabaseClient _supabase = Supabase.instance.client;
   List<Map<String, dynamic>> _movimentacoes = [];
   List<Map<String, dynamic>> _movimentacoesOrdenadas = [];
@@ -74,19 +74,17 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   // GETTER para calcular largura total DINAMICAMENTE
   double get _larguraTabela {
     bool mostrarColunaProduto = widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
-    
-    // Soma das larguras fixas (7 colunas numéricas - agora com a nova coluna Sobra/Perda)
-    double soma = _larguraData + 
-                  _larguraDescricao + 
-                  _larguraClienteDestino +
-                  (_larguraNumerica * 7); // 7 colunas numéricas (incluindo Sobra/Perda)
-    
-    // Adiciona coluna de produto se necessário
-    if (mostrarColunaProduto) {
-      soma += _larguraProduto;
-    }
-    
-    return soma; // Retorna a largura exata sem espaço extra
+    bool mostrarColunaClienteDestino = widget.tipoRelatorio != 'sintetico';
+
+    // 4 colunas numéricas: Entrada Amb, Entrada 20°C, Saída Amb, Saída 20°C
+    double soma = _larguraData +
+                  _larguraDescricao +
+                  (_larguraNumerica * 4);
+
+    if (mostrarColunaClienteDestino) soma += _larguraClienteDestino;
+    if (mostrarColunaProduto) soma += _larguraProduto;
+
+    return soma;
   }
 
   Color _getCorFundoEntrada() {
@@ -892,8 +890,6 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         case 'entrada_vinte':
         case 'saida_amb':
         case 'saida_vinte':
-        case 'saldo_amb':
-        case 'saldo_vinte':
           valorA = a[coluna] ?? 0;
           valorB = b[coluna] ?? 0;
           break;
@@ -973,7 +969,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Estoque – ${widget.nomeFilial}',
+              'Movimentações – ${widget.nomeFilial}',
               style: const TextStyle(
                 fontWeight: FontWeight.w600,
               ),
@@ -1048,12 +1044,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                       ? 'Entrada Ambiente (menor-maior)'
                       : 'Entrada Ambiente (maior-menor)'),
                   ),
-                  PopupMenuItem<String>(
-                    value: 'saldo_amb',
-                    child: Text(_ordenacaoAscendente && _colunaOrdenacao == 'saldo_amb'
-                      ? 'Saldo Ambiente (menor-maior)'
-                      : 'Saldo Ambiente (maior-menor)'),
-                  ),
+
                 ];
               },
             ),
@@ -1066,22 +1057,29 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: _carregando
-            ? _buildCarregando()
-            : _erro
-                ? _buildErro()
-                : _movimentacoes.isEmpty
-                    ? _buildSemDados()
-                    : Column(
-                        children: [
-                          if (widget.isIntraday || widget.mesFiltro != null || widget.produtoFiltro != null)
-                            _buildIndicadorFiltros(),
-                          const SizedBox(height: 16),
-                          Expanded(child: _buildTabelaComEstoque()),
-                        ],
-                      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: _carregando
+                  ? _buildCarregando()
+                  : _erro
+                      ? _buildErro()
+                      : _movimentacoes.isEmpty
+                          ? _buildSemDados()
+                          : Column(
+                              children: [
+                                if (widget.isIntraday || widget.mesFiltro != null || widget.produtoFiltro != null)
+                                  _buildIndicadorFiltros(),
+                                const SizedBox(height: 16),
+                                Expanded(child: _buildTabelaComEstoque()),
+                              ],
+                            ),
+            ),
+          ),
+          _buildRodapeInstitucional(),
+        ],
       ),
     );
   }
@@ -1265,10 +1263,11 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     );
   }
 
-  // Cabeçalho da tabela com scroll horizontal (COM a nova coluna Sobra/Perda)
+  // Cabeçalho da tabela
   Widget _buildTabelaCabecalho() {
     bool mostrarColunaProduto = widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
-    
+    bool mostrarColunaClienteDestino = widget.tipoRelatorio != 'sintetico';
+
     return Scrollbar(
       controller: _horizontalHeaderController,
       thumbVisibility: true,
@@ -1283,17 +1282,15 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             child: Row(
               children: [
                 _th('Data', _larguraData, onTap: () => _onSort('data_mov')),
-                if (mostrarColunaProduto) 
+                if (mostrarColunaProduto)
                   _th('Produto', _larguraProduto, onTap: () => _onSort('produto_nome')),
                 _th('Descrição', _larguraDescricao, onTap: () => _onSort('descricao')),
-                _th('Cliente/Destino', _larguraClienteDestino, onTap: () => _onSort('cliente_destino')),
+                if (mostrarColunaClienteDestino)
+                  _th('Cliente/Destino', _larguraClienteDestino, onTap: () => _onSort('cliente_destino')),
                 _th('Entrada (Amb)', _larguraNumerica, onTap: () => _onSort('entrada_amb')),
                 _th('Entrada (20ºC)', _larguraNumerica, onTap: () => _onSort('entrada_vinte')),
                 _th('Saída (Amb)', _larguraNumerica, onTap: () => _onSort('saida_amb')),
                 _th('Saída (20ºC)', _larguraNumerica, onTap: () => _onSort('saida_vinte')),
-                _th('Sobra/Perda', _larguraNumerica), // NOVA COLUNA
-                _th('Saldo (Amb)', _larguraNumerica, onTap: () => _onSort('saldo_amb')),
-                _th('Saldo (20ºC)', _larguraNumerica, onTap: () => _onSort('saldo_vinte')),
               ],
             ),
           ),
@@ -1328,7 +1325,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   // Corpo da tabela com scroll horizontal sincronizado
   Widget _buildTabelaCorpo() {
     bool mostrarColunaProduto = widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
-    
+    bool mostrarColunaClienteDestino = widget.tipoRelatorio != 'sintetico';
+
     return Scrollbar(
       controller: _horizontalBodyController,
       thumbVisibility: true,
@@ -1340,105 +1338,51 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           child: ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: _movimentacoesOrdenadas.length + 2, // +2 para estoque inicial e final
+            itemCount: _movimentacoesOrdenadas.length + 1, // +1 para a linha de totais
             itemBuilder: (context, index) {
-              // Primeira linha: Estoque Inicial
-              if (index == 0) {
+              // Última linha: Totais
+              if (index == _movimentacoesOrdenadas.length) {
+                num totalEntradaAmb = 0;
+                num totalEntradaVinte = 0;
+                num totalSaidaAmb = 0;
+                num totalSaidaVinte = 0;
+                for (final mov in _movimentacoesOrdenadas) {
+                  totalEntradaAmb += (mov['entrada_amb'] ?? 0) as num;
+                  totalEntradaVinte += (mov['entrada_vinte'] ?? 0) as num;
+                  totalSaidaAmb += (mov['saida_amb'] ?? 0) as num;
+                  totalSaidaVinte += (mov['saida_vinte'] ?? 0) as num;
+                }
                 return Container(
                   height: _alturaLinha,
-                  color: Colors.blue.shade50, // Cor diferenciada
+                  color: Colors.orange.shade50,
                   child: Row(
                     children: [
-                      // Data vazia para estoque inicial
                       _cell('', _larguraData),
                       if (mostrarColunaProduto)
                         _cell('', _larguraProduto),
-                      // Descrição: Estoque Inicial
-                      _cell('Estoque Inicial', _larguraDescricao, cor: Colors.blue, fontWeight: FontWeight.bold),
-                      // Cliente/Destino vazio para linha inicial
-                      _cell('', _larguraClienteDestino),
-                      // Entradas e Saídas zeradas
-                      _cell('0', _larguraNumerica, isNumber: true),
-                      _cell('0', _larguraNumerica, isNumber: true),
-                      _cell('0', _larguraNumerica, isNumber: true),
-                      _cell('0', _larguraNumerica, isNumber: true),
-                      // Sobra/Perda vazia
-                      _cell('-', _larguraNumerica, isNumber: true),
-                      // Saldo Ambiente (estoque inicial)
-                      _cell(
-                        _formatarNumero(_estoqueInicial['ambiente'] as num?),
-                        _larguraNumerica,
-                        cor: Colors.blue,
-                        fontWeight: FontWeight.bold,
-                        isNumber: true,
-                      ),
-                      // Saldo 20ºC (estoque inicial)
-                      _cell(
-                        _formatarNumero(_estoqueInicial['vinte_graus'] as num?),
-                        _larguraNumerica,
-                        cor: Colors.blue,
-                        fontWeight: FontWeight.bold,
-                        isNumber: true,
-                      ),
+                      _cell('TOTAL', _larguraDescricao, cor: Colors.orange.shade800, fontWeight: FontWeight.bold),
+                      if (mostrarColunaClienteDestino)
+                        _cell('', _larguraClienteDestino),
+                      _cell(_formatarNumero(totalEntradaAmb), _larguraNumerica,
+                            fundo: _getCorFundoEntrada(), cor: Colors.green.shade800, fontWeight: FontWeight.bold, isNumber: true),
+                      _cell(_formatarNumero(totalEntradaVinte), _larguraNumerica,
+                            fundo: _getCorFundoEntrada(), cor: Colors.green.shade800, fontWeight: FontWeight.bold, isNumber: true),
+                      _cell(_formatarNumero(totalSaidaAmb), _larguraNumerica,
+                            fundo: _getCorFundoSaida(), cor: Colors.red.shade800, fontWeight: FontWeight.bold, isNumber: true),
+                      _cell(_formatarNumero(totalSaidaVinte), _larguraNumerica,
+                            fundo: _getCorFundoSaida(), cor: Colors.red.shade800, fontWeight: FontWeight.bold, isNumber: true),
                     ],
                   ),
                 );
               }
-              
-              // Última linha: Estoque Final
-              if (index == _movimentacoesOrdenadas.length + 1) {
-                return Container(
-                  height: _alturaLinha,
-                  color: Colors.grey.shade100, // Cor diferenciada
-                  child: Row(
-                    children: [
-                      // Data vazia para estoque final
-                      _cell('', _larguraData),
-                      if (mostrarColunaProduto)
-                        _cell('', _larguraProduto),
-                      // Descrição: Estoque Final
-                      _cell('Estoque Final', _larguraDescricao, cor: Colors.grey.shade700, fontWeight: FontWeight.bold),
-                      // Cliente/Destino vazio para linha final
-                      _cell('', _larguraClienteDestino),
-                      // Entradas e Saídas zeradas
-                      _cell('0', _larguraNumerica, isNumber: true),
-                      _cell('0', _larguraNumerica, isNumber: true),
-                      _cell('0', _larguraNumerica, isNumber: true),
-                      _cell('0', _larguraNumerica, isNumber: true),
-                      // Sobra/Perda vazia
-                      _cell('-', _larguraNumerica, isNumber: true),
-                      // Saldo Ambiente (estoque final)
-                      _cell(
-                        _formatarNumero(_estoqueFinal['ambiente'] as num?),
-                        _larguraNumerica,
-                        cor: ((_estoqueFinal['ambiente'] as num?) ?? 0) < 0 ? Colors.red : Colors.black,
-                        fontWeight: FontWeight.bold,
-                        isNumber: true,
-                      ),
 
-                      // Saldo 20ºC (estoque final)
-                      _cell(
-                        _formatarNumero(_estoqueFinal['vinte_graus'] as num?),
-                        _larguraNumerica,
-                        cor: ((_estoqueFinal['vinte_graus'] as num?) ?? 0) < 0 ? Colors.red : Colors.black,
-                        fontWeight: FontWeight.bold,
-                        isNumber: true,
-                      ),
-                    ],
-                  ),
-                );
-              }
-              
               // Linhas normais das movimentações
-              final movIndex = index - 1; // -1 porque a primeira linha é o estoque inicial
-              final e = _movimentacoesOrdenadas[movIndex];
-              final saldoAmb = e['saldo_amb'] ?? 0;
-              final saldoVinte = e['saldo_vinte'] ?? 0;
+              final e = _movimentacoesOrdenadas[index];
 
               return Container(
                 height: _alturaLinha,
                 decoration: BoxDecoration(
-                  color: movIndex % 2 == 0
+                  color: index % 2 == 0
                       ? Colors.grey.shade50
                       : Colors.white,
                   border: Border(
@@ -1454,28 +1398,16 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                     if (mostrarColunaProduto)
                       _cell(e['produto_nome'] ?? '-', _larguraProduto),
                     _cell(e['descricao'] ?? '-', _larguraDescricao),
-                        _cell(e['cliente_destino'] ?? '-', _larguraClienteDestino),
-                    _cell(_formatarNumero(e['entrada_amb']), _larguraNumerica, 
+                    if (mostrarColunaClienteDestino)
+                      _cell(e['cliente_destino'] ?? '-', _larguraClienteDestino),
+                    _cell(_formatarNumero(e['entrada_amb']), _larguraNumerica,
                           fundo: _getCorFundoEntrada(), isNumber: true),
-                    _cell(_formatarNumero(e['entrada_vinte']), _larguraNumerica, 
+                    _cell(_formatarNumero(e['entrada_vinte']), _larguraNumerica,
                           fundo: _getCorFundoEntrada(), isNumber: true),
-                    _cell(_formatarNumero(e['saida_amb']), _larguraNumerica, 
+                    _cell(_formatarNumero(e['saida_amb']), _larguraNumerica,
                           fundo: _getCorFundoSaida(), isNumber: true),
-                    _cell(_formatarNumero(e['saida_vinte']), _larguraNumerica, 
+                    _cell(_formatarNumero(e['saida_vinte']), _larguraNumerica,
                           fundo: _getCorFundoSaida(), isNumber: true),
-                    _cell('-', _larguraNumerica, isNumber: true), // NOVA COLUNA - VAZIA
-                    _cell(
-                      _formatarNumero(saldoAmb),
-                      _larguraNumerica,
-                      cor: saldoAmb < 0 ? Colors.red : Colors.black,
-                      isNumber: true,
-                    ),
-                    _cell(
-                      _formatarNumero(saldoVinte),
-                      _larguraNumerica,
-                      cor: saldoVinte < 0 ? Colors.red : Colors.black,
-                      isNumber: true,
-                    ),
                   ],
                 ),
               );
@@ -1510,6 +1442,37 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         ),
         textAlign: TextAlign.center,
         maxLines: 1,
+      ),
+    );
+  }
+
+  Widget _buildRodapeInstitucional() {
+    return Container(
+      height: 50,
+      width: double.infinity,
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'PowerTank Terminais 2026, All rights reserved.',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey[600],
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '© Norton Technology - 550 California St, W-325, San Francisco, CA - EUA.',
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.grey[500],
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
       ),
     );
   }
