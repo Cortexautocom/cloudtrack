@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// ===============================
 class EstoqueProduto {
   final String nome;
+  final String produtoId;
   final double saldoInicial;
   final double entradaDescarga;
   final double entradaBombeio;
@@ -18,6 +19,7 @@ class EstoqueProduto {
 
   EstoqueProduto({
     required this.nome,
+    required this.produtoId,
     required this.saldoInicial,
     required this.entradaDescarga,
     required this.entradaBombeio,
@@ -111,7 +113,7 @@ class EstoqueLinha extends StatelessWidget {
 
   Widget _miniBox(String label, double value, Color color) {
     return Container(
-      width: 90, // Largura suficiente para 3 dígitos + ponto (ex: 1.200) em fonte 12
+      width: 90,
       height: 44,
       margin: const EdgeInsets.symmetric(horizontal: 1.5),
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -165,6 +167,7 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
   List<Map<String, dynamic>> _terminais = [];
   String? _terminalSelecionadoId;
   bool _carregando = true;
+  bool _carregandoDados = false;
   List<EstoqueProduto> _produtos = [];
 
   // Filtros de Data
@@ -174,52 +177,245 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
   @override
   void initState() {
     super.initState();
-    _carregarTerminais();
+    _carregarTerminaisDaEmpresa();
   }
 
-  Future<void> _carregarTerminais() async {
-    final empresaId = UsuarioAtual.instance?.empresaId;
-    if (empresaId == null) {
-      if (mounted) setState(() => _carregando = false);
+  /// Carrega apenas os terminais que pertencem à empresa do usuário logado
+  Future<void> _carregarTerminaisDaEmpresa() async {
+    final usuario = UsuarioAtual.instance;
+    
+    // Verificar se usuário está logado
+    if (usuario == null) {
+      debugPrint('❌ Usuário não logado');
+      if (mounted) {
+        setState(() {
+          _carregando = false;
+        });
+      }
       return;
     }
 
+    final empresaId = usuario.empresaId;
+    
+    // Verificar se empresa_id existe
+    if (empresaId == null || empresaId.isEmpty) {
+      debugPrint('❌ Usuário não possui empresa associada');
+      if (mounted) {
+        setState(() {
+          _carregando = false;
+        });
+      }
+      return;
+    }
+
+    debugPrint('📌 Buscando terminais para empresa_id: $empresaId');
+
     try {
+      // Buscar na tabela relacoes_terminais os terminais da empresa
       final resp = await _supabase
           .from('relacoes_terminais')
-          .select('terminal_id, terminais(id, nome)')
+          .select('''
+            terminal_id,
+            terminais (
+              id,
+              nome
+            )
+          ''')
           .eq('empresa_id', empresaId)
           .not('terminal_id', 'is', null);
+
+      debugPrint('📊 Resposta da consulta: ${resp.length} registros encontrados');
 
       final lista = <Map<String, dynamic>>[];
       final vistos = <String>{};
 
       for (final row in List<Map<String, dynamic>>.from(resp)) {
         final terminal = row['terminais'] as Map<String, dynamic>?;
-        if (terminal == null) continue;
+        if (terminal == null) {
+          debugPrint('⚠️ Terminal nulo encontrado, ignorando...');
+          continue;
+        }
+        
         final id = terminal['id']?.toString() ?? '';
-        if (id.isEmpty || vistos.contains(id)) continue;
+        if (id.isEmpty || vistos.contains(id)) {
+          continue;
+        }
+        
         vistos.add(id);
-        lista.add({'id': id, 'nome': terminal['nome']?.toString() ?? id});
+        lista.add({
+          'id': id, 
+          'nome': terminal['nome']?.toString() ?? id
+        });
+        
+        debugPrint('✅ Terminal adicionado: ${terminal['nome']} (ID: $id)');
       }
 
+      // Ordenar por nome
       lista.sort((a, b) => a['nome'].compareTo(b['nome']));
 
       if (mounted) {
         setState(() {
           _terminais = lista;
+          // Selecionar o primeiro terminal automaticamente se houver
           _terminalSelecionadoId = lista.isNotEmpty ? lista.first['id'] : null;
           _carregando = false;
         });
+        
+        debugPrint('🎯 Total de terminais carregados: ${_terminais.length}');
         
         // Carregar produtos do terminal selecionado
         if (_terminalSelecionadoId != null) {
           await _carregarProdutosDoTerminal();
         }
       }
+    } catch (e, stackTrace) {
+      debugPrint('❌ Erro ao carregar terminais: $e');
+      debugPrint('📚 Stack trace: $stackTrace');
+      if (mounted) {
+        setState(() {
+          _carregando = false;
+        });
+      }
+    }
+  }
+
+  /// Busca o saldo inicial de um produto para uma data específica
+  Future<double> _buscarSaldoInicialProduto(String produtoId, DateTime data) async {
+    try {
+      final dataStr = DateFormat('yyyy-MM-dd').format(data);
+      
+      final response = await _supabase.rpc(
+        'calcular_estoque_inicial_produto',
+        params: {
+          'p_produto_id': produtoId,
+          'p_data': dataStr,
+        },
+      );
+
+      final num saldo = (response ?? 0) as num;
+      return saldo.toDouble();
+      
     } catch (e) {
-      debugPrint('Erro ao carregar terminais: $e');
-      if (mounted) setState(() => _carregando = false);
+      debugPrint('❌ Erro ao buscar saldo inicial do produto $produtoId para data $data: $e');
+      return 0.0;
+    }
+  }
+
+  /// Busca as movimentações (entradas e saídas) de um produto no período
+  Future<Map<String, double>> _buscarMovimentacoesProduto(
+    String produtoId,
+    DateTime dataInicial,
+    DateTime dataFinal,
+  ) async {
+    try {
+      final dataInicioStr = DateFormat('yyyy-MM-dd').format(dataInicial);
+      final dataFimStr = DateFormat('yyyy-MM-dd').format(dataFinal);
+      
+      // Buscar movimentações do período
+      final movimentacoes = await _supabase
+          .from('movimentacoes_tanque')
+          .select('''
+            entrada_amb,
+            entrada_vinte,
+            saida_amb,
+            saida_vinte,
+            descricao,
+            tanques!inner (
+              id_produto
+            )
+          ''')
+          .eq('tanques.id_produto', produtoId)
+          .eq('tanques.terminal_id', _terminalSelecionadoId!)
+          .gte('data_mov', '$dataInicioStr 00:00:00')
+          .lte('data_mov', '$dataFimStr 23:59:59');
+
+      double entradaDescarga = 0.0;
+      double entradaBombeio = 0.0;
+      double saida = 0.0;
+
+      for (final mov in movimentacoes) {
+        final entradaVinte = (mov['entrada_vinte'] as num?)?.toDouble() ?? 0.0;
+        final saidaVinte = (mov['saida_vinte'] as num?)?.toDouble() ?? 0.0;
+        
+        // Classificar entrada baseado na descrição
+        if (entradaVinte > 0) {
+          final descricao = (mov['descricao']?.toString() ?? '').toLowerCase();
+          if (descricao.contains('bombeio') || descricao.contains('bombeamento')) {
+            entradaBombeio += entradaVinte;
+          } else {
+            entradaDescarga += entradaVinte;
+          }
+        }
+        
+        // Saídas
+        if (saidaVinte > 0) {
+          saida += saidaVinte;
+        }
+      }
+
+      return {
+        'entradaDescarga': entradaDescarga,
+        'entradaBombeio': entradaBombeio,
+        'saida': saida,
+      };
+      
+    } catch (e) {
+      debugPrint('❌ Erro ao buscar movimentações do produto $produtoId: $e');
+      return {
+        'entradaDescarga': 0.0,
+        'entradaBombeio': 0.0,
+        'saida': 0.0,
+      };
+    }
+  }
+
+  /// Busca o trânsito de um produto (diferença entre o que saiu da origem e chegou no destino)
+  Future<double> _buscarTransitoProduto(
+    String produtoId,
+    DateTime dataInicial,
+    DateTime dataFinal,
+  ) async {
+    try {
+      final usuario = UsuarioAtual.instance;
+      final empresaId = usuario?.empresaId;
+      
+      // Se não tiver empresaId, retorna 0
+      if (empresaId == null || empresaId.isEmpty) {
+        debugPrint('⚠️ empresaId não disponível para buscar trânsito');
+        return 0.0;
+      }
+      
+      final dataInicioStr = DateFormat('yyyy-MM-dd').format(dataInicial);
+      final dataFimStr = DateFormat('yyyy-MM-dd').format(dataFinal);
+      
+      // Buscar transferências em trânsito
+      final transferencias = await _supabase
+          .from('movimentacoes')
+          .select('''
+            saida_vinte,
+            entrada_vinte
+          ''')
+          .eq('produto_id', produtoId)
+          .eq('tipo_op', 'transf')
+          .eq('empresa_id', empresaId)
+          .gte('data_mov', '$dataInicioStr 00:00:00')
+          .lte('data_mov', '$dataFimStr 23:59:59');
+
+      double transito = 0.0;
+      
+      for (final transf in transferencias) {
+        final saidaVinte = (transf['saida_vinte'] as num?)?.toDouble() ?? 0.0;
+        final entradaVinte = (transf['entrada_vinte'] as num?)?.toDouble() ?? 0.0;
+        
+        // Trânsito = o que saiu mas ainda não deu entrada
+        transito += saidaVinte - entradaVinte;
+      }
+
+      return transito > 0 ? transito : 0.0;
+      
+    } catch (e) {
+      debugPrint('❌ Erro ao buscar trânsito do produto $produtoId: $e');
+      return 0.0;
     }
   }
 
@@ -228,7 +424,10 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
       return;
     }
 
-    setState(() => _carregando = true);
+    setState(() {
+      _carregandoDados = true;
+      _produtos = [];
+    });
 
     try {
       // Buscar tanques do terminal selecionado
@@ -248,7 +447,7 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
       if (tanques.isEmpty) {
         setState(() {
           _produtos = [];
-          _carregando = false;
+          _carregandoDados = false;
         });
         return;
       }
@@ -265,7 +464,7 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
       if (produtosIds.isEmpty) {
         setState(() {
           _produtos = [];
-          _carregando = false;
+          _carregandoDados = false;
         });
         return;
       }
@@ -295,8 +494,10 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
             (capacidadePorProduto[produtoId] ?? 0.0) + capacidade;
       }
 
-      // Criar objetos EstoqueProduto para cada produto encontrado
+      // Para cada produto, buscar os dados reais
       final List<EstoqueProduto> produtosEstoque = [];
+      
+      debugPrint('📊 Carregando dados para ${capacidadePorProduto.length} produtos...');
 
       for (final entry in capacidadePorProduto.entries) {
         final produtoId = entry.key;
@@ -310,17 +511,32 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
         final nomeProduto = produtoData['nome']?.toString() ?? 'Produto Desconhecido';
         final posicao = int.tryParse(produtoData['posicao']?.toString() ?? '0') ?? 0;
         
-        // TODO: Buscar valores reais de saldo inicial, entradas, saídas e trânsito
-        // Por enquanto, usando valores de exemplo
+        // Buscar saldo inicial (data inicial, não incluindo o dia)
+        final saldoInicial = await _buscarSaldoInicialProduto(produtoId, _dataInicial);
+        
+        // Buscar movimentações no período (incluindo o dia final)
+        final movimentacoes = await _buscarMovimentacoesProduto(
+          produtoId,
+          _dataInicial,
+          _dataFinal,
+        );
+        
+        // Buscar trânsito no período
+        final transito = await _buscarTransitoProduto(
+          produtoId,
+          _dataInicial,
+          _dataFinal,
+        );
         
         produtosEstoque.add(EstoqueProduto(
           nome: nomeProduto,
-          saldoInicial: 0.0, // Buscar do saldo inicial do dia
-          entradaDescarga: 0.0, // Buscar das movimentações de descarga
-          entradaBombeio: 0.0, // Buscar das movimentações de bombeio
-          saida: 0.0, // Buscar das movimentações de saída
-          transito: 0.0, // Buscar do trânsito
-          capacidadeTotal: (capacidadeTotal as num?)?.toDouble() ?? 0.0,
+          produtoId: produtoId,
+          saldoInicial: saldoInicial,
+          entradaDescarga: movimentacoes['entradaDescarga'] ?? 0.0,
+          entradaBombeio: movimentacoes['entradaBombeio'] ?? 0.0,
+          saida: movimentacoes['saida'] ?? 0.0,
+          transito: transito,
+          capacidadeTotal: capacidadeTotal,
           posicao: posicao,
         ));
       }
@@ -330,8 +546,10 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
 
       setState(() {
         _produtos = produtosEstoque;
-        _carregando = false;
+        _carregandoDados = false;
       });
+
+      debugPrint('✅ ${produtosEstoque.length} produtos carregados com sucesso!');
 
     } catch (e, stackTrace) {
       debugPrint('❌ ERRO ao carregar produtos do terminal: $e');
@@ -339,7 +557,7 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
       if (mounted) {
         setState(() {
           _produtos = [];
-          _carregando = false;
+          _carregandoDados = false;
         });
       }
     }
@@ -571,7 +789,7 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
           }
         }
       });
-      // Recarregar dados se necessário
+      // Recarregar dados com as novas datas
       await _carregarProdutosDoTerminal();
     }
   }
@@ -748,7 +966,9 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
                     );
                   },
                 ),
-              ),
+              )
+            else
+              const SizedBox(height: 36),
 
             const SizedBox(height: 12),
 
@@ -766,6 +986,15 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
                   data: _dataFinal,
                   onTap: () => _selecionarData(context, false),
                 ),
+                if (_carregandoDados)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 12),
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
               ],
             ),
 
@@ -774,11 +1003,20 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
             const SizedBox(height: 12),
 
             // LISTA DE PRODUTOS
-            if (_carregando && _produtos.isEmpty)
+            if (_carregandoDados && _produtos.isEmpty)
               const Center(
                 child: Padding(
                   padding: EdgeInsets.all(32.0),
-                  child: CircularProgressIndicator(),
+                  child: Column(
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text(
+                        'Carregando dados dos produtos...',
+                        style: TextStyle(fontSize: 14, color: Colors.grey),
+                      ),
+                    ],
+                  ),
                 ),
               )
             else if (_produtos.isEmpty)

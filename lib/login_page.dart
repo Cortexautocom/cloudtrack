@@ -12,6 +12,7 @@ class UsuarioAtual {
   final int nivel;
   final String? filialId;
   final String? empresaId;
+  final String? empresaNome;
   final String? terminalId;
   final String? terminalNome;
   final List<String> cardsPermitidosIds;
@@ -23,6 +24,7 @@ class UsuarioAtual {
     required this.nivel,
     required this.filialId,
     required this.empresaId,
+    required this.empresaNome,
     required this.terminalId,
     required this.terminalNome,
     required this.cardsPermitidosIds,
@@ -85,6 +87,7 @@ class _LoginPageState extends State<LoginPage> {
             Nome_apelido,
             nivel,
             empresa_id,
+            empresas ( nome_dois ),
             terminal_id,
             senha_temporaria
           ''')
@@ -155,6 +158,10 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _processarLogin(Map<String, dynamic> usuarioData) async {
     final int nivel = usuarioData['nivel'] as int;
     final String? empresaId = usuarioData['empresa_id']?.toString();
+    
+    // Captura o nome da empresa vindo do join
+    final String? empresaNome = (usuarioData['empresas'] as Map?)?['nome_dois']?.toString();
+    
     final String? terminalId = usuarioData['terminal_id']?.toString();
     
     final String? filialId = await _buscarFilialIdPorTerminal(terminalId);
@@ -181,6 +188,7 @@ class _LoginPageState extends State<LoginPage> {
       nivel: nivel,
       filialId: filialId,
       empresaId: empresaId,
+      empresaNome: empresaNome,
       terminalId: terminalId,
       terminalNome: terminalNome,
       cardsPermitidosIds: cardsPermitidosIds,
@@ -232,6 +240,7 @@ class _LoginPageState extends State<LoginPage> {
             Nome_apelido,
             nivel,
             empresa_id,
+            empresas ( nome_dois ),
             terminal_id,
             senha_temporaria
           ''')

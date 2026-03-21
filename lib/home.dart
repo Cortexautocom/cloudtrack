@@ -980,6 +980,11 @@ class _HomePageState extends State<HomePage>
       ];
     }
 
+    // Remover temp_dens_media de Operação (disponível apenas em Laboratório)
+    if (nomeSessao == 'Operação') {
+      filhos = filhos.where((card) => card['tipo'] != 'temp_dens_media').toList();
+    }
+
     // ATUALIZADO: Filtrar cards de Estoques por nível
     if (nomeSessao == 'Estoques') {
       final usuario = UsuarioAtual.instance;
@@ -1142,7 +1147,105 @@ class _HomePageState extends State<HomePage>
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        // Lista suspensa de idiomas (agora à esquerda do nome do usuário)
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          mainAxisSize: MainAxisSize.min,
+                          children: (usuario?.nivel == 3)
+                              ? [
+                                  Text(
+                                    usuario?.nome ?? '',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Color(0xFF0D47A1),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ]
+                              : [
+                                  Text(
+                                    usuario?.nome ?? '',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Color(0xFF0D47A1),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    (usuario?.nivel == 1 || usuario?.nivel == 2)
+                                        ? (_usuarioTerminalNome ??
+                                              (UsuarioAtual
+                                                              .instance
+                                                              ?.terminalId ==
+                                                          null ||
+                                                      UsuarioAtual
+                                                          .instance!
+                                                          .terminalId!
+                                                          .isEmpty
+                                                  ? 'Sem terminal'
+                                                  : 'Carregando...'))
+                                        : (_usuarioFilialNome ??
+                                              (UsuarioAtual.instance?.filialId ==
+                                                          null ||
+                                                      UsuarioAtual
+                                                          .instance!
+                                                          .filialId!
+                                                          .isEmpty
+                                                  ? 'Sem filial'
+                                                  : 'Carregando...')),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                        ),
+                        const SizedBox(width: 10),
+                        PopupMenuButton<String>(
+                          surfaceTintColor: Colors.white,
+                          color: Colors.white,
+                          icon: const Icon(
+                            Icons.account_circle,
+                            color: Color(0xFF0D47A1),
+                            size: 30,
+                          ),
+                          onSelected: (value) async {
+                            if (value == 'Perfil') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const PerfilPage(),
+                                ),
+                              );
+                            }
+
+                            if (value == 'Sair') {
+                              await Supabase.instance.client.auth.signOut();
+                              UsuarioAtual.instance = null;
+                              if (context.mounted) {
+                                Navigator.pushAndRemoveUntil(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const LoginPage(),
+                                  ),
+                                  (route) => false,
+                                );
+                              }
+                            }
+                          },
+                          itemBuilder: (context) {
+                            return {'Perfil', 'Sair'}.map((choice) {
+                              return PopupMenuItem<String>(
+                                value: choice,
+                                child: Text(choice),
+                              );
+                            }).toList();
+                          },
+                        ),
+                        const SizedBox(width: 15),
+                        // Lista suspensa de idiomas (agora o último objeto à direita)
                         PopupMenuButton<String>(
                           offset: const Offset(0, 40),
                           tooltip: 'Selecionar Idioma',
@@ -1207,102 +1310,6 @@ class _HomePageState extends State<HomePage>
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(width: 15),
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          mainAxisSize: MainAxisSize.min,
-                          children: (usuario?.nivel == 3)
-                              ? [
-                                  Text(
-                                    usuario?.nome ?? '',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: Color(0xFF0D47A1),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ]
-                              : [
-                                  Text(
-                                    usuario?.nome ?? '',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: Color(0xFF0D47A1),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    (usuario?.nivel == 1 || usuario?.nivel == 2)
-                                        ? (_usuarioTerminalNome ??
-                                              (UsuarioAtual
-                                                              .instance
-                                                              ?.terminalId ==
-                                                          null ||
-                                                      UsuarioAtual
-                                                          .instance!
-                                                          .terminalId!
-                                                          .isEmpty
-                                                  ? 'Sem terminal'
-                                                  : 'Carregando...'))
-                                        : (_usuarioFilialNome ??
-                                              (UsuarioAtual.instance?.filialId ==
-                                                          null ||
-                                                      UsuarioAtual
-                                                          .instance!
-                                                          .filialId!
-                                                          .isEmpty
-                                                  ? 'Sem filial'
-                                                  : 'Carregando...')),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.grey[600],
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                        ),
-                        const SizedBox(width: 10),
-                        PopupMenuButton<String>(
-                          icon: const Icon(
-                            Icons.account_circle,
-                            color: Color(0xFF0D47A1),
-                            size: 30,
-                          ),
-                          onSelected: (value) async {
-                            if (value == 'Perfil') {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const PerfilPage(),
-                                ),
-                              );
-                            }
-
-                            if (value == 'Sair') {
-                              await Supabase.instance.client.auth.signOut();
-                              UsuarioAtual.instance = null;
-                              if (context.mounted) {
-                                Navigator.pushAndRemoveUntil(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const LoginPage(),
-                                  ),
-                                  (route) => false,
-                                );
-                              }
-                            }
-                          },
-                          itemBuilder: (context) {
-                            return {'Perfil', 'Sair'}.map((choice) {
-                              return PopupMenuItem<String>(
-                                value: choice,
-                                child: Text(choice),
-                              );
-                            }).toList();
-                          },
                         ),
                       ],
                     ),
