@@ -40,8 +40,20 @@ class EstoqueProduto {
 /// ===============================
 class EstoqueLinha extends StatelessWidget {
   final EstoqueProduto produto;
+  final String unidadeMedida;
 
-  const EstoqueLinha({super.key, required this.produto});
+  const EstoqueLinha({
+    super.key,
+    required this.produto,
+    required this.unidadeMedida,
+  });
+
+  double _formatValue(double value) {
+    if (unidadeMedida == 'metros') {
+      return value / 1000;
+    }
+    return value;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,22 +87,22 @@ class EstoqueLinha extends StatelessWidget {
             ),
           ),
 
-          _miniBox("Sd Inicial", produto.saldoInicial, const Color.fromARGB(255, 87, 87, 87)),
+          _miniBox("Sd Inicial", _formatValue(produto.saldoInicial), const Color.fromARGB(255, 87, 87, 87)),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 8),
             child: Text("+", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
           ),
-          _miniBox("Entradas", produto.entradasTotais, Colors.indigo),
+          _miniBox("Entradas", _formatValue(produto.entradasTotais), Colors.indigo),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 8),
             child: Text("-", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
           ),
-          _miniBox("Saídas", produto.saida, Colors.red),
+          _miniBox("Saídas", _formatValue(produto.saida), Colors.red),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 8),
             child: Text("=", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
           ),
-          _miniBox("Sd Final", produto.finalDoDia, const Color.fromARGB(255, 87, 87, 87)),
+          _miniBox("Sd Final", _formatValue(produto.finalDoDia), const Color.fromARGB(255, 87, 87, 87)),
           
           const SizedBox(width: 30),
           // LINHA DIVISORA SUTIL
@@ -103,7 +115,7 @@ class EstoqueLinha extends StatelessWidget {
 
           _miniBox(
             "Espaço Disp.",
-            produto.espaco,
+            _formatValue(produto.espaco),
             produto.espaco >= 0 ? Colors.grey.shade800 : Colors.red.shade900,
           ),
         ],
@@ -137,7 +149,9 @@ class EstoqueLinha extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              NumberFormat.decimalPattern('pt_BR').format(value),
+              unidadeMedida == 'metros' 
+                  ? NumberFormat.decimalPattern('pt_BR').format(value.round())
+                  : NumberFormat.decimalPattern('pt_BR').format(value),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
@@ -169,6 +183,9 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
   bool _carregando = true;
   bool _carregandoDados = false;
   List<EstoqueProduto> _produtos = [];
+
+  // Unidade de medida: 'litros' ou 'metros'
+  String _unidadeMedida = 'litros';
 
   // Filtros de Data
   DateTime _dataInicial = DateTime.now();
@@ -986,6 +1003,46 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
                   data: _dataFinal,
                   onTap: () => _selecionarData(context, false),
                 ),
+                const SizedBox(width: 12),
+                // Dropdown de Unidade de Medida
+                Container(
+                  height: 36, // Mesma altura aproximada dos campos de data
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF0D47A1), width: 0.8),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isDense: true, // Reduz o padding interno do dropdown
+                      value: _unidadeMedida,
+                      icon: const Icon(Icons.tune, size: 16, color: Color(0xFF0D47A1)),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0D47A1),
+                      ),
+                      onChanged: (String? newValue) {
+                        if (newValue != null) {
+                          setState(() {
+                            _unidadeMedida = newValue;
+                          });
+                        }
+                      },
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'litros',
+                          child: Text('litros (l)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'metros',
+                          child: Text('metros (m³)'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 if (_carregandoDados)
                   const Padding(
                     padding: EdgeInsets.only(left: 12),
@@ -1033,8 +1090,10 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
               Expanded(
                 child: ListView.builder(
                   itemCount: _produtos.length,
-                  itemBuilder: (context, index) =>
-                      EstoqueLinha(produto: _produtos[index]),
+                  itemBuilder: (context, index) => EstoqueLinha(
+                    produto: _produtos[index],
+                    unidadeMedida: _unidadeMedida,
+                  ),
                 ),
               ),
           ],
