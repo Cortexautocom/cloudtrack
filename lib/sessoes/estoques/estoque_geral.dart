@@ -14,6 +14,7 @@ class EstoqueProduto {
   final double saida;
   final double transito;
   final double capacidadeTotal;
+  final int posicao;
 
   EstoqueProduto({
     required this.nome,
@@ -23,6 +24,7 @@ class EstoqueProduto {
     required this.saida,
     required this.transito,
     required this.capacidadeTotal,
+    required this.posicao,
   });
 
   double get entradasTotais => entradaDescarga + entradaBombeio;
@@ -163,6 +165,7 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
   List<Map<String, dynamic>> _terminais = [];
   String? _terminalSelecionadoId;
   bool _carregando = true;
+  List<EstoqueProduto> _produtos = [];
 
   @override
   void initState() {
@@ -204,6 +207,11 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
           _terminalSelecionadoId = lista.isNotEmpty ? lista.first['id'] : null;
           _carregando = false;
         });
+        
+        // Carregar produtos do terminal selecionado
+        if (_terminalSelecionadoId != null) {
+          await _carregarProdutosDoTerminal();
+        }
       }
     } catch (e) {
       debugPrint('Erro ao carregar terminais: $e');
@@ -211,30 +219,181 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
     }
   }
 
+  Future<void> _carregarProdutosDoTerminal() async {
+    if (_terminalSelecionadoId == null) {
+      debugPrint('⚠️ _carregarProdutosDoTerminal: terminalSelecionadoId é null');
+      return;
+    }
+
+    debugPrint('🔍 Iniciando carga de produtos para terminal ID: $_terminalSelecionadoId');
+    setState(() => _carregando = true);
+
+    try {
+      // Buscar tanques do terminal selecionado
+      debugPrint('📦 Buscando tanques do terminal...');
+      final tanques = await _supabase
+          .from('tanques')
+          .select('''
+            id,
+            referencia,
+            capacidade,
+            id_produto,
+            status,
+            terminal_id
+          ''')
+          .eq('terminal_id', _terminalSelecionadoId!)
+          .eq('status', 'Em operação');
+
+      debugPrint('📊 Tanques encontrados: ${tanques.length}');
+      debugPrint('📋 Dados brutos dos tanques: $tanques');
+
+      if (tanques.isEmpty) {
+        debugPrint('⚠️ Nenhum tanque encontrado para o terminal $_terminalSelecionadoId');
+        setState(() {
+          _produtos = [];
+          _carregando = false;
+        });
+        return;
+      }
+
+      // Coletar IDs dos produtos únicos
+      final Set<String> produtosIds = {};
+      for (final tanque in tanques) {
+        final produtoId = tanque['id_produto'];
+        debugPrint('🔍 Tanque ID: ${tanque['id']}, Produto ID: $produtoId, Status: ${tanque['status']}');
+        if (produtoId != null) {
+          produtosIds.add(produtoId.toString());
+        } else {
+          debugPrint('⚠️ Tanque ${tanque['id']} não tem produto associado (id_produto = null)');
+        }
+      }
+
+      debugPrint('🆔 IDs de produtos únicos encontrados: $produtosIds');
+
+      if (produtosIds.isEmpty) {
+        debugPrint('⚠️ Nenhum ID de produto válido encontrado nos tanques');
+        setState(() {
+          _produtos = [];
+          _carregando = false;
+        });
+        return;
+      }
+
+      // Buscar dados dos produtos
+      debugPrint('🔍 Buscando dados dos produtos na tabela produtos...');
+      final produtos = await _supabase
+          .from('produtos')
+          .select('id, nome, posicao')
+          .inFilter('id', produtosIds.toList());
+
+      debugPrint('📦 Produtos encontrados na tabela: ${produtos.length}');
+      debugPrint('📋 Dados dos produtos: $produtos');
+
+      // Criar um mapa para fácil acesso aos dados do produto
+      final Map<String, Map<String, dynamic>> produtosMap = {};
+      for (final produto in produtos) {
+        produtosMap[produto['id'].toString()] = produto;
+        debugPrint('✅ Produto mapeado: ID=${produto['id']}, Nome=${produto['nome']}');
+      }
+
+      // Verificar se todos os produtos IDs foram encontrados
+      for (final produtoId in produtosIds) {
+        if (!produtosMap.containsKey(produtoId)) {
+          debugPrint('⚠️ Produto ID $produtoId não encontrado na tabela produtos');
+        }
+      }
+
+      // Agrupar tanques por produto e calcular capacidade total por produto
+      final Map<String, double> capacidadePorProduto = {};
+      final Map<String, List<Map<String, dynamic>>> tanquesPorProduto = {};
+
+      for (final tanque in tanques) {
+        final produtoId = tanque['id_produto']?.toString();
+        if (produtoId == null) continue;
+
+        final capacidade = (tanque['capacidade'] as num?)?.toDouble() ?? 0.0;
+        debugPrint('📊 Tanque ${tanque['id']}: Produto=$produtoId, Capacidade=$capacidade');
+
+        capacidadePorProduto[produtoId] = 
+            (capacidadePorProduto[produtoId] ?? 0.0) + capacidade;
+        
+        tanquesPorProduto.putIfAbsent(produtoId, () => []).add(tanque);
+      }
+
+      debugPrint('📊 Capacidade por produto: $capacidadePorProduto');
+
+      // Criar objetos EstoqueProduto para cada produto encontrado
+      final List<EstoqueProduto> produtosEstoque = [];
+
+      for (final entry in capacidadePorProduto.entries) {
+        final produtoId = entry.key;
+        final capacidadeTotal = entry.value;
+        final produtoData = produtosMap[produtoId];
+        
+        if (produtoData == null) {
+          debugPrint('⚠️ Pulando produto ID $produtoId - dados não encontrados');
+          continue;
+        }
+
+        final nomeProduto = produtoData['nome']?.toString() ?? 'Produto Desconhecido';
+        final posicao = int.tryParse(produtoData['posicao']?.toString() ?? '0') ?? 0;
+        debugPrint('✅ Criando EstoqueProduto: $nomeProduto, Capacidade Total: $capacidadeTotal, Posição: $posicao');
+        
+        // TODO: Buscar valores reais de abertura, entradas, saídas e trânsito
+        // Por enquanto, usando valores de exemplo
+        
+        produtosEstoque.add(EstoqueProduto(
+          nome: nomeProduto,
+          abertura: 0.0, // Buscar do saldo inicial do dia
+          entradaDescarga: 0.0, // Buscar das movimentações de descarga
+          entradaBombeio: 0.0, // Buscar das movimentações de bombeio
+          saida: 0.0, // Buscar das movimentações de saída
+          transito: 0.0, // Buscar do trânsito
+          capacidadeTotal: capacidadeTotal,
+          posicao: posicao,
+        ));
+      }
+
+      // Ordenar produtos por posição de forma ascendente
+      produtosEstoque.sort((a, b) => a.posicao.compareTo(b.posicao));
+
+      debugPrint('🔍 PRODUTOS ORDENADOS:');
+      for (var p in produtosEstoque) {
+        debugPrint('   - ${p.nome}: Posição ${p.posicao}');
+      }
+
+      debugPrint('✅ Total de produtos criados: ${produtosEstoque.length}');
+      
+      if (produtosEstoque.isEmpty) {
+        debugPrint('⚠️ Nenhum produto foi criado - verificando possíveis causas:');
+        debugPrint('   - produtosIds: $produtosIds');
+        debugPrint('   - produtosMap keys: ${produtosMap.keys}');
+        debugPrint('   - capacidadePorProduto keys: ${capacidadePorProduto.keys}');
+      } else {
+        for (final produto in produtosEstoque) {
+          debugPrint('📦 Produto final: ${produto.nome} - Capacidade: ${produto.capacidadeTotal}');
+        }
+      }
+
+      setState(() {
+        _produtos = produtosEstoque;
+        _carregando = false;
+      });
+
+    } catch (e, stackTrace) {
+      debugPrint('❌ ERRO ao carregar produtos do terminal: $e');
+      debugPrint('📚 Stack trace: $stackTrace');
+      if (mounted) {
+        setState(() {
+          _produtos = [];
+          _carregando = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // dados estáticos por enquanto; futuramente filtrar por _terminalSelecionadoId
-    final produtos = [
-      EstoqueProduto(
-        nome: 'Diesel S10',
-        abertura: 120000,
-        entradaDescarga: 30000,
-        entradaBombeio: 10000,
-        saida: 45000,
-        transito: 8000,
-        capacidadeTotal: 200000,
-      ),
-      EstoqueProduto(
-        nome: 'Gasolina Comum',
-        abertura: 90000,
-        entradaDescarga: 20000,
-        entradaBombeio: 5000,
-        saida: 38000,
-        transito: 6000,
-        capacidadeTotal: 150000,
-      ),
-    ];
-
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       body: Padding(
@@ -264,7 +423,7 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
             const SizedBox(height: 12),
 
             // NAVEGAÇÃO POR TERMINAIS
-            if (_carregando)
+            if (_carregando && _terminais.isEmpty)
               const SizedBox(
                 height: 36,
                 child: Center(
@@ -288,8 +447,10 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
                     return MouseRegion(
                       cursor: SystemMouseCursors.click,
                       child: GestureDetector(
-                        onTap: () => setState(
-                            () => _terminalSelecionadoId = terminal['id']),
+                        onTap: () async {
+                          setState(() => _terminalSelecionadoId = terminal['id']);
+                          await _carregarProdutosDoTerminal();
+                        },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(
@@ -327,12 +488,30 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
             const Divider(),
             const SizedBox(height: 12),
 
-            // LISTA SEM SCROLL
-            Column(
-              children: produtos
-                  .map((p) => EstoqueLinha(produto: p))
-                  .toList(),
-            ),
+            // LISTA DE PRODUTOS
+            if (_carregando && _produtos.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32.0),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (_produtos.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32.0),
+                  child: Text(
+                    'Nenhum produto encontrado para este terminal',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                ),
+              )
+            else
+              Column(
+                children: _produtos
+                    .map((p) => EstoqueLinha(produto: p))
+                    .toList(),
+              ),
           ],
         ),
       ),
