@@ -8,7 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// ===============================
 class EstoqueProduto {
   final String nome;
-  final double abertura;
+  final double saldoInicial;
   final double entradaDescarga;
   final double entradaBombeio;
   final double saida;
@@ -18,7 +18,7 @@ class EstoqueProduto {
 
   EstoqueProduto({
     required this.nome,
-    required this.abertura,
+    required this.saldoInicial,
     required this.entradaDescarga,
     required this.entradaBombeio,
     required this.saida,
@@ -28,7 +28,7 @@ class EstoqueProduto {
   });
 
   double get entradasTotais => entradaDescarga + entradaBombeio;
-  double get tanque => abertura + entradasTotais - saida;
+  double get tanque => saldoInicial + entradasTotais - saida;
   double get finalDoDia => tanque + transito;
   double get espaco => capacidadeTotal - finalDoDia;
 }
@@ -73,7 +73,7 @@ class EstoqueLinha extends StatelessWidget {
             ),
           ),
 
-          _miniBox("Abertura", produto.abertura, const Color.fromARGB(255, 87, 87, 87)),
+          _miniBox("Sd Inicial", produto.saldoInicial, const Color.fromARGB(255, 87, 87, 87)),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 8),
             child: Text("+", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
@@ -88,7 +88,7 @@ class EstoqueLinha extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: 8),
             child: Text("=", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
           ),
-          _miniBox("Final", produto.finalDoDia, const Color.fromARGB(255, 87, 87, 87)),
+          _miniBox("Sd Final", produto.finalDoDia, const Color.fromARGB(255, 87, 87, 87)),
           
           const SizedBox(width: 30),
           // LINHA DIVISORA SUTIL
@@ -167,6 +167,10 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
   bool _carregando = true;
   List<EstoqueProduto> _produtos = [];
 
+  // Filtros de Data
+  DateTime _dataInicial = DateTime.now();
+  DateTime _dataFinal = DateTime.now();
+
   @override
   void initState() {
     super.initState();
@@ -221,16 +225,13 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
 
   Future<void> _carregarProdutosDoTerminal() async {
     if (_terminalSelecionadoId == null) {
-      debugPrint('⚠️ _carregarProdutosDoTerminal: terminalSelecionadoId é null');
       return;
     }
 
-    debugPrint('🔍 Iniciando carga de produtos para terminal ID: $_terminalSelecionadoId');
     setState(() => _carregando = true);
 
     try {
       // Buscar tanques do terminal selecionado
-      debugPrint('📦 Buscando tanques do terminal...');
       final tanques = await _supabase
           .from('tanques')
           .select('''
@@ -244,11 +245,7 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
           .eq('terminal_id', _terminalSelecionadoId!)
           .eq('status', 'Em operação');
 
-      debugPrint('📊 Tanques encontrados: ${tanques.length}');
-      debugPrint('📋 Dados brutos dos tanques: $tanques');
-
       if (tanques.isEmpty) {
-        debugPrint('⚠️ Nenhum tanque encontrado para o terminal $_terminalSelecionadoId');
         setState(() {
           _produtos = [];
           _carregando = false;
@@ -260,18 +257,12 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
       final Set<String> produtosIds = {};
       for (final tanque in tanques) {
         final produtoId = tanque['id_produto'];
-        debugPrint('🔍 Tanque ID: ${tanque['id']}, Produto ID: $produtoId, Status: ${tanque['status']}');
         if (produtoId != null) {
           produtosIds.add(produtoId.toString());
-        } else {
-          debugPrint('⚠️ Tanque ${tanque['id']} não tem produto associado (id_produto = null)');
         }
       }
 
-      debugPrint('🆔 IDs de produtos únicos encontrados: $produtosIds');
-
       if (produtosIds.isEmpty) {
-        debugPrint('⚠️ Nenhum ID de produto válido encontrado nos tanques');
         setState(() {
           _produtos = [];
           _carregando = false;
@@ -280,47 +271,29 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
       }
 
       // Buscar dados dos produtos
-      debugPrint('🔍 Buscando dados dos produtos na tabela produtos...');
       final produtos = await _supabase
           .from('produtos')
           .select('id, nome, posicao')
           .inFilter('id', produtosIds.toList());
 
-      debugPrint('📦 Produtos encontrados na tabela: ${produtos.length}');
-      debugPrint('📋 Dados dos produtos: $produtos');
-
       // Criar um mapa para fácil acesso aos dados do produto
       final Map<String, Map<String, dynamic>> produtosMap = {};
       for (final produto in produtos) {
         produtosMap[produto['id'].toString()] = produto;
-        debugPrint('✅ Produto mapeado: ID=${produto['id']}, Nome=${produto['nome']}');
-      }
-
-      // Verificar se todos os produtos IDs foram encontrados
-      for (final produtoId in produtosIds) {
-        if (!produtosMap.containsKey(produtoId)) {
-          debugPrint('⚠️ Produto ID $produtoId não encontrado na tabela produtos');
-        }
       }
 
       // Agrupar tanques por produto e calcular capacidade total por produto
       final Map<String, double> capacidadePorProduto = {};
-      final Map<String, List<Map<String, dynamic>>> tanquesPorProduto = {};
 
       for (final tanque in tanques) {
         final produtoId = tanque['id_produto']?.toString();
         if (produtoId == null) continue;
 
         final capacidade = (tanque['capacidade'] as num?)?.toDouble() ?? 0.0;
-        debugPrint('📊 Tanque ${tanque['id']}: Produto=$produtoId, Capacidade=$capacidade');
 
         capacidadePorProduto[produtoId] = 
             (capacidadePorProduto[produtoId] ?? 0.0) + capacidade;
-        
-        tanquesPorProduto.putIfAbsent(produtoId, () => []).add(tanque);
       }
-
-      debugPrint('📊 Capacidade por produto: $capacidadePorProduto');
 
       // Criar objetos EstoqueProduto para cada produto encontrado
       final List<EstoqueProduto> produtosEstoque = [];
@@ -331,49 +304,29 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
         final produtoData = produtosMap[produtoId];
         
         if (produtoData == null) {
-          debugPrint('⚠️ Pulando produto ID $produtoId - dados não encontrados');
           continue;
         }
 
         final nomeProduto = produtoData['nome']?.toString() ?? 'Produto Desconhecido';
         final posicao = int.tryParse(produtoData['posicao']?.toString() ?? '0') ?? 0;
-        debugPrint('✅ Criando EstoqueProduto: $nomeProduto, Capacidade Total: $capacidadeTotal, Posição: $posicao');
         
-        // TODO: Buscar valores reais de abertura, entradas, saídas e trânsito
+        // TODO: Buscar valores reais de saldo inicial, entradas, saídas e trânsito
         // Por enquanto, usando valores de exemplo
         
         produtosEstoque.add(EstoqueProduto(
           nome: nomeProduto,
-          abertura: 0.0, // Buscar do saldo inicial do dia
+          saldoInicial: 0.0, // Buscar do saldo inicial do dia
           entradaDescarga: 0.0, // Buscar das movimentações de descarga
           entradaBombeio: 0.0, // Buscar das movimentações de bombeio
           saida: 0.0, // Buscar das movimentações de saída
           transito: 0.0, // Buscar do trânsito
-          capacidadeTotal: capacidadeTotal,
+          capacidadeTotal: (capacidadeTotal as num?)?.toDouble() ?? 0.0,
           posicao: posicao,
         ));
       }
 
       // Ordenar produtos por posição de forma ascendente
       produtosEstoque.sort((a, b) => a.posicao.compareTo(b.posicao));
-
-      debugPrint('🔍 PRODUTOS ORDENADOS:');
-      for (var p in produtosEstoque) {
-        debugPrint('   - ${p.nome}: Posição ${p.posicao}');
-      }
-
-      debugPrint('✅ Total de produtos criados: ${produtosEstoque.length}');
-      
-      if (produtosEstoque.isEmpty) {
-        debugPrint('⚠️ Nenhum produto foi criado - verificando possíveis causas:');
-        debugPrint('   - produtosIds: $produtosIds');
-        debugPrint('   - produtosMap keys: ${produtosMap.keys}');
-        debugPrint('   - capacidadePorProduto keys: ${capacidadePorProduto.keys}');
-      } else {
-        for (final produto in produtosEstoque) {
-          debugPrint('📦 Produto final: ${produto.nome} - Capacidade: ${produto.capacidadeTotal}');
-        }
-      }
 
       setState(() {
         _produtos = produtosEstoque;
@@ -390,6 +343,319 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
         });
       }
     }
+  }
+
+  Future<void> _selecionarData(BuildContext context, bool isInicial) async {
+    DateTime tempDate = isInicial ? _dataInicial : _dataFinal;
+
+    final DateTime? selecionado = await showDialog<DateTime>(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Container(
+            width: 350,
+            padding: const EdgeInsets.all(20),
+            child: StatefulBuilder(
+              builder: (context, setStateDialog) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.calendar_today,
+                          color: Color(0xFF0D47A1),
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          isInicial ? 'Data inicial' : 'Data final',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0D47A1),
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(context).pop(),
+                          color: Colors.grey,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Mês e Ano
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              Icons.chevron_left,
+                              color: Color(0xFF0D47A1),
+                            ),
+                            onPressed: () {
+                              setStateDialog(() {
+                                tempDate = DateTime(
+                                  tempDate.year,
+                                  tempDate.month - 1,
+                                  tempDate.day,
+                                );
+                              });
+                            },
+                          ),
+                          Text(
+                            '${_getMonthName(tempDate.month)} ${tempDate.year}',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF0D47A1),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.chevron_right,
+                              color: Color(0xFF0D47A1),
+                            ),
+                            onPressed: () {
+                              setStateDialog(() {
+                                tempDate = DateTime(
+                                  tempDate.year,
+                                  tempDate.month + 1,
+                                  tempDate.day,
+                                );
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Dias da semana
+                    GridView.count(
+                      shrinkWrap: true,
+                      crossAxisCount: 7,
+                      childAspectRatio: 1.0,
+                      children: ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day) {
+                        return Center(
+                          child: Text(
+                            day,
+                            style: const TextStyle(
+                              color: Color(0xFF0D47A1),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                    // Dias do mês
+                    GridView.count(
+                      shrinkWrap: true,
+                      crossAxisCount: 7,
+                      childAspectRatio: 1.0,
+                      children: _getDaysInMonth(tempDate).map((day) {
+                        final isSelected = day != null && day == tempDate.day;
+                        final isToday = day != null &&
+                            day == DateTime.now().day &&
+                            tempDate.month == DateTime.now().month &&
+                            tempDate.year == DateTime.now().year;
+
+                        return GestureDetector(
+                          onTap: day != null
+                              ? () {
+                                  setStateDialog(() {
+                                    tempDate = DateTime(tempDate.year, tempDate.month, day);
+                                  });
+                                }
+                              : null,
+                          child: Container(
+                            margin: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? const Color(0xFF0D47A1)
+                                  : isToday
+                                      ? const Color(0x220D47A1)
+                                      : Colors.transparent,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                day != null ? day.toString() : '',
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? Colors.white
+                                      : isToday
+                                          ? const Color(0xFF0D47A1)
+                                          : Colors.black87,
+                                  fontWeight: isSelected || isToday
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Botões
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.black87,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          child: const Text('CANCELAR'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(tempDate),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D47A1),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'SELECIONAR',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selecionado != null) {
+      setState(() {
+        if (isInicial) {
+          _dataInicial = selecionado;
+          if (_dataInicial.isAfter(_dataFinal)) {
+            _dataFinal = _dataInicial;
+          }
+        } else {
+          _dataFinal = selecionado;
+          if (_dataFinal.isBefore(_dataInicial)) {
+            _dataInicial = _dataFinal;
+          }
+        }
+      });
+      // Recarregar dados se necessário
+      await _carregarProdutosDoTerminal();
+    }
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    return months[month - 1];
+  }
+
+  List<int?> _getDaysInMonth(DateTime date) {
+    final firstDay = DateTime(date.year, date.month, 1);
+    final lastDay = DateTime(date.year, date.month + 1, 0);
+
+    final firstWeekday = firstDay.weekday;
+    final startOffset = firstWeekday == 7 ? 0 : firstWeekday;
+
+    List<int?> days = [];
+
+    for (int i = 0; i < startOffset; i++) {
+      days.add(null);
+    }
+
+    for (int i = 1; i <= lastDay.day; i++) {
+      days.add(i);
+    }
+
+    while (days.length < 42) {
+      days.add(null);
+    }
+
+    return days;
+  }
+
+  Widget _buildCampoData({
+    required String label,
+    required DateTime data,
+    required VoidCallback onTap,
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFF0D47A1), width: 0.8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.calendar_today, size: 12, color: Color(0xFF0D47A1)),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF0D47A1),
+                    ),
+                  ),
+                  Text(
+                    DateFormat('dd/MM/yyyy').format(data),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0D47A1),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -485,6 +751,25 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
               ),
 
             const SizedBox(height: 12),
+
+            // FILTROS DE DATA
+            Row(
+              children: [
+                _buildCampoData(
+                  label: 'Data Inicial',
+                  data: _dataInicial,
+                  onTap: () => _selecionarData(context, true),
+                ),
+                const SizedBox(width: 12),
+                _buildCampoData(
+                  label: 'Data Final',
+                  data: _dataFinal,
+                  onTap: () => _selecionarData(context, false),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
             const Divider(),
             const SizedBox(height: 12),
 
@@ -507,10 +792,12 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
                 ),
               )
             else
-              Column(
-                children: _produtos
-                    .map((p) => EstoqueLinha(produto: p))
-                    .toList(),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _produtos.length,
+                  itemBuilder: (context, index) =>
+                      EstoqueLinha(produto: _produtos[index]),
+                ),
               ),
           ],
         ),
