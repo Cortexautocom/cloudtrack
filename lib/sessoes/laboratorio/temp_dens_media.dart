@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../login_page.dart';  
 
 class TemperaturaDensidadeMediaPage extends StatefulWidget {
   final VoidCallback? onVoltar;
@@ -18,16 +19,10 @@ class _TemperaturaDensidadeMediaPageState
   bool _carregando = true;
   bool _erro = false;
   String _mensagemErro = '';
-  List<Map<String, dynamic>> _terminais = [];
-  String? _selectedTerminalId;
-  bool _carregandoTerminais = true;
   
   final TextEditingController _dataController = TextEditingController();
   final TextEditingController _placaController = TextEditingController();
-
   final ScrollController _verticalScrollController = ScrollController();
-
-  // apenas o controlador vertical é necessário para a nova tabela
 
   @override
   void initState() {
@@ -37,59 +32,16 @@ class _TemperaturaDensidadeMediaPageState
     final now = DateTime.now();
     _dataController.text = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
 
-    // não são necessários listeners horizontais para a tabela simples
-
-    // carregar lista de terminais para o dropdown
-    _carregarTerminais();
+    // Carregar dados diretamente usando o terminal do usuário
+    _carregarDados();
   }
 
   @override
   void dispose() {
-    // apenas dispose do controlador vertical
     _verticalScrollController.dispose();
     _dataController.dispose();
     _placaController.dispose();
     super.dispose();
-  }
-
-  Future<void> _carregarTerminais() async {
-    setState(() {
-      _carregandoTerminais = true;
-    });
-
-    try {
-      final resp = await _supabase
-          .from('terminais')
-          .select('id,nome')
-          .order('nome', ascending: true)
-          .limit(1000);
-
-      final List<dynamic> lista = resp;
-
-      setState(() {
-        _terminais = lista.map<Map<String, dynamic>>((t) {
-          return {
-            'id': t['id']?.toString() ?? '',
-            'nome': t['nome']?.toString() ?? '',
-          };
-        }).toList();
-
-        // Selecionar automaticamente o primeiro terminal, se houver
-        if (_terminais.isNotEmpty) {
-          _selectedTerminalId = _terminais.first['id']?.toString();
-        }
-
-        _carregandoTerminais = false;
-      });
-
-      // Carregar dados usando o terminal selecionado (ou sem filtro se nenhum)
-      _carregarDados();
-    } catch (e) {
-      debugPrint('❌ Erro ao carregar terminais: $e');
-      setState(() {
-        _carregandoTerminais = false;
-      });
-    }
   }
 
   Future<void> _carregarDados({bool carregarMais = false}) async {
@@ -117,9 +69,15 @@ class _TemperaturaDensidadeMediaPageState
             movimentacoes!inner(cliente, descricao, tipo_mov)
           ''');
 
-      // Aplicar filtro por data (se preenchido). O campo `data_criacao` é timestamp
-      // no formato YYYY-MM-DD HH:MI:SS, então filtramos pela faixa do dia
-      // convertendo o texto 'DD/MM/YYYY' para DateTime e usando gte/lt.
+      // Aplicar filtro por terminal baseado no usuário logado
+      // Se o usuário for admin (nivel >= 3), não aplica filtro de terminal
+      if (UsuarioAtual.instance != null && 
+          UsuarioAtual.instance!.nivel < 3 && 
+          UsuarioAtual.instance!.terminalId != null) {
+        query = query.eq('terminal_id', UsuarioAtual.instance!.terminalId!);
+      }
+
+      // Aplicar filtro por data (se preenchido)
       if (_dataController.text.isNotEmpty) {
         try {
           final parts = _dataController.text.split('/');
@@ -130,7 +88,6 @@ class _TemperaturaDensidadeMediaPageState
             final start = DateTime(year, month, day);
             final end = start.add(const Duration(days: 1));
 
-            // usar ISO strings para comparação com timestamp
             query = query.gte('data_criacao', start.toIso8601String());
             query = query.lt('data_criacao', end.toIso8601String());
           }
@@ -152,21 +109,16 @@ class _TemperaturaDensidadeMediaPageState
         String descricao = '';
         String placa = row['placa_cavalo']?.toString() ?? '';
 
-        // ===== CORREÇÃO AQUI =====
-        // Primeiro tenta pegar cliente, se for NULL ou vazio, pega descricao
         final movs = row['movimentacoes'];
 
         if (movs is List && movs.isNotEmpty) {
-          // Se for lista, pega o primeiro item
           final primeiroMov = movs.first;
-          // Tenta pegar cliente, se não existir ou for vazio, pega descricao
           descricao = primeiroMov['cliente']?.toString() ?? '';
           if (descricao.isEmpty) {
             descricao = primeiroMov['descricao']?.toString() ?? '';
           }
         } 
         else if (movs is Map<String, dynamic>) {
-          // Se for objeto único
           descricao = movs['cliente']?.toString() ?? '';
           if (descricao.isEmpty) {
             descricao = movs['descricao']?.toString() ?? '';
@@ -219,21 +171,14 @@ class _TemperaturaDensidadeMediaPageState
     }
   }
 
-  // ----------------- FILTRO -----------------
-
+  // Filtro apenas por placa (terminal já está filtrado na consulta)
   List<Map<String, dynamic>> get _registrosFiltrados {
     final placaFiltro = _placaController.text.trim().toLowerCase();
-    final terminalFiltro = _selectedTerminalId;
 
     return _registros.where((r) {
       if (placaFiltro.isNotEmpty) {
         final placa = r['placa']?.toString().toLowerCase() ?? '';
         if (!placa.contains(placaFiltro)) return false;
-      }
-
-      if (terminalFiltro != null && terminalFiltro.isNotEmpty) {
-        final recTerminalId = r['terminal_id']?.toString() ?? '';
-        if (recTerminalId != terminalFiltro) return false;
       }
 
       return true;
@@ -295,8 +240,6 @@ class _TemperaturaDensidadeMediaPageState
       'temp_ct': countTempCt > 0 ? somaTempCt / countTempCt : 0,
     };
   }
-
-  // removed layout helpers no longer used by the simplified list view
 
   Widget _buildCarregando() {
     return const Center(
@@ -386,8 +329,7 @@ class _TemperaturaDensidadeMediaPageState
     );
   }
 
-  // ----------------- WIDGET DE PESQUISA (IGUAL AO DA PROGRAMAÇÃO) -----------------
-
+  // Widget de pesquisa de data
   Widget _buildSearchField() {
     return SizedBox(
       height: 40,
@@ -397,7 +339,7 @@ class _TemperaturaDensidadeMediaPageState
             : 'Data';
 
         return InkWell(
-            onTap: () async {
+          onTap: () async {
             final now = DateTime.now();
             final data = await showDatePicker(
               context: context,
@@ -430,7 +372,7 @@ class _TemperaturaDensidadeMediaPageState
             }
           },
           borderRadius: BorderRadius.circular(4),
-            child: Container(
+          child: Container(
             height: 40,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             alignment: Alignment.center,
@@ -456,6 +398,7 @@ class _TemperaturaDensidadeMediaPageState
     );
   }
 
+  // Widget de pesquisa de placa
   Widget _buildPlacaSearchField() {
     return Container(
       width: 200,
@@ -501,67 +444,6 @@ class _TemperaturaDensidadeMediaPageState
     );
   }
 
-  Widget _buildTerminalDropdown() {
-    return Container(
-      width: 200,
-      height: 40,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Row(
-        children: [
-          const SizedBox(width: 4),
-          Icon(Icons.store, color: Colors.grey.shade600, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _carregandoTerminais
-                ? const SizedBox(
-                    height: 20,
-                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                  )
-                : DropdownButtonHideUnderline(
-                    child: DropdownButton<String?>(
-                      isExpanded: true,
-                      value: _selectedTerminalId,
-                      hint: const Text('Terminal', style: TextStyle(fontSize: 13)),
-                      items: _terminais.map((t) {
-                        return DropdownMenuItem<String?>(
-                          value: t['id']?.toString(),
-                          child: Text(
-                            t['nome']?.toString() ?? '',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (v) {
-                        setState(() {
-                          _selectedTerminalId = v;
-                        });
-                        _carregarDados();
-                      },
-                    ),
-                  ),
-          ),
-          if (_selectedTerminalId != null && _selectedTerminalId!.isNotEmpty)
-            IconButton(
-              icon: Icon(Icons.clear, color: Colors.grey.shade600, size: 20),
-              onPressed: () {
-                setState(() {
-                  _selectedTerminalId = null;
-                });
-                _carregarDados();
-              },
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 36),
-            ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_carregando && _registros.isEmpty) {
@@ -571,6 +453,7 @@ class _TemperaturaDensidadeMediaPageState
     if (_erro && _registros.isEmpty) {
       return _buildErro();
     }
+    
     final registros = _registrosFiltrados;
     final medias = _calcularMedias(registros);
 
@@ -578,7 +461,7 @@ class _TemperaturaDensidadeMediaPageState
       appBar: null,
       body: Column(
         children: [
-          // AppBar personalizada FIXA (igual à da Programação)
+          // AppBar personalizada
           Container(
             height: kToolbarHeight + MediaQuery.of(context).padding.top,
             padding: EdgeInsets.only(
@@ -621,20 +504,37 @@ class _TemperaturaDensidadeMediaPageState
                   margin: const EdgeInsets.only(right: 12),
                   child: _buildPlacaSearchField(),
                 ),
-                Container(
-                  width: 200,
-                  margin: const EdgeInsets.only(right: 12),
-                  child: _buildTerminalDropdown(),
-                ),
+                // Exibir terminal atual para usuários não-admin
+                if (UsuarioAtual.instance != null && 
+                    UsuarioAtual.instance!.nivel < 3 && 
+                    UsuarioAtual.instance!.terminalNome != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.store, color: Colors.grey.shade600, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          UsuarioAtual.instance!.terminalNome!,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
-          // Linha divisória opcional
+          // Linha divisória
           Container(
             height: 1,
             color: Colors.grey.shade300,
           ),
-          // Resto do conteúdo
+          // Conteúdo principal
           Expanded(
             child: registros.isEmpty
                 ? _buildVazio()
@@ -652,259 +552,257 @@ class _TemperaturaDensidadeMediaPageState
           padding: const EdgeInsets.fromLTRB(30, 10, 30, 0),
           child: Column(
             children: [
-            // Cabeçalho da tabela (mesmo estilo de estoque_tanques_geral)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: const BoxDecoration(
-                color: Color(0xFF222B45),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(12),
+              // Cabeçalho da tabela
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF222B45),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
+                  ),
                 ),
-              ),
-              child: Row(
-                children: const [
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      'Descrição',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'Placa',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'Produto',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'Densidade Obs.',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'Temp. da amostra',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      'Temp. do CT',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Linhas
-            Expanded(
-              child: SingleChildScrollView(
-                controller: _verticalScrollController,
-                child: Column(
-                  children: [
-                    ...List.generate(registros.length, (index) {
-                      final r = registros[index];
-                      final isEven = index.isEven;
-                      return Container(
-                        color: isEven ? const Color(0xFFF0F1F6) : const Color(0xFFF8F9FA),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: Center(
-                                child: Text(
-                                  r['descricao']?.toString() ?? '',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Color(0xFF222B45),
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                r['placa']?.toString() ?? '',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                r['produto']?.toString() ?? '',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                r['densidade']?.toString() ?? '',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                r['temp_amostra']?.toString() ?? '',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                r['temp_ct']?.toString() ?? '',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          ],
+                child: Row(
+                  children: const [
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        'Descrição',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
                         ),
-                      );
-                    }),
-                    
-                    // Linha de totais (médias)
-                    if (registros.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE3F2FD),
-                          border: Border.all(color: const Color(0xFF0D47A1).withOpacity(0.3)),
-                          borderRadius: const BorderRadius.only(
-                            bottomLeft: Radius.circular(8),
-                            bottomRight: Radius.circular(8),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: Center(
-                                child: Text(
-                                  'MÉDIAS',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Color(0xFF0D47A1),
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Container(), // Vazio para coluna Placa
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Container(), // Vazio para coluna Produto
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Center(
-                                child: Text(
-                                  medias['densidade']?.toStringAsFixed(3) ?? '0.000',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Color(0xFF0D47A1),
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Center(
-                                child: Text(
-                                  medias['temp_amostra']?.toStringAsFixed(1) ?? '0.0',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Color(0xFF0D47A1),
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Center(
-                                child: Text(
-                                  medias['temp_ct']?.toStringAsFixed(1) ?? '0.0',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Color(0xFF0D47A1),
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                        textAlign: TextAlign.center,
                       ),
-                    ],
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        'Placa',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        'Produto',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        'Densidade Obs.',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        'Temp. da amostra',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        'Temp. do CT',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ),
+
+              // Linhas de dados
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: _verticalScrollController,
+                  child: Column(
+                    children: [
+                      ...List.generate(registros.length, (index) {
+                        final r = registros[index];
+                        final isEven = index.isEven;
+                        return Container(
+                          color: isEven ? const Color(0xFFF0F1F6) : const Color(0xFFF8F9FA),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: Center(
+                                  child: Text(
+                                    r['descricao']?.toString() ?? '',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Color(0xFF222B45),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  r['placa']?.toString() ?? '',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  r['produto']?.toString() ?? '',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  r['densidade']?.toString() ?? '',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  r['temp_amostra']?.toString() ?? '',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  r['temp_ct']?.toString() ?? '',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                      
+                      // Linha de médias
+                      if (registros.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE3F2FD),
+                            border: Border.all(color: const Color(0xFF0D47A1).withOpacity(0.3)),
+                            borderRadius: const BorderRadius.only(
+                              bottomLeft: Radius.circular(8),
+                              bottomRight: Radius.circular(8),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: Center(
+                                  child: Text(
+                                    'MÉDIAS',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Color(0xFF0D47A1),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Container(),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Container(),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Center(
+                                  child: Text(
+                                    medias['densidade']?.toStringAsFixed(3) ?? '0.000',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Color(0xFF0D47A1),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Center(
+                                  child: Text(
+                                    medias['temp_amostra']?.toStringAsFixed(1) ?? '0.0',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Color(0xFF0D47A1),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Center(
+                                  child: Text(
+                                    medias['temp_ct']?.toStringAsFixed(1) ?? '0.0',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Color(0xFF0D47A1),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         );
       },
     );
   }
-
-  // funções de agrupamento e tabela antiga removidas — mantemos apenas a tabela simples
 }
