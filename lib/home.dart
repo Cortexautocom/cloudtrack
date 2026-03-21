@@ -401,14 +401,6 @@ class _HomePageState extends State<HomePage>
         'sessao_pai': 'Operação',
       },
       {
-        'id': 'fallback-temp',
-        'icon': Icons.thermostat,
-        'label': 'Temperatura e Densidade média',
-        'descricao': 'Cálculo de temperatura e densidade média',
-        'tipo': 'temp_dens_media',
-        'sessao_pai': 'Operação',
-      },
-      {
         'id': 'fallback-tanques',
         'icon': Icons.oil_barrel,
         'label': 'Tanques',
@@ -559,6 +551,17 @@ class _HomePageState extends State<HomePage>
         'descricao': 'Controle de frascos de amostras',
         'tipo': 'frascos_amostra',
         'sessao_pai': 'Almoxerifado',
+      },
+    ];
+
+    _filhosPorSessao['Laboratório'] = [
+      {
+        'id': 'fallback-temp',
+        'icon': Icons.thermostat,
+        'label': 'Temperatura e Densidade média',
+        'descricao': 'Cálculo de temperatura e densidade média',
+        'tipo': 'temp_dens_media',
+        'sessao_pai': 'Laboratório',
       },
     ];
   }
@@ -1449,6 +1452,8 @@ class _HomePageState extends State<HomePage>
         return _buildAjudaPage();
 
       case 'Laboratório':
+        return _buildConteudoSessoes();
+
       case 'Financeiro':
       case 'Jurídico':
       case 'Gestão de Projetos':
@@ -2058,7 +2063,7 @@ class _HomePageState extends State<HomePage>
           onVoltar: () {
             setState(() {
               _mostrarTempDensMedia = false;
-              _mostrarFilhosDaSessao('Operação');
+              _mostrarFilhosDaSessao(_sessaoAtual ?? 'Operação');
             });
           },
         );
@@ -2246,9 +2251,23 @@ class _HomePageState extends State<HomePage>
       return _buildConfiguracoesPage(usuario);
     }
 
+    // SEÇÃO: Laboratório
+    if (sessaoAtual == 'Laboratório') {
+      if (_mostrarTempDensMedia) {
+        return TemperaturaDensidadeMediaPage(
+          onVoltar: () {
+            setState(() {
+              _mostrarTempDensMedia = false;
+              _mostrarFilhosDaSessao('Laboratório');
+            });
+          },
+        );
+      }
+      return _buildFilhosSessaoPage();
+    }
+
     // Páginas indisponíveis
-    if (sessaoAtual == 'Laboratório' ||
-        sessaoAtual == 'Financeiro' ||
+    if (sessaoAtual == 'Financeiro' ||
         sessaoAtual == 'Jurídico' ||
         sessaoAtual == 'Gestão de Projetos' ||
         sessaoAtual == 'Recursos Humanos' ||
@@ -2799,6 +2818,9 @@ class _HomePageState extends State<HomePage>
       case 'Bombeios e Cotas':
         _navegarParaCardBombeios(tipo);
         break;
+      case 'Laboratório':
+        _navegarParaCardLaboratorio(tipo);
+        break;
       case 'Almoxerifado':
         _navegarParaCardAlmoxerifado(tipo);
         break;
@@ -3159,6 +3181,16 @@ class _HomePageState extends State<HomePage>
       case 'frascos_amostra':
         setState(() {
           _mostrarFrascosAmostra = true;
+        });
+        break;
+    }
+  }
+
+  void _navegarParaCardLaboratorio(String tipo) {
+    switch (tipo) {
+      case 'temp_dens_media':
+        setState(() {
+          _mostrarTempDensMedia = true;
         });
         break;
     }

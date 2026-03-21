@@ -353,40 +353,6 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
     }
   }
 
-  // Método para conceder/tirar permissão de TODOS os cards de uma sessão
-  Future<void> _alternarPermissaoSessao(String sessaoPai, bool conceder) async {
-    if (usuarioSelecionadoId == null) return;
-
-    try {
-      // Filtrar cards da sessão
-      final cardsDaSessao = cards.where((c) => c['sessao_pai'] == sessaoPai).toList();
-      
-      for (var card in cardsDaSessao) {
-        final cardId = card['id'];
-        
-        // Apenas atualizar se o estado for diferente
-        if ((permissoes[cardId] ?? false) != conceder) {
-          await _atualizarPermissaoCard(cardId, conceder);
-        }
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            conceder 
-              ? 'Todos os cards de "$sessaoPai" foram permitidos!' 
-              : 'Permissão removida de todos os cards de "$sessaoPai"!',
-          ),
-          backgroundColor: conceder ? Colors.green : Colors.orange,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-
-    } catch (e) {
-      debugPrint('❌ Erro ao alternar permissão da sessão: $e');
-    }
-  }
-
   // Obter lista de sessões únicas dos cards
   List<String> _obterSessoesUnicas() {
     final sessoes = cards.map((c) => c['sessao_pai']?.toString() ?? 'Geral').toSet();
@@ -581,65 +547,6 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
             ],
           ),
           const Divider(),
-          
-          // Seção de ações em lote
-          if (cards.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 15),
-              child: Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  FilterChip(
-                    label: const Text('Mostrar apenas permitidos'),
-                    selected: false,
-                    onSelected: (_) {
-                      setState(() {
-                        cardsFiltrados = cards.where((c) => c['permitido'] == true).toList();
-                      });
-                    },
-                  ),
-                  FilterChip(
-                    label: const Text('Mostrar apenas negados'),
-                    selected: false,
-                    onSelected: (_) {
-                      setState(() {
-                        cardsFiltrados = cards.where((c) => c['permitido'] != true).toList();
-                      });
-                    },
-                  ),
-                  FilterChip(
-                    label: const Text('Mostrar todos'),
-                    selected: true,
-                    onSelected: (_) {
-                      setState(() {
-                        cardsFiltrados = cards;
-                      });
-                    },
-                  ),
-                  if (sessaoSelecionada != null)
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.check, size: 16),
-                      label: const Text('Permitir todos desta sessão'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                      ),
-                      onPressed: () => _alternarPermissaoSessao(sessaoSelecionada!, true),
-                    ),
-                  if (sessaoSelecionada != null)
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.close, size: 16),
-                      label: const Text('Negar todos desta sessão'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                      ),
-                      onPressed: () => _alternarPermissaoSessao(sessaoSelecionada!, false),
-                    ),
-                ],
-              ),
-            ),
           
           Expanded(
             child: _buildConteudoCards(),
