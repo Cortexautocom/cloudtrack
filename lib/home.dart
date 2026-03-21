@@ -1142,6 +1142,73 @@ class _HomePageState extends State<HomePage>
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
+                        // Lista suspensa de idiomas (agora à esquerda do nome do usuário)
+                        PopupMenuButton<String>(
+                          offset: const Offset(0, 40),
+                          tooltip: 'Selecionar Idioma',
+                          onSelected: (value) {
+                            // Funcionalidade fictícia de troca de idioma
+                          },
+                          surfaceTintColor: Colors.white,
+                          color: Colors.white,
+                          elevation: 8,
+                          itemBuilder: (BuildContext context) => [
+                            const PopupMenuItem<String>(
+                              value: 'en',
+                              child: Row(
+                                children: [
+                                  Text('🇺🇸'),
+                                  SizedBox(width: 8),
+                                  Text('English (US)'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem<String>(
+                              value: 'es',
+                              child: Row(
+                                children: [
+                                  Text('🇪🇸'),
+                                  SizedBox(width: 8),
+                                  Text('Español'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem<String>(
+                              value: 'pt',
+                              child: Row(
+                                children: [
+                                  Text('🇧🇷'),
+                                  SizedBox(width: 8),
+                                  Text('Português (BR)'),
+                                ],
+                              ),
+                            ),
+                          ],
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                '🇧🇷',
+                                style: TextStyle(fontSize: 18),
+                              ),
+                              const SizedBox(width: 4),
+                              const Text(
+                                'PT-BR',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0D47A1),
+                                ),
+                              ),
+                              Icon(
+                                Icons.arrow_drop_down,
+                                size: 20,
+                                color: Colors.grey[600],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 15),
                         Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.end,
