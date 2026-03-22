@@ -41,11 +41,13 @@ class EstoqueProduto {
 class EstoqueLinha extends StatelessWidget {
   final EstoqueProduto produto;
   final String unidadeMedida;
+  final bool mostrarTransito;
 
   const EstoqueLinha({
     super.key,
     required this.produto,
     required this.unidadeMedida,
+    required this.mostrarTransito,
   });
 
   double _formatValue(double value) {
@@ -57,68 +59,80 @@ class EstoqueLinha extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 55,
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          )
-        ],
-      ),
-      child: Row(
-        children: [
-          // PRODUTO
-          SizedBox(
-            width: 130,
-            child: Text(
-              produto.nome,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF0D47A1),
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        height: 55,
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 4,
+              offset: Offset(0, 2),
+            )
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // PRODUTO
+            SizedBox(
+              width: 130,
+              child: Text(
+                produto.nome,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0D47A1),
+                ),
               ),
             ),
-          ),
 
-          _miniBox("Sd Inicial", _formatValue(produto.saldoInicial), const Color.fromARGB(255, 87, 87, 87)),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
-            child: Text("+", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
-          ),
-          _miniBox("Entradas", _formatValue(produto.entradasTotais), Colors.indigo),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
-            child: Text("-", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
-          ),
-          _miniBox("Saídas", _formatValue(produto.saida), Colors.red),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
-            child: Text("=", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
-          ),
-          _miniBox("Sd Final", _formatValue(produto.finalDoDia), const Color.fromARGB(255, 87, 87, 87)),
-          
-          const SizedBox(width: 30),
-          // LINHA DIVISORA SUTIL
-          Container(
-            height: 30,
-            width: 1,
-            color: Colors.grey.withOpacity(0.3),
-          ),
-          const SizedBox(width: 30),
+            _miniBox("Sd Inicial", _formatValue(produto.saldoInicial), const Color.fromARGB(255, 87, 87, 87)),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: Text("+", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
+            ),
+            _miniBox("Entradas", _formatValue(produto.entradasTotais), Colors.indigo),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: Text("-", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
+            ),
+            _miniBox("Saídas", _formatValue(produto.saida), Colors.red),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: Text("=", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
+            ),
+            _miniBox("Sd Final", _formatValue(produto.finalDoDia), const Color.fromARGB(255, 87, 87, 87)),
+            
+            if (mostrarTransito) ...[
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Text("+", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
+              ),
+              _miniBox("Trânsito", _formatValue(produto.transito), Colors.orange.shade800),
+            ],
 
-          _miniBox(
-            "Espaço Disp.",
-            _formatValue(produto.espaco),
-            produto.espaco >= 0 ? Colors.grey.shade800 : Colors.red.shade900,
-          ),
-        ],
+            const SizedBox(width: 30),
+            // LINHA DIVISORA SUTIL
+            Container(
+              height: 30,
+              width: 1,
+              color: Colors.grey.withOpacity(0.3),
+            ),
+            const SizedBox(width: 30),
+
+            _miniBox(
+              "Espaço Disp.",
+              _formatValue(produto.espaco),
+              produto.espaco >= 0 ? Colors.grey.shade800 : Colors.red.shade900,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -186,6 +200,8 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
 
   // Unidade de medida: 'litros' ou 'metros'
   String _unidadeMedida = 'litros';
+
+  bool _mostrarTransito = false;
 
   // Filtros de Data
   DateTime _dataInicial = DateTime.now();
@@ -1043,6 +1059,46 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
                     ),
                   ),
                 ),
+                const SizedBox(width: 12),
+                // Botão Em Trânsito
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _mostrarTransito = !_mostrarTransito;
+                      });
+                    },
+                    child: Container(
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: _mostrarTransito ? const Color(0xFF0D47A1) : Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF0D47A1), width: 0.8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.local_shipping_outlined,
+                            size: 16,
+                            color: _mostrarTransito ? Colors.white : const Color(0xFF0D47A1),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Em Trânsito',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: _mostrarTransito ? Colors.white : const Color(0xFF0D47A1),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
                 if (_carregandoDados)
                   const Padding(
                     padding: EdgeInsets.only(left: 12),
@@ -1093,6 +1149,7 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
                   itemBuilder: (context, index) => EstoqueLinha(
                     produto: _produtos[index],
                     unidadeMedida: _unidadeMedida,
+                    mostrarTransito: _mostrarTransito,
                   ),
                 ),
               ),
