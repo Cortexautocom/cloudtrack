@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../login_page.dart';  
+import '../../login_page.dart';
 
 class TemperaturaDensidadeMediaPage extends StatefulWidget {
   final VoidCallback? onVoltar;
@@ -19,34 +19,63 @@ class _TemperaturaDensidadeMediaPageState
   bool _carregando = true;
   bool _erro = false;
   String _mensagemErro = '';
-  
-  final TextEditingController _dataController = TextEditingController();
+
   final TextEditingController _placaController = TextEditingController();
   final ScrollController _verticalScrollController = ScrollController();
+
+  // Controllers para o diálogo
+  final TextEditingController _tempAmostraController = TextEditingController();
+  final TextEditingController _densidadeObsController = TextEditingController();
+  final TextEditingController _tempCtController = TextEditingController();
+  final TextEditingController _placaDialogController = TextEditingController();
+  
+  // Variáveis para os dropdowns do diálogo
+  String? _selectedProdutoId;
+  List<Map<String, dynamic>> _produtos = [];
+  bool _carregandoProdutos = false;
 
   @override
   void initState() {
     super.initState();
-
-    // Preencher campo de data com a data atual
-    final now = DateTime.now();
-    _dataController.text = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
-
-    // Carregar dados diretamente usando o terminal do usuário
     _carregarDados();
+    _carregarProdutos();
   }
 
   @override
   void dispose() {
     _verticalScrollController.dispose();
-    _dataController.dispose();
     _placaController.dispose();
+    _tempAmostraController.dispose();
+    _densidadeObsController.dispose();
+    _tempCtController.dispose();
+    _placaDialogController.dispose();
     super.dispose();
   }
 
-  Future<void> _carregarDados({bool carregarMais = false}) async {
-    if (carregarMais) return;
+  Future<void> _carregarProdutos() async {
+    setState(() {
+      _carregandoProdutos = true;
+    });
 
+    try {
+      final response = await _supabase
+          .from('produtos')
+          .select('id, nome')
+          .order('nome');
+
+      setState(() {
+        _produtos = List<Map<String, dynamic>>.from(response);
+        _carregandoProdutos = false;
+      });
+    } catch (e) {
+      debugPrint('Erro ao carregar produtos: $e');
+      setState(() {
+        _carregandoProdutos = false;
+      });
+    }
+  }
+
+  Future<void> _carregarDados() async {
     setState(() {
       _carregando = true;
       _erro = false;
@@ -55,92 +84,56 @@ class _TemperaturaDensidadeMediaPageState
 
     try {
       var query = _supabase
-          .from('ordens_analises')
+          .from('temp_e_dens')
           .select('''
             id,
+            created_at,
+            temp_amostra,
+            densid_obs,
+            temp_ct,
+            placa,
             terminal_id,
-            data_criacao,
-            densidade_observada,
-            temperatura_amostra,
-            temperatura_ct,
-            produto_nome,
-            placa_cavalo,
-            terminais(nome),
-            movimentacoes!inner(cliente, descricao, tipo_mov)
+            produto_id,
+            produtos(nome),
+            terminais(nome)
           ''');
 
       // Aplicar filtro por terminal baseado no usuário logado
-      // Se o usuário for admin (nivel >= 3), não aplica filtro de terminal
-      if (UsuarioAtual.instance != null && 
-          UsuarioAtual.instance!.nivel < 3 && 
+      if (UsuarioAtual.instance != null &&
+          UsuarioAtual.instance!.nivel < 3 &&
           UsuarioAtual.instance!.terminalId != null) {
         query = query.eq('terminal_id', UsuarioAtual.instance!.terminalId!);
       }
 
-      // Aplicar filtro por data (se preenchido)
-      if (_dataController.text.isNotEmpty) {
-        try {
-          final parts = _dataController.text.split('/');
-          if (parts.length == 3) {
-            final day = int.parse(parts[0]);
-            final month = int.parse(parts[1]);
-            final year = int.parse(parts[2]);
-            final start = DateTime(year, month, day);
-            final end = start.add(const Duration(days: 1));
-
-            query = query.gte('data_criacao', start.toIso8601String());
-            query = query.lt('data_criacao', end.toIso8601String());
-          }
-        } catch (e) {
-          debugPrint('Erro ao parsear data de filtro: ${_dataController.text} -> $e');
-        }
-      }
-
-      // Adicionar filtro para tipo_mov = 'saida'
-      query = query.filter('movimentacoes.tipo_mov', 'eq', 'saida');
-
-      final resp = await query.order('data_criacao', ascending: false).limit(1000);
+      final resp = await query.order('created_at', ascending: false).limit(1000);
 
       final List<dynamic> lista = resp;
 
       final registrosTransformados =
           lista.map<Map<String, dynamic>>((row) {
-
-        String descricao = '';
-        String placa = row['placa_cavalo']?.toString() ?? '';
-
-        final movs = row['movimentacoes'];
-
-        if (movs is List && movs.isNotEmpty) {
-          final primeiroMov = movs.first;
-          descricao = primeiroMov['cliente']?.toString() ?? '';
-          if (descricao.isEmpty) {
-            descricao = primeiroMov['descricao']?.toString() ?? '';
-          }
-        } 
-        else if (movs is Map<String, dynamic>) {
-          descricao = movs['cliente']?.toString() ?? '';
-          if (descricao.isEmpty) {
-            descricao = movs['descricao']?.toString() ?? '';
-          }
+        String produtoNome = '';
+        final produto = row['produtos'];
+        if (produto is Map<String, dynamic>) {
+          produtoNome = produto['nome']?.toString() ?? '';
         }
 
         String terminalNome = '';
-        final term = row['terminais'];
-
-        if (term is Map<String, dynamic>) {
-          terminalNome = term['nome']?.toString() ?? '';
+        final terminal = row['terminais'];
+        if (terminal is Map<String, dynamic>) {
+          terminalNome = terminal['nome']?.toString() ?? '';
         }
 
         return {
-          'descricao': descricao,
-          'placa': placa,
-          'produto': row['produto_nome'],
-          'densidade': row['densidade_observada'],
-          'temp_amostra': row['temperatura_amostra'],
-          'temp_ct': row['temperatura_ct'],
-          'terminal': terminalNome,
+          'id': row['id'],
+          'created_at': row['created_at'],
+          'temp_amostra': row['temp_amostra'],
+          'densid_obs': row['densid_obs'],
+          'temp_ct': row['temp_ct'],
+          'placa': row['placa'],
+          'produto_id': row['produto_id'],
+          'produto_nome': produtoNome,
           'terminal_id': row['terminal_id'],
+          'terminal_nome': terminalNome,
         };
       }).toList();
 
@@ -148,7 +141,6 @@ class _TemperaturaDensidadeMediaPageState
         _registros = registrosTransformados;
         _carregando = false;
       });
-
     } catch (e, stackTrace) {
       debugPrint('❌ ERRO NA CONSULTA');
       debugPrint(e.toString());
@@ -160,7 +152,7 @@ class _TemperaturaDensidadeMediaPageState
         _carregando = false;
       });
 
-      if (!carregarMais && mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erro ao carregar dados: ${e.toString()}'),
@@ -171,7 +163,343 @@ class _TemperaturaDensidadeMediaPageState
     }
   }
 
-  // Filtro apenas por placa (terminal já está filtrado na consulta)
+  Future<void> _salvarRegistro() async {
+    // Validações
+    if (_selectedProdutoId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecione um produto'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    if (_placaDialogController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Informe a placa'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final tempAmostra = double.tryParse(_tempAmostraController.text.trim().replaceAll(',', '.'));
+    if (tempAmostra == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Informe uma temperatura da amostra válida'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final densidadeObs = double.tryParse(_densidadeObsController.text.trim().replaceAll(',', '.'));
+    if (densidadeObs == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Informe uma densidade observada válida'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final tempCt = double.tryParse(_tempCtController.text.trim().replaceAll(',', '.'));
+    if (tempCt == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Informe uma temperatura do CT válida'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final Map<String, dynamic> dados = {
+        'temp_amostra': tempAmostra,
+        'densid_obs': densidadeObs,
+        'temp_ct': tempCt,
+        'placa': _placaDialogController.text.trim().toUpperCase(),
+        'produto_id': _selectedProdutoId,
+        'created_at': DateTime.now().toIso8601String(),
+      };
+
+      // Adicionar terminal_id se o usuário não for admin
+      if (UsuarioAtual.instance != null &&
+          UsuarioAtual.instance!.nivel < 3 &&
+          UsuarioAtual.instance!.terminalId != null) {
+        dados['terminal_id'] = UsuarioAtual.instance!.terminalId;
+      }
+
+      await _supabase.from('temp_e_dens').insert(dados);
+
+      // Limpar campos
+      _tempAmostraController.clear();
+      _densidadeObsController.clear();
+      _tempCtController.clear();
+      _placaDialogController.clear();
+      _selectedProdutoId = null;
+
+      // Recarregar dados
+      await _carregarDados();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Registro salvo com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Erro ao salvar: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao salvar: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _abrirDialogCadastro() {
+    // Resetar campos do diálogo
+    _tempAmostraController.clear();
+    _densidadeObsController.clear();
+    _tempCtController.clear();
+    _placaDialogController.clear();
+    setState(() {
+      _selectedProdutoId = null;
+    });
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return Dialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Container(
+            width: 500,
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Cabeçalho
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Novo Registro',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0D47A1),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                
+                // Campo Produto
+                const Text(
+                  'Produto *',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildProdutoDropdown(setStateDialog),
+                const SizedBox(height: 16),
+                
+                // Campo Placa
+                const Text(
+                  'Placa *',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _placaDialogController,
+                  decoration: InputDecoration(
+                    hintText: 'Digite a placa do veículo',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                  ),
+                  textCapitalization: TextCapitalization.characters,
+                ),
+                const SizedBox(height: 16),
+                
+                // Campo Temperatura da Amostra
+                const Text(
+                  'Temperatura da Amostra (°C) *',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _tempAmostraController,
+                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    hintText: 'Ex: 25,5',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Campo Densidade Observada
+                const Text(
+                  'Densidade Observada (g/cm³) *',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _densidadeObsController,
+                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    hintText: 'Ex: 0,825',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Campo Temperatura do CT
+                const Text(
+                  'Temperatura do CT (°C) *',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _tempCtController,
+                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    hintText: 'Ex: 28,0',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                
+                // Botões
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Cancelar'),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () async {
+                        Navigator.of(context).pop();
+                        await _salvarRegistro();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0D47A1),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: const Text('Salvar'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildProdutoDropdown([StateSetter? rebuildDialog]) {
+    if (_carregandoProdutos) {
+      return const SizedBox(
+        height: 48,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade400),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          isExpanded: true,
+          hint: const Text('Selecione um produto'),
+          value: _selectedProdutoId,
+          items: _produtos.map((produto) {
+            return DropdownMenuItem<String>(
+              value: produto['id'].toString(),
+              child: Text(produto['nome'].toString()),
+            );
+          }).toList(),
+          onChanged: (value) {
+            setState(() {
+              _selectedProdutoId = value;
+            });
+            rebuildDialog?.call(() {});
+          },
+        ),
+      ),
+    );
+  }
+
   List<Map<String, dynamic>> get _registrosFiltrados {
     final placaFiltro = _placaController.text.trim().toLowerCase();
 
@@ -185,7 +513,6 @@ class _TemperaturaDensidadeMediaPageState
     }).toList();
   }
 
-  // Função para calcular as médias
   Map<String, double> _calcularMedias(List<Map<String, dynamic>> registros) {
     if (registros.isEmpty) {
       return {
@@ -203,8 +530,7 @@ class _TemperaturaDensidadeMediaPageState
     int countTempCt = 0;
 
     for (var r in registros) {
-      // Densidade
-      final densidade = r['densidade'];
+      final densidade = r['densid_obs'];
       if (densidade != null) {
         final valor = double.tryParse(densidade.toString());
         if (valor != null) {
@@ -213,7 +539,6 @@ class _TemperaturaDensidadeMediaPageState
         }
       }
 
-      // Temperatura da amostra
       final tempAmostra = r['temp_amostra'];
       if (tempAmostra != null) {
         final valor = double.tryParse(tempAmostra.toString());
@@ -223,7 +548,6 @@ class _TemperaturaDensidadeMediaPageState
         }
       }
 
-      // Temperatura do CT
       final tempCt = r['temp_ct'];
       if (tempCt != null) {
         final valor = double.tryParse(tempCt.toString());
@@ -308,7 +632,7 @@ class _TemperaturaDensidadeMediaPageState
               size: 64, color: Colors.grey.shade400),
           const SizedBox(height: 16),
           const Text(
-            'Nenhuma movimentação encontrada',
+            'Nenhum registro encontrado',
             style: TextStyle(
               fontSize: 16,
               color: Color.fromARGB(255, 119, 119, 119),
@@ -316,9 +640,7 @@ class _TemperaturaDensidadeMediaPageState
           ),
           const SizedBox(height: 8),
           Text(
-            _dataController.text.isEmpty
-                ? 'Para hoje'
-                : 'Para a data ${_dataController.text}',
+            'Clique no botão + para adicionar',
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey.shade500,
@@ -329,76 +651,6 @@ class _TemperaturaDensidadeMediaPageState
     );
   }
 
-  // Widget de pesquisa de data
-  Widget _buildSearchField() {
-    return SizedBox(
-      height: 40,
-      child: Builder(builder: (context) {
-        final textoData = _dataController.text.isNotEmpty
-            ? _dataController.text
-            : 'Data';
-
-        return InkWell(
-          onTap: () async {
-            final now = DateTime.now();
-            final data = await showDatePicker(
-              context: context,
-              initialDate: now,
-              firstDate: DateTime(2000),
-              lastDate: DateTime(now.year + 1),
-              helpText: 'Filtrar por data',
-              cancelText: 'Cancelar',
-              confirmText: 'Confirmar',
-              builder: (context, child) {
-                return Theme(
-                  data: Theme.of(context).copyWith(
-                    colorScheme: const ColorScheme.light(
-                      primary: Color(0xFF0D47A1),
-                      onPrimary: Colors.white,
-                      surface: Colors.white,
-                      onSurface: Colors.black,
-                    ),
-                  ),
-                  child: child!,
-                );
-              },
-            );
-
-            if (data != null) {
-              setState(() {
-                _dataController.text = '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}';
-              });
-              _carregarDados();
-            }
-          },
-          borderRadius: BorderRadius.circular(4),
-          child: Container(
-            height: 40,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFF0D47A1).withOpacity(0.5)),
-              borderRadius: BorderRadius.circular(4),
-              color: Colors.white,
-            ),
-            child: Center(
-              child: Text(
-                textoData,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFF0D47A1),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-
-  // Widget de pesquisa de placa
   Widget _buildPlacaSearchField() {
     return Container(
       width: 200,
@@ -418,7 +670,7 @@ class _TemperaturaDensidadeMediaPageState
               controller: _placaController,
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
-                hintText: 'Placa',
+                hintText: 'Filtrar por placa',
                 hintStyle: TextStyle(
                   fontSize: 13,
                   color: Colors.grey.shade600,
@@ -453,7 +705,7 @@ class _TemperaturaDensidadeMediaPageState
     if (_erro && _registros.isEmpty) {
       return _buildErro();
     }
-    
+
     final registros = _registrosFiltrados;
     final medias = _calcularMedias(registros);
 
@@ -477,7 +729,6 @@ class _TemperaturaDensidadeMediaPageState
                   onPressed: widget.onVoltar,
                 ),
                 const SizedBox(width: 8),
-                // Título alinhado à esquerda
                 Expanded(
                   child: Align(
                     alignment: Alignment.centerLeft,
@@ -493,20 +744,25 @@ class _TemperaturaDensidadeMediaPageState
                     ),
                   ),
                 ),
-                // Campos de busca
+                // Botão +
                 Container(
-                  width: 200,
                   margin: const EdgeInsets.only(right: 12),
-                  child: _buildSearchField(),
+                  child: FloatingActionButton(
+                    onPressed: _abrirDialogCadastro,
+                    mini: true,
+                    backgroundColor: const Color(0xFF0D47A1),
+                    child: const Icon(Icons.add, color: Colors.white),
+                  ),
                 ),
+                // Campo de busca por placa
                 Container(
                   width: 200,
                   margin: const EdgeInsets.only(right: 12),
                   child: _buildPlacaSearchField(),
                 ),
                 // Exibir terminal atual para usuários não-admin
-                if (UsuarioAtual.instance != null && 
-                    UsuarioAtual.instance!.nivel < 3 && 
+                if (UsuarioAtual.instance != null &&
+                    UsuarioAtual.instance!.nivel < 3 &&
                     UsuarioAtual.instance!.terminalNome != null)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -565,9 +821,9 @@ class _TemperaturaDensidadeMediaPageState
                 child: Row(
                   children: const [
                     Expanded(
-                      flex: 3,
+                      flex: 2,
                       child: Text(
-                        'Descrição',
+                        'Data/Hora',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -615,7 +871,7 @@ class _TemperaturaDensidadeMediaPageState
                     Expanded(
                       flex: 2,
                       child: Text(
-                        'Temp. da amostra',
+                        'Temp. Amostra',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -627,7 +883,7 @@ class _TemperaturaDensidadeMediaPageState
                     Expanded(
                       flex: 2,
                       child: Text(
-                        'Temp. do CT',
+                        'Temp. CT',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -649,22 +905,24 @@ class _TemperaturaDensidadeMediaPageState
                       ...List.generate(registros.length, (index) {
                         final r = registros[index];
                         final isEven = index.isEven;
+                        final dataCriacao = r['created_at'] != null
+                            ? DateTime.parse(r['created_at'].toString())
+                            : null;
+                        final dataFormatada = dataCriacao != null
+                            ? '${dataCriacao.day.toString().padLeft(2, '0')}/${dataCriacao.month.toString().padLeft(2, '0')}/${dataCriacao.year} ${dataCriacao.hour.toString().padLeft(2, '0')}:${dataCriacao.minute.toString().padLeft(2, '0')}'
+                            : '';
+
                         return Container(
                           color: isEven ? const Color(0xFFF0F1F6) : const Color(0xFFF8F9FA),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           child: Row(
                             children: [
                               Expanded(
-                                flex: 3,
-                                child: Center(
-                                  child: Text(
-                                    r['descricao']?.toString() ?? '',
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      color: Color(0xFF222B45),
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
+                                flex: 2,
+                                child: Text(
+                                  dataFormatada,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 12),
                                 ),
                               ),
                               Expanded(
@@ -678,7 +936,7 @@ class _TemperaturaDensidadeMediaPageState
                               Expanded(
                                 flex: 2,
                                 child: Text(
-                                  r['produto']?.toString() ?? '',
+                                  r['produto_nome']?.toString() ?? '',
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(fontSize: 12),
                                 ),
@@ -686,7 +944,12 @@ class _TemperaturaDensidadeMediaPageState
                               Expanded(
                                 flex: 2,
                                 child: Text(
-                                  r['densidade']?.toString() ?? '',
+                                  r['densid_obs'] != null
+                                      ? double.tryParse(r['densid_obs'].toString())
+                                              ?.toStringAsFixed(3)
+                                              .replaceAll('.', ',') ??
+                                          r['densid_obs'].toString()
+                                      : '',
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(fontSize: 12),
                                 ),
@@ -694,7 +957,12 @@ class _TemperaturaDensidadeMediaPageState
                               Expanded(
                                 flex: 2,
                                 child: Text(
-                                  r['temp_amostra']?.toString() ?? '',
+                                  r['temp_amostra'] != null
+                                      ? double.tryParse(r['temp_amostra'].toString())
+                                              ?.toStringAsFixed(1)
+                                              .replaceAll('.', ',') ??
+                                          r['temp_amostra'].toString()
+                                      : '',
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(fontSize: 12),
                                 ),
@@ -702,7 +970,12 @@ class _TemperaturaDensidadeMediaPageState
                               Expanded(
                                 flex: 2,
                                 child: Text(
-                                  r['temp_ct']?.toString() ?? '',
+                                  r['temp_ct'] != null
+                                      ? double.tryParse(r['temp_ct'].toString())
+                                              ?.toStringAsFixed(1)
+                                              .replaceAll('.', ',') ??
+                                          r['temp_ct'].toString()
+                                      : '',
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(fontSize: 12),
                                 ),
@@ -711,7 +984,7 @@ class _TemperaturaDensidadeMediaPageState
                           ),
                         );
                       }),
-                      
+
                       // Linha de médias
                       if (registros.isNotEmpty) ...[
                         const SizedBox(height: 2),
@@ -727,13 +1000,12 @@ class _TemperaturaDensidadeMediaPageState
                           ),
                           child: Row(
                             children: [
-                              Expanded(
-                                flex: 3,
+                              const Expanded(
+                                flex: 2,
                                 child: Center(
                                   child: Text(
                                     'MÉDIAS',
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color: Color(0xFF0D47A1),
                                       fontWeight: FontWeight.bold,
                                       fontSize: 13,
@@ -741,33 +1013,19 @@ class _TemperaturaDensidadeMediaPageState
                                   ),
                                 ),
                               ),
-                              Expanded(
+                              const Expanded(
                                 flex: 2,
-                                child: Container(),
+                                child: SizedBox(),
                               ),
-                              Expanded(
+                              const Expanded(
                                 flex: 2,
-                                child: Container(),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Center(
-                                  child: Text(
-                                    medias['densidade']?.toStringAsFixed(3) ?? '0.000',
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      color: Color(0xFF0D47A1),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
+                                child: SizedBox(),
                               ),
                               Expanded(
                                 flex: 2,
                                 child: Center(
                                   child: Text(
-                                    medias['temp_amostra']?.toStringAsFixed(1) ?? '0.0',
+                                    medias['densidade']?.toStringAsFixed(3).replaceAll('.', ',') ?? '0,000',
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
                                       color: Color(0xFF0D47A1),
@@ -781,7 +1039,21 @@ class _TemperaturaDensidadeMediaPageState
                                 flex: 2,
                                 child: Center(
                                   child: Text(
-                                    medias['temp_ct']?.toStringAsFixed(1) ?? '0.0',
+                                    medias['temp_amostra']?.toStringAsFixed(1).replaceAll('.', ',') ?? '0,0',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Color(0xFF0D47A1),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Center(
+                                  child: Text(
+                                    medias['temp_ct']?.toStringAsFixed(1).replaceAll('.', ',') ?? '0,0',
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
                                       color: Color(0xFF0D47A1),
