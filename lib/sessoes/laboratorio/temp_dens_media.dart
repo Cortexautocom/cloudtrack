@@ -1141,6 +1141,7 @@ class _TemperaturaDensidadeMediaPageState
                               SizedBox(
                                 width: 50,
                                 child: PopupMenuButton<String>(
+                                  color: Colors.white,
                                   icon: const Icon(Icons.more_vert, size: 20),
                                   onSelected: (value) {
                                     if (value == 'excluir') {

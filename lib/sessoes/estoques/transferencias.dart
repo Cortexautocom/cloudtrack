@@ -275,14 +275,6 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
                         const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                   ),
                   const Spacer(),
-                  if (paginacao)
-                    IconButton(
-                      icon: const Icon(Icons.more_horiz),
-                      tooltip: 'Carregar mais',
-                      onPressed: _temMaisPaginas && !_carregandoHistorico
-                          ? () => carregarHistorico()
-                          : null,
-                    ),
                 ],
               ),
             ),
