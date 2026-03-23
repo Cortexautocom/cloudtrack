@@ -319,9 +319,9 @@ class EmitirCertificadoPage extends StatefulWidget {
   final VoidCallback onVoltar;
   final String? idCertificado;
   final String? idMovimentacao;
-  final List<Map<String, dynamic>>? tanquesDaOrdem; // NOVA: Lista de tanques da ordem
+  final List<Map<String, dynamic>>? tanquesDaOrdem;
   final bool modoSomenteVisualizacao;
-  final String? terminalId; // Terminal explícito, independente do usuário logado
+  final String? terminalId;
 
   const EmitirCertificadoPage({
     super.key,
@@ -344,12 +344,11 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   Map<String, dynamic>? _dadosExistentes;
   bool _carregandoDadosMovimentacao = false;
   bool _salvandoCertificado = false;
+  bool _carregandoDadosTemp = false;
 
   // ================= CONTROLLERS =================
   final TextEditingController dataCtrl = TextEditingController();
   final TextEditingController horaCtrl = TextEditingController();
-  // FocusNode removido - não é mais usado
-  // final FocusNode _focusTempCT = FocusNode();
 
   final Map<String, TextEditingController?> campos = {
     'numeroControle': TextEditingController(),
@@ -361,8 +360,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     'carreta1': TextEditingController(),
     'carreta2': TextEditingController(),
 
-    // Campos abaixo não são mais usados na UI - dados vêm do dialog de cada tanque
-    // Mantidos por compatibilidade com código legado (podem ser removidos futuramente)
+    // Campos de temperatura e densidade - agora READONLY
     'tempAmostra': TextEditingController(),
     'densidadeAmostra': TextEditingController(),
     'tempCT': TextEditingController(),
@@ -383,19 +381,14 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     super.initState();
     _setarDataHoraAtual();
     _carregarProdutos();
-    _inicializarTanquesDaOrdem(); // Inicializa tanques baseado na ordem
-
-    // Listener removido - cálculos agora são feitos no dialog de cada tanque
-    // _focusTempCT.addListener(() { ... });
+    _inicializarTanquesDaOrdem();
 
     if (widget.modoSomenteVisualizacao || (widget.idCertificado != null && widget.idCertificado!.isNotEmpty)) {
-      // MODO VISUALIZAÇÃO - Forçado pelo parâmetro ou certificado já existe
       _modoVisualizacao = true;
       if (widget.idCertificado != null && widget.idCertificado!.isNotEmpty) {
         _carregarDadosCertificado(widget.idCertificado!);
       }
     } else {
-      // MODO CRIAÇÃO - Novo certificado
       _modoVisualizacao = false;
       if (widget.idMovimentacao != null && widget.idMovimentacao!.isNotEmpty) {
         _carregarDadosMovimentacao(widget.idMovimentacao!);
@@ -461,8 +454,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
             }
           }
         }
-
-        // Nota: Os volumes dos tanques já são preenchidos em _inicializarTanquesDaOrdem()
       }
     } catch (e) {
       if (context.mounted) {
@@ -496,7 +487,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       
       _preencherCamposComDadosExistentes();
       
-      // Carregar dados das coletas dos tanques
       final movimentacaoId = _dadosExistentes!['movimentacao_id']?.toString();
       if (movimentacaoId != null && movimentacaoId.isNotEmpty) {
         await _carregarDadosColetasTanques(movimentacaoId);
@@ -515,7 +505,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     }
   }
   
-  // Método para carregar dados específicos de cada tanque da tabela coletas_tanques
   Future<void> _carregarDadosColetasTanques(String movimentacaoId) async {
     try {
       final supabase = Supabase.instance.client;
@@ -529,12 +518,10 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       if (coletas.isEmpty) return;
       
       setState(() {
-        // Preencher volumes de cada tanque com os dados salvos
         for (int i = 0; i < coletas.length && i < _tanques.length; i++) {
           final coleta = coletas[i];
           final tanque = _tanques[i];
           
-          // Apenas volumes por tanque — parâmetros globais já carregados via _preencherCamposComDadosExistentes
           if (coleta['volume_amb'] != null) {
             tanque.volumeAmbCtrl.text = _mascaraMilharUI(coleta['volume_amb'].toString());
           }
@@ -545,7 +532,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       });
     } catch (e) {
       print('Erro ao carregar dados das coletas: $e');
-      // Não lança exceção para não bloquear a visualização do certificado
     }
   }
   
@@ -569,7 +555,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       campos['carreta2']!.text =
           _dadosExistentes!['carreta2']?.toString() ?? '';
 
-      // Preencher parâmetros globais de conversão
       campos['tempAmostra']!.text =
           _formatarDecimalParaExibicao(_dadosExistentes!['temperatura_amostra']);
       campos['densidadeAmostra']!.text =
@@ -581,7 +566,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       campos['fatorCorrecao']!.text =
           _formatarDecimalParaExibicao(_dadosExistentes!['fator_correcao']);
 
-      // Preenche volumes do primeiro tanque
       if (_tanques.isNotEmpty) {
         final origemAmb = _dadosExistentes!['origem_ambiente'];
         if (origemAmb != null) {
@@ -649,6 +633,172 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       });
     } catch (_) {
       carregandoProdutos = false;
+    }
+  }
+
+  // ================= NOVA LÓGICA DE CARREGAMENTO DE TEMP/DENS =================
+  Future<void> _carregarDadosTempEDens() async {
+    if (_modoVisualizacao) {
+      return;
+    }
+
+    setState(() {
+      _carregandoDadosTemp = true;
+    });
+
+    try {
+      // Prioridade: usar terminal passado como parâmetro; fallback para o do usuário
+      final terminalIdEfetivo = widget.terminalId ?? UsuarioAtual.instance?.terminalId;
+      
+      if (terminalIdEfetivo == null || terminalIdEfetivo.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Terminal não identificado. Não foi possível buscar dados.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        setState(() {
+          _carregandoDadosTemp = false;
+        });
+        return;
+      }
+
+      // Determinar qual produto_id usar: preferência pelo primeiro tanque
+      String? produtoIdBusca;
+      
+      if (_tanques.isNotEmpty && _tanques[0].produtoId != null && _tanques[0].produtoId!.isNotEmpty) {
+        produtoIdBusca = _tanques[0].produtoId;
+      }
+
+      // Se não tem produto ID, não pode buscar
+      if (produtoIdBusca == null || produtoIdBusca.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Produto não identificado. Necessita de lançamento pelo laboratório.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        setState(() {
+          _carregandoDadosTemp = false;
+        });
+        return;
+      }
+
+      // Horário de São Paulo (UTC-3)
+      final agoraSaoPaulo = DateTime.now().toUtc().subtract(const Duration(hours: 3));
+      final sessentaMinAtrasSaoPaulo = agoraSaoPaulo.subtract(const Duration(minutes: 60));
+      
+      // Formatar datas no formato que o PostgreSQL espera (YYYY-MM-DD HH:MM:SS)
+      String formatarDataParaPostgres(DateTime date) {
+        return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}:${date.second.toString().padLeft(2, '0')}';
+      }
+      
+      final dataInicio = formatarDataParaPostgres(sessentaMinAtrasSaoPaulo);
+      
+      // Buscar registros do MESMO produto nos últimos 60 minutos
+      final registros = await Supabase.instance.client
+          .from('temp_e_dens')
+          .select('temp_amostra, densid_obs, temp_ct, created_at, produto_id')
+          .eq('terminal_id', terminalIdEfetivo)
+          .eq('produto_id', produtoIdBusca)
+          .gte('created_at', dataInicio)
+          .order('created_at', ascending: false);
+      
+      if (registros.isNotEmpty) {
+        // Calcular médias
+        double somaTempAmostra = 0;
+        double somaDensObs = 0;
+        double somaTempCT = 0;
+        int countTempAmostra = 0;
+        int countDensObs = 0;
+        int countTempCT = 0;
+        
+        for (var registro in registros) {
+          if (registro['temp_amostra'] != null) {
+            somaTempAmostra += double.parse(registro['temp_amostra'].toString());
+            countTempAmostra++;
+          }
+          if (registro['densid_obs'] != null) {
+            somaDensObs += double.parse(registro['densid_obs'].toString());
+            countDensObs++;
+          }
+          if (registro['temp_ct'] != null) {
+            somaTempCT += double.parse(registro['temp_ct'].toString());
+            countTempCT++;
+          }
+        }
+        
+        // Calcular médias
+        double? mediaTempAmostra = countTempAmostra > 0 ? somaTempAmostra / countTempAmostra : null;
+        double? mediaDensObs = countDensObs > 0 ? somaDensObs / countDensObs : null;
+        double? mediaTempCT = countTempCT > 0 ? somaTempCT / countTempCT : null;
+        
+        // Preencher campos
+        setState(() {
+          if (mediaTempAmostra != null) {
+            campos['tempAmostra']!.text = _formatarDecimalParaExibicao(mediaTempAmostra.toString());
+          }
+          if (mediaDensObs != null) {
+            campos['densidadeAmostra']!.text = _formatarDecimalParaExibicao(mediaDensObs.toString());
+          }
+          if (mediaTempCT != null) {
+            campos['tempCT']!.text = _formatarDecimalParaExibicao(mediaTempCT.toString());
+          }
+        });
+        
+        // Calcular densidade 20°C e FCV
+        await _calcularResultadosObtidos();
+        
+        if (mounted) {
+          String mensagem = '✓ Dados carregados (média de ${registros.length} registro(s) dos últimos 60 min)';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(mensagem),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      } else {
+        // Nenhum registro encontrado nos últimos 60 minutos
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ Sem dados disponíveis. Necessita de lançamento pelo laboratório.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+        
+        // Limpar campos
+        setState(() {
+          campos['tempAmostra']!.text = '';
+          campos['densidadeAmostra']!.text = '';
+          campos['tempCT']!.text = '';
+          campos['densidade20']!.text = '';
+          campos['fatorCorrecao']!.text = '';
+        });
+      }
+      
+    } catch (e) {
+      print('❌ Erro ao carregar dados de temperatura/densidade: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar dados: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _carregandoDadosTemp = false;
+      });
     }
   }
 
@@ -800,18 +950,20 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                       child: Column(
                         children: [
                           // ================= LOADING =================
-                          if (_carregandoDadosMovimentacao)
+                          if (_carregandoDadosMovimentacao || _carregandoDadosTemp)
                             Container(
                               padding: const EdgeInsets.all(20),
-                              child: const Column(
+                              child: Column(
                                 children: [
-                                  CircularProgressIndicator(
+                                  const CircularProgressIndicator(
                                     valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0D47A1)),
                                   ),
-                                  SizedBox(height: 16),
+                                  const SizedBox(height: 16),
                                   Text(
-                                    'Carregando dados da movimentação...',
-                                    style: TextStyle(
+                                    _carregandoDadosTemp 
+                                        ? 'Carregando dados de temperatura e densidade...' 
+                                        : 'Carregando dados da movimentação...',
+                                    style: const TextStyle(
                                       color: Color(0xFF0D47A1),
                                       fontSize: 16,
                                     ),
@@ -822,11 +974,11 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                           
                           // ================= FORMULÁRIO =================
                           Opacity(
-                            opacity: _carregandoDadosMovimentacao ? 0.5 : 1.0,
+                            opacity: (_carregandoDadosMovimentacao || _carregandoDadosTemp) ? 0.5 : 1.0,
                             child: Column(
                               children: [
                                 AbsorbPointer(
-                                  absorbing: _modoVisualizacao || _carregandoDadosMovimentacao,
+                                  absorbing: _modoVisualizacao || _carregandoDadosMovimentacao || _carregandoDadosTemp,
                                   child: Column(
                                     children: [
                                       _linha([
@@ -905,7 +1057,8 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                                           setState(() {
                                                             produtoSelecionado = valor;
                                                           });
-                                                          _calcularResultadosObtidos();
+                                                          // Recarregar dados de temperatura/densidade ao trocar produto
+                                                          _carregarDadosTempEDens();
                                                         },
                                                   decoration: _decoration('Produto').copyWith(
                                                     fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
@@ -988,7 +1141,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                               ],
                             ),
                           ),
-                          if (!_carregandoDadosMovimentacao)
+                          if (!_carregandoDadosMovimentacao && !_carregandoDadosTemp)
                           // ================= BOTÕES =================
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1037,7 +1190,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                               // BOTÃO EMITIR CERTIFICADO
                               if (!_modoVisualizacao)
                                 ElevatedButton.icon(
-                                  onPressed: (_salvandoCertificado || !_todosVolumes20Validos()) ? null : _confirmarEmissaoCertificado,
+                                  onPressed: (_salvandoCertificado || !_todosVolumes20Validos() || _camposTempVazios()) ? null : _confirmarEmissaoCertificado,
                                   icon: _salvandoCertificado 
                                       ? const SizedBox(
                                           width: 20,
@@ -1053,8 +1206,8 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                     style: const TextStyle(fontSize: 16),
                                   ),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: (!_salvandoCertificado && _todosVolumes20Validos()) ? Colors.green : Colors.grey[300],
-                                    foregroundColor: (!_salvandoCertificado && _todosVolumes20Validos()) ? Colors.white : Colors.grey[600],
+                                    backgroundColor: (!_salvandoCertificado && _todosVolumes20Validos() && !_camposTempVazios()) ? Colors.green : Colors.grey[300],
+                                    foregroundColor: (!_salvandoCertificado && _todosVolumes20Validos() && !_camposTempVazios()) ? Colors.white : Colors.grey[600],
                                     padding:
                                         const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                                     shape: RoundedRectangleBorder(
@@ -1095,11 +1248,17 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     );
   }
 
+  // Verificar se os campos de temperatura estão vazios
+  bool _camposTempVazios() {
+    return campos['tempAmostra']!.text.isEmpty ||
+           campos['densidadeAmostra']!.text.isEmpty ||
+           campos['tempCT']!.text.isEmpty;
+  }
+
   // ================= MÉTODOS DE GERENCIAMENTO DE TANQUES =================
   
   void _inicializarTanquesDaOrdem() {
     if (widget.tanquesDaOrdem != null && widget.tanquesDaOrdem!.isNotEmpty) {
-      // Criar tanques baseado na lista recebida
       for (var tanqueInfo in widget.tanquesDaOrdem!) {
         final novoTanque = TanqueDados(
           id: tanqueInfo['movimentacao_id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
@@ -1110,7 +1269,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
           produtoId: tanqueInfo['produto_id']?.toString(),
         );
         
-        // Preencher valores iniciais se disponíveis
         if (tanqueInfo['saida_amb'] != null) {
           novoTanque.volumeAmbCtrl.text = _mascaraMilharUI(tanqueInfo['saida_amb'].toString());
         }
@@ -1118,14 +1276,12 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
           novoTanque.volume20CCtrl.text = _mascaraMilharUI(tanqueInfo['saida_vinte'].toString());
         }
         
-        // Atualiza lista e adiciona listener para atualizar estado quando o volume 20°C mudar
         novoTanque.volume20CCtrl.addListener(() {
           if (mounted) setState(() {});
         });
         _tanques.add(novoTanque);
       }
     } else {
-      // Caso não tenha tanques da ordem, criar um padrão
       final novoTanque = TanqueDados(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         volumeAmbCtrl: TextEditingController(),
@@ -1136,190 +1292,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         if (mounted) setState(() {});
       });
       _tanques.add(novoTanque);
-    }
-  }
-
-  // Método para buscar parâmetros de temperatura e densidade da tabela temp_e_dens
-  Future<void> _carregarDadosTempEDens() async {
-    if (_modoVisualizacao) {
-      return;
-    }
-
-    // Prioridade: usar terminal passado como parâmetro; fallback para o do usuário
-    final terminalIdEfetivo = widget.terminalId ?? UsuarioAtual.instance?.terminalId;
-    
-    if (terminalIdEfetivo == null || terminalIdEfetivo.isEmpty) {
-      return;
-    }
-
-    // Determinar qual produto_id usar: preferência pelo primeiro tanque
-    String? produtoIdBusca;
-    
-    if (_tanques.isNotEmpty && _tanques[0].produtoId != null && _tanques[0].produtoId!.isNotEmpty) {
-      produtoIdBusca = _tanques[0].produtoId;
-    }
-
-    try {
-      final supabase = Supabase.instance.client;
-      
-      // ===== CORREÇÃO: Horário de São Paulo sem timezone =====
-      // Obter horário de São Paulo
-      final agoraSaoPaulo = DateTime.now().toUtc().subtract(const Duration(hours: 3));
-      final sessentaMinAtrasSaoPaulo = agoraSaoPaulo.subtract(const Duration(minutes: 60));
-      
-      // Formatar datas no formato que o PostgreSQL espera (YYYY-MM-DD HH:MM:SS)
-      // IMPORTANTE: Não usar o formato ISO com 'Z' (UTC)
-      String formatarDataParaPostgres(DateTime date) {
-        return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}:${date.second.toString().padLeft(2, '0')}';
-      }
-      
-      final dataInicio = formatarDataParaPostgres(sessentaMinAtrasSaoPaulo);
-      
-      // ===== ESTRATÉGIA 1: Buscar registros do mesmo produto nos últimos 60 min =====
-      List<Map<String, dynamic>> registros = [];
-      
-      if (produtoIdBusca != null) {
-        registros = await supabase
-            .from('temp_e_dens')
-            .select('temp_amostra, densid_obs, temp_ct, created_at, produto_id')
-            .eq('terminal_id', terminalIdEfetivo)
-            .eq('produto_id', produtoIdBusca)
-            .gte('created_at', dataInicio)
-            .order('created_at', ascending: false);
-      }
-      
-      // ===== ESTRATÉGIA 2: Se não encontrou, buscar qualquer produto nos últimos 60 min =====
-      if (registros.isEmpty) {
-        registros = await supabase
-            .from('temp_e_dens')
-            .select('temp_amostra, densid_obs, temp_ct, created_at, produto_id')
-            .eq('terminal_id', terminalIdEfetivo)
-            .gte('created_at', dataInicio)
-            .order('created_at', ascending: false);
-      }
-      
-      if (registros.isNotEmpty) {
-        // Calcular médias
-        double somaTempAmostra = 0;
-        double somaDensObs = 0;
-        double somaTempCT = 0;
-        int countTempAmostra = 0;
-        int countDensObs = 0;
-        int countTempCT = 0;
-        
-        for (var registro in registros) {
-          if (registro['temp_amostra'] != null) {
-            somaTempAmostra += double.parse(registro['temp_amostra'].toString());
-            countTempAmostra++;
-          }
-          if (registro['densid_obs'] != null) {
-            somaDensObs += double.parse(registro['densid_obs'].toString());
-            countDensObs++;
-          }
-          if (registro['temp_ct'] != null) {
-            somaTempCT += double.parse(registro['temp_ct'].toString());
-            countTempCT++;
-          }
-        }
-        
-        // Calcular médias
-        double? mediaTempAmostra = countTempAmostra > 0 ? somaTempAmostra / countTempAmostra : null;
-        double? mediaDensObs = countDensObs > 0 ? somaDensObs / countDensObs : null;
-        double? mediaTempCT = countTempCT > 0 ? somaTempCT / countTempCT : null;
-        
-        // Preencher campos
-        setState(() {
-          if (mediaTempAmostra != null) {
-            campos['tempAmostra']!.text = _formatarDecimalParaExibicao(mediaTempAmostra.toString());
-          }
-          if (mediaDensObs != null) {
-            campos['densidadeAmostra']!.text = _formatarDecimalParaExibicao(mediaDensObs.toString());
-          }
-          if (mediaTempCT != null) {
-            campos['tempCT']!.text = _formatarDecimalParaExibicao(mediaTempCT.toString());
-          }
-        });
-        
-        // Calcular densidade 20°C e FCV
-        await _calcularResultadosObtidos();
-        
-        if (mounted) {
-          String mensagem = '✓ Parâmetros carregados (média de ${registros.length} registro(s) dos últimos 60 min)';
-          if (produtoIdBusca != null && registros.any((r) => r['produto_id']?.toString() != produtoIdBusca)) {
-            mensagem = '✓ Parâmetros carregados de outros produtos (média de ${registros.length} registro(s))';
-          }
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(mensagem),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
-        return;
-      }
-      
-      // ===== ESTRATÉGIA 3: Fallback - último registro do dia (qualquer produto) =====
-      final inicioDoDiaSaoPaulo = DateTime(
-        agoraSaoPaulo.year,
-        agoraSaoPaulo.month,
-        agoraSaoPaulo.day,
-        0, 0, 0
-      );
-      
-      final dataInicioDia = formatarDataParaPostgres(inicioDoDiaSaoPaulo);
-      
-      final ultimoRegistro = await supabase
-          .from('temp_e_dens')
-          .select('temp_amostra, densid_obs, temp_ct, created_at, produto_id')
-          .eq('terminal_id', terminalIdEfetivo)
-          .gte('created_at', dataInicioDia)
-          .order('created_at', ascending: false)
-          .limit(1)
-          .maybeSingle();
-      
-      if (ultimoRegistro != null) {
-        setState(() {
-          campos['tempAmostra']!.text = _formatarDecimalParaExibicao(ultimoRegistro['temp_amostra']);
-          campos['densidadeAmostra']!.text = _formatarDecimalParaExibicao(ultimoRegistro['densid_obs']);
-          campos['tempCT']!.text = _formatarDecimalParaExibicao(ultimoRegistro['temp_ct']);
-        });
-        
-        await _calcularResultadosObtidos();
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('⚠️ Sem registros recentes. Usando último registro do dia.'),
-              backgroundColor: Colors.orange,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
-        return;
-      }
-      
-      // Nenhum dado encontrado
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('⚠️ Nenhum registro de temperatura/densidade encontrado.'),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-      
-    } catch (e) {
-      print('❌ Erro: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao carregar dados: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
 
@@ -1340,19 +1312,9 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                 TextFormField(
                   controller: campos['tempAmostra'],
                   keyboardType: TextInputType.number,
-                  enabled: !_modoVisualizacao,
-                  onChanged: (value) {
-                    final masked = _aplicarMascaraTemperatura(value);
-                    if (masked != value) {
-                      campos['tempAmostra']!.value = TextEditingValue(
-                        text: masked,
-                        selection: TextSelection.collapsed(offset: masked.length),
-                      );
-                    }
-                    _calcularResultadosObtidos();
-                  },
+                  enabled: false, // AGORA BLOQUEADO
                   decoration: _decoration('').copyWith(
-                    fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
+                    fillColor: Colors.grey[100],
                   ),
                 ),
               ],
@@ -1371,19 +1333,9 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                 TextFormField(
                   controller: campos['densidadeAmostra'],
                   keyboardType: TextInputType.number,
-                  enabled: !_modoVisualizacao,
-                  onChanged: (value) {
-                    final masked = _aplicarMascaraDensidade(value);
-                    if (masked != value) {
-                      campos['densidadeAmostra']!.value = TextEditingValue(
-                        text: masked,
-                        selection: TextSelection.collapsed(offset: masked.length),
-                      );
-                    }
-                    _calcularResultadosObtidos();
-                  },
+                  enabled: false, // AGORA BLOQUEADO
                   decoration: _decoration('').copyWith(
-                    fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
+                    fillColor: Colors.grey[100],
                   ),
                 ),
               ],
@@ -1402,19 +1354,9 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                 TextFormField(
                   controller: campos['tempCT'],
                   keyboardType: TextInputType.number,
-                  enabled: !_modoVisualizacao,
-                  onChanged: (value) {
-                    final masked = _aplicarMascaraTemperatura(value);
-                    if (masked != value) {
-                      campos['tempCT']!.value = TextEditingValue(
-                        text: masked,
-                        selection: TextSelection.collapsed(offset: masked.length),
-                      );
-                    }
-                    _calcularResultadosObtidos();
-                  },
+                  enabled: false, // AGORA BLOQUEADO
                   decoration: _decoration('').copyWith(
-                    fillColor: _modoVisualizacao ? Colors.grey[200] : Colors.white,
+                    fillColor: Colors.grey[100],
                   ),
                 ),
               ],
@@ -1471,7 +1413,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Lista de tanques
         ..._tanques.asMap().entries.map((entry) {
           final index = entry.key;
           final tanque = entry.value;
@@ -1495,7 +1436,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cabeçalho com número do tanque e produto
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1510,7 +1450,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
             ],
           ),
           const SizedBox(height: 8),
-          // Campos de volume
           Row(
             children: [
               Expanded(
@@ -1552,7 +1491,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   void _calcularVolume20CTanque(TanqueDados tanque) {
     if (_modoVisualizacao) return;
 
-    // Usar o FCV global da seção de parâmetros para conversão
     final fcvText = campos['fatorCorrecao']!.text;
     if (fcvText.isEmpty || fcvText == '-') {
       tanque.volume20CCtrl.text = '';
@@ -1984,10 +1922,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
               .maybeSingle();
 
           if (r != null && r['v_$codigoMaisProximo'] != null) {
-            if (context.mounted && diferenca > 0.0001) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-              });
-            }
             return _formatarFCV(r['v_$codigoMaisProximo'].toString());
           }
         } catch (_) {
@@ -2076,7 +2010,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     );
     
     try {
-      // Usar dados do primeiro tanque
       final tanquePrincipal = _tanques.isNotEmpty ? _tanques[0] : null;
       
       final dadosPDF = {
@@ -2087,7 +2020,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         'carreta1': campos['carreta1']!.text,
         'carreta2': campos['carreta2']!.text,
         'notas': campos['notas']!.text,
-        // Usar dados da coleta do tanque principal
         'tempAmostra': campos['tempAmostra']!.text,
         'densidadeAmostra': campos['densidadeAmostra']!.text,
         'tempCT': campos['tempCT']!.text,
@@ -2260,7 +2192,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   // ================= BOTÃO VOLTAR =================
   void _voltar() {
     FocusScope.of(context).unfocus();
-    // Se um callback onVoltar foi fornecido, use-o (quando embutido); senão faça pop da rota
     try {
       widget.onVoltar();
     } catch (_) {
@@ -2274,6 +2205,16 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Selecione um produto!'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    if (_camposTempVazios()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Dados de temperatura e densidade não disponíveis. Necessita de lançamento pelo laboratório.'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -2370,7 +2311,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       if (user == null) throw Exception('Usuário não autenticado');
 
       final usuario = UsuarioAtual.instance;
-      // Prioridade: terminal explícito passado como parâmetro; fallback para o do usuário
       final terminalIdEfetivo = widget.terminalId ?? usuario?.terminalId;
       if (terminalIdEfetivo == null || terminalIdEfetivo.isEmpty) {
         throw Exception('Terminal não identificado. Verifique o vínculo de terminal.');
@@ -2422,36 +2362,26 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         throw Exception('Nenhum tanque encontrado!');
       }
 
-      if (campos['tempAmostra']!.text.isEmpty ||
-          campos['fatorCorrecao']!.text.isEmpty ||
-          campos['fatorCorrecao']!.text == '-') {
-        throw Exception(
-            'Preencha os parâmetros para conversão do volume (temperatura e densidade) antes de emitir o certificado!');
+      if (_camposTempVazios()) {
+        throw Exception('Dados de temperatura e densidade não disponíveis. Necessita de lançamento pelo laboratório.');
       }
 
       final tanquePrincipal = _tanques[0];
 
-      // ===== TIMESTAMP SÃO PAULO (UTC-3) =====
       final agoraUtc = DateTime.now().toUtc();
       final agoraSaoPaulo =
           agoraUtc.subtract(const Duration(hours: 3));
 
-      // ===== DADOS CONFORME ESQUEMA ATUAL =====
       final dadosOrdem = {
-        // numero_controle é gerado pelo trigger
-
         'data_criacao': agoraSaoPaulo.toIso8601String(),
-
         'transportadora': campos['transportadora']!.text,
         'motorista': campos['motorista']!.text,
         'notas_fiscais': campos['notas']!.text,
         'placa_cavalo': campos['placaCavalo']!.text,
         'carreta1': campos['carreta1']!.text,
         'carreta2': campos['carreta2']!.text,
-
         'produto_id': produtoId,
         'produto_nome': produtoSelecionado,
-
         'temperatura_amostra':
             _converterParaDecimal(campos['tempAmostra']!.text),
         'densidade_observada':
@@ -2462,19 +2392,15 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
             _converterParaDecimal(campos['densidade20']!.text),
         'fator_correcao':
             _converterParaDecimal(campos['fatorCorrecao']!.text),
-
         'origem_ambiente':
             _converterParaInteiro(tanquePrincipal.volumeAmbCtrl.text),
         'destino_ambiente': null,
         'origem_20c': null,
         'destino_20c':
             _converterParaInteiro(tanquePrincipal.volume20CCtrl.text),
-
         'usuario_id': user.id,
         'movimentacao_id': widget.idMovimentacao,
         'tipo_analise': 'origem',
-
-        // Envia o terminal efetivo para a coluna `terminal_id`
         'terminal_id': terminalIdEfetivo,
       };
 
@@ -2489,13 +2415,11 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       campos['numeroControle']!.text =
           response['numero_controle'].toString();
 
-      // ===== SALVAR COLETAS DE CADA TANQUE =====
       await _salvarColetasTanques(
         produtoIdFallback: produtoId,
         terminalId: terminalIdEfetivo,
       );
 
-      // ===== AQUI ESTÁ A CHAMADA QUE VOCÊ AINDA PRECISA =====
       if (widget.idMovimentacao != null &&
           widget.idMovimentacao!.isNotEmpty) {
         await _atualizarMovimentacoesDaOrdem(
@@ -2539,7 +2463,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   }) async {
     final supabase = Supabase.instance.client;
 
-    // Monta lista de placas não vazias
     final placas = [
       campos['placaCavalo']!.text.trim(),
       campos['carreta1']!.text.trim(),
@@ -2549,10 +2472,8 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     for (int i = 0; i < _tanques.length; i++) {
       final tanque = _tanques[i];
 
-      // tanque.id é o movimentacao_id deste tanque
       final movimentacaoId = tanque.id;
 
-      // Usar produto do tanque quando disponível, senão usar o produto principal da ordem
       String? produtoId = tanque.produtoId;
       if (produtoId == null || produtoId.isEmpty) {
         if (tanque.produtoNome != null && tanque.produtoNome!.isNotEmpty) {
@@ -2566,12 +2487,10 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         }
       }
 
-      // Usar parâmetros globais de temperatura/densidade
       final tempAmostra = _converterParaDecimal(campos['tempAmostra']!.text);
       final densObs = _converterParaDecimal(campos['densidadeAmostra']!.text);
       final tempCT = _converterParaDecimal(campos['tempCT']!.text);
 
-      // Campos obrigatórios: pular este tanque se dados mínimos ausentes
       if (tempAmostra == null || densObs == null || tempCT == null) {
         continue;
       }
@@ -2599,7 +2518,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
             );
       } catch (e) {
         print('✗ Erro ao salvar coleta tanque ${i + 1}: $e');
-        // Não interrompe — continua para os demais tanques
       }
     }
   }
@@ -2659,7 +2577,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     }
   }
   
-  // Função auxiliar para obter timestamp no horário de Brasília (UTC-3)
   String _obterTimestampBrasilia() {
     final agora = DateTime.now().toUtc();
     final brasilia = agora.subtract(const Duration(hours: 3));
@@ -2682,7 +2599,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   
   @override
   void dispose() {
-    // _focusTempCT.dispose(); // Removido - FocusNode não é mais usado
     for (var tanque in _tanques) {
       tanque.dispose();
     }
