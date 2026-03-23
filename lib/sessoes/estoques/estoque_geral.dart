@@ -241,8 +241,6 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
       return;
     }
 
-    debugPrint('📌 Buscando terminais para empresa_id: $empresaId');
-
     try {
       // Buscar na tabela relacoes_terminais os terminais da empresa
       final resp = await _supabase
@@ -257,15 +255,12 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
           .eq('empresa_id', empresaId)
           .not('terminal_id', 'is', null);
 
-      debugPrint('📊 Resposta da consulta: ${resp.length} registros encontrados');
-
       final lista = <Map<String, dynamic>>[];
       final vistos = <String>{};
 
       for (final row in List<Map<String, dynamic>>.from(resp)) {
         final terminal = row['terminais'] as Map<String, dynamic>?;
         if (terminal == null) {
-          debugPrint('⚠️ Terminal nulo encontrado, ignorando...');
           continue;
         }
         
@@ -279,8 +274,6 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
           'id': id, 
           'nome': terminal['nome']?.toString() ?? id
         });
-        
-        debugPrint('✅ Terminal adicionado: ${terminal['nome']} (ID: $id)');
       }
 
       // Ordenar por nome
@@ -293,8 +286,6 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
           _terminalSelecionadoId = lista.isNotEmpty ? lista.first['id'] : null;
           _carregando = false;
         });
-        
-        debugPrint('🎯 Total de terminais carregados: ${_terminais.length}');
         
         // Carregar produtos do terminal selecionado
         if (_terminalSelecionadoId != null) {
@@ -529,8 +520,6 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
 
       // Para cada produto, buscar os dados reais
       final List<EstoqueProduto> produtosEstoque = [];
-      
-      debugPrint('📊 Carregando dados para ${capacidadePorProduto.length} produtos...');
 
       for (final entry in capacidadePorProduto.entries) {
         final produtoId = entry.key;
@@ -581,8 +570,6 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
         _produtos = produtosEstoque;
         _carregandoDados = false;
       });
-
-      debugPrint('✅ ${produtosEstoque.length} produtos carregados com sucesso!');
 
     } catch (e, stackTrace) {
       debugPrint('❌ ERRO ao carregar produtos do terminal: $e');

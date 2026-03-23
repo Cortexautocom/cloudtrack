@@ -83,6 +83,7 @@ class _HomePageState extends State<HomePage>
   bool _mostrarSuporte = false;
   bool _mostrarFrascosAmostra = false;
   bool _mostrarResultadoFrascos = false;
+  bool _mostrarPerdasSobras = false;
 
   // Parâmetros de filtro para a página de resultado de frascos
   DateTime _frascosDataInicial = DateTime(DateTime.now().year, DateTime.now().month, 1);
@@ -177,6 +178,7 @@ class _HomePageState extends State<HomePage>
     'Relatórios': const Color(0xFF795548), // Marrom
     'Configurações': const Color(0xFF607D8B), // Azul cinza
     'Ajuda': const Color(0xFF673AB7), // Roxo profundo
+    'Perdas e Sobras': const Color(0xFF2196F3), // Azul (mesma da Operação)
   };
 
   @override
@@ -416,6 +418,33 @@ class _HomePageState extends State<HomePage>
         'tipo': 'estoque_por_tanque',
         'sessao_pai': 'Operação',
       },
+      {
+        'id': 'fallback-perdas-sobras',
+        'icon': Icons.insights,
+        'label': 'Gestão de perdas e sobras',
+        'descricao': 'Controle de perdas e sobras operacionais',
+        'tipo': 'perdas_sobras',
+        'sessao_pai': 'Operação',
+      },
+    ];
+
+    _filhosPorSessao['Perdas e Sobras'] = [
+      {
+        'id': 'perdas-sobras-dutoviario',
+        'icon': Icons.blur_linear,
+        'label': 'Dutoviário',
+        'descricao': 'Gestão de perdas e sobras dutoviárias',
+        'tipo': 'dutoviario',
+        'sessao_pai': 'Perdas e Sobras',
+      },
+      {
+        'id': 'perdas-sobras-rodoviario',
+        'icon': Icons.local_shipping,
+        'label': 'Rodoviário',
+        'descricao': 'Gestão de perdas e sobras rodoviárias',
+        'tipo': 'rodoviario',
+        'sessao_pai': 'Perdas e Sobras',
+      },
     ];
 
     _filhosPorSessao['Estoques'] = [
@@ -450,6 +479,14 @@ class _HomePageState extends State<HomePage>
         'label': 'Transferências',
         'descricao': 'Gerenciar transferências entre filiais',
         'tipo': 'transferencias',
+        'sessao_pai': 'Estoques',
+      },
+      {
+        'id': 'fallback-descargas',
+        'icon': Icons.swap_horizontal_circle,
+        'label': 'Controle de descargas',
+        'descricao': 'Controle de recebimento de produtos',
+        'tipo': 'controle_descargas',
         'sessao_pai': 'Estoques',
       },
       {
@@ -582,6 +619,7 @@ class _HomePageState extends State<HomePage>
       'movimentacao_por_empresa': Icons.business,
       'movimentaces': Icons.swap_horiz,
       'transferencias': Icons.low_priority,
+      'controle_descargas': Icons.swap_horizontal_circle,
       'acompanhar_ordem': Icons.directions_car,
       'visao_geral_circuito': Icons.dashboard,
       'veiculos': Icons.directions_car,
@@ -595,6 +633,9 @@ class _HomePageState extends State<HomePage>
       'frascos_amostra': Icons.science_outlined,
       'estoque_fiscal': Icons.receipt_long,
       'estoque_produto': Icons.opacity,
+      'perdas_sobras': Icons.insights,
+      'dutoviario': Icons.blur_linear,
+      'rodoviario': Icons.local_shipping,
     };
     return mapaIcones[tipo] ?? Icons.apps;
   }
@@ -615,6 +656,7 @@ class _HomePageState extends State<HomePage>
       'movimentacao_por_empresa': 'Movimentações por empresa',
       'movimentaces': 'Relatório Entradas e Saídas',
       'transferencias': 'Gerenciar transferências entre filiais',
+      'controle_descargas': 'Controle de recebimento de produtos',
       'acompanhar_ordem': 'Acompanhar situação da ordem',
       'visao_geral_circuito': 'Panorama completo dos circuitos',
       'veiculos': 'Gerenciar frota de veículos próprios',
@@ -1086,6 +1128,7 @@ class _HomePageState extends State<HomePage>
       _mostrarCalcGerado = false;
       _mostrarTempDensMedia = false;
       _mostrarEstoqueProduto = false;
+      _mostrarPerdasSobras = false;
       _mostrarMenuAjuda = false;
       _mostrarCardsFilial = false;
       _resetarTodasFlagsGestaoFrota();
@@ -2188,6 +2231,35 @@ class _HomePageState extends State<HomePage>
       if (_mostrarFilhosSessao && _sessaoAtual == 'Operação') {
         return _buildFilhosSessaoPage();
       }
+
+      if (_mostrarPerdasSobras && _sessaoAtual == 'Perdas e Sobras') {
+        return _buildPaginaPadronizada(
+          titulo: 'Gestão de perdas e sobras',
+          conteudo: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Wrap(
+                spacing: 15,
+                runSpacing: 15,
+                alignment: WrapAlignment.start,
+                children: _filhosSessaoAtual.map((card) {
+                  return SizedBox(
+                    width: 140,
+                    height: 170,
+                    child: _buildCardFilho(card),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+          onVoltar: () {
+            setState(() {
+              _mostrarPerdasSobras = false;
+              _mostrarFilhosDaSessao('Operação');
+            });
+          },
+        );
+      }
     }
 
     // SEÇÃO: Circuito
@@ -2694,24 +2766,26 @@ class _HomePageState extends State<HomePage>
               border: Border.all(color: Colors.grey.shade300),
               borderRadius: BorderRadius.circular(12),
             ),
-            padding: const EdgeInsets.all(15),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(card['icon'], color: corSessao, size: 55),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 40),
-                  child: Text(
-                    card['label'] ?? '',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: const Color(0xFF0D47A1),
-                      fontWeight: FontWeight.w600,
+                  constraints: const BoxConstraints(minHeight: 40, maxHeight: 40),
+                  child: Center(
+                    child: Text(
+                      card['label'] ?? '',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF0D47A1),
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 // A DESCRIÇÃO FOI REMOVIDA COMPLETAMENTE AQUI
@@ -2747,7 +2821,7 @@ class _HomePageState extends State<HomePage>
           },
           hoverColor: _getCorPorSessao('Estoques').withOpacity(0.1),
           child: Container(
-            padding: const EdgeInsets.all(15),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
             decoration: BoxDecoration(
               border: Border.all(color: Colors.grey.shade300),
               borderRadius: BorderRadius.circular(12),
@@ -2760,19 +2834,21 @@ class _HomePageState extends State<HomePage>
                   color: _getCorPorSessao('Estoques'),
                   size: 55,
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 40),
-                  child: Text(
-                    empresa['label'],
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF0D47A1),
-                      fontWeight: FontWeight.w600,
+                  constraints: const BoxConstraints(minHeight: 40, maxHeight: 40),
+                  child: Center(
+                    child: Text(
+                      empresa['label'],
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF0D47A1),
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 // REMOVER A DESCRIÇÃO (CNPJ) AQUI TAMBÉM
@@ -2812,7 +2888,7 @@ class _HomePageState extends State<HomePage>
           },
           hoverColor: _getCorPorSessao('Estoques').withOpacity(0.1),
           child: Container(
-            padding: const EdgeInsets.all(18), // AUMENTADO DE 15 PARA 18
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
             decoration: BoxDecoration(
               border: Border.all(
                 color: Colors.grey.shade300,
@@ -2828,21 +2904,24 @@ class _HomePageState extends State<HomePage>
                   color: _getCorPorSessao('Estoques'),
                   size: 60, // AUMENTADO DE 55 PARA 60
                 ),
-                const SizedBox(height: 12), // AUMENTADO DE 10 PARA 12
+                const SizedBox(height: 10),
                 ConstrainedBox(
                   constraints: const BoxConstraints(
+                    minHeight: 50,
                     maxHeight: 50,
                   ), // AUMENTADO DE 40 PARA 50
-                  child: Text(
-                    filial['label'],
-                    style: const TextStyle(
-                      fontSize: 14.5, // AUMENTADO DE 13 PARA 14.5
-                      color: Color(0xFF0D47A1),
-                      fontWeight: FontWeight.w600,
+                  child: Center(
+                    child: Text(
+                      filial['label'],
+                      style: const TextStyle(
+                        fontSize: 14.5, // AUMENTADO DE 13 PARA 14.5
+                        color: Color(0xFF0D47A1),
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -2877,6 +2956,9 @@ class _HomePageState extends State<HomePage>
       case 'Operação':
         _navegarParaCardApuracao(tipo, usuario);
         break;
+      case 'Perdas e Sobras':
+        _navegarParaCardPerdasSobras(tipo);
+        break;
       case 'Estoques':
         _navegarParaCardEstoques(tipo);
         break;
@@ -2900,6 +2982,23 @@ class _HomePageState extends State<HomePage>
         break;
       default:
         debugPrint('Sessão pai não reconhecida: $sessaoPai');
+    }
+  }
+
+  void _navegarParaCardPerdasSobras(String tipo) {
+    switch (tipo) {
+      case 'dutoviario':
+        // TODO: Implementar navegação para Dutoviário
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Módulo Dutoviário em desenvolvimento')),
+        );
+        break;
+      case 'rodoviario':
+        // TODO: Implementar navegação para Rodoviário
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Módulo Rodoviário em desenvolvimento')),
+        );
+        break;
     }
   }
 
@@ -2928,6 +3027,13 @@ class _HomePageState extends State<HomePage>
       case 'estoque_produto':
         setState(() {
           _mostrarEstoqueProduto = true;
+        });
+        break;
+      case 'perdas_sobras':
+        setState(() {
+          _mostrarPerdasSobras = true;
+          _sessaoAtual = 'Perdas e Sobras';
+          _filhosSessaoAtual = List.from(_filhosPorSessao['Perdas e Sobras']!);
         });
         break;
       case 'tanques': // ADICIONADO: Caso para tanques agora em Operação
@@ -3090,6 +3196,12 @@ class _HomePageState extends State<HomePage>
               },
             ),
           ),
+        );
+        break;
+
+      case 'controle_descargas':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Controle de descargas em desenvolvimento')),
         );
         break;
 
@@ -3731,6 +3843,7 @@ class HomeCards extends StatelessWidget {
           onTap: () => _handleCardTap(context, card['tipo']),
           hoverColor: const Color(0xFFE8F5E9),
           child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             decoration: BoxDecoration(
               border: Border.all(color: Colors.grey.shade300),
               borderRadius: BorderRadius.circular(12),
@@ -3743,27 +3856,21 @@ class HomeCards extends StatelessWidget {
                   color: card['cor'] as Color,
                   size: 50,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  card['titulo'],
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF0D47A1),
-                    fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text(
-                    card['descricao'],
-                    style: const TextStyle(fontSize: 10, color: Colors.grey),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                const SizedBox(height: 6),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 35, maxHeight: 35),
+                  child: Center(
+                    child: Text(
+                      card['titulo'],
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF0D47A1),
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
               ],
