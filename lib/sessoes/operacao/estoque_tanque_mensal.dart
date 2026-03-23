@@ -1,8 +1,6 @@
-import 'dart:convert';
-import 'dart:html' as html;
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'excel_helper.dart';
 
 class EstoqueTanqueMensalPage extends StatefulWidget {
   final String tanqueId;
@@ -440,7 +438,10 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
   }
 
   Future<void> _baixarExcel() async {
-    if (_movsOrdenadas.isEmpty) {
+    final listaBase =
+        widget.mostrarDetalhado ? _movsOrdenadas : _movsConsolidadas;
+
+    if (listaBase.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Não há dados para exportar'),
@@ -459,47 +460,23 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
     try {
       scaffoldMessenger.showSnackBar(
         const SnackBar(
-          content: Text('Gerando relatório Excel...'),
-          duration: Duration(seconds: 5),
+          content: Text('Preparando download...'),
+          duration: Duration(seconds: 4),
         ),
       );
 
-      final requestData = {
-        'tanqueId': widget.tanqueId,
-        'referenciaTanque': widget.referenciaTanque,
-        'terminalId': widget.terminalId,
-        'nomeTerminal': widget.nomeTerminal,
-        'mes': widget.mes,
-        'ano': widget.ano,
-        'tipo': 'mensal',
-        'estoqueInicial': _estoqueInicial,
-        'estoqueFinal': _estoqueFinal,
-        'totalEntradas': _totalEntradas,
-        'totalSaidas': _totalSaidas,
-        'totalSobraPerda': _totalSobraPerda,
-        'movimentacoes': _movsOrdenadas,
-        'produtoNome': _produtoNome,
-      };
-
-      final response = await _chamarEdgeFunctionBinaria(requestData);
-
-      if (response.statusCode != 200) {
-        final errorBody = response.body;
-        throw Exception(
-          'Erro ${response.statusCode}: ${errorBody.isNotEmpty ? errorBody : "Falha na Edge Function"}',
-        );
-      }
-
-      final bytes = response.bodyBytes;
-
-      if (bytes.isEmpty) {
-        throw Exception('Arquivo vazio recebido da Edge Function');
-      }
-
-      final blob = html.Blob([
-        bytes,
-      ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      final url = html.Url.createObjectUrlFromBlob(blob);
+      final List<Map<String, dynamic>> dadosFormatados = listaBase.map((m) {
+        return {
+          'data_mov': _fmtData(m['data_mov']?.toString() ?? ''),
+          'descricao': m['descricao'] ?? '',
+          'entrada_amb': m['entrada_amb'] ?? 0,
+          'entrada_vinte': m['entrada_vinte'] ?? 0,
+          'saida_amb': m['saida_amb'] ?? 0,
+          'saida_vinte': m['saida_vinte'] ?? 0,
+          'saldo_amb': m['saldo_amb'] ?? 0,
+          'saldo_vinte': m['saldo_vinte'] ?? 0,
+        };
+      }).toList();
 
       final nomeTerminalFormatado = widget.nomeTerminal
           .replaceAll(' ', '_')
@@ -510,11 +487,12 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
       final fileName =
           'estoque_tanque_mensal_${widget.referenciaTanque}_${nomeTerminalFormatado}_${mes}_${ano}.xlsx';
 
-      html.AnchorElement(href: url)
-        ..setAttribute('download', fileName)
-        ..click();
-
-      html.Url.revokeObjectUrl(url);
+      gerarExcelEstoqueTanque(
+        dados: dadosFormatados,
+        estoqueInicial: _estoqueInicial,
+        estoqueFinal: _estoqueFinal,
+        nomeArquivo: fileName,
+      );
 
       scaffoldMessenger.showSnackBar(
         const SnackBar(
@@ -522,7 +500,7 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
             'Download do Excel iniciado! Verifique sua pasta de downloads.',
           ),
           backgroundColor: Colors.green,
-          duration: Duration(seconds: 4),
+          duration: Duration(seconds: 2),
         ),
       );
     } catch (e) {
@@ -542,50 +520,6 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
         });
       }
     }
-  }
-
-  Future<http.Response> _chamarEdgeFunctionBinaria(
-    Map<String, dynamic> requestData,
-  ) async {
-    try {
-      const supabaseUrl = 'https://ikaxzlpaihdkqyjqrxyw.supabase.co';
-
-      final session = Supabase.instance.client.auth.currentSession;
-
-      if (session == null || session.accessToken.isEmpty) {
-        throw Exception('Sessão inválida. Faça login novamente.');
-      }
-
-      return await _fazerRequisicao(
-        supabaseUrl,
-        session.accessToken,
-        requestData,
-      );
-    } catch (e) {
-      debugPrint('Erro detalhado ao chamar Edge Function: $e');
-      rethrow;
-    }
-  }
-
-  Future<http.Response> _fazerRequisicao(
-    String supabaseUrl,
-    String accessToken,
-    Map<String, dynamic> requestData,
-  ) async {
-    final functionUrl = '$supabaseUrl/functions/v1/down_excel_estoque_tanque';
-
-    final response = await http.post(
-      Uri.parse(functionUrl),
-      headers: {
-        'Authorization': 'Bearer $accessToken',
-        'Content-Type': 'application/json',
-        'Accept':
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      },
-      body: jsonEncode(requestData),
-    );
-
-    return response;
   }
 
   Color _bgEntrada() => Colors.green.shade50.withOpacity(0.3);
