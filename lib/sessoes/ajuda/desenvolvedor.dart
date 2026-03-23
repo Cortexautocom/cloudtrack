@@ -108,7 +108,7 @@ class DesenvolvedorPageState extends State<DesenvolvedorPage>
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         _buildCenteredText(
-                          'Bem-vindo, $usuarioNome!\nVocê chegou ao Desenvolvedor.',
+                          'Bem-vindo, $usuarioNome!\nVamos conversar com o Desenvolvedor?',
                           fontSize: 24,
                           fontWeight: FontWeight.w600,
                         ),
@@ -117,7 +117,7 @@ class DesenvolvedorPageState extends State<DesenvolvedorPage>
                           'Faça perguntas, peça melhorias, traga problemas.\n'
                           'Escreva do seu jeito, traga ideias mal formadas,\n'
                           'liberte sua mente.\n\n'
-                          'O Desenvolvedor agradece sua contribuição.',
+                          'A equipe PowerTank agradece sua contribuição.',
                           fontSize: 20,
                         ),
                         const SizedBox(height: 32),

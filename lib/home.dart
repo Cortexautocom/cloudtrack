@@ -287,6 +287,76 @@ class _HomePageState extends State<HomePage>
     return _coresSessoes[sessao] ?? const Color(0xFF2E7D32);
   }
 
+  Future<void> _toggleFavorito(String cardId, bool novoValor) async {
+    final supabase = Supabase.instance.client;
+    try {
+      await supabase
+          .from('cards')
+          .update({'favorito': novoValor})
+          .eq('id', cardId);
+      setState(() {
+        for (final sessao in _filhosPorSessao.values) {
+          for (final card in sessao) {
+            if (card['id'] == cardId) {
+              card['favorito'] = novoValor;
+            }
+          }
+        }
+      });
+    } catch (e) {
+      debugPrint('❌ Erro ao atualizar favorito: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erro ao atualizar favorito.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _navegarParaFavorito(Map<String, dynamic> card) {
+    final sessaoPai = card['sessao_pai']?.toString() ?? '';
+    final menuIndex = menuItems.indexOf(sessaoPai);
+    final filhos = _filhosPorSessao[sessaoPai] ?? [];
+
+    setState(() {
+      selectedIndex = menuIndex >= 0 ? menuIndex : 0;
+      _sessaoAtual = sessaoPai;
+      _mostrarFilhosSessao = true;
+      _filhosSessaoAtual = List.from(filhos);
+      _filhoSelecionadoTipo = null;
+      // Limpa todos os flags de conteúdo
+      _mostrarTanques = false;
+      _mostrarListarCacls = false;
+      showConversaoList = false;
+      _mostrarOrdensAnalise = false;
+      _mostrarHistorico = false;
+      _mostrarEscolherTerminal = false;
+      _mostrarEstoquePorTanque = false;
+      _mostrarTempDensMedia = false;
+      _mostrarVeiculos = false;
+      _mostrarDetalhesVeiculo = false;
+      _veiculoSelecionado = null;
+      _mostrarMotoristas = false;
+      _mostrarTransportadoras = false;
+      _mostrarFrascosAmostra = false;
+      _mostrarEstoqueProduto = false;
+      _mostrarFiltrosEstoque = false;
+      _mostrarFiltroMovimentacoes = false;
+      _mostrarPerdasSobras = false;
+      _mostrarAcompanhamentoOrdens = false;
+      _mostrarDownloads = false;
+      _mostrarEstoquePorEmpresa = false;
+      _mostrarFiliaisDaEmpresa = false;
+      _mostrarMedicaoTanques = false;
+      _mostrarCardsFilial = false;
+    });
+
+    _navegarParaCardFilho(card);
+  }
+
   Future<void> _carregarCardsDoBanco() async {
     final usuario = UsuarioAtual.instance;
     if (usuario == null) return;
@@ -298,7 +368,7 @@ class _HomePageState extends State<HomePage>
 
       final cardsDb = await supabase
           .from('cards')
-          .select('id, nome, tipo, sessao_pai, ordem')
+          .select('id, nome, tipo, sessao_pai, ordem, favorito')
           .eq('ativo', true)
           .order('sessao_pai')
           .order('ordem');
@@ -327,6 +397,7 @@ class _HomePageState extends State<HomePage>
             'sessao_pai': sessaoPai,
             'icon': _definirIconePorTipo(tipo),
             'descricao': _definirDescricaoPorTipo(tipo),
+            'favorito': card['favorito'] ?? false,
           });
         }
         // Para os demais casos, manter a lógica original
@@ -340,6 +411,7 @@ class _HomePageState extends State<HomePage>
             'sessao_pai': sessaoPai,
             'icon': _definirIconePorTipo(tipo),
             'descricao': _definirDescricaoPorTipo(tipo),
+            'favorito': card['favorito'] ?? false,
           });
         }
       }
@@ -600,6 +672,14 @@ class _HomePageState extends State<HomePage>
         'tipo': 'temp_dens_media',
         'sessao_pai': 'Laboratório',
       },
+      {
+        'id': 'analise-conformidade',
+        'icon': Icons.fact_check,
+        'label': 'Análise de conformidade e qualidade',
+        'descricao': 'Relatórios de conformidade e qualidade de produtos',
+        'tipo': 'analise_conformidade',
+        'sessao_pai': 'Laboratório',
+      },
     ];
   }
 
@@ -633,6 +713,7 @@ class _HomePageState extends State<HomePage>
       'frascos_amostra': Icons.science_outlined,
       'estoque_fiscal': Icons.receipt_long,
       'estoque_produto': Icons.opacity,
+      'analise_conformidade': Icons.fact_check,
       'perdas_sobras': Icons.insights,
       'dutoviario': Icons.blur_linear,
       'rodoviario': Icons.local_shipping,
@@ -669,6 +750,7 @@ class _HomePageState extends State<HomePage>
       'frascos_amostra': 'Controle de frascos de amostras',
       'estoque_fiscal': 'Acompanhar estoque fiscal e tributário',
       'estoque_produto': 'Acompanhar estoque por produto',
+      'analise_conformidade': 'Análise de conformidade e qualidade',
     };
     return mapaDescricoes[tipo] ?? '';
   }
@@ -2751,49 +2833,150 @@ class _HomePageState extends State<HomePage>
     }
 
     final corSessao = _getCorSessaoAtual();
+    final isFavorito = card['favorito'] == true;
+    final podeFavoritar = card.containsKey('favorito') && cardId != null;
 
     return _HoverScale(
-      child: Material(
-        elevation: 2,
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        clipBehavior: Clip.hardEdge,
-        child: InkWell(
-          onTap: () => _navegarParaCardFilho(card),
-          hoverColor: corSessao.withOpacity(0.1),
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(card['icon'], color: corSessao, size: 55),
-                const SizedBox(height: 8),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 40, maxHeight: 40),
-                  child: Center(
-                    child: Text(
-                      card['label'] ?? '',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF0D47A1),
-                        fontWeight: FontWeight.w600,
+      child: Stack(
+        children: [
+          Material(
+            elevation: 2,
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            clipBehavior: Clip.hardEdge,
+            child: InkWell(
+              onTap: () => _navegarParaCardFilho(card),
+              hoverColor: corSessao.withOpacity(0.1),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(card['icon'], color: corSessao, size: 55),
+                    const SizedBox(height: 8),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 48, maxHeight: 48),
+                      child: Center(
+                        child: Text(
+                          card['label'] ?? '',
+                          style: TextStyle(
+                            fontSize: (card['label']?.toString() ?? '').length > 25 ? 11 : 13,
+                            color: const Color(0xFF0D47A1),
+                            fontWeight: FontWeight.w600,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (podeFavoritar)
+            Positioned(
+              top: 4,
+              right: 4,
+              child: GestureDetector(
+                onTap: () => _toggleFavorito(cardId, !isFavorito),
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.all(3),
+                  child: Icon(
+                    isFavorito ? Icons.star : Icons.star_border,
+                    size: 15,
+                    color: isFavorito ? Colors.amber : Colors.grey[400],
                   ),
                 ),
-                // A DESCRIÇÃO FOI REMOVIDA COMPLETAMENTE AQUI
-              ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardFavoritoInicio(Map<String, dynamic> card) {
+    final sessaoPai = card['sessao_pai']?.toString() ?? '';
+    final corSessao = _getCorPorSessao(sessaoPai);
+    final cardId = card['id']?.toString();
+
+    return Stack(
+      children: [
+        _HoverScale(
+          child: Material(
+            elevation: 2,
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            clipBehavior: Clip.hardEdge,
+            child: InkWell(
+              onTap: () => _navegarParaFavorito(card),
+              hoverColor: corSessao.withOpacity(0.1),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(card['icon'], color: corSessao, size: 50),
+                    const SizedBox(height: 6),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 45, maxHeight: 45),
+                      child: Center(
+                        child: Text(
+                          card['label'] ?? '',
+                          style: TextStyle(
+                            fontSize: (card['label']?.toString() ?? '').length > 25 ? 10 : 12,
+                            color: const Color(0xFF0D47A1),
+                            fontWeight: FontWeight.w600,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      sessaoPai,
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: corSessao.withOpacity(0.8),
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
-      ),
+        Positioned(
+          top: 4,
+          right: 4,
+          child: GestureDetector(
+            onTap: () {
+              if (cardId != null) _toggleFavorito(cardId, false);
+            },
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.all(3),
+              child: Icon(Icons.star, size: 15, color: Colors.amber),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -3379,6 +3562,13 @@ class _HomePageState extends State<HomePage>
           _mostrarTempDensMedia = true;
         });
         break;
+      case 'analise_conformidade':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Análise de conformidade em desenvolvimento...'),
+          ),
+        );
+        break;
     }
   }
 
@@ -3539,36 +3729,83 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildInicioPage(UsuarioAtual? usuario) {
-    return Center(
+    final favoritos = <Map<String, dynamic>>[];
+    for (final entry in _filhosPorSessao.entries) {
+      for (final card in entry.value) {
+        if (card['favorito'] == true) {
+          favoritos.add(card);
+        }
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(30, 20, 30, 30),
+      color: Colors.white,
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.home, size: 80, color: Color(0xFF0D47A1)),
-          SizedBox(height: 20),
           Text(
             usuario != null
                 ? 'Olá, ${usuario.nome}! Bem-vindo ao PowerTank!'
                 : 'Bem-vindo ao PowerTank!',
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 24,
               color: Color(0xFF0D47A1),
               fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: 20),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 40),
-            child: Text(
-              'Seu ambiente moderno de gestão de estoques e logística em nuvem.',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[700],
-                height: 1.6,
-                letterSpacing: 0.2,
+          const SizedBox(height: 10),
+          const Divider(color: Colors.grey),
+          const SizedBox(height: 20),
+          if (favoritos.isEmpty)
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.star_border, size: 70, color: Colors.grey[300]),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Nenhum card favorito ainda.',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Colors.grey[500],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Clique na pequena estrela no canto superior direito de qualquer card para adicioná-lo aqui.',
+                      style: TextStyle(fontSize: 13, color: Colors.grey[400]),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
               ),
-              textAlign: TextAlign.center,
+            )
+          else ...[
+            Text(
+              'Favoritos',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+              ),
             ),
-          ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 15,
+              runSpacing: 15,
+              children: favoritos.map((card) {
+                return SizedBox(
+                  width: 140,
+                  height: 170,
+                  child: _buildCardFavoritoInicio(card),
+                );
+              }).toList(),
+            ),
+          ],
         ],
       ),
     );
