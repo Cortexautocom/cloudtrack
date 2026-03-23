@@ -302,6 +302,17 @@ class _HomePageState extends State<HomePage>
             }
           }
         }
+        // Atualizar cards dinâmicos não presentes em _filhosPorSessao
+        for (final card in _filhosSessaoAtual) {
+          if (card['id'] == cardId) {
+            card['favorito'] = novoValor;
+          }
+        }
+        for (final card in _filiaisProgramacao) {
+          if (card['id'] == cardId) {
+            card['favorito'] = novoValor;
+          }
+        }
       });
     } catch (e) {
       debugPrint('❌ Erro ao atualizar favorito: $e');
@@ -791,6 +802,7 @@ class _HomePageState extends State<HomePage>
           'terminal_id': terminalId,
           'icon': Icons.local_gas_station,
           'sessao_pai': 'Vendas',
+          'favorito': false,
         });
       }
 
@@ -1100,6 +1112,7 @@ class _HomePageState extends State<HomePage>
           'descricao': 'Gerenciar transportadoras',
           'tipo': 'transportadoras',
           'sessao_pai': 'Gestão de Frota',
+          'favorito': false,
         },
       ];
     }
@@ -1740,7 +1753,7 @@ class _HomePageState extends State<HomePage>
             Icon(Icons.do_not_disturb, size: 80, color: Colors.grey[400]),
             const SizedBox(height: 30), // Aumente este espaçamento
             const Text(
-              'Esta seção não está disponível no plano contratado.',
+              'Seção não disponível no plano contratado.',
               style: TextStyle(
                 fontSize: 24,
                 color: Colors.grey,
