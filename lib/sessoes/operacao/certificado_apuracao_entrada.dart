@@ -266,10 +266,12 @@ class EmitirCertificadoEntrada extends StatefulWidget {
   final String? idMovimentacao;
   final bool modoSomenteVisualizacao;
   final String? idAnaliseExistente;
+  final String terminalId; // Terminal explícito, independente do usuário logado
 
   const EmitirCertificadoEntrada({
     super.key,
     required this.onVoltar,
+    required this.terminalId,
     this.idMovimentacao,
     this.modoSomenteVisualizacao = false,
     this.idAnaliseExistente,
@@ -2090,8 +2092,11 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
       if (user == null) throw Exception('Usuário não autenticado');
 
       final usuario = UsuarioAtual.instance;
-      if (usuario == null || usuario.terminalId == null || usuario.terminalId!.isEmpty) {
-        throw Exception('Usuário sem terminal vinculado');
+      if (usuario == null) throw Exception('Usuário não autenticado');
+
+      final terminalIdEfetivo = widget.terminalId;
+      if (terminalIdEfetivo.isEmpty) {
+        throw Exception('Terminal não identificado. Verifique o vínculo de terminal.');
       }
 
       final produtoId = await _resolverProdutoId(produtoSelecionado!);
@@ -2118,7 +2123,7 @@ class _EmitirCertificadoEntradaState extends State<EmitirCertificadoEntrada> {
         'usuario_id': user.id,
         'movimentacao_id': widget.idMovimentacao,
         'tipo_analise': 'destino',
-        'terminal_id': usuario.terminalId,
+        'terminal_id': terminalIdEfetivo,
       };
 
       final response = await supabase

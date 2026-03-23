@@ -494,6 +494,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
               idCertificado: idAnaliseExistente,
               idMovimentacao: movimentacaoId,
               tanquesDaOrdem: tanquesDaOrdem, // NOVA LISTA DE TANQUES
+              terminalId: widget.terminalAtualId, // Terminal da ordem, não do usuário logado
               onVoltar: () {
                 Navigator.of(context).pop(true);
               },
@@ -534,6 +535,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
               onVoltar: () {
                 Navigator.of(context).pop(true);
               },
+              terminalId: widget.terminalAtualId, // Terminal da ordem, não do usuário logado
               idMovimentacao: movimentacaoId,
               modoSomenteVisualizacao: modoSomenteVisualizacao, // NOVO PARÂMETRO
               idAnaliseExistente: idAnaliseExistente, // ID da análise existente

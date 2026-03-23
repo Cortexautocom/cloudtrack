@@ -520,6 +520,7 @@ class _ListarOrdensAnalisesPageState extends State<ListarOrdensAnalisesPage> {
         return Scaffold(
           body: EmitirCertificadoEntrada(
             onVoltar: _voltarParaLista,
+            terminalId: _terminalSelecionado ?? '',
             idAnaliseExistente: _ordemSelecionadaId,
             modoSomenteVisualizacao: true,
           ),

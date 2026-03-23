@@ -321,6 +321,7 @@ class EmitirCertificadoPage extends StatefulWidget {
   final String? idMovimentacao;
   final List<Map<String, dynamic>>? tanquesDaOrdem; // NOVA: Lista de tanques da ordem
   final bool modoSomenteVisualizacao;
+  final String? terminalId; // Terminal explícito, independente do usuário logado
 
   const EmitirCertificadoPage({
     super.key,
@@ -329,6 +330,7 @@ class EmitirCertificadoPage extends StatefulWidget {
     this.idMovimentacao,
     this.tanquesDaOrdem,
     this.modoSomenteVisualizacao = false,
+    this.terminalId,
   });
 
   @override
@@ -1139,50 +1141,185 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
 
   // Método para buscar parâmetros de temperatura e densidade da tabela temp_e_dens
   Future<void> _carregarDadosTempEDens() async {
-    if (_modoVisualizacao) return;
+    if (_modoVisualizacao) {
+      return;
+    }
 
-    final usuario = UsuarioAtual.instance;
-    if (usuario == null || usuario.terminalId == null) return;
+    // Prioridade: usar terminal passado como parâmetro; fallback para o do usuário
+    final terminalIdEfetivo = widget.terminalId ?? UsuarioAtual.instance?.terminalId;
+    
+    if (terminalIdEfetivo == null || terminalIdEfetivo.isEmpty) {
+      return;
+    }
 
     // Determinar qual produto_id usar: preferência pelo primeiro tanque
     String? produtoIdBusca;
-    if (_tanques.isNotEmpty &&
-        _tanques[0].produtoId != null &&
-        _tanques[0].produtoId!.isNotEmpty) {
+    
+    if (_tanques.isNotEmpty && _tanques[0].produtoId != null && _tanques[0].produtoId!.isNotEmpty) {
       produtoIdBusca = _tanques[0].produtoId;
-    } else if (produtoSelecionado != null) {
-      try {
-        produtoIdBusca = await _resolverProdutoId(produtoSelecionado!);
-      } catch (_) {}
     }
-
-    if (produtoIdBusca == null) return;
 
     try {
       final supabase = Supabase.instance.client;
-      final registro = await supabase
+      
+      // ===== CORREÇÃO: Horário de São Paulo sem timezone =====
+      // Obter horário de São Paulo
+      final agoraSaoPaulo = DateTime.now().toUtc().subtract(const Duration(hours: 3));
+      final sessentaMinAtrasSaoPaulo = agoraSaoPaulo.subtract(const Duration(minutes: 60));
+      
+      // Formatar datas no formato que o PostgreSQL espera (YYYY-MM-DD HH:MM:SS)
+      // IMPORTANTE: Não usar o formato ISO com 'Z' (UTC)
+      String formatarDataParaPostgres(DateTime date) {
+        return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}:${date.second.toString().padLeft(2, '0')}';
+      }
+      
+      final dataInicio = formatarDataParaPostgres(sessentaMinAtrasSaoPaulo);
+      
+      // ===== ESTRATÉGIA 1: Buscar registros do mesmo produto nos últimos 60 min =====
+      List<Map<String, dynamic>> registros = [];
+      
+      if (produtoIdBusca != null) {
+        registros = await supabase
+            .from('temp_e_dens')
+            .select('temp_amostra, densid_obs, temp_ct, created_at, produto_id')
+            .eq('terminal_id', terminalIdEfetivo)
+            .eq('produto_id', produtoIdBusca)
+            .gte('created_at', dataInicio)
+            .order('created_at', ascending: false);
+      }
+      
+      // ===== ESTRATÉGIA 2: Se não encontrou, buscar qualquer produto nos últimos 60 min =====
+      if (registros.isEmpty) {
+        registros = await supabase
+            .from('temp_e_dens')
+            .select('temp_amostra, densid_obs, temp_ct, created_at, produto_id')
+            .eq('terminal_id', terminalIdEfetivo)
+            .gte('created_at', dataInicio)
+            .order('created_at', ascending: false);
+      }
+      
+      if (registros.isNotEmpty) {
+        // Calcular médias
+        double somaTempAmostra = 0;
+        double somaDensObs = 0;
+        double somaTempCT = 0;
+        int countTempAmostra = 0;
+        int countDensObs = 0;
+        int countTempCT = 0;
+        
+        for (var registro in registros) {
+          if (registro['temp_amostra'] != null) {
+            somaTempAmostra += double.parse(registro['temp_amostra'].toString());
+            countTempAmostra++;
+          }
+          if (registro['densid_obs'] != null) {
+            somaDensObs += double.parse(registro['densid_obs'].toString());
+            countDensObs++;
+          }
+          if (registro['temp_ct'] != null) {
+            somaTempCT += double.parse(registro['temp_ct'].toString());
+            countTempCT++;
+          }
+        }
+        
+        // Calcular médias
+        double? mediaTempAmostra = countTempAmostra > 0 ? somaTempAmostra / countTempAmostra : null;
+        double? mediaDensObs = countDensObs > 0 ? somaDensObs / countDensObs : null;
+        double? mediaTempCT = countTempCT > 0 ? somaTempCT / countTempCT : null;
+        
+        // Preencher campos
+        setState(() {
+          if (mediaTempAmostra != null) {
+            campos['tempAmostra']!.text = _formatarDecimalParaExibicao(mediaTempAmostra.toString());
+          }
+          if (mediaDensObs != null) {
+            campos['densidadeAmostra']!.text = _formatarDecimalParaExibicao(mediaDensObs.toString());
+          }
+          if (mediaTempCT != null) {
+            campos['tempCT']!.text = _formatarDecimalParaExibicao(mediaTempCT.toString());
+          }
+        });
+        
+        // Calcular densidade 20°C e FCV
+        await _calcularResultadosObtidos();
+        
+        if (mounted) {
+          String mensagem = '✓ Parâmetros carregados (média de ${registros.length} registro(s) dos últimos 60 min)';
+          if (produtoIdBusca != null && registros.any((r) => r['produto_id']?.toString() != produtoIdBusca)) {
+            mensagem = '✓ Parâmetros carregados de outros produtos (média de ${registros.length} registro(s))';
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(mensagem),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+      
+      // ===== ESTRATÉGIA 3: Fallback - último registro do dia (qualquer produto) =====
+      final inicioDoDiaSaoPaulo = DateTime(
+        agoraSaoPaulo.year,
+        agoraSaoPaulo.month,
+        agoraSaoPaulo.day,
+        0, 0, 0
+      );
+      
+      final dataInicioDia = formatarDataParaPostgres(inicioDoDiaSaoPaulo);
+      
+      final ultimoRegistro = await supabase
           .from('temp_e_dens')
-          .select('temp_amostra, densid_obs, temp_ct')
-          .eq('terminal_id', usuario.terminalId!)
-          .eq('produto_id', produtoIdBusca)
+          .select('temp_amostra, densid_obs, temp_ct, created_at, produto_id')
+          .eq('terminal_id', terminalIdEfetivo)
+          .gte('created_at', dataInicioDia)
           .order('created_at', ascending: false)
           .limit(1)
           .maybeSingle();
-
-      if (registro != null && mounted) {
+      
+      if (ultimoRegistro != null) {
         setState(() {
-          campos['tempAmostra']!.text =
-              _formatarDecimalParaExibicao(registro['temp_amostra']);
-          campos['densidadeAmostra']!.text =
-              _formatarDecimalParaExibicao(registro['densid_obs']);
-          campos['tempCT']!.text =
-              _formatarDecimalParaExibicao(registro['temp_ct']);
+          campos['tempAmostra']!.text = _formatarDecimalParaExibicao(ultimoRegistro['temp_amostra']);
+          campos['densidadeAmostra']!.text = _formatarDecimalParaExibicao(ultimoRegistro['densid_obs']);
+          campos['tempCT']!.text = _formatarDecimalParaExibicao(ultimoRegistro['temp_ct']);
         });
-        // Auto-calcular densidade a 20°C e FCV
+        
         await _calcularResultadosObtidos();
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('⚠️ Sem registros recentes. Usando último registro do dia.'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
       }
+      
+      // Nenhum dado encontrado
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ Nenhum registro de temperatura/densidade encontrado.'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+      
     } catch (e) {
-      print('Erro ao carregar temp_e_dens: $e');
+      print('❌ Erro: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao carregar dados: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -2171,31 +2308,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                     color: Colors.black87,
                   ),
                 ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.amber[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.amber[200]!),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.info_outline, 
-                           color: Colors.amber, size: 20),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Após a emissão, qualquer edição ou correção no documento só poderá ser realizada por um supervisor nível 3.',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color.fromARGB(255, 239, 108, 0),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
                 const SizedBox(height: 20),
               ],
             ),
@@ -2258,8 +2370,10 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       if (user == null) throw Exception('Usuário não autenticado');
 
       final usuario = UsuarioAtual.instance;
-      if (usuario == null || usuario.terminalId == null || usuario.terminalId!.isEmpty) {
-        throw Exception('Usuário sem terminal vinculado');
+      // Prioridade: terminal explícito passado como parâmetro; fallback para o do usuário
+      final terminalIdEfetivo = widget.terminalId ?? usuario?.terminalId;
+      if (terminalIdEfetivo == null || terminalIdEfetivo.isEmpty) {
+        throw Exception('Terminal não identificado. Verifique o vínculo de terminal.');
       }
 
       // ===== VERIFICA SE JÁ EXISTE CERTIFICADO DE ORIGEM =====
@@ -2360,8 +2474,8 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         'movimentacao_id': widget.idMovimentacao,
         'tipo_analise': 'origem',
 
-        // Envia o terminal do usuário para a coluna `terminal_id` se disponível
-        'terminal_id': usuario.terminalId,
+        // Envia o terminal efetivo para a coluna `terminal_id`
+        'terminal_id': terminalIdEfetivo,
       };
 
       final response = await supabase
@@ -2378,7 +2492,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       // ===== SALVAR COLETAS DE CADA TANQUE =====
       await _salvarColetasTanques(
         produtoIdFallback: produtoId,
-        terminalId: usuario.terminalId!,
+        terminalId: terminalIdEfetivo,
       );
 
       // ===== AQUI ESTÁ A CHAMADA QUE VOCÊ AINDA PRECISA =====
