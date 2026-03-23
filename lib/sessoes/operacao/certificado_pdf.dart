@@ -281,7 +281,7 @@ class CertificadoPDF {
                         border: pw.Border.all(color: PdfColors.amber300, width: 0.5), // Corrigido
                       ),
                       child: pw.Text(
-                        'Nota: Os volumes foram apurados conforme procedimentos padrão da empresa, considerando as correções de temperatura aplicáveis.',
+                        'Nota: Os volumes foram apurados conforme procedimento padrão da empresa, considerando as correções de temperatura aplicáveis.',
                         style: pw.TextStyle(
                           fontSize: 8,
                           color: PdfColors.grey700, // Corrigido

@@ -260,7 +260,7 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
         'usuario_id': usuario.id,
         'terminal_id': _terminalSelecionado,
         'data_ordem': agoraSaoPaulo.toIso8601String(),
-        'tipo': _tipoOp,
+        'tipo': _tipoOp.toLowerCase(),
       }).select().single();
 
       await supabase.from('notas_fiscais').insert({
@@ -298,8 +298,8 @@ class _CriarOrdemPageState extends State<CriarOrdemPage> {
         'usuario_id': usuario.id,
         'data_mov': dataEmissao.toUtc().toIso8601String(),
         'placa': _placaCtrl.text.isEmpty ? null : [_placaCtrl.text.toUpperCase()],
-        'tipo_op': _tipoOp,
-        'tipo_mov': _tipoOperacao,
+        'tipo_op': _tipoOp.toLowerCase(),
+        'tipo_mov': _tipoOperacao.toLowerCase(),
         'data_carga': dataEmissao.toIso8601String(),
       });
 

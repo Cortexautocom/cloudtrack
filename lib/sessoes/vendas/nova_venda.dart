@@ -580,7 +580,7 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
             'tipo_op': 'venda',
             'tipo_mov': 'saida',
             'tipo_mov_orig': 'saida',
-            'descricao': 'Venda Comum',
+            'descricao': 'venda comum',
             'data_mov': dataMov,
             'ts_mov': hoje.toIso8601String(),
             'quantidade': capacidadeLitros,
