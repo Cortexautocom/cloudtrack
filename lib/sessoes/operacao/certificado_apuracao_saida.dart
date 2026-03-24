@@ -898,7 +898,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     }
   }
 
-  // ================= CÁLCULOS =================
   Future<void> _calcularResultadosObtidos() async {
     if (_modoVisualizacao) return;
 
