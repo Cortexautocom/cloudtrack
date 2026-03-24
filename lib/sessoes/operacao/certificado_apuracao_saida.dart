@@ -702,11 +702,11 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       // Buscar registros do MESMO produto nos últimos 60 minutos
       final registros = await Supabase.instance.client
           .from('temp_e_dens')
-          .select('temp_amostra, densid_obs, temp_ct, created_at, produto_id')
+          .select('temp_amostra, densid_obs, temp_ct, data_hora_medicao, produto_id')
           .eq('terminal_id', terminalIdEfetivo)
           .eq('produto_id', produtoIdBusca)
-          .gte('created_at', dataInicio)
-          .order('created_at', ascending: false);
+          .gte('data_hora_medicao', dataInicio)
+          .order('data_hora_medicao', ascending: false);
       
       if (registros.isNotEmpty) {
         // Calcular médias
@@ -736,17 +736,32 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         double? mediaTempAmostra = countTempAmostra > 0 ? somaTempAmostra / countTempAmostra : null;
         double? mediaDensObs = countDensObs > 0 ? somaDensObs / countDensObs : null;
         double? mediaTempCT = countTempCT > 0 ? somaTempCT / countTempCT : null;
+
+        // Função para arredondar temperatura para o x,0 ou x,5 mais próximo
+        double arredondarTemperatura(double? valor) {
+          if (valor == null) return 0;
+          return (valor * 2).roundToDouble() / 2;
+        }
+
+        // Função para arredondar densidade para 3 casas decimais
+        double arredondarDensidade(double? valor) {
+          if (valor == null) return 0;
+          return double.parse(valor.toStringAsFixed(3));
+        }
         
         // Preencher campos
         setState(() {
           if (mediaTempAmostra != null) {
-            campos['tempAmostra']!.text = _formatarDecimalParaExibicao(mediaTempAmostra.toString());
+            final valorArredondado = arredondarTemperatura(mediaTempAmostra);
+            campos['tempAmostra']!.text = _formatarDecimalParaExibicao(valorArredondado.toString());
           }
           if (mediaDensObs != null) {
-            campos['densidadeAmostra']!.text = _formatarDecimalParaExibicao(mediaDensObs.toString());
+            final valorArredondado = arredondarDensidade(mediaDensObs);
+            campos['densidadeAmostra']!.text = _formatarDecimalParaExibicao(valorArredondado.toString());
           }
           if (mediaTempCT != null) {
-            campos['tempCT']!.text = _formatarDecimalParaExibicao(mediaTempCT.toString());
+            final valorArredondado = arredondarTemperatura(mediaTempCT);
+            campos['tempCT']!.text = _formatarDecimalParaExibicao(valorArredondado.toString());
           }
         });
         
@@ -1899,7 +1914,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
 
       final densidadeMaisProxima = densidadesDisponiveis.first;
       final codigoMaisProximo = densidadeMaisProxima['codigo'] as String;
-      final diferenca = densidadeMaisProxima['diferenca'] as double;
 
       final aproximado = await _buscarFCVPorCodigo(codigoMaisProximo);
       
@@ -2153,41 +2167,7 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     }
 
     return apenasNumeros;
-  }
-
-  String _aplicarMascaraTemperatura(String texto) {
-    String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
-
-    if (apenasNumeros.length > 3) {
-      apenasNumeros = apenasNumeros.substring(0, 3);
-    }
-
-    if (apenasNumeros.isEmpty) return '';
-
-    if (apenasNumeros.length > 2) {
-      return '${apenasNumeros.substring(0, 2)},${apenasNumeros.substring(2)}';
-    }
-
-    return apenasNumeros;
-  }
-
-  String _aplicarMascaraDensidade(String texto) {
-    String apenasNumeros = texto.replaceAll(RegExp(r'[^\d]'), '');
-
-    if (apenasNumeros.isEmpty) return '';
-
-    if (apenasNumeros.length > 5) {
-      apenasNumeros = apenasNumeros.substring(0, 5);
-    }
-
-    String parteInteira = apenasNumeros.substring(0, 1);
-    String parteDecimal =
-        apenasNumeros.length > 1 ? apenasNumeros.substring(1) : '';
-
-    return parteDecimal.isEmpty
-        ? '$parteInteira,'
-        : '$parteInteira,$parteDecimal';
-  }
+  }  
 
   // ================= BOTÃO VOLTAR =================
   void _voltar() {
@@ -2415,11 +2395,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
       campos['numeroControle']!.text =
           response['numero_controle'].toString();
 
-      await _salvarColetasTanques(
-        produtoIdFallback: produtoId,
-        terminalId: terminalIdEfetivo,
-      );
-
       if (widget.idMovimentacao != null &&
           widget.idMovimentacao!.isNotEmpty) {
         await _atualizarMovimentacoesDaOrdem(
@@ -2452,72 +2427,6 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
             backgroundColor: Colors.red,
           ),
         );
-      }
-    }
-  }
-
-  // ===== SALVAR COLETAS POR TANQUE =====
-  Future<void> _salvarColetasTanques({
-    required String produtoIdFallback,
-    required String terminalId,
-  }) async {
-    final supabase = Supabase.instance.client;
-
-    final placas = [
-      campos['placaCavalo']!.text.trim(),
-      campos['carreta1']!.text.trim(),
-      campos['carreta2']!.text.trim(),
-    ].where((p) => p.isNotEmpty).toList();
-
-    for (int i = 0; i < _tanques.length; i++) {
-      final tanque = _tanques[i];
-
-      final movimentacaoId = tanque.id;
-
-      String? produtoId = tanque.produtoId;
-      if (produtoId == null || produtoId.isEmpty) {
-        if (tanque.produtoNome != null && tanque.produtoNome!.isNotEmpty) {
-          try {
-            produtoId = await _resolverProdutoId(tanque.produtoNome!);
-          } catch (_) {
-            produtoId = produtoIdFallback;
-          }
-        } else {
-          produtoId = produtoIdFallback;
-        }
-      }
-
-      final tempAmostra = _converterParaDecimal(campos['tempAmostra']!.text);
-      final densObs = _converterParaDecimal(campos['densidadeAmostra']!.text);
-      final tempCT = _converterParaDecimal(campos['tempCT']!.text);
-
-      if (tempAmostra == null || densObs == null || tempCT == null) {
-        continue;
-      }
-
-      final registro = {
-        'movimentacao_id': movimentacaoId,
-        'produto_id': produtoId,
-        'tanque_numero': i + 1,
-        'placas': placas,
-        'temperatura_amostra': tempAmostra,
-        'densidade_observada': densObs,
-        'temperatura_ct': tempCT,
-        'volume_amb': _converterParaInteiro(tanque.volumeAmbCtrl.text),
-        'volume_vinte': _converterParaInteiro(tanque.volume20CCtrl.text),
-        'terminal_id': terminalId,
-      };
-
-      try {
-        await supabase
-            .from('coletas_tanques')
-            .upsert(
-              registro,
-              onConflict: 'movimentacao_id,tanque_numero',
-              ignoreDuplicates: false,
-            );
-      } catch (e) {
-        print('✗ Erro ao salvar coleta tanque ${i + 1}: $e');
       }
     }
   }

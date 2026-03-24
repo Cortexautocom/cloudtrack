@@ -28,6 +28,7 @@ class _TemperaturaDensidadeMediaPageState
   final TextEditingController _densidadeObsController = TextEditingController();
   final TextEditingController _tempCtController = TextEditingController();
   final TextEditingController _placaDialogController = TextEditingController();
+  final TextEditingController _horarioController = TextEditingController();
   
   // Variáveis para os dropdowns do diálogo
   String? _selectedProdutoId;
@@ -49,6 +50,7 @@ class _TemperaturaDensidadeMediaPageState
     _densidadeObsController.dispose();
     _tempCtController.dispose();
     _placaDialogController.dispose();
+    _horarioController.dispose();
     super.dispose();
   }
 
@@ -87,7 +89,7 @@ class _TemperaturaDensidadeMediaPageState
           .from('temp_e_dens')
           .select('''
             id,
-            created_at,
+            data_hora_medicao,
             temp_amostra,
             densid_obs,
             temp_ct,
@@ -105,7 +107,7 @@ class _TemperaturaDensidadeMediaPageState
         query = query.eq('terminal_id', UsuarioAtual.instance!.terminalId!);
       }
 
-      final resp = await query.order('created_at', ascending: false).limit(1000);
+      final resp = await query.order('data_hora_medicao', ascending: false).limit(1000);
 
       final List<dynamic> lista = resp;
 
@@ -125,7 +127,7 @@ class _TemperaturaDensidadeMediaPageState
 
         return {
           'id': row['id'],
-          'created_at': row['created_at'],
+          'created_at': row['data_hora_medicao'],
           'temp_amostra': row['temp_amostra'],
           'densid_obs': row['densid_obs'],
           'temp_ct': row['temp_ct'],
@@ -185,6 +187,16 @@ class _TemperaturaDensidadeMediaPageState
       return;
     }
 
+    if (_horarioController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Informe o horário da medição'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     final tempAmostra = double.tryParse(_tempAmostraController.text.trim().replaceAll(',', '.'));
     if (tempAmostra == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -219,13 +231,27 @@ class _TemperaturaDensidadeMediaPageState
     }
 
     try {
+      // Processar data e hora
+      final agora = DateTime.now();
+      final partesHorario = _horarioController.text.split(':');
+      final hora = int.parse(partesHorario[0]);
+      final minuto = int.parse(partesHorario[1]);
+      
+      final dataHoraMedicao = DateTime(
+        agora.year,
+        agora.month,
+        agora.day,
+        hora,
+        minuto,
+      );
+
       final Map<String, dynamic> dados = {
         'temp_amostra': tempAmostra,
         'densid_obs': densidadeObs,
         'temp_ct': tempCt,
         'placa': _placaDialogController.text.trim().toUpperCase(),
         'produto_id': _selectedProdutoId,
-        'created_at': DateTime.now().toIso8601String(),
+        'data_hora_medicao': dataHoraMedicao.toIso8601String(),
       };
 
       // Adicionar terminal_id se o usuário não for admin
@@ -242,6 +268,7 @@ class _TemperaturaDensidadeMediaPageState
       _densidadeObsController.clear();
       _tempCtController.clear();
       _placaDialogController.clear();
+      _horarioController.clear();
       _selectedProdutoId = null;
 
       // Recarregar dados
@@ -418,6 +445,7 @@ class _TemperaturaDensidadeMediaPageState
     _densidadeObsController.clear();
     _tempCtController.clear();
     _placaDialogController.clear();
+    _horarioController.text = "${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}";
     setState(() {
       _selectedProdutoId = null;
     });
@@ -460,16 +488,74 @@ class _TemperaturaDensidadeMediaPageState
                 ),
                 const SizedBox(height: 20),
                 
-                // Campo Produto
-                const Text(
-                  'Produto *',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 14,
-                  ),
+                // Produto e Horário da Medição
+                Row(
+                  children: [
+                    // Campo Produto
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Produto *',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          _buildProdutoDropdown(setStateDialog),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Campo Horário da Medição
+                    Expanded(
+                      flex: 1,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Horário da medição *',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _horarioController,
+                            readOnly: true,
+                            decoration: InputDecoration(
+                              hintText: '00:00',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                              suffixIcon: const Icon(Icons.access_time),
+                            ),
+                            onTap: () async {
+                              final TimeOfDay? picked = await showTimePicker(
+                                context: context,
+                                initialTime: TimeOfDay.now(),
+                              );
+                              if (picked != null) {
+                                setStateDialog(() {
+                                  _horarioController.text =
+                                      "${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}";
+                                });
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                _buildProdutoDropdown(setStateDialog),
                 const SizedBox(height: 16),
                 
                 // Campo Placa
