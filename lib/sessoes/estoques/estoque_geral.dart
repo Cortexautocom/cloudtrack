@@ -599,6 +599,7 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
             padding: const EdgeInsets.all(20),
             child: StatefulBuilder(
               builder: (context, setStateDialog) {
+                int? hoveredDay;
                 return Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -709,40 +710,39 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
                             tempDate.month == DateTime.now().month &&
                             tempDate.year == DateTime.now().year;
 
-                        return GestureDetector(
-                          onTap: day != null
+                        return StatefulBuilder(
+                          builder: (context, setDayState) {
+                            return MouseRegion(
+                              cursor: day != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+                              onEnter: (_) { if (day != null) { setDayState(() => hoveredDay = day); } },
+                              onExit: (_) { if (day != null) { setDayState(() => hoveredDay = null); } },
+                              child: GestureDetector(
+                                onTap: day != null
                               ? () {
                                   setStateDialog(() {
                                     tempDate = DateTime(tempDate.year, tempDate.month, day);
                                   });
                                 }
                               : null,
-                          child: Container(
-                            margin: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? const Color(0xFF0D47A1)
-                                  : isToday
-                                      ? const Color(0x220D47A1)
-                                      : Colors.transparent,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Center(
-                              child: Text(
-                                day != null ? day.toString() : '',
-                                style: TextStyle(
-                                  color: isSelected
-                                      ? Colors.white
-                                      : isToday
-                                          ? const Color(0xFF0D47A1)
-                                          : Colors.black87,
-                                  fontWeight: isSelected || isToday
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
+                                child: Container(
+                                  margin: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? const Color(0xFF0D47A1)
+                                        : (day != null && hoveredDay == day) ? const Color(0xFF0D47A1).withOpacity(0.1)
+                                        : isToday ? const Color(0x220D47A1) : Colors.transparent,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(child: Text(
+                                    day != null ? day.toString() : '',
+                                    style: TextStyle(
+                                      color: isSelected ? Colors.white : isToday || (day != null && hoveredDay == day) ? const Color(0xFF0D47A1) : Colors.black87,
+                                      fontWeight: isSelected || isToday || (day != null && hoveredDay == day) ? FontWeight.bold : FontWeight.normal,
+                                    ),
+                                  )),
                                 ),
                               ),
-                            ),
-                          ),
+                            );
+                          },
                         );
                       }).toList(),
                     ),
