@@ -289,11 +289,22 @@ class _HomePageState extends State<HomePage>
 
   Future<void> _toggleFavorito(String cardId, bool novoValor) async {
     final supabase = Supabase.instance.client;
+    final usuario = UsuarioAtual.instance;
+    if (usuario == null) return;
     try {
-      await supabase
-          .from('cards')
-          .update({'favorito': novoValor})
-          .eq('id', cardId);
+      if (novoValor) {
+        await supabase.from('relacoes_cards_favoritos').insert({
+          'usuario_id': usuario.id,
+          'card_id': cardId,
+          'acesso': true,
+        });
+      } else {
+        await supabase
+            .from('relacoes_cards_favoritos')
+            .delete()
+            .eq('usuario_id', usuario.id)
+            .eq('card_id', cardId);
+      }
       setState(() {
         for (final sessao in _filhosPorSessao.values) {
           for (final card in sessao) {
@@ -379,11 +390,21 @@ class _HomePageState extends State<HomePage>
 
       final cardsDb = await supabase
           .from('cards')
-          .select('id, nome, tipo, sessao_pai, ordem, favorito')
+          .select('id, nome, tipo, sessao_pai, ordem')
           .eq('ativo', true)
           .order('sessao_pai')
           .order('ordem');
 
+      // Buscar IDs dos cards favoritados pelo usuário atual
+      final favoritosDb = await supabase
+          .from('relacoes_cards_favoritos')
+          .select('card_id')
+          .eq('usuario_id', usuario.id)
+          .eq('acesso', true);
+
+      final favoritosIds = <String>{
+        for (final f in favoritosDb) f['card_id'].toString()
+      };
 
       final List<Map<String, dynamic>> todosCards = [];
 
@@ -408,7 +429,7 @@ class _HomePageState extends State<HomePage>
             'sessao_pai': sessaoPai,
             'icon': _definirIconePorTipo(tipo),
             'descricao': _definirDescricaoPorTipo(tipo),
-            'favorito': card['favorito'] ?? false,
+            'favorito': favoritosIds.contains(cardId),
           });
         }
         // Para os demais casos, manter a lógica original
@@ -422,7 +443,7 @@ class _HomePageState extends State<HomePage>
             'sessao_pai': sessaoPai,
             'icon': _definirIconePorTipo(tipo),
             'descricao': _definirDescricaoPorTipo(tipo),
-            'favorito': card['favorito'] ?? false,
+            'favorito': favoritosIds.contains(cardId),
           });
         }
       }
