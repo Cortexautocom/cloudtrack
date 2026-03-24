@@ -59,10 +59,11 @@ class _HomePageState extends State<HomePage>
     'Circuito',
     'Vendas',
     'Gestão de Frota',
-    'Bombeios e Cotas',
+    'Bombeios e Cotas Contratuais',
     'Laboratório',
     'Financeiro',
     'Jurídico',
+    'Gestão de contratos',
     'Gestão de Projetos',
     'Recursos Humanos',
     'Almoxerifado',
@@ -166,10 +167,11 @@ class _HomePageState extends State<HomePage>
     'Circuito': const Color(0xFF9C27B0), // Roxo
     'Vendas': const Color(0xFF4CAF50), // Verde
     'Gestão de Frota': const Color(0xFFF44336), // Vermelho
-    'Bombeios e Cotas': const Color(0xFF00BCD4), // Ciano
+    'Bombeios e Cotas Contratuais': const Color(0xFF00BCD4), // Ciano
     'Laboratório': const Color(0xFF8BC34A), // Verde claro
     'Financeiro': const Color(0xFF009688), // Verde-água
     'Jurídico': const Color(0xFF3F51B5), // Índigo
+    'Gestão de contratos': const Color(0xFF3949AB), // Azul escuro (perto do Jurídico)
     'Gestão de Projetos': const Color(0xFFFF5722), // Laranja profundo
     'Recursos Humanos': const Color(0xFFE91E63), // Rosa
     'Almoxerifado': const Color(0xFF9E9E9E), // Cinza
@@ -673,14 +675,14 @@ class _HomePageState extends State<HomePage>
       },
     ];
 
-    _filhosPorSessao['Bombeios e Cotas'] = [
+    _filhosPorSessao['Bombeios e Cotas Contratuais'] = [
       {
         'id': 'fallback-bombeios',
         'icon': Icons.invert_colors,
-        'label': 'Bombeios e Cotas',
+        'label': 'Bombeios e Cotas Contratuais',
         'descricao': 'Controle de bombeios',
         'tipo': 'bombeios',
-        'sessao_pai': 'Bombeios e Cotas',
+        'sessao_pai': 'Bombeios e Cotas Contratuais',
       },
     ];
 
@@ -1684,15 +1686,14 @@ class _HomePageState extends State<HomePage>
 
         return _buildAjudaPage();
 
-      case 'Laboratório':
-        return _buildConteudoSessoes();
-
       case 'Financeiro':
       case 'Jurídico':
+      case 'Gestão de contratos':
       case 'Gestão de Projetos':
       case 'Recursos Humanos':
       case 'Segurança & Compliance':
       case 'Manutenção e ativos':
+      case 'Bombeios e Cotas Contratuais':
         return _buildAreaIndisponivelPage();
 
       case 'Almoxerifado':
@@ -1753,7 +1754,7 @@ class _HomePageState extends State<HomePage>
       case 'Circuito':
       case 'Vendas':
       case 'Gestão de Frota':
-      case 'Bombeios e Cotas':
+      case 'Laboratório':
         return _buildConteudoSessoes();
 
       default:
@@ -2485,9 +2486,9 @@ class _HomePageState extends State<HomePage>
       }
     }
 
-    // SEÇÃO: Bombeios e Cotas
-    if (sessaoAtual == 'Bombeios e Cotas') {
-      if (_mostrarFilhosSessao && _sessaoAtual == 'Bombeios e Cotas') {
+    // SEÇÃO: Bombeios e Cotas Contratuais
+    if (sessaoAtual == 'Bombeios e Cotas Contratuais') {
+      if (_mostrarFilhosSessao && _sessaoAtual == 'Bombeios e Cotas Contratuais') {
         return _buildFilhosSessaoPage();
       }
     }
@@ -2531,6 +2532,7 @@ class _HomePageState extends State<HomePage>
     // Páginas indisponíveis
     if (sessaoAtual == 'Financeiro' ||
         sessaoAtual == 'Jurídico' ||
+        sessaoAtual == 'Gestão de contratos' ||
         sessaoAtual == 'Gestão de Projetos' ||
         sessaoAtual == 'Recursos Humanos' ||
         sessaoAtual == 'Segurança & Compliance' ||
@@ -3188,7 +3190,7 @@ class _HomePageState extends State<HomePage>
       case 'Vendas':
         _navegarParaCardVendas(tipo, card);
         break;
-      case 'Bombeios e Cotas':
+      case 'Bombeios e Cotas Contratuais':
         _navegarParaCardBombeios(tipo);
         break;
       case 'Laboratório':
@@ -3733,7 +3735,7 @@ class _HomePageState extends State<HomePage>
         return Icons.local_gas_station;
       case 'Gestão de Frota':
         return Icons.local_shipping;
-      case 'Bombeios e Cotas':
+      case 'Bombeios e Cotas Contratuais':
         return Icons.invert_colors;
       case 'Laboratório':
         return Icons.science;
@@ -3741,6 +3743,8 @@ class _HomePageState extends State<HomePage>
         return Icons.account_balance_wallet;
       case 'Jurídico':
         return Icons.gavel;
+      case 'Gestão de contratos':
+        return Icons.handshake;
       case 'Gestão de Projetos':
         return Icons.assignment;
       case 'Recursos Humanos':
@@ -4004,7 +4008,7 @@ class _HomePageState extends State<HomePage>
     final Map<String, String> quebras = {
       'Recursos Humanos': 'Recursos\nHumanos',
       'Gestão de Projetos': 'Gestão de\nProjetos',
-      'Bombeios e Cotas': 'Bombeios\ne Cotas',
+      'Bombeios e Cotas Contratuais': 'Bombeios\ne Cotas Contratuais',
       'Manutenção e ativos': 'Manutenção\ne ativos',
       'Segurança & Compliance': 'Segurança &\nCompliance',
       'Configurações': 'Configurações', // Mantém igual (opcional)
