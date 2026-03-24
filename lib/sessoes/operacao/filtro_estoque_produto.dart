@@ -13,10 +13,10 @@ class FiltroEstoqueProdutoPage extends StatefulWidget {
     required String? terminalId,
     required String nomeFilial,
     String? empresaId,
-    DateTime? dataFiltro,
+    required DateTime dataInicial,
+    required DateTime dataFinal,
     required String produtoId,
     required String produtoNome,
-    required bool isIntraday,
   }) onConsultarEstoqueProduto;
   final VoidCallback onVoltar;
 
@@ -37,7 +37,8 @@ class FiltroEstoqueProdutoPage extends StatefulWidget {
 
 class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
   final SupabaseClient _supabase = Supabase.instance.client;
-  DateTime? _dataSelecionada;
+  DateTime _dataInicial = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  DateTime _dataFinal = DateTime.now();
   String? _produtoSelecionadoId;
   String? _produtoSelecionadoNome;
   String? _filialSelecionadaId;
@@ -51,14 +52,10 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
   bool _carregandoFiliais = false;
   bool _carregandoTerminais = false;
   bool _terminalVinculado = false;
-  bool _intraday = false;
-  DateTime? _mesSelecionado;
 
   @override
   void initState() {
     super.initState();
-    _dataSelecionada = DateTime.now();
-    _mesSelecionado = DateTime.now();
 
     final usuario = UsuarioAtual.instance;
     
@@ -387,8 +384,8 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
     }
   }
 
-  Future<void> _selecionarMes(BuildContext context) async {
-    DateTime tempDate = _mesSelecionado ?? DateTime.now();
+  Future<void> _selecionarDataInicial(BuildContext context) async {
+    DateTime tempDate = _dataInicial;
     final DateTime? selecionado = await showDialog<DateTime>(
       context: context,
       builder: (BuildContext context) {
@@ -408,7 +405,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                       children: [
                         const Icon(Icons.calendar_today, color: Color(0xFF0D47A1), size: 24),
                         const SizedBox(width: 12),
-                        const Text('Selecione o mês', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF0D47A1))),
+                        const Text('Data inicial', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF0D47A1))),
                         const Spacer(),
                         IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop(), color: Colors.grey, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
                       ],
@@ -491,16 +488,19 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
         );
       },
     );
-    
+
     if (selecionado != null) {
       setState(() {
-        _mesSelecionado = DateTime(selecionado.year, selecionado.month);
+        _dataInicial = selecionado;
+        if (_dataInicial.isAfter(_dataFinal)) {
+          _dataFinal = _dataInicial;
+        }
       });
     }
   }
 
-  Future<void> _selecionarData(BuildContext context) async {
-    DateTime tempDate = _dataSelecionada ?? DateTime.now();
+  Future<void> _selecionarDataFinal(BuildContext context) async {
+    DateTime tempDate = _dataFinal;
     final DateTime? selecionado = await showDialog<DateTime>(
       context: context,
       builder: (BuildContext context) {
@@ -520,7 +520,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                       children: [
                         const Icon(Icons.calendar_today, color: Color(0xFF0D47A1), size: 24),
                         const SizedBox(width: 12),
-                        const Text('Selecione a data', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF0D47A1))),
+                        const Text('Data final', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF0D47A1))),
                         const Spacer(),
                         IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop(), color: Colors.grey, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
                       ],
@@ -603,30 +603,23 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
         );
       },
     );
-    
+
     if (selecionado != null) {
       setState(() {
-        _dataSelecionada = selecionado;
+        _dataFinal = selecionado;
+        if (_dataFinal.isBefore(_dataInicial)) {
+          _dataInicial = _dataFinal;
+        }
       });
     }
   }
 
   void _irParaEstoqueProduto() {
     // Validar campos obrigatórios
-    if (!_intraday && _mesSelecionado == null) {
+    if (_dataInicial.isAfter(_dataFinal)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Por favor, selecione um mês.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    if (_intraday && _dataSelecionada == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Por favor, selecione uma data.'),
+          content: Text('A data inicial não pode ser posterior à data final.'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -670,18 +663,18 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
       terminalId: _terminalSelecionadoId,
       nomeFilial: _terminalSelecionadoNome ?? _filialSelecionadaNome ?? 'Terminal não selecionado',
       empresaId: widget.empresaId,
-      dataFiltro: _intraday ? _dataSelecionada : _mesSelecionado,
+      dataInicial: _dataInicial,
+      dataFinal: _dataFinal,
       produtoId: _produtoSelecionadoId!,
       produtoNome: _produtoSelecionadoNome!,
-      isIntraday: _intraday,
     );
   }
 
   void _resetarFiltros() {
+    final agora = DateTime.now();
     setState(() {
-      _intraday = false;
-      _mesSelecionado = DateTime.now();
-      _dataSelecionada = DateTime.now();
+      _dataInicial = DateTime(agora.year, agora.month, 1);
+      _dataFinal = agora;
       _produtoSelecionadoId = '';
       _produtoSelecionadoNome = null;
       
@@ -788,32 +781,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
           ),
           const SizedBox(height: 20),
 
-          // Checkbox Intraday
-          Row(
-            children: [
-              Checkbox(
-                value: _intraday,
-                onChanged: (value) {
-                  setState(() {
-                    _intraday = value ?? false;
-                  });
-                },
-                activeColor: const Color(0xFF0D47A1),
-              ),
-              const Text(
-                'Intraday (movimentações diárias)',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF424242),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          // Linha de filtros: Terminal, Filial, Produto e Data
+          // Linha de filtros: Terminal, Filial, Produto, Data inicial e Data final
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -901,14 +869,14 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
 
               const SizedBox(width: 12),
 
-              // 4 - Campo Data
+              // 4 - Campo Data inicial
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _intraday ? 'Data específica *' : 'Mês de referência *',
-                      style: const TextStyle(
+                    const Text(
+                      'Data inicial *',
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF0D47A1),
@@ -916,9 +884,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                     ),
                     const SizedBox(height: 4),
                     InkWell(
-                      onTap: _intraday
-                          ? () => _selecionarData(context)
-                          : () => _selecionarMes(context),
+                      onTap: () => _selecionarDataInicial(context),
                       child: Container(
                         width: double.infinity,
                         height: 50,
@@ -932,13 +898,54 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              _intraday
-                                  ? (_dataSelecionada != null
-                                      ? '${_dataSelecionada!.day.toString().padLeft(2, '0')}/${_dataSelecionada!.month.toString().padLeft(2, '0')}/${_dataSelecionada!.year}'
-                                      : 'Data')
-                                  : (_mesSelecionado != null
-                                      ? '${_mesSelecionado!.month.toString().padLeft(2, '0')}/${_mesSelecionado!.year}'
-                                      : 'Mês'),
+                              '${_dataInicial.day.toString().padLeft(2, '0')}/${_dataInicial.month.toString().padLeft(2, '0')}/${_dataInicial.year}',
+                              style: const TextStyle(fontSize: 13, color: Colors.black),
+                            ),
+                            Icon(
+                              Icons.calendar_today,
+                              color: Colors.grey.shade600,
+                              size: 16,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              // 5 - Campo Data final
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Data final *',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0D47A1),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    InkWell(
+                      onTap: () => _selecionarDataFinal(context),
+                      child: Container(
+                        width: double.infinity,
+                        height: 50,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: Colors.grey.shade400, width: 1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${_dataFinal.day.toString().padLeft(2, '0')}/${_dataFinal.month.toString().padLeft(2, '0')}/${_dataFinal.year}',
                               style: const TextStyle(fontSize: 13, color: Colors.black),
                             ),
                             Icon(
@@ -1337,14 +1344,13 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                 ),
               _buildItemResumo(
                 icon: Icons.calendar_today,
-                label: _intraday ? 'Data' : 'Mês',
-                value: _intraday
-                  ? (_dataSelecionada != null
-                      ? '${_dataSelecionada!.day.toString().padLeft(2, '0')}/${_dataSelecionada!.month.toString().padLeft(2, '0')}/${_dataSelecionada!.year}'
-                      : 'Não selecionada')
-                  : (_mesSelecionado != null
-                      ? '${_mesSelecionado!.month.toString().padLeft(2, '0')}/${_mesSelecionado!.year}'
-                      : 'Não selecionado'),
+                label: 'Data inicial',
+                value: '${_dataInicial.day.toString().padLeft(2, '0')}/${_dataInicial.month.toString().padLeft(2, '0')}/${_dataInicial.year}',
+              ),
+              _buildItemResumo(
+                icon: Icons.calendar_today,
+                label: 'Data final',
+                value: '${_dataFinal.day.toString().padLeft(2, '0')}/${_dataFinal.month.toString().padLeft(2, '0')}/${_dataFinal.year}',
               ),
               _buildItemResumo(
                 icon: Icons.inventory_2,
@@ -1357,12 +1363,6 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                       )['nome']!
                   : 'Não selecionado',
               ),
-              if (_intraday)
-                _buildItemResumo(
-                  icon: Icons.access_time,
-                  label: 'Modo',
-                  value: 'Intraday (diário)',
-                ),
             ],
           ),
         ],
@@ -1497,9 +1497,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _intraday
-                    ? 'Campos obrigatórios: Terminal, Data específica e Produto'
-                    : 'Campos obrigatórios: Terminal, Mês de referência e Produto',
+                  'Campos obrigatórios: Terminal, Data inicial, Data final e Produto',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -1508,11 +1506,9 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _intraday
-                    ? 'Modo Intraday: mostra apenas movimentações da data selecionada.'
-                    : (_terminalVinculado
-                        ? 'Terminal vinculado ao seu usuário (não pode ser alterado).'
-                        : 'Mostra o estoque do produto no terminal selecionado no mês informado.'),
+                  _terminalVinculado
+                      ? 'Terminal vinculado ao seu usuário (não pode ser alterado).'
+                      : 'Mostra o estoque do produto no terminal selecionado no período informado.',
                   style: TextStyle(
                     fontSize: 11,
                     color: Colors.orange.shade700,

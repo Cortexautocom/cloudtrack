@@ -7,10 +7,10 @@ class EstoqueProdutoPage extends StatefulWidget {
   final String? terminalId;
   final String nomeFilial;
   final String? empresaId;
-  final DateTime? dataFiltro;
+  final DateTime dataInicial;
+  final DateTime dataFinal;
   final String produtoId;
   final String produtoNome;
-  final bool isIntraday;
 
   const EstoqueProdutoPage({
     super.key,
@@ -18,10 +18,10 @@ class EstoqueProdutoPage extends StatefulWidget {
     this.terminalId,
     required this.nomeFilial,
     this.empresaId,
-    this.dataFiltro,
+    required this.dataInicial,
+    required this.dataFinal,
     required this.produtoId,
     required this.produtoNome,
-    required this.isIntraday,
   });
 
   @override
@@ -46,8 +46,6 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
 
   String? _produtoNome;
 
-  late DateTime _dataFiltro;
-
   final ScrollController _vertical = ScrollController();
   final ScrollController _hHeader = ScrollController();
   final ScrollController _hBody = ScrollController();
@@ -68,7 +66,6 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
   @override
   void initState() {
     super.initState();
-    _dataFiltro = widget.dataFiltro ?? DateTime.now();
     _syncScroll();
     _produtoNome = widget.produtoNome;
     _carregarTerminalDoUsuario();
@@ -121,7 +118,7 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
 
   Future<void> _carregarEstoqueInicialDoBanco() async {
     try {
-      final dataStr = _dataFiltro.toIso8601String().split('T')[0];
+      final dataStr = widget.dataInicial.toIso8601String().split('T')[0];
 
       final response = await _supabase.rpc(
         'calcular_estoque_inicial_produto',
@@ -167,16 +164,10 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
       final String dataInicio;
       final String dataFim;
 
-      if (widget.isIntraday) {
-        final dataStr = _dataFiltro.toIso8601String().split('T')[0];
-        dataInicio = '$dataStr 00:00:00';
-        dataFim = '$dataStr 23:59:59';
-      } else {
-        final inicio = DateTime(_dataFiltro.year, _dataFiltro.month, 1);
-        final fim = DateTime(_dataFiltro.year, _dataFiltro.month + 1, 0);
-        dataInicio = '${inicio.year}-${inicio.month.toString().padLeft(2, '0')}-01 00:00:00';
-        dataFim = '${fim.year}-${fim.month.toString().padLeft(2, '0')}-${fim.day.toString().padLeft(2, '0')} 23:59:59';
-      }
+      final inicio = widget.dataInicial;
+      final fim = widget.dataFinal;
+      dataInicio = '${inicio.year}-${inicio.month.toString().padLeft(2, '0')}-${inicio.day.toString().padLeft(2, '0')} 00:00:00';
+      dataFim = '${fim.year}-${fim.month.toString().padLeft(2, '0')}-${fim.day.toString().padLeft(2, '0')} 23:59:59';
 
       // Buscar movimentações do produto no terminal
       final dados = await _supabase
@@ -341,9 +332,7 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
               "Movimentação do Produto – ${_produtoNome ?? widget.produtoNome}",
             ),
             Text(
-              widget.isIntraday
-                  ? '${widget.nomeFilial} | ${_fmtData(_dataFiltro.toIso8601String())}'
-                  : '${widget.nomeFilial} | ${_dataFiltro.month.toString().padLeft(2, '0')}/${_dataFiltro.year}',
+              '${widget.nomeFilial} | ${_fmtData(widget.dataInicial.toIso8601String())} a ${_fmtData(widget.dataFinal.toIso8601String())}',
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.normal,
@@ -356,10 +345,6 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: _buildCampoDataFiltro(),
-          ),
           IconButton(
             icon: const Icon(Icons.sort),
             onPressed: () => _onSort('data_mov'),
@@ -377,157 +362,6 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
             : _erro
             ? Center(child: Text(_mensagemErro))
             : _buildConteudo(),
-      ),
-    );
-  }
-
-  Widget _buildCampoDataFiltro() {
-    final String textoData = widget.isIntraday
-        ? '${_dataFiltro.day.toString().padLeft(2, '0')}/${_dataFiltro.month.toString().padLeft(2, '0')}/${_dataFiltro.year}'
-        : '${_dataFiltro.month.toString().padLeft(2, '0')}/${_dataFiltro.year}';
-
-    return InkWell(
-      onTap: () async {
-        DateTime tempDate = _dataFiltro;
-        final dataSelecionada = await showDialog<DateTime>(
-          context: context,
-          builder: (BuildContext context) {
-            return Dialog(
-              backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              child: Container(
-                width: 350,
-                padding: const EdgeInsets.all(20),
-                child: StatefulBuilder(
-                  builder: (context, setStateDialog) {
-                    int? hoveredDay;
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.calendar_today, color: Color(0xFF0D47A1), size: 24),
-                            const SizedBox(width: 12),
-                            Text(widget.isIntraday ? 'Selecionar data' : 'Selecionar mês', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF0D47A1))),
-                            const Spacer(),
-                            IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop(), color: Colors.grey, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              IconButton(icon: const Icon(Icons.chevron_left, color: Color(0xFF0D47A1)), onPressed: () { setStateDialog(() { tempDate = DateTime(tempDate.year, tempDate.month - 1, tempDate.day); }); }),
-                              Text('${_getMonthName(tempDate.month)} ${tempDate.year}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF0D47A1))),
-                              IconButton(icon: const Icon(Icons.chevron_right, color: Color(0xFF0D47A1)), onPressed: () { setStateDialog(() { tempDate = DateTime(tempDate.year, tempDate.month + 1, tempDate.day); }); }),
-                            ],
-                          ),
-                        ),
-                        GridView.count(
-                          shrinkWrap: true,
-                          crossAxisCount: 7,
-                          childAspectRatio: 1.0,
-                          children: ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day) {
-                            return Center(child: Text(day, style: const TextStyle(color: Color(0xFF0D47A1), fontWeight: FontWeight.bold)));
-                          }).toList(),
-                        ),
-                        GridView.count(
-                          shrinkWrap: true,
-                          crossAxisCount: 7,
-                          childAspectRatio: 1.0,
-                          children: _getDaysInMonth(tempDate).map((day) {
-                            final isSelected = day != null && day == tempDate.day;
-                            final isToday = day != null && day == DateTime.now().day && tempDate.month == DateTime.now().month && tempDate.year == DateTime.now().year;
-                            return StatefulBuilder(
-                              builder: (context, setDayState) {
-                                return MouseRegion(
-                                  cursor: day != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
-                                  onEnter: (_) { if (day != null) { setDayState(() => hoveredDay = day); } },
-                                  onExit: (_) { if (day != null) { setDayState(() => hoveredDay = null); } },
-                                  child: GestureDetector(
-                                    onTap: day != null ? () { setStateDialog(() { tempDate = DateTime(tempDate.year, tempDate.month, day); }); } : null,
-                                    child: Container(
-                                      margin: const EdgeInsets.all(2),
-                                      decoration: BoxDecoration(
-                                        color: isSelected ? const Color(0xFF0D47A1)
-                                            : (day != null && hoveredDay == day) ? const Color(0xFF0D47A1).withOpacity(0.1)
-                                            : isToday ? const Color(0x220D47A1) : Colors.transparent,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Center(child: Text(
-                                        day != null ? day.toString() : '',
-                                        style: TextStyle(
-                                          color: isSelected ? Colors.white : isToday || (day != null && hoveredDay == day) ? const Color(0xFF0D47A1) : Colors.black87,
-                                          fontWeight: isSelected || isToday || (day != null && hoveredDay == day) ? FontWeight.bold : FontWeight.normal,
-                                        ),
-                                      )),
-                                    ),
-                                  ),
-                                );
-                              },
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 20),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton(onPressed: () => Navigator.of(context).pop(), style: TextButton.styleFrom(foregroundColor: Colors.black87, padding: const EdgeInsets.symmetric(horizontal: 16)), child: const Text('CANCELAR')),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: () => Navigator.of(context).pop(tempDate),
-                              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D47A1), foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                              child: const Text('SELECIONAR', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                            ),
-                          ],
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            );
-          },
-        );
-
-        if (dataSelecionada != null) {
-          setState(() {
-            _dataFiltro = widget.isIntraday
-                ? DateTime(dataSelecionada.year, dataSelecionada.month, dataSelecionada.day)
-                : DateTime(dataSelecionada.year, dataSelecionada.month, 1);
-          });
-          _carregar();
-        }
-      },
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFF0D47A1).withOpacity(0.5)),
-          borderRadius: BorderRadius.circular(4),
-          color: Colors.white,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.calendar_today,
-              size: 14,
-              color: Color(0xFF0D47A1),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              textoData,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF0D47A1),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -680,7 +514,7 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
             itemBuilder: (context, i) {
               if (i == 0) {
                 return _linhaResumo(
-                  widget.isIntraday ? 'Estoque Inicial' : 'Estoque Inicial do Mês',
+                  'Estoque Inicial',
                   _estoqueInicial['amb'],
                   _estoqueInicial['vinte'],
                   cor: Colors.blue,
@@ -769,7 +603,7 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
       alignment: Alignment.centerLeft,
       color: Colors.grey.shade100,
       child: Text(
-        '${_movsOrdenadas.length} movimentação(ões) ${widget.isIntraday ? 'no dia' : 'no mês'}',
+      '${_movsOrdenadas.length} movimentação(oes) no período',
         style: TextStyle(
           fontSize: 12,
           color: Colors.grey.shade600,
@@ -777,31 +611,5 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
         ),
       ),
     );
-  }
-
-  String _getMonthName(int month) {
-    const months = [
-      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-    ];
-    return months[month - 1];
-  }
-
-  List<int?> _getDaysInMonth(DateTime date) {
-    final firstDay = DateTime(date.year, date.month, 1);
-    final lastDay = DateTime(date.year, date.month + 1, 0);
-    final firstWeekday = firstDay.weekday;
-    final startOffset = firstWeekday == 7 ? 0 : firstWeekday;
-    List<int?> days = [];
-    for (int i = 0; i < startOffset; i++) {
-      days.add(null);
-    }
-    for (int i = 1; i <= lastDay.day; i++) {
-      days.add(i);
-    }
-    while (days.length < 42) {
-      days.add(null);
-    }
-    return days;
-  }
+  }  
 }
