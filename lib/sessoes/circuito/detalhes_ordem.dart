@@ -495,6 +495,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
               idMovimentacao: movimentacaoId,
               tanquesDaOrdem: tanquesDaOrdem, // NOVA LISTA DE TANQUES
               terminalId: widget.terminalAtualId, // Terminal da ordem, não do usuário logado
+              tipoOp: widget.ordem['tipo_op']?.toString(),
               onVoltar: () {
                 Navigator.of(context).pop(true);
               },

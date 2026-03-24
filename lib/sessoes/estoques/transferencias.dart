@@ -838,7 +838,15 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
                   bodyController: _horizontalBodyControllerHoje,
                 ),
 
-                const SizedBox(height: 30),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Divider(
+                    color: const Color(0xFF0D47A1).withOpacity(0.3),
+                    thickness: 1,
+                  ),
+                ),
+
+                const SizedBox(height: 16),
 
                 _buildTabela(
                   "Transferências entre filiais - Histórico",

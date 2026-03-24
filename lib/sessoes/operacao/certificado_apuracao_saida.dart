@@ -1,12 +1,59 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:typed_data';
 import 'dart:convert' show base64Encode;
 import 'dart:js' as js;
 import 'certificado_pdf.dart';
 import '../../login_page.dart';
+
+// ================= INPUT FORMATTERS =================
+
+class _TemperaturaInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    final text = newValue.text;
+    // Permitir apenas dígitos e vírgula
+    final filtered = text.replaceAll(RegExp(r'[^\d,]'), '');
+    // Apenas uma vírgula
+    if (filtered.split(',').length > 2) return oldValue;
+    // Máximo 1 dígito decimal após a vírgula
+    if (filtered.contains(',')) {
+      final parts = filtered.split(',');
+      if (parts[1].length > 1) return oldValue;
+    }
+    if (filtered == text) return newValue;
+    return TextEditingValue(
+      text: filtered,
+      selection: TextSelection.collapsed(offset: filtered.length),
+    );
+  }
+}
+
+class _DensidadeInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    final text = newValue.text;
+    // Permitir apenas dígitos e vírgula
+    final filtered = text.replaceAll(RegExp(r'[^\d,]'), '');
+    // Apenas uma vírgula
+    if (filtered.split(',').length > 2) return oldValue;
+    // Máximo 3 dígitos decimais após a vírgula
+    if (filtered.contains(',')) {
+      final parts = filtered.split(',');
+      if (parts[1].length > 3) return oldValue;
+    }
+    if (filtered == text) return newValue;
+    return TextEditingValue(
+      text: filtered,
+      selection: TextSelection.collapsed(offset: filtered.length),
+    );
+  }
+}
 
 // ================= MODELO DE DADOS TANQUE =================
 
@@ -322,6 +369,7 @@ class EmitirCertificadoPage extends StatefulWidget {
   final List<Map<String, dynamic>>? tanquesDaOrdem;
   final bool modoSomenteVisualizacao;
   final String? terminalId;
+  final String? tipoOp;
 
   const EmitirCertificadoPage({
     super.key,
@@ -331,6 +379,7 @@ class EmitirCertificadoPage extends StatefulWidget {
     this.tanquesDaOrdem,
     this.modoSomenteVisualizacao = false,
     this.terminalId,
+    this.tipoOp,
   });
 
   @override
@@ -345,6 +394,11 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   bool _carregandoDadosMovimentacao = false;
   bool _salvandoCertificado = false;
   bool _carregandoDadosTemp = false;
+
+  // FocusNodes para entrada manual nos campos de temp/densidade (transf)
+  final FocusNode _focusTempAmostra = FocusNode();
+  final FocusNode _focusDensidadeAmostra = FocusNode();
+  final FocusNode _focusTempCT = FocusNode();
 
   // ================= CONTROLLERS =================
   final TextEditingController dataCtrl = TextEditingController();
@@ -382,6 +436,28 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     _setarDataHoraAtual();
     _carregarProdutos();
     _inicializarTanquesDaOrdem();
+
+    // Configurar listeners de foco para campos de entrada manual (transf)
+    if (widget.tipoOp?.toLowerCase() == 'transf') {
+      _focusTempAmostra.addListener(() {
+        if (!_focusTempAmostra.hasFocus && !_camposTempVazios() &&
+            (campos['densidade20']!.text.isEmpty || campos['fatorCorrecao']!.text.isEmpty)) {
+          _calcularResultadosObtidos();
+        }
+      });
+      _focusDensidadeAmostra.addListener(() {
+        if (!_focusDensidadeAmostra.hasFocus && !_camposTempVazios() &&
+            (campos['densidade20']!.text.isEmpty || campos['fatorCorrecao']!.text.isEmpty)) {
+          _calcularResultadosObtidos();
+        }
+      });
+      _focusTempCT.addListener(() {
+        if (!_focusTempCT.hasFocus && !_camposTempVazios() &&
+            (campos['densidade20']!.text.isEmpty || campos['fatorCorrecao']!.text.isEmpty)) {
+          _calcularResultadosObtidos();
+        }
+      });
+    }
 
     if (widget.modoSomenteVisualizacao || (widget.idCertificado != null && widget.idCertificado!.isNotEmpty)) {
       _modoVisualizacao = true;
@@ -639,6 +715,11 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   // ================= NOVA LÓGICA DE CARREGAMENTO DE TEMP/DENS =================
   Future<void> _carregarDadosTempEDens() async {
     if (_modoVisualizacao) {
+      return;
+    }
+
+    // Para transferências os campos são preenchidos manualmente pelo usuário
+    if (widget.tipoOp?.toLowerCase() == 'transf') {
       return;
     }
 
@@ -1270,6 +1351,13 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
            campos['tempCT']!.text.isEmpty;
   }
 
+  void _limparVolumes20CTanques() {
+    for (var tanque in _tanques) {
+      tanque.volume20CCtrl.text = '';
+    }
+    setState(() {});
+  }
+
   // ================= MÉTODOS DE GERENCIAMENTO DE TANQUES =================
   
   void _inicializarTanquesDaOrdem() {
@@ -1313,6 +1401,9 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   // ================= SEÇÃO DE TANQUES =================
 
   Widget _buildSecaoParametrosConversao() {
+    final bool isTransfEditavel =
+        widget.tipoOp?.toLowerCase() == 'transf' && !_modoVisualizacao;
+
     return Row(
       children: [
         Expanded(
@@ -1326,10 +1417,21 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                 const SizedBox(height: 2),
                 TextFormField(
                   controller: campos['tempAmostra'],
-                  keyboardType: TextInputType.number,
-                  enabled: false, // AGORA BLOQUEADO
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  focusNode: isTransfEditavel ? _focusTempAmostra : null,
+                  enabled: isTransfEditavel,
+                  inputFormatters: isTransfEditavel ? [_TemperaturaInputFormatter()] : null,
+                  onChanged: isTransfEditavel
+                      ? (v) {
+                          setState(() {
+                            campos['densidade20']!.text = '';
+                            campos['fatorCorrecao']!.text = '';
+                          });
+                          _limparVolumes20CTanques();
+                        }
+                      : null,
                   decoration: _decoration('').copyWith(
-                    fillColor: Colors.grey[100],
+                    fillColor: isTransfEditavel ? Colors.white : Colors.grey[100],
                   ),
                 ),
               ],
@@ -1347,10 +1449,21 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                 const SizedBox(height: 2),
                 TextFormField(
                   controller: campos['densidadeAmostra'],
-                  keyboardType: TextInputType.number,
-                  enabled: false, // AGORA BLOQUEADO
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  focusNode: isTransfEditavel ? _focusDensidadeAmostra : null,
+                  enabled: isTransfEditavel,
+                  inputFormatters: isTransfEditavel ? [_DensidadeInputFormatter()] : null,
+                  onChanged: isTransfEditavel
+                      ? (v) {
+                          setState(() {
+                            campos['densidade20']!.text = '';
+                            campos['fatorCorrecao']!.text = '';
+                          });
+                          _limparVolumes20CTanques();
+                        }
+                      : null,
                   decoration: _decoration('').copyWith(
-                    fillColor: Colors.grey[100],
+                    fillColor: isTransfEditavel ? Colors.white : Colors.grey[100],
                   ),
                 ),
               ],
@@ -1368,10 +1481,21 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                 const SizedBox(height: 2),
                 TextFormField(
                   controller: campos['tempCT'],
-                  keyboardType: TextInputType.number,
-                  enabled: false, // AGORA BLOQUEADO
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  focusNode: isTransfEditavel ? _focusTempCT : null,
+                  enabled: isTransfEditavel,
+                  inputFormatters: isTransfEditavel ? [_TemperaturaInputFormatter()] : null,
+                  onChanged: isTransfEditavel
+                      ? (v) {
+                          setState(() {
+                            campos['densidade20']!.text = '';
+                            campos['fatorCorrecao']!.text = '';
+                          });
+                          _limparVolumes20CTanques();
+                        }
+                      : null,
                   decoration: _decoration('').copyWith(
-                    fillColor: Colors.grey[100],
+                    fillColor: isTransfEditavel ? Colors.white : Colors.grey[100],
                   ),
                 ),
               ],
@@ -2402,6 +2526,24 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         );
       }
 
+      // Para transferências, registrar os dados de temp/densidade no histórico
+      if (widget.tipoOp?.toLowerCase() == 'transf') {
+        try {
+          await supabase.from('temp_e_dens').insert({
+            'temp_amostra': _converterParaDecimal(campos['tempAmostra']!.text),
+            'densid_obs': _converterParaDecimal(campos['densidadeAmostra']!.text),
+            'temp_ct': _converterParaDecimal(campos['tempCT']!.text),
+            'placa': campos['placaCavalo']!.text.isEmpty ? null : campos['placaCavalo']!.text,
+            'terminal_id': terminalIdEfetivo,
+            'produto_id': produtoId,
+            'data_hora_medicao': agoraSaoPaulo.toIso8601String(),
+          });
+        } catch (e) {
+          // Não bloqueia a emissão do certificado se o registro falhar
+          print('Aviso: erro ao registrar temp_e_dens: $e');
+        }
+      }
+
       setState(() {
         _modoVisualizacao = true;
         _salvandoCertificado = false;
@@ -2508,6 +2650,9 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
   
   @override
   void dispose() {
+    _focusTempAmostra.dispose();
+    _focusDensidadeAmostra.dispose();
+    _focusTempCT.dispose();
     for (var tanque in _tanques) {
       tanque.dispose();
     }

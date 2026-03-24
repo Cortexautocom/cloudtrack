@@ -955,19 +955,15 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
     final mostraFiltroTerminal = usuario?.nivel == 3;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: const Color(0xFF0D47A1),
-          width: 1.2,
-        ),
+        borderRadius: BorderRadius.circular(8),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0D47A1).withOpacity(0.08),
-            blurRadius: 8,
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
             offset: const Offset(0, 2),
           ),
         ],
@@ -981,21 +977,22 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                 value: _terminalFiltroId,
                 decoration: InputDecoration(
                   labelText: 'Terminal *',
+                  isDense: true,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 16,
+                    horizontal: 10,
+                    vertical: 12,
                   ),
                   suffixIcon: _terminalFiltroId == null 
-                      ? Icon(Icons.error, color: Colors.orange, size: 20)
+                      ? Icon(Icons.error, color: Colors.orange, size: 18)
                       : null,
                 ),
                 items: _terminais.map((terminal) {
                   return DropdownMenuItem(
                     value: terminal['id'].toString(),
-                    child: Text(terminal['nome'].toString()),
+                    child: Text(terminal['nome'].toString(), style: const TextStyle(fontSize: 13)),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -1011,12 +1008,12 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                 },
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
           ],
 
           // Campo único de Data (botão semelhante ao de historico_cacl)
           SizedBox(
-            width: 150,
+            width: 140,
             child: Builder(builder: (context) {
               final textoData = _dataInicioController.text.trim().isNotEmpty
                   ? _dataInicioController.text
@@ -1130,25 +1127,25 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                 },
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
-                  height: 56,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  height: 42,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
                   alignment: Alignment.centerLeft,
                   decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFF0D47A1).withOpacity(0.5)),
+                    border: Border.all(color: Colors.grey.shade300),
                     borderRadius: BorderRadius.circular(8),
-                    color: Colors.white,
+                    color: Colors.grey.shade50,
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.calendar_today, size: 20, color: Color(0xFF0D47A1)),
+                      const Icon(Icons.calendar_today, size: 16, color: Color(0xFF0D47A1)),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           textoData,
                           style: const TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFF0D47A1),
-                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                       ),
@@ -1159,14 +1156,15 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             }),
           ),
 
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
 
           SizedBox(
-            width: 150,
+            width: 140,
             child: DropdownButtonFormField<String>(
               value: _tipoFiltro,
               decoration: InputDecoration(
                 labelText: 'Tipo',
+                isDense: true,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(color: Colors.grey.shade300),
@@ -1180,13 +1178,14 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                   borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.5),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 16,
+                  horizontal: 10,
+                  vertical: 12,
                 ),
                 filled: true,
                 fillColor: Colors.grey.shade50,
               ),
               dropdownColor: Colors.white,
+              style: const TextStyle(fontSize: 13, color: Colors.black87),
               items: const [
                 DropdownMenuItem(
                   value: null,
@@ -1210,15 +1209,18 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             ),
           ),
 
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
 
           Expanded(
             flex: 3,
             child: TextField(
               controller: _filtroGeralController,
               onChanged: (_) => _aplicarFiltroTexto(),
+              style: const TextStyle(fontSize: 13),
               decoration: InputDecoration(
                 labelText: 'Buscar (placa, cliente, status...)',
+                labelStyle: const TextStyle(fontSize: 12),
+                isDense: true,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(color: Colors.grey.shade300),
@@ -1231,10 +1233,10 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 1.5),
                 ),
-                prefixIcon: const Icon(Icons.search, color: Color(0xFF0D47A1)),
+                prefixIcon: const Icon(Icons.search, color: Color(0xFF0D47A1), size: 20),
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 16,
+                  horizontal: 10,
+                  vertical: 12,
                 ),
                 filled: true,
                 fillColor: Colors.grey.shade50,
