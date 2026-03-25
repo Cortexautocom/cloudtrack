@@ -64,7 +64,9 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
   int? _hoverIndex;
   String? _nomeTerminal;
   bool _mostrarPrevisto = false;
+  bool _usarMetrosCubicos = false;
   String? _hoverSwitchOption;
+  String? _hoverUnitOption;
 
   @override
   void initState() {
@@ -360,12 +362,10 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     final percentual = tanque.percentualPreenchimento;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _construirCardInformacoesAlterar(tanque, percentual),
-          const SizedBox(height: 20),
           _construirIndicadorNivelIlustrativo(tanque, percentual),
           const SizedBox(height: 20),
           Center(
@@ -417,43 +417,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
       ),
     );
   }
-
-  Widget _construirCardInformacoesAlterar(
-      DadosTanque tanque, double percentual) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFBFC8E6).withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                tanque.nome,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF222B45),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-  
+   
   // Novo widget com tanque ilustrativo
   Widget _construirIndicadorNivelIlustrativo(DadosTanque tanque, double percentual) {
     final double capacidade = tanque.capacidadeTotal;
@@ -480,52 +444,122 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Nível do Tanque',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
-              MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _mostrarPrevisto = !_mostrarPrevisto;
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEDF1F7),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFE4E9F2)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 6), // Alinhamento com o topo do primeiro switch
+                  child: RichText(
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    text: TextSpan(
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
                       children: [
-                        MouseRegion(
-                          onEnter: (_) => setState(() => _hoverSwitchOption = "atual"),
-                          onExit: (_) => setState(() => _hoverSwitchOption = null),
-                          child: GestureDetector(
-                            onTap: () => setState(() => _mostrarPrevisto = false),
-                            child: _buildSwitchOption("Nível atual", !_mostrarPrevisto, _hoverSwitchOption == "atual"),
-                          ),
-                        ),
-                        MouseRegion(
-                          onEnter: (_) => setState(() => _hoverSwitchOption = "previsto"),
-                          onExit: (_) => setState(() => _hoverSwitchOption = null),
-                          child: GestureDetector(
-                            onTap: () => setState(() => _mostrarPrevisto = true),
-                            child: _buildSwitchOption("Previsto", _mostrarPrevisto, _hoverSwitchOption == "previsto", isPrevistoSide: true),
-                          ),
+                        const TextSpan(text: 'Nível do Tanque'),
+                        TextSpan(
+                          text: ' - ${tanque.nome}',
                         ),
                       ],
                     ),
                   ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 170, // Largura fixa para ambos os switches
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _mostrarPrevisto = !_mostrarPrevisto;
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEDF1F7),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFFE4E9F2)),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: MouseRegion(
+                                  onEnter: (_) => setState(() => _hoverSwitchOption = "atual"),
+                                  onExit: (_) => setState(() => _hoverSwitchOption = null),
+                                  child: GestureDetector(
+                                    onTap: () => setState(() => _mostrarPrevisto = false),
+                                    child: _buildSwitchOption("Nível atual", !_mostrarPrevisto, _hoverSwitchOption == "atual"),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: MouseRegion(
+                                  onEnter: (_) => setState(() => _hoverSwitchOption = "previsto"),
+                                  onExit: (_) => setState(() => _hoverSwitchOption = null),
+                                  child: GestureDetector(
+                                    onTap: () => setState(() => _mostrarPrevisto = true),
+                                    child: _buildSwitchOption("Previsto", _mostrarPrevisto, _hoverSwitchOption == "previsto", isPrevistoSide: true),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _usarMetrosCubicos = !_usarMetrosCubicos;
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEDF1F7),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFFE4E9F2)),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: MouseRegion(
+                                  onEnter: (_) => setState(() => _hoverUnitOption = "m3"),
+                                  onExit: (_) => setState(() => _hoverUnitOption = null),
+                                  child: GestureDetector(
+                                    onTap: () => setState(() => _usarMetrosCubicos = true),
+                                    child: _buildSwitchOption("metros³", _usarMetrosCubicos, _hoverUnitOption == "m3"),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: MouseRegion(
+                                  onEnter: (_) => setState(() => _hoverUnitOption = "litros"),
+                                  onExit: (_) => setState(() => _hoverUnitOption = null),
+                                  child: GestureDetector(
+                                    onTap: () => setState(() => _usarMetrosCubicos = false),
+                                    child: _buildSwitchOption("Litros", !_usarMetrosCubicos, _hoverUnitOption == "litros", isPrevistoSide: true),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -536,12 +570,24 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // Legenda de cores à esquerda
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _legendaItem(const Color(0xFFE0E3EB), "Espaço Livre"),
+                  const SizedBox(height: 12),
+                  _legendaItem(const Color(0xFF00B686), "Estoque"),
+                  const SizedBox(height: 12),
+                  _legendaItem(const Color(0xFFFF3D71), "Lastro"),
+                ],
+              ),
+              const SizedBox(width: 16),
               Expanded(
                 flex: 3,
                 child: Center(
                   child: SizedBox(
-                    width: 280,
-                    height: 320,
+                    width: 260,
+                    height: 300,
                     child: TankIllustration(
                       percentual: percentual / 100,
                       lastroPercentual: capacidade > 0 ? (lastro / capacidade).clamp(0, 1) : 0,
@@ -589,18 +635,6 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
           ),
           
           const SizedBox(height: 16),
-          
-          // Legenda
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _legendaItem(const Color(0xFFFF3D71), "Lastro"),
-              const SizedBox(width: 20),
-              _legendaItem(const Color(0xFF00B686), "Estoque Disponível"),
-              const SizedBox(width: 20),
-              _legendaItem(const Color(0xFFE0E3EB), "Espaço Livre"),
-            ],
-          ),
         ],
       ),
     );
@@ -657,16 +691,13 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
 
   Widget _buildSwitchOption(String text, bool isSelected, bool isHovered, {bool isPrevistoSide = false}) {
     Color activeBlue = const Color(0xFF3366FF);
-    Color lightBlue = const Color(0xFFE8EEFF);
     
-    Color activeColor = isPrevistoSide ? activeBlue : lightBlue;
+    Color activeColor = activeBlue;
     Color textColor = isSelected 
-        ? (isPrevistoSide ? Colors.white : activeBlue)
+        ? Colors.white
         : const Color(0xFF8F9BB3);
     
-    Color hoverColor = isPrevistoSide 
-        ? activeBlue.withOpacity(0.2)
-        : lightBlue.withOpacity(0.5);
+    Color hoverColor = activeBlue.withOpacity(0.1);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -678,21 +709,22 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
         boxShadow: isSelected
             ? [
                 BoxShadow(
-                  color: isPrevistoSide 
-                      ? activeBlue.withOpacity(0.2)
-                      : activeBlue.withOpacity(0.1),
+                  color: activeBlue.withOpacity(0.3),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
               ]
             : [],
       ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-          color: textColor,
+      child: Center(
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: textColor,
+          ),
         ),
       ),
     );
