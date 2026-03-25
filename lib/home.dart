@@ -1824,7 +1824,6 @@ class _HomePageState extends State<HomePage>
             ),
             const SizedBox(height: 15), // Aumente este espaçamento
             Padding(padding: const EdgeInsets.symmetric(horizontal: 40)),
-            // BOTÃO REMOVIDO - apenas mantenha a mensagem
           ],
         ),
       ),
@@ -1852,10 +1851,22 @@ class _HomePageState extends State<HomePage>
             );
             break;
 
+          case 'equipe_norton':
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Em breve: Conheça a Equipe Norton!'),
+                backgroundColor: Colors.blue,
+                duration: Duration(seconds: 2),
+              ),
+            );
+            break;
+
           default:
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Funcionalidade $tipoCard em desenvolvimento...'),
+              const SnackBar(
+                content: Text('Indisponível no plano contratado.'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 2),
               ),
             );
         }
@@ -2762,7 +2773,7 @@ class _HomePageState extends State<HomePage>
             titulo: 'Dutoviário',
             conteudo: const Center(
               child: Text(
-                'Módulo Dutoviário em desenvolvimento',
+                'Indisponível no plano contratado.',
                 style: TextStyle(fontSize: 18),
               ),
             ),
@@ -2777,7 +2788,7 @@ class _HomePageState extends State<HomePage>
             titulo: 'Rodoviário',
             conteudo: const Center(
               child: Text(
-                'Módulo Rodoviário em desenvolvimento',
+                'Indisponível no plano contratado.',
                 style: TextStyle(fontSize: 18),
               ),
             ),
@@ -3260,12 +3271,20 @@ class _HomePageState extends State<HomePage>
     switch (tipo) {
       case 'dutoviario':
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Módulo Dutoviário em desenvolvimento')),
+          const SnackBar(
+            content: Text('Indisponível no plano contratado.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
         );
         break;
       case 'rodoviario':
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Módulo Rodoviário em desenvolvimento')),
+          const SnackBar(
+            content: Text('Indisponível no plano contratado.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
         );
         break;
     }
@@ -3480,7 +3499,11 @@ class _HomePageState extends State<HomePage>
 
       case 'controle_descargas':
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Controle de descargas em desenvolvimento')),
+          const SnackBar(
+            content: Text('Indisponível no plano contratado.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
         );
         break;
 
@@ -3654,7 +3677,8 @@ class _HomePageState extends State<HomePage>
   void _navegarParaCardGestaoContratos(String tipo) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Módulo em desenvolvimento...'),
+        content: Text('Indisponível no plano contratado.'),
+        backgroundColor: Colors.orange,
         duration: Duration(seconds: 2),
       ),
     );
@@ -3670,7 +3694,9 @@ class _HomePageState extends State<HomePage>
       case 'analise_conformidade':
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Análise de conformidade em desenvolvimento...'),
+            content: Text('Indisponível no plano contratado.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
           ),
         );
         break;
@@ -4164,6 +4190,13 @@ class HomeCards extends StatelessWidget {
         'icone': Icons.architecture,
         'cor': const Color(0xFF0D47A1),
         'tipo': 'desenvolvedor',
+      },
+      {
+        'titulo': 'Equipe Norton',
+        'descricao': 'Conheça os profissionais por trás do projeto',
+        'icone': Icons.groups,
+        'cor': Colors.deepOrange,
+        'tipo': 'equipe_norton',
       },
     ];
 
