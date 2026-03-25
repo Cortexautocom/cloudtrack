@@ -606,12 +606,6 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _construirInfoMiniLateral(
-                      'Capacidade',
-                      '${formatNumber(capacidade)} L',
-                      const Color.fromARGB(255, 69, 69, 69),
-                    ),
-                    const SizedBox(height: 16),
-                    _construirInfoMiniLateral(
                       'Estoque Atual',
                       '${formatNumber(estoque)} L',
                       const Color(0xFF6A1B9A),
@@ -627,6 +621,12 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                       'Espaço Livre',
                       '${formatNumber(espacoLivre)} L',
                       const Color(0xFF424242),
+                    ),
+                    const SizedBox(height: 16),
+                    _construirInfoMiniLateral(
+                      'Capacidade',
+                      '${formatNumber(capacidade)} L',
+                      const Color.fromARGB(255, 69, 69, 69),
                     ),
                   ],
                 ),
