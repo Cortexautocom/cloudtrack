@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -62,6 +63,8 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
   int tanqueSelecionadoIndex = 0;
   int? _hoverIndex;
   String? _nomeTerminal;
+  bool _mostrarPrevisto = false;
+  String? _hoverSwitchOption;
 
   @override
   void initState() {
@@ -363,8 +366,8 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
         children: [
           _construirCardInformacoesAlterar(tanque, percentual),
           const SizedBox(height: 20),
-          _construirIndicadorNivel(tanque, percentual),
-          const SizedBox(height: 16),
+          _construirIndicadorNivelIlustrativo(tanque, percentual),
+          const SizedBox(height: 20),
           Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 300),
@@ -417,15 +420,6 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
 
   Widget _construirCardInformacoesAlterar(
       DadosTanque tanque, double percentual) {
-
-    final double capacidade = tanque.capacidadeTotal;
-    final double estoqueAtual = tanque.estoqueAtual.clamp(0, capacidade);
-    final double lastro = tanque.lastro.clamp(0, capacidade);
-    final double estoqueDisponivel =
-        (estoqueAtual - lastro).clamp(0, capacidade);
-    final double espacoLivre =
-        (capacidade - estoqueAtual).clamp(0, capacidade);
-
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -453,71 +447,6 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                   color: Color(0xFF222B45),
                 ),
               ),
-              const SizedBox(height: 12),
-
-              Wrap(
-                spacing: 20,
-                runSpacing: 8,
-                children: [
-                      _construirInfoMini(
-                        'Capacidade',
-                        '${formatNumber(capacidade)} L',
-                        const Color.fromARGB(255, 69, 69, 69),
-                      ),
-                      _construirInfoMini(
-                        'Estoque Atual',
-                        '${formatNumber(estoqueAtual)} L',
-                        const Color(0xFF6A1B9A),
-                      ),
-                      _construirInfoMini(
-                        'Estoque Disponível',
-                        '${formatNumber(estoqueDisponivel)} L',
-                        const Color(0xFF00B686),
-                      ),
-                      _construirInfoMini(
-                        'Espaço Livre',
-                        '${formatNumber(espacoLivre)} L',
-                        const Color(0xFF424242),
-                      ),
-                ],
-              ),
-            ],
-          ),
-
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Percentual ocupado',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF8F9BB3),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _getCor(percentual).withOpacity(0.1),
-                  border: Border.all(
-                    color: _getCor(percentual),
-                    width: 3,
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    '${formatPercent(percentual)}%',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: _getCor(percentual),
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
         ],
@@ -525,21 +454,14 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     );
   }
   
-  Widget _construirIndicadorNivel(DadosTanque tanque, double percentual) {
+  // Novo widget com tanque ilustrativo
+  Widget _construirIndicadorNivelIlustrativo(DadosTanque tanque, double percentual) {
     final double capacidade = tanque.capacidadeTotal;
     final double estoque = tanque.estoqueAtual.clamp(0, capacidade);
     final double lastro = tanque.lastro.clamp(0, capacidade);
-    final double produtoDisponivel =
-        (estoque - lastro).clamp(0, capacidade);
-    final double espacoLivre =
-        (capacidade - estoque).clamp(0, capacidade);
-    final double propLastro =
-        capacidade > 0 ? (lastro / capacidade).clamp(0, 1) : 0;
-    final double propProduto =
-        capacidade > 0 ? (produtoDisponivel / capacidade).clamp(0, 1) : 0;
-    final double propEspaco =
-        capacidade > 0 ? (espacoLivre / capacidade).clamp(0, 1) : 0;
-
+    final double produtoDisponivel = (estoque - lastro).clamp(0, capacidade);
+    final double espacoLivre = (capacidade - estoque).clamp(0, capacidade);
+    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -556,97 +478,126 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Nível Real do Tanque',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey,
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: SizedBox(
-              height: 34,
-              child: Builder(builder: (context) {
-                const int scale = 1000;
-                final int flexLastro = (propLastro * scale).toInt();
-                final int flexProduto = (propProduto * scale).toInt();
-                final int flexEspaco = (propEspaco * scale).toInt();
-                const int minFlexToShow = 20;
-
-                return Row(
-                  children: [
-                    if (propLastro > 0)
-                      Expanded(
-                        flex: flexLastro,
-                        child: Container(
-                          color: const Color(0xFFFF3D71),
-                          alignment: Alignment.center,
-                          child: flexLastro >= minFlexToShow
-                              ? Text(
-                                  formatNumber(lastro),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      ),
-                    if (propProduto > 0)
-                      Expanded(
-                        flex: flexProduto,
-                        child: Container(
-                          color: const Color(0xFF00B686),
-                          alignment: Alignment.center,
-                          child: flexProduto >= minFlexToShow
-                              ? Text(
-                                  formatNumber(produtoDisponivel),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      ),
-                    if (propEspaco > 0)
-                      Expanded(
-                        flex: flexEspaco,
-                        child: Container(
-                          color: const Color(0xFFE0E3EB),
-                          alignment: Alignment.center,
-                          child: flexEspaco >= minFlexToShow
-                              ? Text(
-                                  formatNumber(espacoLivre),
-                                  style: const TextStyle(
-                                    color: Color(0xFF222B45),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      ),
-                  ],
-                );
-              }),
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Nível do Tanque',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _mostrarPrevisto = !_mostrarPrevisto;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEDF1F7),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE4E9F2)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        MouseRegion(
+                          onEnter: (_) => setState(() => _hoverSwitchOption = "atual"),
+                          onExit: (_) => setState(() => _hoverSwitchOption = null),
+                          child: GestureDetector(
+                            onTap: () => setState(() => _mostrarPrevisto = false),
+                            child: _buildSwitchOption("Nível atual", !_mostrarPrevisto, _hoverSwitchOption == "atual"),
+                          ),
+                        ),
+                        MouseRegion(
+                          onEnter: (_) => setState(() => _hoverSwitchOption = "previsto"),
+                          onExit: (_) => setState(() => _hoverSwitchOption = null),
+                          child: GestureDetector(
+                            onTap: () => setState(() => _mostrarPrevisto = true),
+                            child: _buildSwitchOption("Previsto", _mostrarPrevisto, _hoverSwitchOption == "previsto", isPrevistoSide: true),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          // Tanque ilustrativo com informações ao lado
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                flex: 3,
+                child: Center(
+                  child: SizedBox(
+                    width: 280,
+                    height: 320,
+                    child: TankIllustration(
+                      percentual: percentual / 100,
+                      lastroPercentual: capacidade > 0 ? (lastro / capacidade).clamp(0, 1) : 0,
+                      estoqueAtual: estoque,
+                      capacidade: capacidade,
+                      produtoDisponivel: produtoDisponivel,
+                      espacoLivre: espacoLivre,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 24),
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _construirInfoMiniLateral(
+                      'Capacidade',
+                      '${formatNumber(capacidade)} L',
+                      const Color.fromARGB(255, 69, 69, 69),
+                    ),
+                    const SizedBox(height: 16),
+                    _construirInfoMiniLateral(
+                      'Estoque Atual',
+                      '${formatNumber(estoque)} L',
+                      const Color(0xFF6A1B9A),
+                    ),
+                    const SizedBox(height: 16),
+                    _construirInfoMiniLateral(
+                      'Estoque Disponível',
+                      '${formatNumber(produtoDisponivel)} L',
+                      const Color(0xFF00B686),
+                    ),
+                    const SizedBox(height: 16),
+                    _construirInfoMiniLateral(
+                      'Espaço Livre',
+                      '${formatNumber(espacoLivre)} L',
+                      const Color(0xFF424242),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Legenda
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _legendaItem(const Color(0xFFFF3D71), "Lastro"),
-              const SizedBox(width: 14),
+              const SizedBox(width: 20),
               _legendaItem(const Color(0xFF00B686), "Estoque Disponível"),
-              const SizedBox(width: 14),
+              const SizedBox(width: 20),
               _legendaItem(const Color(0xFFE0E3EB), "Espaço Livre"),
             ],
           ),
@@ -659,34 +610,34 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     return Row(
       children: [
         Container(
-          width: 10,
-          height: 10,
+          width: 12,
+          height: 12,
           decoration: BoxDecoration(
             color: cor,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 6),
         Text(
           texto,
           style: const TextStyle(
             fontSize: 11,
             color: Color(0xFF8F9BB3),
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
     );
-  }
+  }  
 
-  Widget _construirInfoMini(String label, String valor, Color cor) {
+  Widget _construirInfoMiniLateral(String label, String valor, Color cor) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          textAlign: TextAlign.center,
           style: const TextStyle(
-            fontSize: 11,
+            fontSize: 12,
             color: Color(0xFF8F9BB3),
             fontWeight: FontWeight.w500,
           ),
@@ -694,9 +645,8 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
         const SizedBox(height: 4),
         Text(
           valor,
-          textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
             color: cor,
           ),
@@ -705,11 +655,48 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     );
   }
 
-  Color _getCor(double percentual) {
-    if (percentual >= 80) return const Color(0xFF00B686);
-    if (percentual >= 50) return const Color(0xFFFFA000);
-    return const Color(0xFFFF3D71);
-  }
+  Widget _buildSwitchOption(String text, bool isSelected, bool isHovered, {bool isPrevistoSide = false}) {
+    Color activeBlue = const Color(0xFF3366FF);
+    Color lightBlue = const Color(0xFFE8EEFF);
+    
+    Color activeColor = isPrevistoSide ? activeBlue : lightBlue;
+    Color textColor = isSelected 
+        ? (isPrevistoSide ? Colors.white : activeBlue)
+        : const Color(0xFF8F9BB3);
+    
+    Color hoverColor = isPrevistoSide 
+        ? activeBlue.withOpacity(0.2)
+        : lightBlue.withOpacity(0.5);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: isSelected 
+            ? activeColor 
+            : (isHovered ? hoverColor : Colors.transparent),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: isSelected
+            ? [
+                BoxShadow(
+                  color: isPrevistoSide 
+                      ? activeBlue.withOpacity(0.2)
+                      : activeBlue.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : [],
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          color: textColor,
+        ),
+      ),
+    );
+  }  
 }
 
 final NumberFormat _fmtInteiro = NumberFormat('#,##0', 'pt_BR');
@@ -717,6 +704,359 @@ final NumberFormat _fmtUmaCasa = NumberFormat('#,##0.0', 'pt_BR');
 
 String formatNumber(num value) => _fmtInteiro.format(value);
 String formatPercent(double value) => _fmtUmaCasa.format(value);
+
+// Widget do Tanque Ilustrativo
+class TankIllustration extends StatefulWidget {
+  final double percentual;
+  final double lastroPercentual;
+  final double estoqueAtual;
+  final double capacidade;
+  final double produtoDisponivel;
+  final double espacoLivre;
+
+  const TankIllustration({
+    Key? key,
+    required this.percentual,
+    required this.lastroPercentual,
+    required this.estoqueAtual,
+    required this.capacidade,
+    required this.produtoDisponivel,
+    required this.espacoLivre,
+  }) : super(key: key);
+
+  @override
+  State<TankIllustration> createState() => _TankIllustrationState();
+}
+
+class _TankIllustrationState extends State<TankIllustration> with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _liquidAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _liquidAnimation = Tween<double>(begin: 0, end: widget.percentual).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+    );
+    _animationController.forward();
+  }
+
+  @override
+  void didUpdateWidget(TankIllustration oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.percentual != widget.percentual) {
+      _liquidAnimation = Tween<double>(
+        begin: _liquidAnimation.value,
+        end: widget.percentual,
+      ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic));
+      _animationController.reset();
+      _animationController.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _liquidAnimation,
+      builder: (context, child) {
+        return CustomPaint(
+          painter: TankPainter(
+            percentual: _liquidAnimation.value,
+            lastroPercentual: widget.lastroPercentual,
+            estoqueAtual: widget.estoqueAtual,
+            capacidade: widget.capacidade,
+            produtoDisponivel: widget.produtoDisponivel,
+            espacoLivre: widget.espacoLivre,
+          ),
+          size: const Size(280, 320),
+        );
+      },
+    );
+  }
+}
+
+class TankPainter extends CustomPainter {
+  final double percentual;
+  final double lastroPercentual;
+  final double estoqueAtual;
+  final double capacidade;
+  final double produtoDisponivel;
+  final double espacoLivre;
+
+  TankPainter({
+    required this.percentual,
+    required this.lastroPercentual,
+    required this.estoqueAtual,
+    required this.capacidade,
+    required this.produtoDisponivel,
+    required this.espacoLivre,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final tankWidth = size.width * 0.65;
+    final tankHeight = size.height * 0.75;
+    final tankX = (size.width - tankWidth) / 2;
+    final tankY = size.height * 0.1;
+    
+    // Desenha a base do tanque (suporte)
+    final basePaint = Paint()
+      ..color = Colors.grey.shade400
+      ..style = PaintingStyle.fill;
+    
+    final basePath = Path()
+      ..moveTo(tankX - 10, tankY + tankHeight)
+      ..lineTo(tankX + tankWidth + 10, tankY + tankHeight)
+      ..lineTo(tankX + tankWidth + 5, tankY + tankHeight + 15)
+      ..lineTo(tankX - 5, tankY + tankHeight + 15)
+      ..close();
+    canvas.drawPath(basePath, basePaint);
+    
+    // Desenha o corpo do tanque (retângulo com bordas arredondadas)
+    final tankRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(tankX, tankY, tankWidth, tankHeight),
+      const Radius.circular(16),
+    );
+    
+    final tankBorderPaint = Paint()
+      ..color = Colors.grey.shade600
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+    
+    final tankFillPaint = Paint()
+      ..color = Colors.grey.shade100
+      ..style = PaintingStyle.fill;
+    
+    canvas.drawRRect(tankRect, tankFillPaint);
+    canvas.drawRRect(tankRect, tankBorderPaint);
+    
+    // Desenha o topo do tanque (tampa)
+    final topPaint = Paint()
+      ..color = Colors.grey.shade500
+      ..style = PaintingStyle.fill;
+    
+    final topRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(tankX - 5, tankY - 8, tankWidth + 10, 12),
+      const Radius.circular(6),
+    );
+    canvas.drawRRect(topRect, topPaint);
+    
+    // Desenha a válvula no topo
+    final valvePaint = Paint()
+      ..color = Colors.grey.shade600
+      ..style = PaintingStyle.fill;
+    
+    canvas.drawCircle(
+      Offset(tankX + tankWidth / 2, tankY - 5),
+      6,
+      valvePaint,
+    );
+    
+    // Desenha o nível do líquido (estoque disponível)
+    final liquidHeight = tankHeight * percentual;
+    if (liquidHeight > 0) {
+      final liquidRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          tankX,
+          tankY + tankHeight - liquidHeight,
+          tankWidth,
+          liquidHeight,
+        ),
+        const Radius.circular(12),
+      );
+      
+      final liquidPaint = Paint()
+        ..color = _getLiquidColor(percentual)
+        ..style = PaintingStyle.fill;
+      
+      canvas.drawRRect(liquidRect, liquidPaint);
+      
+      // Adiciona efeito de brilho no líquido
+      final shinePaint = Paint()
+        ..color = Colors.white.withOpacity(0.2)
+        ..style = PaintingStyle.fill;
+      
+      final shineRect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          tankX + 5,
+          tankY + tankHeight - liquidHeight,
+          tankWidth - 10,
+          liquidHeight * 0.3,
+        ),
+        const Radius.circular(8),
+      );
+      canvas.drawRRect(shineRect, shinePaint);
+    }
+    
+    // Desenha a linha do lastro
+    if (lastroPercentual > 0 && lastroPercentual < 1) {
+      final lastroY = tankY + tankHeight - (tankHeight * lastroPercentual);
+      final lastroPaint = Paint()
+        ..color = const Color(0xFFFF3D71)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round;
+      
+      canvas.drawLine(
+        Offset(tankX + 5, lastroY),
+        Offset(tankX + tankWidth - 5, lastroY),
+        lastroPaint,
+      );
+      
+      // Adiciona pequenos marcadores na linha do lastro
+      final markerPaint = Paint()
+        ..color = const Color(0xFFFF3D71)
+        ..style = PaintingStyle.fill;
+      
+      for (double i = -3; i <= 3; i++) {
+        canvas.drawCircle(
+          Offset(tankX + tankWidth / 2 + (i * 8), lastroY),
+          2,
+          markerPaint,
+        );
+      }
+    }
+    
+    // Adiciona indicadores de nível nas laterais
+    _drawLevelIndicators(canvas, tankX, tankY, tankWidth, tankHeight);
+    
+    // Adiciona textura metálica no tanque
+    _drawMetalTexture(canvas, tankX, tankY, tankWidth, tankHeight);
+    
+    // Desenha o percentual acompanhando o nível do líquido
+    _drawFloatingPercent(canvas, tankX, tankY, tankWidth, tankHeight, percentual);
+  }
+  
+  Color _getLiquidColor(double percentual) {
+    if (percentual >= 0.3) return const Color(0xFF00B686);
+    if (percentual >= 0.15) return const Color(0xFFFFA000);
+    return const Color(0xFFFF3D71);
+  }
+  
+  void _drawLevelIndicators(Canvas canvas, double tankX, double tankY, double tankWidth, double tankHeight) {
+    final markerPaint = Paint()
+      ..color = Colors.grey.shade400
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    
+    final textStyle = TextStyle(
+      fontSize: 9,
+      color: Colors.grey.shade600,
+      fontWeight: FontWeight.w500,
+    );
+    
+    for (int i = 0; i <= 4; i++) {
+      final level = i / 4;
+      final markerY = tankY + tankHeight - (tankHeight * level);
+      final percentValue = (level * 100).round();
+      
+      // Marcadores na lateral esquerda
+      canvas.drawLine(
+        Offset(tankX - 8, markerY),
+        Offset(tankX - 2, markerY),
+        markerPaint,
+      );
+      
+      // Marcadores na lateral direita
+      canvas.drawLine(
+        Offset(tankX + tankWidth + 2, markerY),
+        Offset(tankX + tankWidth + 8, markerY),
+        markerPaint,
+      );
+      
+      // Texto dos percentuais
+      final textSpan = TextSpan(
+        text: '$percentValue%',
+        style: textStyle,
+      );
+      final textPainter = TextPainter(
+        text: textSpan,
+        textDirection: ui.TextDirection.ltr,
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(tankX - 35, markerY - 6),
+      );
+    }
+  }
+  
+  void _drawMetalTexture(Canvas canvas, double tankX, double tankY, double tankWidth, double tankHeight) {
+    final texturePaint = Paint()
+      ..color = Colors.white.withOpacity(0.1)
+      ..style = PaintingStyle.fill;
+    
+    for (double i = tankX; i < tankX + tankWidth; i += 20) {
+      final path = Path()
+        ..moveTo(i, tankY)
+        ..lineTo(i + 5, tankY + 5)
+        ..lineTo(i + 5, tankY + tankHeight - 5)
+        ..lineTo(i, tankY + tankHeight)
+        ..close();
+      canvas.drawPath(path, texturePaint);
+    }
+  }
+  
+  void _drawFloatingPercent(Canvas canvas, double tankX, double tankY, double tankWidth, double tankHeight, double percentual) {
+    // Calcula a posição Y baseada no nível do líquido
+    final liquidY = tankY + tankHeight - (tankHeight * percentual);
+    
+    // Texto do percentual
+    final percentText = '${(percentual * 100).toInt()}%';
+    final textStyle = TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.bold,
+      color: _getLiquidColor(percentual),
+    );
+    
+    final textSpan = TextSpan(
+      text: percentText,
+      style: textStyle,
+    );
+    
+    final textPainter = TextPainter(
+      text: textSpan,
+      textDirection: ui.TextDirection.ltr,
+    );
+    
+    textPainter.layout();
+    
+    // Posiciona à direita do tanque, alinhado com o topo do líquido
+    // Adicionamos um pequeno deslocamento para não encostar na borda
+    textPainter.paint(
+      canvas,
+      Offset(tankX + tankWidth + 12, liquidY - (textPainter.height / 2)),
+    );
+
+    // Opcional: Desenha uma pequena linha indicadora conectando o nível ao texto
+    final linePaint = Paint()
+      ..color = _getLiquidColor(percentual).withOpacity(0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+      
+    canvas.drawLine(
+      Offset(tankX + tankWidth, liquidY),
+      Offset(tankX + tankWidth + 10, liquidY),
+      linePaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant TankPainter oldDelegate) {
+    return oldDelegate.percentual != percentual ||
+           oldDelegate.lastroPercentual != lastroPercentual;
+  }
+}
 
 class _SelecaoTipoVisualizacaoEstoqueBottomSheet extends StatefulWidget {
   final String tanqueId;
@@ -777,7 +1117,6 @@ class _SelecaoTipoVisualizacaoEstoqueBottomSheetState extends State<_SelecaoTipo
             padding: const EdgeInsets.all(20),
             child: StatefulBuilder(
               builder: (context, setStateDialog) {
-                int? hoveredDay;
                 return Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -817,33 +1156,13 @@ class _SelecaoTipoVisualizacaoEstoqueBottomSheetState extends State<_SelecaoTipo
                       children: _getDaysInMonth(tempDate).map((day) {
                         final isSelected = day != null && day == tempDate.day;
                         final isToday = day != null && day == DateTime.now().day && tempDate.month == DateTime.now().month && tempDate.year == DateTime.now().year;
-                        return StatefulBuilder(
-                          builder: (context, setDayState) {
-                            return MouseRegion(
-                              cursor: day != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
-                              onEnter: (_) { if (day != null) { setDayState(() => hoveredDay = day); } },
-                              onExit: (_) { if (day != null) { setDayState(() => hoveredDay = null); } },
-                              child: GestureDetector(
-                                onTap: day != null ? () { setStateDialog(() { tempDate = DateTime(tempDate.year, tempDate.month, day); }); } : null,
-                                child: Container(
-                                  margin: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    color: isSelected ? const Color(0xFF0D47A1)
-                                        : (day != null && hoveredDay == day) ? const Color(0xFF0D47A1).withOpacity(0.1)
-                                        : isToday ? const Color(0x220D47A1) : Colors.transparent,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Center(child: Text(
-                                    day != null ? day.toString() : '',
-                                    style: TextStyle(
-                                      color: isSelected ? Colors.white : isToday || (day != null && hoveredDay == day) ? const Color(0xFF0D47A1) : Colors.black87,
-                                      fontWeight: isSelected || isToday || (day != null && hoveredDay == day) ? FontWeight.bold : FontWeight.normal,
-                                    ),
-                                  )),
-                                ),
-                              ),
-                            );
-                          },
+                        return GestureDetector(
+                          onTap: day != null ? () { setStateDialog(() { tempDate = DateTime(tempDate.year, tempDate.month, day); }); } : null,
+                          child: Container(
+                            margin: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(color: isSelected ? const Color(0xFF0D47A1) : isToday ? const Color(0x220D47A1) : Colors.transparent, shape: BoxShape.circle),
+                            child: Center(child: Text(day != null ? day.toString() : '', style: TextStyle(color: isSelected ? Colors.white : isToday ? const Color(0xFF0D47A1) : Colors.black87, fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.normal))),
+                          ),
                         );
                       }).toList(),
                     ),
@@ -1035,8 +1354,8 @@ class _SelecaoTipoVisualizacaoEstoqueBottomSheetState extends State<_SelecaoTipo
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () {
-                                Navigator.pop(context); // Fecha o Diálogo de Mês/Ano
-                                Navigator.pop(context); // Fecha o BottomSheet Original
+                                Navigator.pop(context);
+                                Navigator.pop(context);
 
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
