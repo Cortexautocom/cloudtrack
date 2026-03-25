@@ -64,7 +64,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
   int? _hoverIndex;
   String? _nomeTerminal;
   bool _mostrarPrevisto = false;
-  bool _usarMetrosCubicos = false;
+  bool _usarMetrosCubicos = true;
   String? _hoverSwitchOption;
   String? _hoverUnitOption;
 
@@ -437,6 +437,14 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
     );
   }
    
+  String _formatarValor(double valor) {
+    if (_usarMetrosCubicos) {
+      final metros = valor / 1000.0;
+      return '${_fmtUmaCasa.format(metros)} m³';
+    }
+    return '${formatNumber(valor)} L';
+  }
+
   // Novo widget com tanque ilustrativo
   Widget _construirIndicadorNivelIlustrativo(DadosTanque tanque, double percentual) {
     final double capacidade = tanque.capacidadeTotal;
@@ -626,25 +634,25 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                   children: [
                     _construirInfoMiniLateral(
                       'Estoque Atual',
-                      '${formatNumber(estoque)} L',
+                      _formatarValor(estoque),
                       const Color(0xFF6A1B9A),
                     ),
                     const SizedBox(height: 16),
                     _construirInfoMiniLateral(
                       'Estoque Disponível',
-                      '${formatNumber(produtoDisponivel)} L',
+                      _formatarValor(produtoDisponivel),
                       const Color(0xFF00B686),
                     ),
                     const SizedBox(height: 16),
                     _construirInfoMiniLateral(
                       'Espaço Livre',
-                      '${formatNumber(espacoLivre)} L',
+                      _formatarValor(espacoLivre),
                       const Color(0xFF424242),
                     ),
                     const SizedBox(height: 16),
                     _construirInfoMiniLateral(
                       'Capacidade',
-                      '${formatNumber(capacidade)} L',
+                      _formatarValor(capacidade),
                       const Color.fromARGB(255, 69, 69, 69),
                     ),
                   ],
