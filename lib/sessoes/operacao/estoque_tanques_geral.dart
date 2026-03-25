@@ -137,12 +137,31 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
           estoqueInicial = 0.0;
         }
 
+        double estoqueAtual = estoqueInicial;
+
+        try {
+          final movs = await supabase
+              .from('movimentacoes_tanque')
+              .select('entrada_vinte, saida_vinte')
+              .eq('tanque_id', id)
+              .gte('data_mov', '$dataStr 00:00:00')
+              .lte('data_mov', '$dataStr 23:59:59');
+
+          for (final m in List<Map<String, dynamic>>.from(movs)) {
+            final entrada = (m['entrada_vinte'] ?? 0) as num;
+            final saida = (m['saida_vinte'] ?? 0) as num;
+            estoqueAtual += (entrada - saida).toDouble();
+          }
+        } catch (e) {
+          // mantém estoqueAtual = estoqueInicial em caso de erro
+        }
+
         final detalhes = [
           DetalheTanque(
             produto: "Saldo Atual",
-            litros: estoqueInicial,
+            litros: estoqueAtual,
             data: DateFormat('dd/MM/yyyy HH:mm').format(now),
-            tipo: estoqueInicial >= 0 ? 'entrada' : 'saida',
+            tipo: estoqueAtual >= 0 ? 'entrada' : 'saida',
           ),
         ];
 
