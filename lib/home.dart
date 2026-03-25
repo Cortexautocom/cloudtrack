@@ -84,7 +84,6 @@ class _HomePageState extends State<HomePage>
   bool _mostrarSuporte = false;
   bool _mostrarFrascosAmostra = false;
   bool _mostrarResultadoFrascos = false;
-  bool _mostrarPerdasSobras = false;
 
   // Parâmetros de filtro para a página de resultado de frascos
   DateTime _frascosDataInicial = DateTime(DateTime.now().year, DateTime.now().month, 1);
@@ -369,7 +368,6 @@ class _HomePageState extends State<HomePage>
       _mostrarEstoqueProduto = false;
       _mostrarFiltrosEstoque = false;
       _mostrarFiltroMovimentacoes = false;
-      _mostrarPerdasSobras = false;
       _mostrarAcompanhamentoOrdens = false;
       _mostrarDownloads = false;
       _mostrarEstoquePorEmpresa = false;
@@ -715,6 +713,41 @@ class _HomePageState extends State<HomePage>
         'sessao_pai': 'Laboratório',
       },
     ];
+
+    _filhosPorSessao['Gestão de contratos'] = [
+      {
+        'id': 'fallback-contratos-etanol',
+        'icon': Icons.water_drop,
+        'label': 'Contratos de Etanol (RANP 946/2023)',
+        'descricao': 'Gestão de contratos de etanol conforme RANP 946/2023',
+        'tipo': 'contratos_etanol',
+        'sessao_pai': 'Gestão de contratos',
+      },
+      {
+        'id': 'fallback-carregamento-rodoviario',
+        'icon': Icons.local_shipping,
+        'label': 'Carregamento rodoviário (ANP nº 42/2011)',
+        'descricao': 'Gestão de contratos de carregamento rodoviário conforme ANP nº 42/2011',
+        'tipo': 'carregamento_rodoviario',
+        'sessao_pai': 'Gestão de contratos',
+      },
+      {
+        'id': 'fallback-contratos-particulares',
+        'icon': Icons.people,
+        'label': 'Contratos com particulares',
+        'descricao': 'Gestão de contratos firmados com particulares',
+        'tipo': 'contratos_particulares',
+        'sessao_pai': 'Gestão de contratos',
+      },
+      {
+        'id': 'fallback-contratos-refinarias',
+        'icon': Icons.factory,
+        'label': 'Contratos com Refinarias',
+        'descricao': 'Gestão de contratos firmados com refinarias',
+        'tipo': 'contratos_refinarias',
+        'sessao_pai': 'Gestão de contratos',
+      },
+    ];
   }
 
   IconData _definirIconePorTipo(String tipo) {
@@ -751,6 +784,10 @@ class _HomePageState extends State<HomePage>
       'perdas_sobras': Icons.insights,
       'dutoviario': Icons.blur_linear,
       'rodoviario': Icons.local_shipping,
+      'contratos_etanol': Icons.water_drop,
+      'carregamento_rodoviario': Icons.local_shipping,
+      'contratos_particulares': Icons.people,
+      'contratos_refinarias': Icons.factory,
     };
     return mapaIcones[tipo] ?? Icons.apps;
   }
@@ -785,6 +822,10 @@ class _HomePageState extends State<HomePage>
       'estoque_fiscal': 'Acompanhar estoque fiscal e tributário',
       'estoque_produto': 'Acompanhar estoque por produto',
       'analise_conformidade': 'Análise de conformidade e qualidade',
+      'contratos_etanol': 'Gestão de contratos de etanol conforme RANP 946/2023',
+      'carregamento_rodoviario': 'Gestão de contratos de carregamento rodoviário conforme ANP nº 42/2011',
+      'contratos_particulares': 'Gestão de contratos firmados com particulares',
+      'contratos_refinarias': 'Gestão de contratos firmados com refinarias',
     };
     return mapaDescricoes[tipo] ?? '';
   }
@@ -1246,7 +1287,6 @@ class _HomePageState extends State<HomePage>
       _mostrarCalcGerado = false;
       _mostrarTempDensMedia = false;
       _mostrarEstoqueProduto = false;
-      _mostrarPerdasSobras = false;
       _mostrarMenuAjuda = false;
       _mostrarCardsFilial = false;
       _resetarTodasFlagsGestaoFrota();
@@ -1688,7 +1728,6 @@ class _HomePageState extends State<HomePage>
 
       case 'Financeiro':
       case 'Jurídico':
-      case 'Gestão de contratos':
       case 'Gestão de Projetos':
       case 'Recursos Humanos':
       case 'Segurança & Compliance':
@@ -1755,6 +1794,7 @@ class _HomePageState extends State<HomePage>
       case 'Vendas':
       case 'Gestão de Frota':
       case 'Laboratório':
+      case 'Gestão de contratos':
         return _buildConteudoSessoes();
 
       default:
@@ -2344,38 +2384,13 @@ class _HomePageState extends State<HomePage>
           },
         );
       }
+
+      if (_sessaoAtual == 'Perdas e Sobras') {
+        return _buildFilhosSessaoPage();
+      }
       
       if (_mostrarFilhosSessao && _sessaoAtual == 'Operação') {
         return _buildFilhosSessaoPage();
-      }
-
-      if (_mostrarPerdasSobras && _sessaoAtual == 'Perdas e Sobras') {
-        return _buildPaginaPadronizada(
-          titulo: 'Gestão de perdas e sobras',
-          conteudo: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 20),
-              child: Wrap(
-                spacing: 15,
-                runSpacing: 15,
-                alignment: WrapAlignment.start,
-                children: _filhosSessaoAtual.map((card) {
-                  return SizedBox(
-                    width: 140,
-                    height: 170,
-                    child: _buildCardFilho(card),
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
-          onVoltar: () {
-            setState(() {
-              _mostrarPerdasSobras = false;
-              _mostrarFilhosDaSessao('Operação');
-            });
-          },
-        );
       }
     }
 
@@ -2514,6 +2529,11 @@ class _HomePageState extends State<HomePage>
       return _buildConfiguracoesPage(usuario);
     }
 
+    // SEÇÃO: Gestão de contratos
+    if (sessaoAtual == 'Gestão de contratos') {
+      return _buildFilhosSessaoPage();
+    }
+
     // SEÇÃO: Laboratório
     if (sessaoAtual == 'Laboratório') {
       if (_mostrarTempDensMedia) {
@@ -2532,7 +2552,6 @@ class _HomePageState extends State<HomePage>
     // Páginas indisponíveis
     if (sessaoAtual == 'Financeiro' ||
         sessaoAtual == 'Jurídico' ||
-        sessaoAtual == 'Gestão de contratos' ||
         sessaoAtual == 'Gestão de Projetos' ||
         sessaoAtual == 'Recursos Humanos' ||
         sessaoAtual == 'Segurança & Compliance' ||
@@ -2738,6 +2757,36 @@ class _HomePageState extends State<HomePage>
     // Se houver um card filho selecionado, exibe seu conteúdo
     if (_filhoSelecionadoTipo != null) {
       switch (_filhoSelecionadoTipo) {
+        case 'dutoviario':
+          return _buildPaginaPadronizada(
+            titulo: 'Dutoviário',
+            conteudo: const Center(
+              child: Text(
+                'Módulo Dutoviário em desenvolvimento',
+                style: TextStyle(fontSize: 18),
+              ),
+            ),
+            onVoltar: () {
+              setState(() {
+                _filhoSelecionadoTipo = null;
+              });
+            },
+          );
+        case 'rodoviario':
+          return _buildPaginaPadronizada(
+            titulo: 'Rodoviário',
+            conteudo: const Center(
+              child: Text(
+                'Módulo Rodoviário em desenvolvimento',
+                style: TextStyle(fontSize: 18),
+              ),
+            ),
+            onVoltar: () {
+              setState(() {
+                _filhoSelecionadoTipo = null;
+              });
+            },
+          );
         case 'criar_ordem':
           return _buildPaginaPadronizada(
             titulo: 'Criar ordem',
@@ -3199,6 +3248,9 @@ class _HomePageState extends State<HomePage>
       case 'Almoxerifado':
         _navegarParaCardAlmoxerifado(tipo);
         break;
+      case 'Gestão de contratos':
+        _navegarParaCardGestaoContratos(tipo);
+        break;
       default:
         debugPrint('Sessão pai não reconhecida: $sessaoPai');
     }
@@ -3207,13 +3259,11 @@ class _HomePageState extends State<HomePage>
   void _navegarParaCardPerdasSobras(String tipo) {
     switch (tipo) {
       case 'dutoviario':
-        // TODO: Implementar navegação para Dutoviário
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Módulo Dutoviário em desenvolvimento')),
         );
         break;
       case 'rodoviario':
-        // TODO: Implementar navegação para Rodoviário
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Módulo Rodoviário em desenvolvimento')),
         );
@@ -3223,6 +3273,16 @@ class _HomePageState extends State<HomePage>
 
   void _navegarParaCardApuracao(String tipo, UsuarioAtual? usuario) {
     switch (tipo) {
+      case 'dutoviario':
+        setState(() {
+          _filhoSelecionadoTipo = 'dutoviario';
+        });
+        break;
+      case 'rodoviario':
+        setState(() {
+          _filhoSelecionadoTipo = 'rodoviario';
+        });
+        break;
       case 'ordens_analise':
         setState(() {
           _mostrarOrdensAnalise = true;
@@ -3250,9 +3310,9 @@ class _HomePageState extends State<HomePage>
         break;
       case 'perdas_sobras':
         setState(() {
-          _mostrarPerdasSobras = true;
           _sessaoAtual = 'Perdas e Sobras';
-          _filhosSessaoAtual = List.from(_filhosPorSessao['Perdas e Sobras']!);
+          _mostrarFilhosSessao = true;
+          _filhosSessaoAtual = List.from(_filhosPorSessao['Perdas e Sobras'] ?? []);
         });
         break;
       case 'tanques': // ADICIONADO: Caso para tanques agora em Operação
@@ -3589,6 +3649,15 @@ class _HomePageState extends State<HomePage>
         });
         break;
     }
+  }
+
+  void _navegarParaCardGestaoContratos(String tipo) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Módulo em desenvolvimento...'),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   void _navegarParaCardLaboratorio(String tipo) {
