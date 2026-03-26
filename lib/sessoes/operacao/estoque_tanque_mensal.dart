@@ -83,7 +83,9 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
   Future<void> _carregarTerminalDoUsuario() async {
     try {
       final user = _supabase.auth.currentUser;
-      if (user == null) throw Exception('Usuário não logado');
+      if (user == null) {
+        throw Exception('Usuário não logado');
+      }
 
       final response = await _supabase
           .from('usuarios')
@@ -270,27 +272,37 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
           .gte('data_mov', _inicioMes.toIso8601String())
           .lte('data_mov', _fimMes.toIso8601String());
 
-      // Ordenação: por data (crescente); dentro da mesma data, registros com 'CACL' vão por último
+      // Ordenação: por data (crescente); dentro da mesma data, registros com 'Sobra' ou 'Perda' vão por último
       final List<Map<String, dynamic>> listaOrdenadaParaUI =
           List<Map<String, dynamic>>.from(dados);
 
       listaOrdenadaParaUI.sort((a, b) {
         final da = DateTime.parse(a['data_mov']);
         final db = DateTime.parse(b['data_mov']);
-        final cmp = da.compareTo(db);
-        if (cmp != 0) return cmp;
         
-        // Dentro da mesma data: verifica se contém 'CACL' em qualquer campo relevante
-        bool temCacl(Map<String, dynamic> m) {
+        final dataA = DateTime(da.year, da.month, da.day);
+        final dataB = DateTime(db.year, db.month, db.day);
+        
+        final cmpData = dataA.compareTo(dataB);
+        if (cmpData != 0) return cmpData;
+        
+        // Dentro da mesma data (Apenas Dia/Mês/Ano): registros com 'Sobra' ou 'Perda' vão por último
+        bool temSobraOuPerda(Map<String, dynamic> m) {
           final cliente = (m['cliente']?.toString() ?? '').toUpperCase();
           final descricao = (m['descricao']?.toString() ?? '').toUpperCase();
-          return cliente.contains('CACL') || descricao.contains('CACL');
+          return cliente.contains('SOBRA') || descricao.contains('SOBRA') ||
+                 cliente.contains('PERDA') || descricao.contains('PERDA');
+        }
+
+        final aLast = temSobraOuPerda(a) ? 1 : 0;
+        final bLast = temSobraOuPerda(b) ? 1 : 0;
+
+        if (aLast != bLast) {
+          return aLast.compareTo(bLast);
         }
         
-        final aTemCacl = temCacl(a) ? 1 : 0;
-        final bTemCacl = temCacl(b) ? 1 : 0;
-        
-        return aTemCacl.compareTo(bTemCacl);
+        // Se ambos forem do mesmo tipo (ambos normais ou ambos sobra/perda), mantém a ordem do horário
+        return da.compareTo(db);
       });
 
       // Calcula saldo acumulado
