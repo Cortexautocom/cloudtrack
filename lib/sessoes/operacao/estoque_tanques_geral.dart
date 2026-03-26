@@ -568,9 +568,9 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                       },
                       child: Tooltip(
                         message:
-                            '${tanque.nome}\nEstoque: ${_formatarValor(tanque.estoqueAtual)}\nEspaço Livre: ${_formatarValor(tanque.capacidadeTotal - tanque.estoqueAtual)}',
+                            'Estoque total: ${_formatarValor(tanque.estoqueAtual)}\nEstoque disponível: ${_formatarValor(tanque.estoqueAtual - tanque.lastro)}\n───────────────\nCapacidade total: ${_formatarValor(tanque.capacidadeTotal)}\nEspaço disponível: ${_formatarValor(tanque.capacidadeTotal - tanque.estoqueAtual)}',
                         preferBelow: false,
-                        verticalOffset: 110,
+                        verticalOffset: 120,
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: const Color(0xFF222B45).withOpacity(0.9),
@@ -639,6 +639,17 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                     ),
                   );
                 }).toList(),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _legendaItem(const Color(0xFFE0E3EB), "Espaço Livre"),
+                  const SizedBox(width: 24),
+                  _legendaItem(const Color(0xFF00B686), "Estoque"),
+                  const SizedBox(width: 24),
+                  _legendaItem(const Color(0xFFFF3D71), "Lastro"),
+                ],
               ),
               const SizedBox(height: 20),
             ],

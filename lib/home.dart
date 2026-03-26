@@ -35,6 +35,7 @@ import 'sessoes/almoxerifado/frascos_amostras.dart';
 import 'sessoes/almoxerifado/filtro_estoque_frascos.dart';
 import 'sessoes/operacao/estoque_produto.dart';
 import 'sessoes/operacao/filtro_estoque_produto.dart';
+import 'sessoes/operacao/controle_descargas.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -3506,11 +3507,12 @@ class _HomePageState extends State<HomePage>
         break;
 
       case 'controle_descargas':
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Indisponível no plano contratado.'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 2),
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ControleDescargasPage(
+              onVoltar: () => Navigator.pop(context),
+            ),
           ),
         );
         break;
