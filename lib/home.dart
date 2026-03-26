@@ -2631,7 +2631,8 @@ class _HomePageState extends State<HomePage>
                       _mostrarFiltrosEstoque ||
                       _mostrarFiltroMovimentacoes ||
                       _mostrarCardsFilial ||
-                      _mostrarSuporte))
+                      _mostrarSuporte ||
+                      _sessaoAtual == 'Perdas e Sobras'))
                 IconButton(
                   icon: const Icon(Icons.arrow_back, color: Color(0xFF0D47A1)),
                   onPressed: onVoltar ?? _voltarParaCardsPai,
@@ -2849,7 +2850,14 @@ class _HomePageState extends State<HomePage>
           ),
         ),
       ),
-      mostrarVoltar: false,
+      mostrarVoltar: _sessaoAtual == 'Perdas e Sobras',
+      onVoltar: () {
+        setState(() {
+          _sessaoAtual = 'Operação';
+          _filhosSessaoAtual = List.from(_filhosPorSessao['Operação'] ?? []);
+          _filhoSelecionadoTipo = null;
+        });
+      },
     );
   }
 

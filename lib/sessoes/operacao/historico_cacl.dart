@@ -44,11 +44,28 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Definir datas iniciais como hoje
-    dataInicial = DateTime.now();
+    
+    // Definir data final como hoje
     dataFinal = DateTime.now();
-    dataInicialController.text = _formatarData(dataInicial);
     dataFinalController.text = _formatarData(dataFinal);
+
+    // Definir data inicial como hoje - 2 dias úteis
+    DateTime hoje = DateTime.now();
+    int subtrairDias = 2; // Padrão: 2 dias úteis
+
+    if (hoje.weekday == DateTime.monday) {
+      subtrairDias = 4; // Segunda -> Quinta (4 dias corridos)
+    } else if (hoje.weekday == DateTime.tuesday) {
+      subtrairDias = 4; // Terça -> Sexta (4 dias corridos)
+    } else if (hoje.weekday == DateTime.sunday) {
+      subtrairDias = 3; // Domingo -> Quinta (3 dias corridos - embora domingo não seja útil, tratamos como se fosse)
+    } else if (hoje.weekday == DateTime.saturday) {
+      subtrairDias = 2; // Sábado -> Quinta (2 dias corridos)
+    }
+
+    dataInicial = hoje.subtract(Duration(days: subtrairDias));
+    dataInicialController.text = _formatarData(dataInicial);
+    
     _carregarDadosIniciais();
   }
 

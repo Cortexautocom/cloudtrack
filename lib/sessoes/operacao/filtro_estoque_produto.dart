@@ -37,7 +37,7 @@ class FiltroEstoqueProdutoPage extends StatefulWidget {
 
 class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
   final SupabaseClient _supabase = Supabase.instance.client;
-  DateTime _dataInicial = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  DateTime _dataInicial = DateTime.now();
   DateTime _dataFinal = DateTime.now();
   String? _produtoSelecionadoId;
   String? _produtoSelecionadoNome;
@@ -673,7 +673,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
   void _resetarFiltros() {
     final agora = DateTime.now();
     setState(() {
-      _dataInicial = DateTime(agora.year, agora.month, 1);
+      _dataInicial = agora;
       _dataFinal = agora;
       _produtoSelecionadoId = '';
       _produtoSelecionadoNome = null;
