@@ -36,6 +36,7 @@ import 'sessoes/almoxerifado/filtro_estoque_frascos.dart';
 import 'sessoes/operacao/estoque_produto.dart';
 import 'sessoes/operacao/filtro_estoque_produto.dart';
 import 'sessoes/operacao/controle_descargas.dart';
+import 'sessoes/bombeios/ordem_bombeio.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -776,6 +777,7 @@ class _HomePageState extends State<HomePage>
       'motoristas': Icons.people,
       'documentacao': Icons.description,
       'bombeios': Icons.invert_colors,
+      'ordem_bombeio': Icons.playlist_add_check,
       'programacao_filial': Icons.local_gas_station,
       'criar_ordem': Icons.add_circle_outline,
       'frascos_amostra': Icons.science_outlined,
@@ -818,6 +820,7 @@ class _HomePageState extends State<HomePage>
       'motoristas': 'Gerenciar cadastro de motoristas',
       'documentacao': 'Controle de documentos da frota',
       'bombeios': 'Controle de bombeios',
+      'ordem_bombeio': 'Emitir e acompanhar ordens de bombeio',
       'programacao_filial': 'Programação de vendas por filial',
       'frascos_amostra': 'Controle de frascos de amostras',
       'estoque_fiscal': 'Acompanhar estoque fiscal e tributário',
@@ -1733,7 +1736,6 @@ class _HomePageState extends State<HomePage>
       case 'Recursos Humanos':
       case 'Segurança & Compliance':
       case 'Manutenção e ativos':
-      case 'Bombeios e Cotas Contratuais':
         return _buildAreaIndisponivelPage();
 
       case 'Almoxerifado':
@@ -1796,6 +1798,7 @@ class _HomePageState extends State<HomePage>
       case 'Gestão de Frota':
       case 'Laboratório':
       case 'Gestão de contratos':
+      case 'Bombeios e Cotas Contratuais':
         return _buildConteudoSessoes();
 
       default:
@@ -2827,6 +2830,23 @@ class _HomePageState extends State<HomePage>
               });
             },
           );
+        case 'ordem_bombeio':
+          return _buildPaginaPadronizada(
+            titulo: 'Ordem de Bombeio',
+            conteudo: OrdemBombeioPage(
+              onVoltar: () {
+                setState(() {
+                  _filhoSelecionadoTipo = null;
+                });
+              },
+            ),
+            mostrarVoltar: true,
+            onVoltar: () {
+              setState(() {
+                _filhoSelecionadoTipo = null;
+              });
+            },
+          );
         default:
           break;
       }
@@ -3669,6 +3689,11 @@ class _HomePageState extends State<HomePage>
 
   void _navegarParaCardBombeios(String tipo) {
     switch (tipo) {
+      case 'ordem_bombeio':
+        setState(() {
+          _filhoSelecionadoTipo = tipo;
+        });
+        break;
       case 'bombeios':
         break;
     }
