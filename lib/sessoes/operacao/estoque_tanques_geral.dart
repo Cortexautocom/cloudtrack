@@ -601,7 +601,7 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
                                     (tanque.capacidadeTotal -
                                             tanque.estoqueAtual)
                                         .clamp(0, tanque.capacidadeTotal),
-                                hideDetails: true,
+                                hideDetails: false,
                                 scale: scale,
                               ),
                             ),
@@ -1322,7 +1322,7 @@ class TankPainter extends CustomPainter {
       ..strokeWidth = 1;
 
     final textStyle = TextStyle(
-      fontSize: 9 * scale,
+      fontSize: 11 * scale,
       color: Colors.grey.shade600,
       fontWeight: FontWeight.w500,
     );
@@ -1363,7 +1363,7 @@ class TankPainter extends CustomPainter {
     final liquidY = tankY + tankHeight - (tankHeight * percentual);
     final percentText = '${(percentual * 100).toInt()}%';
     final textStyle = TextStyle(
-      fontSize: 13 * scale,
+      fontSize: 16 * scale,
       fontWeight: FontWeight.bold,
       color: _getLiquidColor(percentual),
     );
