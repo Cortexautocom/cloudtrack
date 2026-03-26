@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // <-- ADICIONE ESTA LINHA
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'configuracoes/cadastro_novo_usuario.dart';
 import 'configuracoes/esqueci_senha.dart';
@@ -64,7 +64,9 @@ class _LoginPageState extends State<LoginPage> {
     
     if (uri.queryParameters.containsKey('code')) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacementNamed(context, '/redefinir-senha');
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/redefinir-senha');
+        }
       });
       return;
     }
@@ -94,10 +96,12 @@ class _LoginPageState extends State<LoginPage> {
           .eq('id', userId)
           .maybeSingle();
 
-      if (raw != null) {
+      if (raw != null && mounted) {
         _processarLogin(raw);
       }
-    } catch (e) {}
+    } catch (e) {
+      print('Erro ao buscar dados do usuário: $e');
+    }
   }
 
   Future<String?> _buscarFilialIdPorTerminal(String? terminalId) async {
@@ -114,6 +118,7 @@ class _LoginPageState extends State<LoginPage> {
       
       return filial?['id']?.toString();
     } catch (e) {
+      print('Erro ao buscar filial: $e');
       return null;
     }
   }
@@ -132,6 +137,7 @@ class _LoginPageState extends State<LoginPage> {
       
       return terminal?['nome']?.toString();
     } catch (e) {
+      print('Erro ao buscar terminal: $e');
       return null;
     }
   }
@@ -151,6 +157,7 @@ class _LoginPageState extends State<LoginPage> {
           .where((id) => id.isNotEmpty)
           .toList();
     } catch (e) {
+      print('Erro ao carregar permissões: $e');
       return [];
     }
   }
@@ -159,7 +166,6 @@ class _LoginPageState extends State<LoginPage> {
     final int nivel = usuarioData['nivel'] as int;
     final String? empresaId = usuarioData['empresa_id']?.toString();
     
-    // Captura o nome da empresa vindo do join
     final String? empresaNome = (usuarioData['empresas'] as Map?)?['nome_dois']?.toString();
     
     final String? terminalId = usuarioData['terminal_id']?.toString();
@@ -169,13 +175,15 @@ class _LoginPageState extends State<LoginPage> {
     final cardsPermitidosIds = await _carregarPermissoesCards(usuarioData['id'].toString());
 
     if (nivel < 3 && cardsPermitidosIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Você não tem permissão para acessar nenhuma funcionalidade.'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 3),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Você não tem permissão para acessar nenhuma funcionalidade.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
 
       await Supabase.instance.client.auth.signOut();
       UsuarioAtual.instance = null;
@@ -195,15 +203,16 @@ class _LoginPageState extends State<LoginPage> {
       senhaTemporaria: usuarioData['senha_temporaria'] == true,
     );
 
-    if (UsuarioAtual.instance!.precisaTrocarSenha) {
-      Navigator.pushReplacementNamed(context, '/escolher-senha');
-    } else {
-      Navigator.pushReplacementNamed(context, '/home');
+    if (mounted) {
+      if (UsuarioAtual.instance!.precisaTrocarSenha) {
+        Navigator.pushReplacementNamed(context, '/escolher-senha');
+      } else {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
     }
   }
 
   Future<void> loginUser() async {
-    // Finaliza o contexto de autofill antes de iniciar o login
     TextInput.finishAutofillContext();
     
     setState(() => _isLoading = true);
@@ -213,12 +222,14 @@ class _LoginPageState extends State<LoginPage> {
     final password = passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Por favor, preencha e-mail e senha.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Por favor, preencha e-mail e senha.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
       setState(() => _isLoading = false);
       return;
     }
@@ -263,19 +274,23 @@ class _LoginPageState extends State<LoginPage> {
         mensagemErro = 'E-mail não confirmado.';
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(mensagemErro),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(mensagemErro),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro inesperado: $error'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro inesperado: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

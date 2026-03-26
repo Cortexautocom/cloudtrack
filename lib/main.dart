@@ -45,8 +45,9 @@ class _MyAppState extends State<MyApp> {
 
   void _setupAuthListener() {
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      if (data.event == AuthChangeEvent.passwordRecovery) {
-        if (ModalRoute.of(context)?.settings.name != '/redefinir-senha') {
+      if (mounted && data.event == AuthChangeEvent.passwordRecovery) {
+        final currentRoute = ModalRoute.of(context)?.settings.name;
+        if (currentRoute != '/redefinir-senha') {
           Navigator.pushReplacementNamed(context, '/redefinir-senha');
         }
       }
@@ -89,6 +90,12 @@ class _MyAppState extends State<MyApp> {
         '/esqueci-senha': (context) => const EsqueciSenhaPage(),
         '/redefinir-senha': (context) => const RedefinirSenhaPage(),
         '/escolher-senha': (context) => const EscolherSenhaPage(),
+      },
+      // Adiciona fallback para rotas não encontradas
+      onUnknownRoute: (settings) {
+        return MaterialPageRoute(
+          builder: (context) => const SplashScreen(),
+        );
       },
     );
   }
