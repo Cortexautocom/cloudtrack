@@ -3755,13 +3755,6 @@ class _HomePageState extends State<HomePage>
 
     final List<Map<String, dynamic>> configCards = [];
 
-    // Cartões disponíveis para todos os usuários
-    configCards.add({
-      'icon': Icons.refresh,
-      'label': 'Atualizar app',
-      'tipo': 'atualizar_app',
-    });
-
     // Cartões apenas para administradores (nível >= 2)
     if (usuario != null && usuario.nivel >= 2) {
       configCards.add({
