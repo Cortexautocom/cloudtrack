@@ -28,15 +28,15 @@ import 'sessoes/circuito/acompanhamento_ordens.dart';
 import 'sessoes/estoques/transferencias.dart';
 import 'sessoes/operacao/listar_ordens.dart';
 import 'sessoes/laboratorio/temp_dens_media.dart';
-import 'sessoes/ajuda/desenvolvedor.dart';
-import 'sessoes/ajuda/suporte.dart';
-import 'sessoes/ajuda/fila_solic.dart';
+import 'sessoes/suporte/desenvolvedor.dart';
+import 'sessoes/suporte/suporte.dart';
+import 'sessoes/suporte/fila_solic.dart';
 import 'sessoes/circuito/criar_ordem.dart';
 import 'sessoes/almoxerifado/frascos_amostras.dart';
 import 'sessoes/almoxerifado/filtro_estoque_frascos.dart';
 import 'sessoes/operacao/estoque_produto.dart';
 import 'sessoes/operacao/filtro_estoque_produto.dart';
-import 'sessoes/operacao/controle_descargas.dart';
+import 'sessoes/estoques/controle_descargas.dart';
 import 'sessoes/bombeios/ordem_bombeio.dart';
 
 class HomePage extends StatefulWidget {
@@ -74,7 +74,7 @@ class _HomePageState extends State<HomePage>
     'Segurança & Compliance',
     'Relatórios',
     'Configurações',
-    'Ajuda',
+    'Suporte',
   ];
 
   // FLAGS GERAIS
@@ -106,7 +106,7 @@ class _HomePageState extends State<HomePage>
   bool _mostrarEstoquePorEmpresa = false;
   bool _mostrarFiliaisDaEmpresa = false;
   bool _mostrarEstoquePorTanque = false;
-  bool _mostrarMenuAjuda = false;
+  bool _mostrarMenuSuporte = false;
   bool _mostrarFilaSolicitacoes = false;
   bool _mostrarTempDensMedia = false;
   bool _mostrarEstoqueProduto = false;
@@ -181,7 +181,7 @@ class _HomePageState extends State<HomePage>
     'Segurança & Compliance': const Color(0xFFD32F2F), // Vermelho escuro
     'Relatórios': const Color(0xFF795548), // Marrom
     'Configurações': const Color(0xFF607D8B), // Azul cinza
-    'Ajuda': const Color(0xFF673AB7), // Roxo profundo
+    'Suporte': const Color(0xFF673AB7), // Roxo profundo
     'Perdas e Sobras': const Color(0xFF2196F3), // Azul (mesma da Operação)
   };
 
@@ -1118,7 +1118,7 @@ class _HomePageState extends State<HomePage>
       _mostrarFiliaisDaEmpresa = false;
       _mostrarEstoquePorTanque = false;
       _mostrarTempDensMedia = false;
-      _mostrarMenuAjuda = false;
+      _mostrarMenuSuporte = false;
       _mostrarSuporte = false;
       _mostrarEstoqueProduto = false;
       _voltarParaTanquesApoCACL = false;
@@ -1248,7 +1248,7 @@ class _HomePageState extends State<HomePage>
       _mostrarResultadoFrascos = false;
       _mostrarCalcGerado = false;
       _mostrarTempDensMedia = false;
-      _mostrarMenuAjuda = false;
+      _mostrarMenuSuporte = false;
       _mostrarSuporte = false;
       _mostrarFilaSolicitacoes = false;
       _mostrarCardsFilial = false;
@@ -1293,7 +1293,7 @@ class _HomePageState extends State<HomePage>
       _mostrarCalcGerado = false;
       _mostrarTempDensMedia = false;
       _mostrarEstoqueProduto = false;
-      _mostrarMenuAjuda = false;
+      _mostrarMenuSuporte = false;
       _mostrarCardsFilial = false;
       _resetarTodasFlagsGestaoFrota();
       _filialSelecionadaNome = null;
@@ -1708,7 +1708,7 @@ class _HomePageState extends State<HomePage>
       case 'Configurações':
         return _buildConfiguracoesPage(usuario);
 
-      case 'Ajuda':
+      case 'Suporte':
         if (_mostrarSuporte) {
           return _buildPaginaPadronizada(
             titulo: 'Suporte',
@@ -1716,7 +1716,7 @@ class _HomePageState extends State<HomePage>
             onVoltar: () {
               setState(() {
                 _mostrarSuporte = false;
-                _mostrarMenuAjuda = true;
+                _mostrarMenuSuporte = true;
               });
             },
           );
@@ -1727,21 +1727,21 @@ class _HomePageState extends State<HomePage>
             onVoltar: () {
               setState(() {
                 _mostrarFilaSolicitacoes = false;
-                _mostrarMenuAjuda = true;
+                _mostrarMenuSuporte = true;
               });
             },
           );
         }
 
-        if (!_mostrarMenuAjuda) {
+        if (!_mostrarMenuSuporte) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             setState(() {
-              _mostrarMenuAjuda = true;
+              _mostrarMenuSuporte = true;
             });
           });
         }
 
-        return _buildAjudaPage();
+        return _buildSuportePage();
 
       case 'Financeiro':
       case 'Jurídico':
@@ -1848,9 +1848,9 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  Widget _buildAjudaPage() {
+  Widget _buildSuportePage() {
     return HomeCards(
-      menuSelecionado: 'Ajuda',
+      menuSelecionado: 'Suporte',
       onCardSelecionado: (context, tipoCard) {
         switch (tipoCard) {
           case 'suporte':
@@ -1896,7 +1896,7 @@ class _HomePageState extends State<HomePage>
       },
       onVoltar: () {
         setState(() {
-          _mostrarMenuAjuda = false;
+          _mostrarMenuSuporte = false;
           _mostrarSuporte = false;
           selectedIndex = -1;
         });
@@ -1989,8 +1989,8 @@ class _HomePageState extends State<HomePage>
         ? menuItems[selectedIndex]
         : null;
 
-    // SEÇÃO: Ajuda (caso especial, mas ainda verifica a sessão)
-    if (sessaoAtual == 'Ajuda') {
+    // SEÇÃO: Suporte (caso especial, mas ainda verifica a sessão)
+    if (sessaoAtual == 'Suporte') {
       if (_mostrarSuporte) {
         return _buildPaginaPadronizada(
           titulo: 'Suporte',
@@ -1998,21 +1998,21 @@ class _HomePageState extends State<HomePage>
           onVoltar: () {
             setState(() {
               _mostrarSuporte = false;
-              _mostrarMenuAjuda = true;
+              _mostrarMenuSuporte = true;
             });
           },
         );
       }
       
-      if (!_mostrarMenuAjuda) {
+      if (!_mostrarMenuSuporte) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           setState(() {
-            _mostrarMenuAjuda = true;
+            _mostrarMenuSuporte = true;
           });
         });
       }
       
-      return _buildAjudaPage();
+      return _buildSuportePage();
     }
 
     // SEÇÃO: Almoxerifado
@@ -3901,7 +3901,7 @@ class _HomePageState extends State<HomePage>
         return Icons.bar_chart;
       case 'Configurações':
         return Icons.settings;
-      case 'Ajuda':
+      case 'Suporte':
         return Icons.help_outline;
       default:
         return Icons.circle;
@@ -4210,8 +4210,8 @@ class HomeCards extends StatelessWidget {
 
   Widget _buildCardsConteudo(BuildContext context) {
     switch (menuSelecionado) {
-      case 'Ajuda':
-        return _buildCardsAjuda(context);
+      case 'Suporte':
+        return _buildCardsSuportes(context);
       default:
         return const Center(
           child: Text(
@@ -4222,11 +4222,11 @@ class HomeCards extends StatelessWidget {
     }
   }
 
-  Widget _buildCardsAjuda(BuildContext context) {
+  Widget _buildCardsSuportes(BuildContext context) {
     final List<Map<String, dynamic>> cards = [
       {
         'titulo': 'Suporte',
-        'descricao': 'Central de ajuda, FAQs e contato com suporte técnico',
+        'descricao': 'Central de suporte, FAQs e contato com suporte técnico',
         'icone': Icons.support_agent,
         'cor': const Color(0xFF0D47A1),
         'tipo': 'suporte',

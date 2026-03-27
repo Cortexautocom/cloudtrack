@@ -697,15 +697,26 @@ class _ControleDescargasPageState extends State<ControleDescargasPage> with Widg
                                 itemCount: descargasFiltradas.length,
                                 itemBuilder: (context, index) {
                                   final item = descargasFiltradas[index];
+                                  final bool isNegative = double.tryParse(item['perda_sobra'].toString()) != null && double.parse(item['perda_sobra'].toString()) < 0;
+                                  
                                   return MouseRegion(
+                                    cursor: SystemMouseCursors.click,
                                     onEnter: (_) => setState(() => _hoverIndex = index),
                                     onExit: (_) => setState(() => _hoverIndex = null),
                                     child: AnimatedContainer(
                                       duration: const Duration(milliseconds: 150),
                                       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                                      color: _hoverIndex == index 
-                                          ? Colors.grey.shade200 
-                                          : (index.isEven ? Colors.white : Colors.grey.shade50),
+                                      decoration: BoxDecoration(
+                                        color: _hoverIndex == index 
+                                            ? const Color(0xFFE3F2FD) // Azul claro ao passar o mouse
+                                            : (index.isEven ? Colors.white : const Color(0xFFFDFDFD)),
+                                        border: Border(
+                                          bottom: BorderSide(
+                                            color: _hoverIndex == index ? const Color(0xFF90CAF9) : Colors.grey.shade200,
+                                            width: 1,
+                                          ),
+                                        ),
+                                      ),
                                       child: Row(
                                         children: [
                                           _buildDataCell(_formatarData(item['data_emissao']), 1),
@@ -718,7 +729,12 @@ class _ControleDescargasPageState extends State<ControleDescargasPage> with Widg
                                           _buildDataCell(item['placas'], 1),
                                           _buildDataCell(item['origem'], 1),
                                           _buildDataCell(_formatarData(item['data_descarga']), 1),
-                                          _buildDataCell(item['perda_sobra'], 1, color: double.tryParse(item['perda_sobra'].toString())! < 0 ? Colors.red : Colors.green),
+                                          _buildDataCell(
+                                            item['perda_sobra'], 
+                                            1, 
+                                            color: isNegative ? Colors.red : Colors.green,
+                                            weight: FontWeight.bold,
+                                          ),
                                           _buildDataCell(item['obs'], 1),
                                         ],
                                       ),
@@ -748,13 +764,17 @@ class _ControleDescargasPageState extends State<ControleDescargasPage> with Widg
     );
   }
 
-  Widget _buildDataCell(String value, int flex, {Color? color}) {
+  Widget _buildDataCell(String value, int flex, {Color? color, FontWeight? weight}) {
     return Expanded(
       flex: flex,
       child: Text(
         value,
         textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 10, color: color ?? Colors.black87),
+        style: TextStyle(
+          fontSize: 10, 
+          color: color ?? Colors.black87,
+          fontWeight: weight ?? FontWeight.normal,
+        ),
         overflow: TextOverflow.ellipsis,
       ),
     );

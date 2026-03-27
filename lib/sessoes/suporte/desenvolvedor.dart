@@ -418,13 +418,23 @@ class EnviarSugestaoPageState extends State<EnviarSugestaoPage> {
         throw Exception('O título e a mensagem não podem estar vazios.');
       }
 
+      // Gera o número de controle (YYYYMMDDHHMMSS)
+      final agora = DateTime.now();
+      final nControle = "${agora.year}"
+          "${agora.month.toString().padLeft(2, '0')}"
+          "${agora.day.toString().padLeft(2, '0')}"
+          "${agora.hour.toString().padLeft(2, '0')}"
+          "${agora.minute.toString().padLeft(2, '0')}"
+          "${agora.second.toString().padLeft(2, '0')}";
+
       // Prepara os dados para inserir na tabela 'ajuda'
       final data = {
         'usuario_id': usuarioId, // Pode ser null se não houver usuário
         'titulo': titulo, // O título da mensagem (em maiúsculas)
         'texto': texto, // O texto completo da mensagem
-        'data_criacao': DateTime.now().toIso8601String(),
+        'data_criacao': agora.toIso8601String(),
         'status': 'pendente', // Status padrão
+        'n_controle': nControle, // Número de controle (Data/Hora)
       };
 
       // Insere na tabela 'ajuda' do Supabase
