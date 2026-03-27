@@ -1855,10 +1855,10 @@ class _HomePageState extends State<HomePage>
             );
             break;
 
-          case 'equipe_norton':
+          case 'minhas_solicitacoes':
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Acompanhe suas '),
+                content: Text('Acompanhe suas solicitações.'),
                 backgroundColor: Colors.blue,
                 duration: Duration(seconds: 2),
               ),
@@ -4218,13 +4218,6 @@ class HomeCards extends StatelessWidget {
         'icone': Icons.architecture,
         'cor': const Color(0xFF0D47A1),
         'tipo': 'desenvolvedor',
-      },
-      {
-        'titulo': 'Equipe Norton',
-        'descricao': 'Conheça os profissionais por trás do projeto',
-        'icone': Icons.groups,
-        'cor': Colors.deepOrange,
-        'tipo': 'equipe_norton',
       },
     ];
 
