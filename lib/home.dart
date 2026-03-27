@@ -30,6 +30,7 @@ import 'sessoes/operacao/listar_ordens.dart';
 import 'sessoes/laboratorio/temp_dens_media.dart';
 import 'sessoes/ajuda/desenvolvedor.dart';
 import 'sessoes/ajuda/suporte.dart';
+import 'sessoes/ajuda/fila_solic.dart';
 import 'sessoes/circuito/criar_ordem.dart';
 import 'sessoes/almoxerifado/frascos_amostras.dart';
 import 'sessoes/almoxerifado/filtro_estoque_frascos.dart';
@@ -86,7 +87,6 @@ class _HomePageState extends State<HomePage>
   bool _mostrarSuporte = false;
   bool _mostrarFrascosAmostra = false;
   bool _mostrarResultadoFrascos = false;
-
   // Parâmetros de filtro para a página de resultado de frascos
   DateTime _frascosDataInicial = DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime _frascosDataFinal = DateTime.now();
@@ -107,6 +107,7 @@ class _HomePageState extends State<HomePage>
   bool _mostrarFiliaisDaEmpresa = false;
   bool _mostrarEstoquePorTanque = false;
   bool _mostrarMenuAjuda = false;
+  bool _mostrarFilaSolicitacoes = false;
   bool _mostrarTempDensMedia = false;
   bool _mostrarEstoqueProduto = false;
   bool _mostrarCardsFilial = false;
@@ -1249,6 +1250,7 @@ class _HomePageState extends State<HomePage>
       _mostrarTempDensMedia = false;
       _mostrarMenuAjuda = false;
       _mostrarSuporte = false;
+      _mostrarFilaSolicitacoes = false;
       _mostrarCardsFilial = false;
       _mostrarVeiculos = false;
       _mostrarDetalhesVeiculo = false;
@@ -1720,6 +1722,17 @@ class _HomePageState extends State<HomePage>
           );
         }
 
+        if (_mostrarFilaSolicitacoes) {
+          return FilaSolicitacoesPage(
+            onVoltar: () {
+              setState(() {
+                _mostrarFilaSolicitacoes = false;
+                _mostrarMenuAjuda = true;
+              });
+            },
+          );
+        }
+
         if (!_mostrarMenuAjuda) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             setState(() {
@@ -1853,6 +1866,12 @@ class _HomePageState extends State<HomePage>
                 builder: (context) => const DesenvolvedorPage(),
               ),
             );
+            break;
+
+          case 'fila_solicitacoes':
+            setState(() {
+              _mostrarFilaSolicitacoes = true;
+            });
             break;
 
           case 'minhas_solicitacoes':
@@ -4218,6 +4237,13 @@ class HomeCards extends StatelessWidget {
         'icone': Icons.architecture,
         'cor': const Color(0xFF0D47A1),
         'tipo': 'desenvolvedor',
+      },
+      {
+        'titulo': 'Fila de solicitações',
+        'descricao': 'Acompanhe o andamento das suas solicitações',
+        'icone': Icons.receipt_long,
+        'cor': const Color(0xFF0D47A1),
+        'tipo': 'fila_solicitacoes',
       },
     ];
 
