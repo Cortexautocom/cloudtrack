@@ -1858,7 +1858,7 @@ class _HomePageState extends State<HomePage>
           case 'equipe_norton':
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Em breve: Conheça a Equipe Norton!'),
+                content: Text('Acompanhe suas '),
                 backgroundColor: Colors.blue,
                 duration: Duration(seconds: 2),
               ),

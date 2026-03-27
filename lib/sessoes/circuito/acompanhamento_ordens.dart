@@ -208,6 +208,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
             status_circuito_dest,
             data_mov,
             data_descarga,
+            motoristas!motorista_id(nome),
             terminal_orig_id,
             terminal_dest_id,
             empresa_id,
@@ -369,6 +370,7 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
           'tipo_op': primeira['tipo_op'],
           'terminal_origem_id': primeira['terminal_orig_id'],
           'terminal_destino_id': primeira['terminal_dest_id'],
+          'motorista_nome': primeira['motoristas'] != null ? primeira['motoristas']['nome'] : null,
           'placas': placasSet.toList(),
           'quantidade_total': quantidadeTotal,
           'produtos_agrupados': produtosAgrupados,
@@ -854,6 +856,20 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
       final statusOrig = item['status_circuito_orig'];
       if (statusOrig != null) {
         final codigo = statusOrig is int ? statusOrig : int.tryParse(statusOrig.toString());
+        
+        // Mapeamento específico para o fluxo de VENDA no CARREGAMENTO
+        if (tipoOp == 'venda') {
+          switch (codigo) {
+            case 1: return 'Programado';
+            case 15: return 'Aguardando';
+            case 2: return 'Check-list';
+            case 3: return 'Emissão NF';   // Status 3 para 'venda' é Emissão NF
+            case 4: return 'Em operação';  // Status 4 para 'venda' é Em operação
+            case 5: return 'Liberado';
+            default: return 'Sem status';
+          }
+        }
+
         switch (codigo) {
           case 1: return 'Programado';
           case 15: return 'Aguardando';
@@ -1559,7 +1575,9 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                                   const SizedBox(width: 4),
                                   Expanded(
                                     child: Text(
-                                      placasFormatadas,
+                                      tipoOp == 'transf' && ordem['motorista_nome'] != null
+                                          ? '$placasFormatadas - ${ordem['motorista_nome']}'
+                                          : placasFormatadas,
                                       style: const TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w500,
@@ -1591,7 +1609,9 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                                 final quantidade = infoEntry.value;
 
                                 return Container(
-                                  constraints: const BoxConstraints(maxWidth: 260),
+                                  constraints: BoxConstraints(
+                                    maxWidth: tipoOp == 'transf' ? 400 : 260,
+                                  ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -1617,45 +1637,53 @@ class _AcompanhamentoOrdensPageState extends State<AcompanhamentoOrdensPage> {
                                         ),
                                       ),
 
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 3,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: cor.withOpacity(0.08),
-                                          borderRadius: const BorderRadius.only(
-                                            topRight: Radius.circular(4),
-                                            bottomRight: Radius.circular(4),
+                                      Flexible(
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 3,
                                           ),
-                                          border: Border.all(
-                                            color: cor.withOpacity(0.15),
-                                            width: 0.8,
-                                          ),
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              _abreviarTexto(nomeProduto, 15),
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                                color: cor,
-                                              ),
+                                          decoration: BoxDecoration(
+                                            color: cor.withOpacity(0.08),
+                                            borderRadius: const BorderRadius.only(
+                                              topRight: Radius.circular(4),
+                                              bottomRight: Radius.circular(4),
                                             ),
+                                            border: Border.all(
+                                              color: cor.withOpacity(0.15),
+                                              width: 0.8,
+                                            ),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                tipoOp == 'transf' 
+                                                    ? nomeProduto 
+                                                    : _abreviarTexto(nomeProduto, 15),
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: cor,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
 
-                                            Text(
-                                              _abreviarTexto(textoInfo, 20),
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                color: Colors.grey.shade700,
-                                                fontStyle: FontStyle.italic,
+                                              Text(
+                                                tipoOp == 'transf' 
+                                                    ? textoInfo 
+                                                    : _abreviarTexto(textoInfo, 20),
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: Colors.grey.shade700,
+                                                  fontStyle: FontStyle.italic,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ],

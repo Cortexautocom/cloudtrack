@@ -54,102 +54,7 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
   bool _cippSelecionado = false;
   bool _mopSelecionado = false;
   bool _nr26Selecionado = false;
-  bool _atualizandoChecklist = false;
-
-  // ETAPAS PARA AMBOS OS FLUXOS (diferença apenas na etapa 4 - Emissão NF)
-  final List<_EtapaInfo> _etapasCarregamento = const [
-    _EtapaInfo(
-      etapa: EtapaCircuito.programado,
-      label: 'Programado',
-      subtitle: 'Agendamento realizado',
-      icon: Icons.calendar_month,
-      cor: Color.fromARGB(255, 61, 160, 206),
-      statusCodigo: 1,
-    ),
-    _EtapaInfo(
-      etapa: EtapaCircuito.aguardando,
-      label: 'Aguardando',
-      subtitle: 'Aguardando disponibilidade',
-      icon: Icons.hourglass_empty,
-      cor: Color.fromARGB(255, 5, 151, 0),
-      statusCodigo: 15,
-    ),
-    _EtapaInfo(
-      etapa: EtapaCircuito.checkList,
-      label: 'Check-list',
-      subtitle: 'Verificação de segurança',
-      icon: Icons.checklist_outlined,
-      cor: Color(0xFFF57C00),
-      statusCodigo: 2,
-    ),
-    _EtapaInfo(
-      etapa: EtapaCircuito.operacao,
-      label: 'Em operação',
-      subtitle: 'Carga em transporte',
-      icon: Icons.invert_colors,
-      cor: Color(0xFF7B1FA2),
-      statusCodigo: 3,
-    ),
-    _EtapaInfo(
-      etapa: EtapaCircuito.emissaoNF,
-      label: 'Emissão NF',
-      subtitle: 'Documentação fiscal',
-      icon: Icons.description_outlined,
-      cor: Color(0xFFC2185B),
-      statusCodigo: 4,
-    ),
-    _EtapaInfo(
-      etapa: EtapaCircuito.liberacao,
-      label: 'Liberado',
-      subtitle: 'Operação concluída',
-      icon: Icons.done_outline,
-      cor: Color.fromARGB(255, 42, 199, 50),
-      statusCodigo: 5,
-    ),
-  ];
-
-  final List<_EtapaInfo> _etapasDescarregamento = const [
-    _EtapaInfo(
-      etapa: EtapaCircuito.programado,
-      label: 'Programado',
-      subtitle: 'Agendamento realizado',
-      icon: Icons.calendar_month,
-      cor: Color.fromARGB(255, 61, 160, 206),
-      statusCodigo: 1,
-    ),
-    _EtapaInfo(
-      etapa: EtapaCircuito.aguardando,
-      label: 'Aguardando',
-      subtitle: 'Aguardando chegada',
-      icon: Icons.hourglass_empty,
-      cor: Color.fromARGB(255, 5, 151, 0),
-      statusCodigo: 15,
-    ),
-    _EtapaInfo(
-      etapa: EtapaCircuito.checkList,
-      label: 'Check-list',
-      subtitle: 'Verificação de segurança',
-      icon: Icons.checklist_outlined,
-      cor: Color(0xFFF57C00),
-      statusCodigo: 2,
-    ),
-    _EtapaInfo(
-      etapa: EtapaCircuito.operacao,
-      label: 'Em operação',
-      subtitle: 'Descarga em andamento',
-      icon: Icons.invert_colors,
-      cor: Color(0xFF7B1FA2),
-      statusCodigo: 3,
-    ),
-    _EtapaInfo(
-      etapa: EtapaCircuito.liberacao,
-      label: 'Liberado',
-      subtitle: 'Descarga concluída',
-      icon: Icons.done_outline,
-      cor: Color.fromARGB(255, 42, 199, 50),
-      statusCodigo: 5,  // Status 5 para Liberação (mesmo do Carregamento)
-    ),
-  ];
+  bool _atualizandoChecklist = false;    
 
   // Histórico de fatos ocorridos - será preenchido dinamicamente
   List<Map<String, String>> _historicoFatos = [];
@@ -336,13 +241,162 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
         _etapaAtual = _resolverEtapaPorStatus(status);
       });
     }
-  }
+  }  
 
-  // Getter para a lista de etapas ativa
   List<_EtapaInfo> get _etapasAtivas {
-    return _tipoMovimentacao == TipoMovimentacao.carregamento
-        ? _etapasCarregamento
-        : _etapasDescarregamento;
+    final tipoOp = widget.ordem['tipo_op']?.toString().toLowerCase() ?? '';
+    
+    // FLUXO PARA VENDA - Etapas invertidas: Check-list → Emissão NF → Operação → Liberação
+    if (_tipoMovimentacao == TipoMovimentacao.carregamento && tipoOp == 'venda') {
+      return const [
+        _EtapaInfo(
+          etapa: EtapaCircuito.programado,
+          label: 'Programado',
+          subtitle: 'Agendamento realizado',
+          icon: Icons.calendar_month,
+          cor: Color.fromARGB(255, 61, 160, 206),
+          statusCodigo: 1,
+        ),
+        _EtapaInfo(
+          etapa: EtapaCircuito.aguardando,
+          label: 'Aguardando',
+          subtitle: 'Aguardando disponibilidade',
+          icon: Icons.hourglass_empty,
+          cor: Color.fromARGB(255, 5, 151, 0),
+          statusCodigo: 15,
+        ),
+        _EtapaInfo(
+          etapa: EtapaCircuito.checkList,
+          label: 'Check-list',
+          subtitle: 'Verificação de segurança',
+          icon: Icons.checklist_outlined,
+          cor: Color(0xFFF57C00),
+          statusCodigo: 2,
+        ),
+        _EtapaInfo(
+          etapa: EtapaCircuito.emissaoNF,
+          label: 'Emissão NF',
+          subtitle: 'Documentação fiscal',
+          icon: Icons.description_outlined,
+          cor: Color(0xFFC2185B),
+          statusCodigo: 3,  // Status 3 no banco (operação original)
+        ),
+        _EtapaInfo(
+          etapa: EtapaCircuito.operacao,
+          label: 'Em operação',
+          subtitle: 'Carga em transporte',
+          icon: Icons.invert_colors,
+          cor: Color(0xFF7B1FA2),
+          statusCodigo: 4,  // Status 4 no banco (emissão NF original)
+        ),
+        _EtapaInfo(
+          etapa: EtapaCircuito.liberacao,
+          label: 'Liberado',
+          subtitle: 'Operação concluída',
+          icon: Icons.done_outline,
+          cor: Color.fromARGB(255, 42, 199, 50),
+          statusCodigo: 5,
+        ),
+      ];
+    }
+    
+    // FLUXO PARA TRANSFERÊNCIA (mantém o original)
+    if (_tipoMovimentacao == TipoMovimentacao.carregamento) {
+      return const [
+        _EtapaInfo(
+          etapa: EtapaCircuito.programado,
+          label: 'Programado',
+          subtitle: 'Agendamento realizado',
+          icon: Icons.calendar_month,
+          cor: Color.fromARGB(255, 61, 160, 206),
+          statusCodigo: 1,
+        ),
+        _EtapaInfo(
+          etapa: EtapaCircuito.aguardando,
+          label: 'Aguardando',
+          subtitle: 'Aguardando disponibilidade',
+          icon: Icons.hourglass_empty,
+          cor: Color.fromARGB(255, 5, 151, 0),
+          statusCodigo: 15,
+        ),
+        _EtapaInfo(
+          etapa: EtapaCircuito.checkList,
+          label: 'Check-list',
+          subtitle: 'Verificação de segurança',
+          icon: Icons.checklist_outlined,
+          cor: Color(0xFFF57C00),
+          statusCodigo: 2,
+        ),
+        _EtapaInfo(
+          etapa: EtapaCircuito.operacao,
+          label: 'Em operação',
+          subtitle: 'Carga em transporte',
+          icon: Icons.invert_colors,
+          cor: Color(0xFF7B1FA2),
+          statusCodigo: 3,
+        ),
+        _EtapaInfo(
+          etapa: EtapaCircuito.emissaoNF,
+          label: 'Emissão NF',
+          subtitle: 'Documentação fiscal',
+          icon: Icons.description_outlined,
+          cor: Color(0xFFC2185B),
+          statusCodigo: 4,
+        ),
+        _EtapaInfo(
+          etapa: EtapaCircuito.liberacao,
+          label: 'Liberado',
+          subtitle: 'Operação concluída',
+          icon: Icons.done_outline,
+          cor: Color.fromARGB(255, 42, 199, 50),
+          statusCodigo: 5,
+        ),
+      ];
+    }
+    
+    // FLUXO PARA DESCARREGAMENTO (mantém o original)
+    return const [
+      _EtapaInfo(
+        etapa: EtapaCircuito.programado,
+        label: 'Programado',
+        subtitle: 'Agendamento realizado',
+        icon: Icons.calendar_month,
+        cor: Color.fromARGB(255, 61, 160, 206),
+        statusCodigo: 1,
+      ),
+      _EtapaInfo(
+        etapa: EtapaCircuito.aguardando,
+        label: 'Aguardando',
+        subtitle: 'Aguardando chegada',
+        icon: Icons.hourglass_empty,
+        cor: Color.fromARGB(255, 5, 151, 0),
+        statusCodigo: 15,
+      ),
+      _EtapaInfo(
+        etapa: EtapaCircuito.checkList,
+        label: 'Check-list',
+        subtitle: 'Verificação de segurança',
+        icon: Icons.checklist_outlined,
+        cor: Color(0xFFF57C00),
+        statusCodigo: 2,
+      ),
+      _EtapaInfo(
+        etapa: EtapaCircuito.operacao,
+        label: 'Em operação',
+        subtitle: 'Descarga em andamento',
+        icon: Icons.invert_colors,
+        cor: Color(0xFF7B1FA2),
+        statusCodigo: 3,
+      ),
+      _EtapaInfo(
+        etapa: EtapaCircuito.liberacao,
+        label: 'Liberado',
+        subtitle: 'Descarga concluída',
+        icon: Icons.done_outline,
+        cor: Color.fromARGB(255, 42, 199, 50),
+        statusCodigo: 5,
+      ),
+    ];
   }
 
   // NOVO MÉTODO: Carrega o número de controle da ordem da tabela 'ordens'
@@ -408,8 +462,31 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
 
   EtapaCircuito _resolverEtapaPorStatus(dynamic status) {
     final codigo = status is int ? status : int.tryParse(status.toString()) ?? 1;
+    final tipoOp = widget.ordem['tipo_op']?.toString().toLowerCase() ?? '';
 
-    // Mapeamento simplificado para ambos os fluxos
+    // Mapeamento específico para o fluxo de VENDA no CARREGAMENTO
+    if (_tipoMovimentacao == TipoMovimentacao.carregamento && tipoOp == 'venda') {
+      switch (codigo) {
+        case 1:
+          return EtapaCircuito.programado;
+        case 15:
+          return EtapaCircuito.aguardando;
+        case 2:
+          return EtapaCircuito.checkList;
+        case 3:
+          // Status 3 para 'venda' no carregamento deve mostrar como 'Emissão NF'
+          return EtapaCircuito.emissaoNF;
+        case 4:
+          // Status 4 para 'venda' no carregamento deve mostrar como 'Em operação'
+          return EtapaCircuito.operacao;
+        case 5:
+          return EtapaCircuito.liberacao;
+        default:
+          return EtapaCircuito.programado;
+      }
+    }
+
+    // Mapeamento simplificado para outros fluxos (Transferência ou Descarregamento)
     switch (codigo) {
       case 1:
         return EtapaCircuito.programado;
@@ -865,14 +942,17 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
     });
 
     try {
-      // Atualizar todas as movimentações relacionadas a esta ordem
       final ordemId = widget.ordem['ordem_id'];
       if (ordemId != null) {
-        // Determinar qual campo atualizar baseado no tipo de movimentação
+        final tipoOp = widget.ordem['tipo_op']?.toString().toLowerCase() ?? '';
         final campoStatus = _tipoMovimentacao == TipoMovimentacao.carregamento
             ? 'status_circuito_orig'
             : 'status_circuito_dest';
         
+        // VERIFICAR SE É VENDA PARA DEFINIR O PRÓXIMO STATUS
+        final isVenda = (_tipoMovimentacao == TipoMovimentacao.carregamento && tipoOp == 'venda');
+        
+        // Status 3 para ambos os casos, mas a UI interpreta diferente
         await _supabase
             .from('movimentacoes')
             .update({campoStatus: 3})
@@ -880,7 +960,11 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
 
         // Atualizar estado local
         setState(() {
-          _etapaAtual = EtapaCircuito.operacao;
+          // Para venda: UI deve mostrar etapa "Emissão NF" (status 3 no banco)
+          // Para transferência: UI deve mostrar etapa "Em operação" (status 3 no banco)
+          _etapaAtual = isVenda 
+              ? EtapaCircuito.emissaoNF 
+              : EtapaCircuito.operacao;
           _atualizandoChecklist = false;
           
           // Atualiza também no widget.ordem para manter sincronizado
@@ -893,9 +977,9 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
 
         // Adicionar ao histórico local
         final agora = DateTime.now();
-        final descricaoChecklist = _tipoMovimentacao == TipoMovimentacao.carregamento
-            ? 'Check-list concluído, início do carregamento'
-            : 'Check-list concluído, início do descarregamento';
+        final descricaoChecklist = isVenda
+            ? 'Check-list concluído. Aguardando emissão de nota fiscal.'
+            : 'Check-list concluído, início do carregamento/descarga.';
         
         _historicoFatos.insert(3, {
           'data': '${agora.day.toString().padLeft(2, '0')}/${agora.month.toString().padLeft(2, '0')}/${agora.year}',
@@ -908,6 +992,46 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
       setState(() {
         _atualizandoChecklist = false;
       });
+    }
+  }
+
+  // NOVO MÉTODO: Finalizar emissão NF e avançar para operação (apenas para venda)
+  Future<void> _finalizarEmissaoNF() async {
+    try {
+      final ordemId = widget.ordem['ordem_id'];
+      if (ordemId != null) {
+        final campoStatus = _tipoMovimentacao == TipoMovimentacao.carregamento
+            ? 'status_circuito_orig'
+            : 'status_circuito_dest';
+        
+        // Atualizar para status 4 (operação no banco)
+        await _supabase
+            .from('movimentacoes')
+            .update({campoStatus: 4})
+            .eq('ordem_id', ordemId);
+
+        // Atualizar estado local
+        setState(() {
+          _etapaAtual = EtapaCircuito.operacao;
+          
+          // Atualiza também no widget.ordem
+          if (_tipoMovimentacao == TipoMovimentacao.carregamento) {
+            widget.ordem['status_circuito_orig'] = 4;
+          } else {
+            widget.ordem['status_circuito_dest'] = 4;
+          }
+        });
+
+        // Adicionar ao histórico local
+        final agora = DateTime.now();
+        _historicoFatos.insert(4, {
+          'data': '${agora.day.toString().padLeft(2, '0')}/${agora.month.toString().padLeft(2, '0')}/${agora.year}',
+          'hora': '${agora.hour.toString().padLeft(2, '0')}:${agora.minute.toString().padLeft(2, '0')}',
+          'descricao': 'Nota fiscal emitida. Início do carregamento.'
+        });
+      }
+    } catch (e) {
+      print('Erro ao finalizar emissão NF: $e');
     }
   }
 
@@ -1226,30 +1350,23 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
     final ordemId = widget.ordem['ordem_id'];
     if (ordemId == null) return;
 
-    // Determinar qual campo atualizar
     final campoStatus = _tipoMovimentacao == TipoMovimentacao.carregamento
         ? 'status_circuito_orig'
         : 'status_circuito_dest';
-
-    final novoStatus = _tipoMovimentacao == TipoMovimentacao.carregamento ? 5 : 4;
-    final novaEtapa = _tipoMovimentacao == TipoMovimentacao.carregamento
-        ? EtapaCircuito.liberacao
-        : EtapaCircuito.emissaoNF;
     
-    // No carregamento, ao clicar em "Emissão NF", atualiza para status 5 (liberação)
     await _supabase
         .from('movimentacoes')
-        .update({campoStatus: novoStatus})
+        .update({campoStatus: 5})
         .eq('ordem_id', ordemId);
 
     setState(() {
-      _etapaAtual = novaEtapa;
+      _etapaAtual = EtapaCircuito.liberacao;
       
       // Atualiza também no widget.ordem
       if (_tipoMovimentacao == TipoMovimentacao.carregamento) {
-        widget.ordem['status_circuito_orig'] = novoStatus;
+        widget.ordem['status_circuito_orig'] = 5;
       } else {
-        widget.ordem['status_circuito_dest'] = novoStatus;
+        widget.ordem['status_circuito_dest'] = 5;
       }
     });
   }
@@ -1905,9 +2022,17 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
     } else if (etapa.etapa == EtapaCircuito.operacao && isCompleta) {
       podeClicar = true;
       tooltip = 'Abrir certificado de apuração';
-    } else if (isEmissaoNF && isAtual && _tipoMovimentacao == TipoMovimentacao.carregamento) {
-      podeClicar = true;
-      tooltip = 'Finalizar emissão NF';
+    } else if (isEmissaoNF && isAtual) {
+      final tipoOp = widget.ordem['tipo_op']?.toString().toLowerCase() ?? '';
+      final isVenda = (_tipoMovimentacao == TipoMovimentacao.carregamento && tipoOp == 'venda');
+      
+      if (isVenda) {
+        podeClicar = true;
+        tooltip = 'Finalizar emissão NF e iniciar operação';
+      } else if (_tipoMovimentacao == TipoMovimentacao.carregamento) {
+        podeClicar = true;
+        tooltip = 'Finalizar emissão NF';
+      }
     }
 
     final Widget iconCore = Container(
@@ -1960,8 +2085,17 @@ class _DetalhesOrdemViewState extends State<DetalhesOrdemView>
                         _abrirDialogoChecklist();
                       } else if (etapa.etapa == EtapaCircuito.operacao) {
                         _abrirCertificadoApuracao();
-                      } else if (isEmissaoNF && _tipoMovimentacao == TipoMovimentacao.carregamento) {
-                        _finalizarCargaExpedicao();
+                      } else if (isEmissaoNF) {
+                        final tipoOp = widget.ordem['tipo_op']?.toString().toLowerCase() ?? '';
+                        final isVenda = (_tipoMovimentacao == TipoMovimentacao.carregamento && tipoOp == 'venda');
+                        
+                        if (isVenda) {
+                          _finalizarEmissaoNF();  // Venda: avança para operação
+                        } else if (_tipoMovimentacao == TipoMovimentacao.carregamento) {
+                          _finalizarCargaExpedicao();  // Transferência: avança para liberação
+                        }
+                      } else if (etapa.etapa == EtapaCircuito.liberacao) {
+                        // Nenhuma ação na liberação
                       }
                     }
                   : null,

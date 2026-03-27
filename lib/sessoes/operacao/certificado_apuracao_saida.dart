@@ -1241,19 +1241,18 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              // BOTÃO VOLTAR
+                              // BOTÃO CANCELAR CERTIFICADO (Novo)
                               ElevatedButton.icon(
-                                onPressed: _voltar,
-                                icon: const Icon(Icons.arrow_back, size: 24),
+                                onPressed: _modoVisualizacao ? _cancelarCertificado : null,
+                                icon: Icon(Icons.cancel_outlined, size: 24, color: _modoVisualizacao ? Colors.white : Colors.grey[600]),
                                 label: const Text(
-                                  'Voltar',
+                                  'Cancelar Certificado',
                                   style: TextStyle(fontSize: 16),
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blue,
-                                  foregroundColor: Colors.white,
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                  backgroundColor: _modoVisualizacao ? Colors.red[700] : Colors.grey[300],
+                                  foregroundColor: _modoVisualizacao ? Colors.white : Colors.grey[600],
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8),
                                   ),
@@ -1311,15 +1310,16 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
                                   ),
                                 )
                               else
+                                // BOTÃO CONCLUIR (Antigo Voltar)
                                 ElevatedButton.icon(
-                                  onPressed: null,
-                                  icon: const Icon(Icons.check_circle, size: 24),
+                                  onPressed: _voltar,
+                                  icon: const Icon(Icons.check_circle_outline, size: 24),
                                   label: const Text(
-                                    'Certificado emitido',
+                                    'Concluir',
                                     style: TextStyle(fontSize: 16),
                                   ),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.grey[400],
+                                    backgroundColor: Colors.blue[800],
                                     foregroundColor: Colors.white,
                                     padding:
                                         const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -2302,6 +2302,164 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
     }
   }
 
+  // Método para cancelar o certificado no banco
+  Future<void> _cancelarCertificado() async {
+    if (!_modoVisualizacao || (widget.idCertificado == null && campos['numeroControle']!.text.isEmpty)) return;
+
+    final confirmacao = await showDialog<bool>(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: Color(0xFF0D47A1), width: 1),
+        ),
+        child: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0D47A1),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Confirmar cancelamento',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: RichText(
+                  textAlign: TextAlign.center,
+                  text: const TextSpan(
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.4,
+                      color: Colors.black,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: 'Tem certeza que quer cancelar este certificado?\n',
+                      ),
+                      TextSpan(
+                        text: 'Atenção: Esta ação é irreversível e o certificado será removido permanentemente do banco.',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(9)),
+                  border: Border(
+                    top: BorderSide(color: Colors.grey.shade300, width: 1),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 120,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          side: BorderSide(color: Colors.grey.shade400),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        child: const Text(
+                          'Voltar',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 120,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        child: const Text(
+                          'Sim, cancelar',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (confirmacao != true) return;
+
+    setState(() {
+      _salvandoCertificado = true; // Reutilizando flag de loading
+    });
+
+    try {
+      final supabase = Supabase.instance.client;
+      final idCert = widget.idCertificado ?? _dadosExistentes?['id'];
+
+      if (idCert != null) {
+        await supabase
+            .from('ordens_analises')
+            .delete()
+            .eq('id', idCert);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Certificado cancelado com sucesso!'), backgroundColor: Colors.green),
+          );
+          _voltar(); // Volta para a tela anterior após cancelar
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao cancelar certificado: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _salvandoCertificado = false;
+        });
+      }
+    }
+  }
+
   // Método para confirmar emissão do certificado
   void _confirmarEmissaoCertificado() {
     if (produtoSelecionado == null) {
@@ -2604,10 +2762,11 @@ class _EmitirCertificadoPageState extends State<EmitirCertificadoPage> {
         if (movimentacaoId == null || movimentacaoId.isEmpty) continue;
 
         final tanque = tanquesPorMovimentacaoId[movimentacaoId];
+        final tipoOp = widget.tipoOp?.toLowerCase() ?? '';
 
         final dadosUpdate = <String, dynamic>{
           'data_carga': timestampBrasilia,
-          'status_circuito_orig': '4',
+          'status_circuito_orig': tipoOp == 'venda' ? '5' : '4',
           'updated_at': timestampBrasilia,
         };
 
