@@ -257,23 +257,29 @@ class EnviarSugestaoPage extends StatefulWidget {
 
 class EnviarSugestaoPageState extends State<EnviarSugestaoPage> {
   final TextEditingController _textController = TextEditingController();
+  final TextEditingController _tituloController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+  final FocusNode _tituloFocusNode = FocusNode();
   bool _isSubmitting = false;
   String _charCount = '0/5000';
+  String _tituloCharCount = '0/70';
 
   @override
   void initState() {
     super.initState();
     _textController.addListener(_updateCharCount);
+    _tituloController.addListener(_updateTituloCharCount);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focusNode.requestFocus();
+      _tituloFocusNode.requestFocus();
     });
   }
 
   @override
   void dispose() {
     _textController.dispose();
+    _tituloController.dispose();
     _focusNode.dispose();
+    _tituloFocusNode.dispose();
     super.dispose();
   }
 
@@ -284,9 +290,28 @@ class EnviarSugestaoPageState extends State<EnviarSugestaoPage> {
     });
   }
 
+  void _updateTituloCharCount() {
+    setState(() {
+      final text = _tituloController.text;
+      _tituloCharCount = '${text.length}/70';
+    });
+  }
+
   Future<void> _showConfirmationDialog() async {
     // Verifica se o widget ainda está montado
     if (!mounted) return;
+
+    if (_tituloController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Por favor, escreva um título antes de enviar.'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      _tituloFocusNode.requestFocus();
+      return;
+    }
 
     if (_textController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -303,6 +328,8 @@ class EnviarSugestaoPageState extends State<EnviarSugestaoPage> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
         title: const Text(
           'Confirmar envio',
           style: TextStyle(
@@ -313,9 +340,11 @@ class EnviarSugestaoPageState extends State<EnviarSugestaoPage> {
         content: const Text(
           'Tem certeza que deseja enviar?\n\n'
           'Não gostaria de acrescentar mais nada?',
+          style: TextStyle(color: Colors.black87),
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: Colors.black, width: 0.5),
         ),
         actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         actions: [
@@ -382,15 +411,17 @@ class EnviarSugestaoPageState extends State<EnviarSugestaoPage> {
       
       // Obtém o ID do usuário atual (se disponível)
       final usuarioId = UsuarioAtual.instance?.id;
+      final titulo = _tituloController.text.trim().toUpperCase();
       final texto = _textController.text.trim();
       
-      if (texto.isEmpty) {
-        throw Exception('A mensagem não pode estar vazia.');
+      if (texto.isEmpty || titulo.isEmpty) {
+        throw Exception('O título e a mensagem não podem estar vazios.');
       }
 
       // Prepara os dados para inserir na tabela 'ajuda'
       final data = {
         'usuario_id': usuarioId, // Pode ser null se não houver usuário
+        'titulo': titulo, // O título da mensagem (em maiúsculas)
         'texto': texto, // O texto completo da mensagem
         'data_criacao': DateTime.now().toIso8601String(),
         'status': 'pendente', // Status padrão
@@ -466,7 +497,7 @@ class EnviarSugestaoPageState extends State<EnviarSugestaoPage> {
               const SizedBox(height: 16),
               const Text(
                 'Sua mensagem foi salva e será analisada com atenção.\n\n'
-                'O Desenvolvedor agradece sua contribuição!',
+                'A equipe PowerTank agradece sua contribuição!',
                 style: TextStyle(
                   color: Colors.white70,
                   fontSize: 16,
@@ -668,6 +699,96 @@ class EnviarSugestaoPageState extends State<EnviarSugestaoPage> {
                         ),
                       ),
 
+                      // NOVO: Campo de Título
+                      Container(
+                        width: containerWidth,
+                        margin: const EdgeInsets.only(bottom: 20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFF8F9FA),
+                                borderRadius: BorderRadius.only(
+                                  topLeft: Radius.circular(12),
+                                  topRight: Radius.circular(12),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Título da sua mensagem',
+                                    style: TextStyle(
+                                      color: Colors.grey[700],
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  Text(
+                                    _tituloCharCount,
+                                    style: TextStyle(
+                                      color: _tituloController.text.length > 100
+                                          ? Colors.red
+                                          : Colors.grey[600],
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              child: TextField(
+                                controller: _tituloController,
+                                focusNode: _tituloFocusNode,
+                                maxLength: 70,
+                                textCapitalization: TextCapitalization.characters,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                                decoration: const InputDecoration(
+                                  hintText: 'Digite o Assunto',
+                                  hintStyle: TextStyle(
+                                    fontSize: 15,
+                                    color: Colors.grey,
+                                    fontWeight: FontWeight.normal,
+                                  ),
+                                  border: InputBorder.none,
+                                  counterText: '',
+                                ),
+                                onChanged: (value) {
+                                  // Garante sempre maiúsculas
+                                  if (value != value.toUpperCase()) {
+                                    _tituloController.value = _tituloController.value.copyWith(
+                                      text: value.toUpperCase(),
+                                      selection: _tituloController.selection,
+                                    );
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
                       // Campo de texto (com altura ajustável)
                       Container(
                         width: containerWidth,
@@ -792,7 +913,8 @@ class EnviarSugestaoPageState extends State<EnviarSugestaoPage> {
                                       ? null
                                       : () {
                                           _textController.clear();
-                                          _focusNode.requestFocus();
+                                          _tituloController.clear();
+                                          _tituloFocusNode.requestFocus();
                                         },
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: Colors.white,
