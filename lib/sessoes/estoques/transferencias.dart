@@ -32,7 +32,7 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
 
   // Paginação histórico
   int _paginaAtual = 1;
-  final int _porPagina = 50;
+  final int _porPagina = 20;
   bool _temMaisPaginas = true;
   bool _carregandoHistorico = false;
 
@@ -288,24 +288,26 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
                       'Nenhuma transferência encontrada',
                       style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                     ),
-                    const SizedBox(height: 12),
-                    ElevatedButton.icon(
-                      onPressed: _mostrarDialogNovaTransferencia,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text(
-                        'Nova transferência',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2E7D32),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
+                    if (!paginacao) ...[
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        onPressed: _mostrarDialogNovaTransferencia,
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text(
+                          'Nova transferência',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                         ),
-                        elevation: 2,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2E7D32),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          elevation: 2,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               )
@@ -558,24 +560,40 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        ElevatedButton.icon(
-                          onPressed: _mostrarDialogNovaTransferencia,
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text(
-                            'Nova transferência',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2E7D32),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
+                        if (!paginacao) ...[
+                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            onPressed: _mostrarDialogNovaTransferencia,
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text(
+                              'Nova transferência',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                             ),
-                            elevation: 2,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2E7D32),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              elevation: 2,
+                            ),
                           ),
-                        ),
+                        ],
+                        if (paginacao && _temMaisPaginas) ...[
+                          const SizedBox(height: 12),
+                          OutlinedButton(
+                            onPressed: () => carregarHistorico(),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFF0D47A1)),
+                              foregroundColor: const Color(0xFF0D47A1),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            child: const Text('Carregar mais', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -900,13 +918,45 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
                   bodyController: _horizontalBodyControllerHist,
                   paginacao: true,
                 ),
-                if (_carregandoHistorico)
-                  const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator()),
+                  if (_carregandoHistorico)
+                    const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  
+                  const SizedBox(height: 40),
+
+                  // Rodapé Institucional
+                  Container(
+                    height: 50,
+                    width: double.infinity,
+                    color: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'PowerTank Terminais 2026, All rights reserved.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[600],
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '© Norton Technology - 550 California St, W-325, San Francisco, CA - EUA.',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey[500],
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-              ],
-            ),
+                ],
+              ),
     );
   }
 }
