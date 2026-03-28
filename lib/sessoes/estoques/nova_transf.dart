@@ -455,6 +455,29 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
     }
   }
 
+  Future<String?> _buscarFilialPorTerminal(String terminalId) async {
+    try {
+      final supabase = Supabase.instance.client;
+      
+      final response = await supabase
+          .from('relacoes_terminais')
+          .select('filial_id_1')
+          .eq('terminal_id', terminalId)
+          .eq('empresa_id', _empresaId!)
+          .limit(1)
+          .maybeSingle();
+      
+      if (response != null && response['filial_id_1'] != null) {
+        return response['filial_id_1'].toString();
+      }
+      
+      return null;
+    } catch (e) {
+      debugPrint('Erro ao buscar filial para terminal $terminalId: $e');
+      return null;
+    }
+  }
+
   Future<List<Map<String, dynamic>>> _buscarMotoristas(String texto) async {
     if (texto.length < 3) return [];
     
@@ -689,6 +712,10 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       final terminalOrigId = _origemId;
       final terminalDestId = _destinoId;
 
+      // Buscar filiais para origem e destino
+      final filialOrigemId = await _buscarFilialPorTerminal(terminalOrigId!);
+      final filialDestinoId = await _buscarFilialPorTerminal(terminalDestId!);
+
       // VALIDAÇÃO: Verificar apenas se o terminal de destino possui tanques com o produto selecionado
       if (terminalDestId != null && _produtoId != null) {
         final tanquesDestino = await supabase
@@ -857,8 +884,8 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
         'motorista_id': _motoristaId,
         'transportadora_id': _transportadoraId,
         'data_mov': _dataSelecionada.toIso8601String().split('T')[0],
-        'filial_origem_id': null,
-        'filial_destino_id': null,
+        'filial_origem_id': filialOrigemId,
+        'filial_destino_id': filialDestinoId,
         'updated_at': DateTime.now().toIso8601String(),
         'filial_id': null,
         'tipo_mov': null,
