@@ -280,10 +280,33 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
             ),
             if (lista.isEmpty)
               Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'Nenhuma transferência encontrada',
-                  style: TextStyle(color: Colors.grey.shade600),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Nenhuma transferência encontrada',
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: _mostrarDialogNovaTransferencia,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text(
+                        'Nova transferência',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2E7D32),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        elevation: 2,
+                      ),
+                    ),
+                  ],
                 ),
               )
             else
@@ -521,17 +544,39 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
                     ),
                   ),
                   Container(
-                    height: 32,
                     color: Colors.grey.shade100,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.all(12),
                     alignment: Alignment.centerLeft,
-                    child: Text(
-                      '${lista.length} transferência(s)',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${lista.length} transferência(s)',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ElevatedButton.icon(
+                          onPressed: _mostrarDialogNovaTransferencia,
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text(
+                            'Nova transferência',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2E7D32),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            elevation: 2,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -862,17 +907,6 @@ class _TransferenciasPageState extends State<TransferenciasPage> {
                   ),
               ],
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _mostrarDialogNovaTransferencia,
-        backgroundColor: const Color(0xFF2E7D32),
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        elevation: 4,
-        child: const Icon(Icons.add, size: 28),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
