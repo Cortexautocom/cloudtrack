@@ -2,7 +2,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'estoque_tanque.dart';
+import 'estoque_tanque_dia.dart';
 import 'estoque_tanque_mensal.dart';
 
 class DadosTanque {

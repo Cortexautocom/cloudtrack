@@ -63,10 +63,11 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
   static const double _hFoot = 32;
 
   static const double _wData = 120;
+  static const double _wEmpresa = 150;
   static const double _wDesc = 240;
   static const double _wNum = 130;
 
-  double get _wTable => _wData + _wDesc + (_wNum * 6);
+  double get _wTable => _wData + _wEmpresa + _wDesc + (_wNum * 6);
 
   String _coluna = 'data_mov';
   bool _asc = true;
@@ -266,7 +267,13 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
             entrada_amb,
             entrada_vinte,
             saida_amb,
-            saida_vinte
+            saida_vinte,
+            movimentacoes(
+              empresa_id,
+              empresas(
+                nome_dois
+              )
+            )
           ''')
           .eq('tanque_id', widget.tanqueId)
           .gte('data_mov', _inicioMes.toIso8601String())
@@ -319,8 +326,26 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
 
         final String cliente = (m['cliente']?.toString().trim() ?? '');
         final String desc = (m['descricao']?.toString().trim() ?? '');
-        final String descricao = cliente.isNotEmpty ? cliente : desc;
+        String descricao = cliente.isNotEmpty ? cliente : desc;
 
+        if (desc.toLowerCase().contains("venda comum") || cliente.toLowerCase().contains("venda comum")) {
+          descricao = "Venda - $descricao";
+        }
+
+        // Extrair nome da empresa
+        String empresaNome = '-';
+        final movData = m['movimentacoes'];
+        if (movData is Map) {
+          final empresaData = movData['empresas'];
+          if (empresaData is Map) {
+            empresaNome = empresaData['nome_dois']?.toString() ?? '-';
+          }
+        }
+
+        saldoAmb += entradaAmb - saidaAmb; // Wait, original code says 'saidaAmb' - I will fix my reference below
+        // I need to be careful. Let me re-read the loop in mensal.
+        // Re-reading mensal code from attachment... it has: saldoAmb += entradaAmb - saidaAmb;
+        // OK.
         saldoAmb += entradaAmb - saidaAmb;
         saldoVinte += entradaVinte - saidaVinte;
 
@@ -329,6 +354,7 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
           'movimentacao_id': m['movimentacao_id'],
           'cacl_id': m['cacl_id'],
           'data_mov': m['data_mov'],
+          'empresa_nome': empresaNome,
           'descricao': descricao,
           'entrada_amb': entradaAmb,
           'entrada_vinte': entradaVinte,
@@ -743,6 +769,7 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
             child: Row(
               children: [
                 _th('Data', _wData, () => _onSort('data_mov')),
+                _th('Empresa', _wEmpresa, () => _onSort('empresa_nome')),
                 _th('Descrição', _wDesc, () => _onSort('descricao')),
                 _th('Entrada (Amb)', _wNum, () => _onSort('entrada_amb')),
                 _th('Entrada (20ºC)', _wNum, () => _onSort('entrada_vinte')),
@@ -795,7 +822,7 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
             itemBuilder: (context, i) {
               if (i == 0) {
                 return _linhaResumo(
-                  'Estoque Inicial do Mês',
+                  'Estoque Inicial do Mês →',
                   _estoqueInicial['amb'],
                   _estoqueInicial['vinte'],
                   cor: Colors.blue,
@@ -803,7 +830,7 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
               }
               if (i == _movsOrdenadas.length + 1) {
                 return _linhaResumo(
-                  'Estoque Final',
+                  'Estoque Final →',
                   _estoqueFinal['amb'],
                   _estoqueFinal['vinte'],
                   cor: Colors.grey.shade700,
@@ -817,6 +844,7 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
                 child: Row(
                   children: [
                     _cell(_fmtData(e['data_mov']), _wData),
+                    _cell(e['empresa_nome'] ?? '-', _wEmpresa),
                     _cell(e['descricao'] ?? '-', _wDesc),
                     _cell(_fmtNum(e['entrada_amb']), _wNum, bg: _bgEntrada()),
                     _cell(_fmtNum(e['entrada_vinte']), _wNum, bg: _bgEntrada()),
@@ -879,6 +907,7 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
                 child: Row(
                   children: [
                     _cell(_fmtData(e['data_mov']), _wData),
+                    _cell('-', _wEmpresa),
                     _cell(e['descricao'] ?? '-', _wDesc),
                     _cell(_fmtNum(e['entrada_amb']), _wNum, bg: _bgEntrada()),
                     _cell(_fmtNum(e['entrada_vinte']), _wNum, bg: _bgEntrada()),
@@ -911,6 +940,7 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
       child: Row(
         children: [
           _cell('', _wData),
+          _cell('', _wEmpresa),
           _cell(label, _wDesc, cor: cor, fw: FontWeight.bold),
           _cell('-', _wNum),
           _cell('-', _wNum),

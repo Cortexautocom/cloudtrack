@@ -45,11 +45,13 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
   Map<String, dynamic> _contabilFisicoInicial = {
     'ambiente': 0,
     'vinte_graus': 0,
+    'vinte_graus_base': 0,
   };
   
   Map<String, dynamic> _contabilFisicoFinal = {
     'ambiente': 0,
     'vinte_graus': 0,
+    'vinte_graus_base': 0,
   };
 
   // ScrollControllers
@@ -73,18 +75,18 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
   double get _larguraTabela {
     bool mostrarColunaProduto = widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
     
-    // Soma das larguras fixas (7 colunas numéricas - agora com a nova coluna Sobra/Perda)
+    // Soma das larguras fixas (agora 7 colunas numéricas)
     double soma = _larguraData + 
                   _larguraDescricao + 
                   _larguraClienteDestino +
-                  (_larguraNumerica * 7); // 7 colunas numéricas (incluindo Sobra/Perda)
+                  (_larguraNumerica * 7); // 7 colunas numéricas
     
     // Adiciona coluna de produto se necessário
     if (mostrarColunaProduto) {
       soma += _larguraProduto;
     }
     
-    return soma; // Retorna a largura exata sem espaço extra
+    return soma;
   }
 
   Color _getCorFundoEntrada() {
@@ -136,20 +138,14 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
       _erro = false;
     });
 
-    // Print dos parâmetros recebidos
-
     try {
       // Resolver filial e empresa a partir dos parâmetros recebidos.
-      // A tabela terminais NÃO possui filial_id / empresa_id.
-      // A relação é inversa: filiais possui terminal_id_1 e terminal_id_2.
       if (widget.filialId != null && widget.filialId!.isNotEmpty) {
-        // Filial já conhecida (selecionada pelo usuário no filtro)
         _filialIdUsar = widget.filialId;
 
         if (widget.empresaId != null && widget.empresaId!.isNotEmpty) {
           _empresaId = widget.empresaId;
         } else {
-          // Buscar empresa_id pela filial (necessário para nível 4 sem empresa_id)
           final filialData = await _supabase
               .from('filiais')
               .select('empresa_id')
@@ -158,7 +154,6 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
           _empresaId = filialData?['empresa_id']?.toString();
         }
       } else if (widget.terminalId != null) {
-        // Sem filial explícita – descobrir pela filial que possui este terminal
         final filialData = await _supabase
             .from('filiais')
             .select('id, empresa_id')
@@ -249,17 +244,21 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
         if (movsProduto.isNotEmpty) {
           num saldoAmb = 0;
           num saldoVinte = 0;
+          num saldoVinteBase = 0;
 
           for (var mov in movsProduto) {
             saldoAmb += (mov['entrada_amb'] ?? 0) as num;
             saldoAmb -= (mov['saida_amb'] ?? 0) as num;
             saldoVinte += (mov['entrada_vinte'] ?? 0) as num;
             saldoVinte -= (mov['saida_vinte'] ?? 0) as num;
+            saldoVinteBase += (mov['entrada_vinte'] ?? 0) as num;
+            saldoVinteBase -= (mov['saida_vinte'] ?? 0) as num;
           }
 
           _contabilFisicoInicial = {
             'ambiente': saldoAmb,
             'vinte_graus': saldoVinte,
+            'vinte_graus_base': saldoVinteBase,
           };
           return;
         }
@@ -279,17 +278,21 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
 
       num saldoAmb = 0;
       num saldoVinte = 0;
+      num saldoVinteBase = 0;
 
       for (var mov in movimentacoesAnteriores) {
         saldoAmb += (mov['entrada_amb'] ?? 0) as num;
         saldoAmb -= (mov['saida_amb'] ?? 0) as num;
         saldoVinte += (mov['entrada_vinte'] ?? 0) as num;
         saldoVinte -= (mov['saida_vinte'] ?? 0) as num;
+        saldoVinteBase += (mov['entrada_vinte'] ?? 0) as num;
+        saldoVinteBase -= (mov['saida_vinte'] ?? 0) as num;
       }
 
       _contabilFisicoInicial = {
         'ambiente': saldoAmb,
         'vinte_graus': saldoVinte,
+        'vinte_graus_base': saldoVinteBase,
       };
 
     } catch (e) {
@@ -297,6 +300,7 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
       _contabilFisicoInicial = {
         'ambiente': 0,
         'vinte_graus': 0,
+        'vinte_graus_base': 0,
       };
     }
   }
@@ -307,11 +311,11 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
       return;
     }
 
-    // Pegar o último saldo das movimentações
     final ultimaMov = _movimentacoesOrdenadas.last;
     _contabilFisicoFinal = {
       'ambiente': ultimaMov['saldo_amb'] ?? 0,
       'vinte_graus': ultimaMov['saldo_vinte'] ?? 0,
+      'vinte_graus_base': ultimaMov['saldo_vinte_base'] ?? 0,
     };
   }
 
@@ -320,7 +324,6 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
     Map<String, dynamic> mov,
     String filialId,
   ) {
-    // Inicializar acumuladores
     num entradaAmb = 0;
     num entradaVinte = 0;
     num saidaAmb = 0;
@@ -332,28 +335,23 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
     final tipoMovDest = mov['tipo_mov_dest']?.toString();
     final tipoMovOrig = mov['tipo_mov_orig']?.toString();
 
-    // Regras por tipo de operação
     switch (tipoOp) {
       case 'transf':
         if (filialDestinoId == filialId && tipoMovDest == 'entrada') {
-          // ENTRADA por transferência
           entradaAmb += (mov['entrada_amb'] ?? 0) as num;
           entradaVinte += (mov['entrada_vinte'] ?? 0) as num;
         } else if (filialOrigemId == filialId && tipoMovOrig == 'saida') {
-          // SAÍDA por transferência
           saidaAmb += (mov['saida_amb'] ?? 0) as num;
           saidaVinte += (mov['saida_vinte'] ?? 0) as num;
         }
         break;
 
       case 'venda':
-        // Para vendas, usar os campos diretos saida_amb e saida_vinte
         saidaAmb += (mov['saida_amb'] ?? 0) as num;
         saidaVinte += (mov['saida_vinte'] ?? 0) as num;
         break;
 
       default:
-        // Outros tipos (CACL, etc): usar campos diretos
         entradaAmb += (mov['entrada_amb'] ?? 0) as num;
         entradaVinte += (mov['entrada_vinte'] ?? 0) as num;
         saidaAmb += (mov['saida_amb'] ?? 0) as num;
@@ -364,14 +362,15 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
     return {
       'entrada_amb': entradaAmb,
       'entrada_vinte': entradaVinte,
+      'entrada_vinte_base': 0, // Placeholder para entrada 20º base
       'saida_amb': saidaAmb,
       'saida_vinte': saidaVinte,
+      'saida_vinte_base': 0, // Placeholder para saída 20º base
     };
   }
 
   Future<void> _carregarDadosAnalitico() async {
     try {
-      // Query única para buscar todas as movimentações relevantes
       var query = _supabase
           .from('movimentacoes')
           .select('''
@@ -399,7 +398,6 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
           .or('filial_id.eq.$_filialIdUsar,filial_destino_id.eq.$_filialIdUsar,filial_origem_id.eq.$_filialIdUsar')
           .eq('empresa_id', _empresaId!);
 
-      // FILTRO DE DATA - RANGE DE DATAS
       final dataInicioStr = DateTime(
         widget.dataInicial.year,
         widget.dataInicial.month,
@@ -418,15 +416,12 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
           .gte('data_mov', dataInicioStr)
           .lte('data_mov', dataFimStr);
 
-      // FILTRO DE PRODUTO
       if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
         query = query.eq('produto_id', widget.produtoFiltro!);
       }
 
-      // EXECUTAR QUERY
       final dados = await query.order('ts_mov', ascending: true);
 
-      // Coletar IDs de filiais destino de transferências e buscar nomes em lote
       final Set<String> filialDestinoIds = {};
       for (var mov in dados) {
         if ((mov['tipo_op']?.toString() ?? '') == 'transf' && mov['filial_destino_id'] != null) {
@@ -451,16 +446,11 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
         }
       }
 
-      if (dados.isEmpty) {
-        // nenhum dado encontrado
-      }
-
-      // PROCESSAR DADOS
       final List<Map<String, dynamic>> analitico = [];
 
-      // Calcular saldo acumulado começando com contábil x físico inicial
       num saldoAmb = _contabilFisicoInicial['ambiente'] as num;
       num saldoVinte = _contabilFisicoInicial['vinte_graus'] as num;
+      num saldoVinteBase = _contabilFisicoInicial['vinte_graus_base'] as num;
 
       for (var mov in dados) {
         final normalizado = _normalizarMovimentacao(
@@ -471,9 +461,9 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
         final produto = mov['produtos'] as Map<String, dynamic>?;
         final produtoNome = produto?['nome']?.toString() ?? '';
 
-        // Atualizar saldos
         saldoAmb += (normalizado['entrada_amb'] as num) - (normalizado['saida_amb'] as num);
         saldoVinte += (normalizado['entrada_vinte'] as num) - (normalizado['saida_vinte'] as num);
+        saldoVinteBase += (normalizado['entrada_vinte_base'] as num) - (normalizado['saida_vinte_base'] as num);
 
         analitico.add({
           ...normalizado,
@@ -494,10 +484,10 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
           'produto_id': mov['produto_id'],
           'saldo_amb': saldoAmb,
           'saldo_vinte': saldoVinte,
+          'saldo_vinte_base': saldoVinteBase,
         });
       }
 
-      // Ordenar e atualizar estado
       _ordenarDados(analitico, 'data_mov', true);
 
     } catch (e) {
@@ -508,7 +498,6 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
 
   Future<void> _carregarDadosSintetico() async {
     try {
-      
       final Map<String, List<Map<String, dynamic>>> porDia = {};
       
       for (var mov in _movimentacoes) {
@@ -519,37 +508,36 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
         porDia[dataStr]!.add(mov);
       }
 
-      // Gerar lista sintética agrupada por dia
       final List<Map<String, dynamic>> sintetico = [];
-      
-      // Ordenar datas
       final datasOrdenadas = porDia.keys.toList()..sort();
 
-      // Calcular saldos começando com contábil x físico inicial
       num saldoAmbAcumulado = _contabilFisicoInicial['ambiente'] as num;
       num saldoVinteAcumulado = _contabilFisicoInicial['vinte_graus'] as num;
+      num saldoVinteBaseAcumulado = _contabilFisicoInicial['vinte_graus_base'] as num;
 
       for (var dataStr in datasOrdenadas) {
         final movsDoDia = porDia[dataStr]!;
         
-        // Calcular totais do dia
         num totalEntradaAmb = 0;
         num totalEntradaVinte = 0;
+        num totalEntradaVinteBase = 0;
         num totalSaidaAmb = 0;
         num totalSaidaVinte = 0;
+        num totalSaidaVinteBase = 0;
 
         for (var mov in movsDoDia) {
           totalEntradaAmb += (mov['entrada_amb'] ?? 0) as num;
           totalEntradaVinte += (mov['entrada_vinte'] ?? 0) as num;
+          totalEntradaVinteBase += (mov['entrada_vinte_base'] ?? 0) as num;
           totalSaidaAmb += (mov['saida_amb'] ?? 0) as num;
           totalSaidaVinte += (mov['saida_vinte'] ?? 0) as num;
+          totalSaidaVinteBase += (mov['saida_vinte_base'] ?? 0) as num;
         }
 
-        // Atualizar saldos acumulados
         saldoAmbAcumulado += totalEntradaAmb - totalSaidaAmb;
         saldoVinteAcumulado += totalEntradaVinte - totalSaidaVinte;
+        saldoVinteBaseAcumulado += totalEntradaVinteBase - totalSaidaVinteBase;
 
-        // Obter nome do produto
         String produtoNome;
         if (widget.produtoFiltro == null || widget.produtoFiltro == 'todos') {
           produtoNome = 'Todos';
@@ -563,16 +551,18 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
           'descricao': 'Resumo do dia',
           'entrada_amb': totalEntradaAmb,
           'entrada_vinte': totalEntradaVinte,
+          'entrada_vinte_base': totalEntradaVinteBase,
           'saida_amb': totalSaidaAmb,
           'saida_vinte': totalSaidaVinte,
+          'saida_vinte_base': totalSaidaVinteBase,
           'produto_nome': produtoNome,
           'produto_id': widget.produtoFiltro,
           'saldo_amb': saldoAmbAcumulado,
           'saldo_vinte': saldoVinteAcumulado,
+          'saldo_vinte_base': saldoVinteBaseAcumulado,
         });
       }
 
-      // Atualizar estado com dados sintéticos
       setState(() {
         _movimentacoes = sintetico;
         _movimentacoesOrdenadas = List.from(sintetico);
@@ -758,10 +748,13 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
           break;
         case 'entrada_amb':
         case 'entrada_vinte':
+        case 'entrada_vinte_base':
         case 'saida_amb':
         case 'saida_vinte':
+        case 'saida_vinte_base':
         case 'saldo_amb':
         case 'saldo_vinte':
+        case 'saldo_vinte_base':
           valorA = a[coluna] ?? 0;
           valorB = b[coluna] ?? 0;
           break;
@@ -1097,7 +1090,6 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
     return resultado;
   }
 
-  // Método para formatar data
   String _formatarData(String dataString) {
     try {
       final data = DateTime.parse(dataString);
@@ -1107,7 +1099,6 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
     }
   }
 
-  // Método principal da tabela com Contábil x Físico
   Widget _buildTabelaComContabilFisico() {
     return Scrollbar(
       controller: _verticalScrollController,
@@ -1132,7 +1123,6 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
     );
   }
 
-  // Cabeçalho da tabela com scroll horizontal (COM a nova coluna Sobra/Perda)
   Widget _buildTabelaCabecalho() {
     bool mostrarColunaProduto = widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
     
@@ -1155,12 +1145,12 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
                 _th('Descrição', _larguraDescricao, onTap: () => _onSort('descricao')),
                 _th('Cliente/Destino', _larguraClienteDestino, onTap: () => _onSort('cliente_destino')),
                 _th('Entrada (Amb)', _larguraNumerica, onTap: () => _onSort('entrada_amb')),
-                _th('Entrada (20ºC)', _larguraNumerica, onTap: () => _onSort('entrada_vinte')),
+                _th('Entrada (20º NF)', _larguraNumerica, onTap: () => _onSort('entrada_vinte')),
+                _th('Entrada (20º Base)', _larguraNumerica, onTap: () => _onSort('entrada_vinte_base')),
                 _th('Saída (Amb)', _larguraNumerica, onTap: () => _onSort('saida_amb')),
-                _th('Saída (20ºC)', _larguraNumerica, onTap: () => _onSort('saida_vinte')),
-                _th('Sobra/Perda', _larguraNumerica), // NOVA COLUNA
+                _th('Saída (20º NF)', _larguraNumerica, onTap: () => _onSort('saida_vinte')),
                 _th('Saldo (Amb)', _larguraNumerica, onTap: () => _onSort('saldo_amb')),
-                _th('Saldo (20ºC)', _larguraNumerica, onTap: () => _onSort('saldo_vinte')),
+                _th('Saldo (20º)', _larguraNumerica, onTap: () => _onSort('saldo_vinte')),
               ],
             ),
           ),
@@ -1169,7 +1159,6 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
     );
   }
 
-  // Célula de cabeçalho
   Widget _th(String texto, double largura, {VoidCallback? onTap}) {
     return GestureDetector(
       onTap: onTap,
@@ -1192,7 +1181,6 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
     );
   }
 
-  // Corpo da tabela com scroll horizontal sincronizado
   Widget _buildTabelaCorpo() {
     bool mostrarColunaProduto = widget.produtoFiltro == null || widget.produtoFiltro == 'todos';
     
@@ -1207,31 +1195,24 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
           child: ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: _movimentacoesOrdenadas.length + 2, // +2 para saldo inicial e final
+            itemCount: _movimentacoesOrdenadas.length + 2,
             itemBuilder: (context, index) {
-              // Primeira linha: Saldo Inicial
               if (index == 0) {
                 return Container(
                   height: _alturaLinha,
-                  color: Colors.blue.shade50, // Cor diferenciada
+                  color: Colors.blue.shade50,
                   child: Row(
                     children: [
-                      // Data vazia para saldo inicial
                       _cell('', _larguraData),
                       if (mostrarColunaProduto)
                         _cell('', _larguraProduto),
-                      // Descrição: Saldo Inicial
                       _cell('Saldo Inicial', _larguraDescricao, cor: Colors.blue, fontWeight: FontWeight.bold),
-                      // Cliente/Destino vazio para linha inicial
                       _cell('', _larguraClienteDestino),
-                      // Entradas e Saídas zeradas
                       _cell('0', _larguraNumerica, isNumber: true),
                       _cell('0', _larguraNumerica, isNumber: true),
                       _cell('0', _larguraNumerica, isNumber: true),
                       _cell('0', _larguraNumerica, isNumber: true),
-                      // Sobra/Perda vazia
-                      _cell('-', _larguraNumerica, isNumber: true),
-                      // Saldo Ambiente (saldo inicial)
+                      _cell('0', _larguraNumerica, isNumber: true),
                       _cell(
                         _formatarNumero(_contabilFisicoInicial['ambiente'] as num?),
                         _larguraNumerica,
@@ -1239,7 +1220,6 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
                         fontWeight: FontWeight.bold,
                         isNumber: true,
                       ),
-                      // Saldo 20ºC (saldo inicial)
                       _cell(
                         _formatarNumero(_contabilFisicoInicial['vinte_graus'] as num?),
                         _larguraNumerica,
@@ -1252,29 +1232,22 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
                 );
               }
               
-              // Última linha: Saldo Final
               if (index == _movimentacoesOrdenadas.length + 1) {
                 return Container(
                   height: _alturaLinha,
-                  color: Colors.grey.shade100, // Cor diferenciada
+                  color: Colors.grey.shade100,
                   child: Row(
                     children: [
-                      // Data vazia para saldo final
                       _cell('', _larguraData),
                       if (mostrarColunaProduto)
                         _cell('', _larguraProduto),
-                      // Descrição: Saldo Final
                       _cell('Saldo Final', _larguraDescricao, cor: Colors.grey.shade700, fontWeight: FontWeight.bold),
-                      // Cliente/Destino vazio para linha final
                       _cell('', _larguraClienteDestino),
-                      // Entradas e Saídas zeradas
                       _cell('0', _larguraNumerica, isNumber: true),
                       _cell('0', _larguraNumerica, isNumber: true),
                       _cell('0', _larguraNumerica, isNumber: true),
                       _cell('0', _larguraNumerica, isNumber: true),
-                      // Sobra/Perda vazia
-                      _cell('-', _larguraNumerica, isNumber: true),
-                      // Saldo Ambiente (saldo final)
+                      _cell('0', _larguraNumerica, isNumber: true),
                       _cell(
                         _formatarNumero(_contabilFisicoFinal['ambiente'] as num?),
                         _larguraNumerica,
@@ -1282,8 +1255,6 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
                         fontWeight: FontWeight.bold,
                         isNumber: true,
                       ),
-
-                      // Saldo 20ºC (saldo final)
                       _cell(
                         _formatarNumero(_contabilFisicoFinal['vinte_graus'] as num?),
                         _larguraNumerica,
@@ -1296,8 +1267,7 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
                 );
               }
               
-              // Linhas normais das movimentações
-              final movIndex = index - 1; // -1 porque a primeira linha é o saldo inicial
+              final movIndex = index - 1;
               final e = _movimentacoesOrdenadas[movIndex];
               final saldoAmb = e['saldo_amb'] ?? 0;
               final saldoVinte = e['saldo_vinte'] ?? 0;
@@ -1321,16 +1291,17 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
                     if (mostrarColunaProduto)
                       _cell(e['produto_nome'] ?? '-', _larguraProduto),
                     _cell(e['descricao'] ?? '-', _larguraDescricao),
-                        _cell(e['cliente_destino'] ?? '-', _larguraClienteDestino),
+                    _cell(e['cliente_destino'] ?? '-', _larguraClienteDestino),
                     _cell(_formatarNumero(e['entrada_amb']), _larguraNumerica, 
                           fundo: _getCorFundoEntrada(), isNumber: true),
                     _cell(_formatarNumero(e['entrada_vinte']), _larguraNumerica, 
+                          fundo: _getCorFundoEntrada(), isNumber: true),
+                    _cell(_formatarNumero(e['entrada_vinte_base'] ?? 0), _larguraNumerica, 
                           fundo: _getCorFundoEntrada(), isNumber: true),
                     _cell(_formatarNumero(e['saida_amb']), _larguraNumerica, 
                           fundo: _getCorFundoSaida(), isNumber: true),
                     _cell(_formatarNumero(e['saida_vinte']), _larguraNumerica, 
                           fundo: _getCorFundoSaida(), isNumber: true),
-                    _cell('-', _larguraNumerica, isNumber: true), // NOVA COLUNA - VAZIA
                     _cell(
                       _formatarNumero(saldoAmb),
                       _larguraNumerica,
@@ -1353,7 +1324,6 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
     );
   }
 
-  // Célula genérica para o corpo da tabela
   Widget _cell(
     String texto,
     double largura, {
@@ -1381,7 +1351,6 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
     );
   }
 
-  // Rodapé com contador de resultados
   Widget _buildContadorResultados() {
     return Container(
       height: _alturaRodape,

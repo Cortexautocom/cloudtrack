@@ -58,10 +58,11 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   static const double _hFoot = 32;
 
   static const double _wData = 120;
+  static const double _wEmpresa = 150;
   static const double _wDesc = 240;
   static const double _wNum = 130;
 
-  double get _wTable => _wData + _wDesc + (_wNum * 6);
+  double get _wTable => _wData + _wEmpresa + _wDesc + (_wNum * 6);
 
   String _coluna = 'data_mov';
   bool _asc = true;
@@ -281,7 +282,13 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             entrada_amb,
             entrada_vinte,
             saida_amb,
-            saida_vinte
+            saida_vinte,
+            movimentacoes(
+              empresa_id,
+              empresas(
+                nome_dois
+              )
+            )
           ''')
           .eq('tanque_id', widget.tanqueId)
           .gte('data_mov', '$dataStr 00:00:00')
@@ -325,7 +332,22 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
 
         final String cliente = (m['cliente']?.toString().trim() ?? '');
         final String desc = (m['descricao']?.toString().trim() ?? '');
-        final String descricao = cliente.isNotEmpty ? cliente : desc;
+        String descricao = cliente.isNotEmpty ? cliente : desc;
+
+        if (desc.contains("venda comum") || cliente.contains("venda comum") ||
+            desc.toLowerCase().contains("venda comum") || cliente.toLowerCase().contains("venda comum")) {
+          descricao = "Venda - $descricao";
+        }
+
+        // Extrair nome da empresa
+        String empresaNome = '-';
+        final movData = m['movimentacoes'];
+        if (movData is Map) {
+          final empresaData = movData['empresas'];
+          if (empresaData is Map) {
+            empresaNome = empresaData['nome_dois']?.toString() ?? '-';
+          }
+        }
 
         saldoAmb += entradaAmb - saidaAmb;
         saldoVinte += entradaVinte - saidaVinte;
@@ -335,6 +357,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           'movimentacao_id': m['movimentacao_id'],
           'cacl_id': m['cacl_id'],
           'data_mov': m['data_mov'],
+          'empresa_nome': empresaNome,
           'descricao': descricao,
           'entrada_amb': entradaAmb,
           'entrada_vinte': entradaVinte,
@@ -1047,6 +1070,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             child: Row(
               children: [
                 _th('Data', _wData, () => _onSort('data_mov')),
+                _th('Empresa', _wEmpresa, () => _onSort('empresa_nome')),
                 _th('Descrição', _wDesc, () => _onSort('descricao')),
                 _th('Entrada (Amb)', _wNum, () => _onSort('entrada_amb')),
                 _th('Entrada (20ºC)', _wNum, () => _onSort('entrada_vinte')),
@@ -1096,7 +1120,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             itemBuilder: (context, i) {
               if (i == 0) {
                 return _linhaResumo(
-                  'Estoque Inicial',
+                  'Estoque Inicial →',
                   _estoqueInicial['amb'],
                   _estoqueInicial['vinte'],
                   cor: Colors.blue,
@@ -1107,7 +1131,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
               }
               if (i == _movsOrdenadas.length + 2) {
                 return _linhaResumo(
-                  'Estoque Final',
+                  'Estoque Final →',
                   _estoqueFinal['amb'],
                   _estoqueFinal['vinte'],
                   cor: Colors.grey.shade700,
@@ -1121,6 +1145,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
                 child: Row(
                   children: [
                     _cell(_fmtData(e['data_mov']), _wData),
+                    _cell(e['empresa_nome'] ?? '-', _wEmpresa),
                     _cell(e['descricao'] ?? '-', _wDesc),
                     _cell(_fmtNum(e['entrada_amb']), _wNum, bg: _bgEntrada()),
                     _cell(_fmtNum(e['entrada_vinte']), _wNum, bg: _bgEntrada()),
@@ -1158,6 +1183,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       child: Row(
         children: [
           _cell('', _wData),
+          _cell('', _wEmpresa),
           _cell('Totais', _wDesc, cor: Colors.orange.shade800, fw: FontWeight.bold),
           _cell(_fmtNum(totalEntradaAmb), _wNum, bg: _bgEntrada(), cor: Colors.orange.shade800, fw: FontWeight.bold),
           _cell(_fmtNum(totalEntradaVinte), _wNum, bg: _bgEntrada(), cor: Colors.orange.shade800, fw: FontWeight.bold),
@@ -1177,6 +1203,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       child: Row(
         children: [
           _cell('', _wData),
+          _cell('', _wEmpresa),
           _cell(label, _wDesc, cor: cor, fw: FontWeight.bold),
           _cell('-', _wNum),
           _cell('-', _wNum),
