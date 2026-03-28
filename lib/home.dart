@@ -17,9 +17,9 @@ import 'sessoes/operacao/estoque_tanques_geral.dart';
 import 'sessoes/operacao/historico_cacl.dart';
 import 'sessoes/operacao/listar_cacls.dart';
 import 'sessoes/estoques/estoque_downloads.dart';
-import 'sessoes/estoques/filtro_estoque.dart';
+import 'sessoes/estoques/filtro_contabil_fisico.dart';
 import 'sessoes/estoques/filtro_vendas.dart';
-import 'sessoes/estoques/estoque_mes.dart';
+import 'sessoes/estoques/contabil_fisico.dart';
 import 'sessoes/estoques/compacto_final.dart';
 import 'sessoes/gestao_de_frota/motoristas_page.dart';
 import 'sessoes/gestao_de_frota/veiculos.dart';
@@ -599,7 +599,7 @@ class _HomePageState extends State<HomePage>
       {
         'id': 'fallback-estoque-fiscal',
         'icon': Icons.receipt_long,
-        'label': 'Estoque fiscal',
+        'label': 'Estoque Contábil x Físico',
         'descricao': 'Acompanhar estoque fiscal e tributário',
         'tipo': 'estoque_fiscal',
         'sessao_pai': 'Estoques',
@@ -3006,7 +3006,9 @@ class _HomePageState extends State<HomePage>
                       constraints: const BoxConstraints(minHeight: 48, maxHeight: 48),
                       child: Center(
                         child: Text(
-                          card['label'] ?? '',
+                          (card['label']?.toString() ?? '') == 'Estoque Contábil x Físico'
+                              ? 'Estoque\nContábil x Físico'
+                              : (card['label'] ?? ''),
                           style: TextStyle(
                             fontSize: (card['label']?.toString() ?? '').length > 25 ? 11 : 13,
                             color: const Color(0xFF0D47A1),
@@ -4092,7 +4094,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildFiltrosEstoquePage() {
-    return FiltroEstoquePage(
+    return FiltroContabilFisicoPage(
       key: ValueKey('filtros-${_terminalParaFiltroId ?? _filialParaFiltroId}'),
       filialId: _filialParaFiltroId,
       terminalId: _terminalParaFiltroId,
@@ -4114,7 +4116,7 @@ class _HomePageState extends State<HomePage>
           _mostrarFilhosDaSessao('Estoques');
         }
       },
-      onConsultarEstoque:
+      onConsultarContabilFisico:
           ({
             required String? filialId,
             required String? terminalId,
@@ -4128,7 +4130,7 @@ class _HomePageState extends State<HomePage>
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => EstoqueMesPage(
+                builder: (_) => ContabilFisicoPage(
                   filialId: filialId,
                   terminalId: terminalId,
                   nomeFilial: nomeFilial,

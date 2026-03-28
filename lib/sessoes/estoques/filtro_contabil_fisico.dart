@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
 
-class FiltroEstoquePage extends StatefulWidget {
+class FiltroContabilFisicoPage extends StatefulWidget {
   final String? filialId;
   final String? terminalId;
   final String nomeFilial;
@@ -17,25 +17,25 @@ class FiltroEstoquePage extends StatefulWidget {
     required DateTime dataFinal,
     String? produtoFiltro,
     required String tipoRelatorio,
-  }) onConsultarEstoque;
+  }) onConsultarContabilFisico;
   final VoidCallback onVoltar;
 
-  const FiltroEstoquePage({
+  const FiltroContabilFisicoPage({
     super.key,
     this.filialId,
     this.terminalId,
     required this.nomeFilial,
     this.empresaId,
     this.empresaNome,
-    required this.onConsultarEstoque,
+    required this.onConsultarContabilFisico,
     required this.onVoltar,
   });
 
   @override
-  State<FiltroEstoquePage> createState() => _FiltroEstoquePageState();
+  State<FiltroContabilFisicoPage> createState() => _FiltroContabilFisicoPageState();
 }
 
-class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
+class _FiltroContabilFisicoPageState extends State<FiltroContabilFisicoPage> {
   final SupabaseClient _supabase = Supabase.instance.client;
   DateTime _dataInicial = DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime _dataFinal = DateTime.now();
@@ -663,7 +663,7 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
     return days;
   }
 
-  void _irParaEstoqueMes() {
+  void _irParaContabilFisico() {
     if (_dataInicial.isAfter(_dataFinal)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -688,7 +688,7 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
         ? _filialSelecionadaId
         : null;
 
-    widget.onConsultarEstoque(
+    widget.onConsultarContabilFisico(
       filialId: filialToPass,
       terminalId: widget.terminalId,
       nomeFilial: _filialSelecionadaNome ?? 'Filial não selecionada',
@@ -723,7 +723,7 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Filtros de Estoque',
+              'Filtros de Contábil x Físico',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
               ),
@@ -1308,12 +1308,12 @@ class _FiltroEstoquePageState extends State<FiltroEstoquePage> {
           
           const SizedBox(width: 16),
           
-          // Botão Consultar Estoque
+          // Botão Consultar Contábil x Físico
           SizedBox(
             width: 140,
             height: 36,
             child: ElevatedButton(
-              onPressed: _irParaEstoqueMes,
+              onPressed: _irParaContabilFisico,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0D47A1),
                 foregroundColor: Colors.white,

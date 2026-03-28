@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class EstoqueMesPage extends StatefulWidget {
+class ContabilFisicoPage extends StatefulWidget {
   final String? filialId;
   final String? terminalId;
   final String nomeFilial;
@@ -14,7 +14,7 @@ class EstoqueMesPage extends StatefulWidget {
   final String? produtoFiltro;
   final String tipoRelatorio;
 
-  const EstoqueMesPage({
+  const ContabilFisicoPage({
     super.key,
     this.filialId,
     this.terminalId,
@@ -27,10 +27,10 @@ class EstoqueMesPage extends StatefulWidget {
   });
 
   @override
-  State<EstoqueMesPage> createState() => _EstoqueMesPageState();
+  State<ContabilFisicoPage> createState() => _ContabilFisicoPageState();
 }
 
-class _EstoqueMesPageState extends State<EstoqueMesPage> {
+class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
   final SupabaseClient _supabase = Supabase.instance.client;
   List<Map<String, dynamic>> _movimentacoes = [];
   List<Map<String, dynamic>> _movimentacoesOrdenadas = [];
@@ -41,13 +41,13 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
   String _mensagemErro = '';
   String? _nomeProdutoSelecionado;
 
-  // Estoque inicial e final
-  Map<String, dynamic> _estoqueInicial = {
+  // Contábil x Físico - saldo inicial e final
+  Map<String, dynamic> _contabilFisicoInicial = {
     'ambiente': 0,
     'vinte_graus': 0,
   };
   
-  Map<String, dynamic> _estoqueFinal = {
+  Map<String, dynamic> _contabilFisicoFinal = {
     'ambiente': 0,
     'vinte_graus': 0,
   };
@@ -197,8 +197,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         _nomeProdutoSelecionado = produtoData?['nome']?.toString();
       }
 
-      // Carregar estoque inicial (do final do período anterior)
-      await _carregarEstoqueInicial();
+      // Carregar contábil x físico inicial (do final do período anterior)
+      await _carregarContabilFisicoInicial();
 
       await _carregarDadosAnalitico();
 
@@ -206,8 +206,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         await _carregarDadosSintetico();
       }
       
-      // Calcular estoque final
-      _calcularEstoqueFinal();
+      // Calcular contábil x físico final
+      _calcularContabilFisicoFinal();
       
       if (mounted) {
         setState(() {
@@ -227,7 +227,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     }
   }
 
-  Future<void> _carregarEstoqueInicial() async {
+  Future<void> _carregarContabilFisicoInicial() async {
     try {
       final diaAnterior = widget.dataInicial.subtract(const Duration(days: 1));
       final diaAnteriorStr = diaAnterior.toIso8601String().split('T')[0];
@@ -257,7 +257,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
             saldoVinte -= (mov['saida_vinte'] ?? 0) as num;
           }
 
-          _estoqueInicial = {
+          _contabilFisicoInicial = {
             'ambiente': saldoAmb,
             'vinte_graus': saldoVinte,
           };
@@ -287,29 +287,29 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         saldoVinte -= (mov['saida_vinte'] ?? 0) as num;
       }
 
-      _estoqueInicial = {
+      _contabilFisicoInicial = {
         'ambiente': saldoAmb,
         'vinte_graus': saldoVinte,
       };
 
     } catch (e) {
-      debugPrint('Erro ao carregar estoque inicial: $e');
-      _estoqueInicial = {
+      debugPrint('Erro ao carregar contábil x físico inicial: $e');
+      _contabilFisicoInicial = {
         'ambiente': 0,
         'vinte_graus': 0,
       };
     }
   }
 
-  void _calcularEstoqueFinal() {
+  void _calcularContabilFisicoFinal() {
     if (_movimentacoesOrdenadas.isEmpty) {
-      _estoqueFinal = Map.from(_estoqueInicial);
+      _contabilFisicoFinal = Map.from(_contabilFisicoInicial);
       return;
     }
 
     // Pegar o último saldo das movimentações
     final ultimaMov = _movimentacoesOrdenadas.last;
-    _estoqueFinal = {
+    _contabilFisicoFinal = {
       'ambiente': ultimaMov['saldo_amb'] ?? 0,
       'vinte_graus': ultimaMov['saldo_vinte'] ?? 0,
     };
@@ -458,9 +458,9 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       // PROCESSAR DADOS
       final List<Map<String, dynamic>> analitico = [];
 
-      // Calcular saldo acumulado começando com estoque inicial
-      num saldoAmb = _estoqueInicial['ambiente'] as num;
-      num saldoVinte = _estoqueInicial['vinte_graus'] as num;
+      // Calcular saldo acumulado começando com contábil x físico inicial
+      num saldoAmb = _contabilFisicoInicial['ambiente'] as num;
+      num saldoVinte = _contabilFisicoInicial['vinte_graus'] as num;
 
       for (var mov in dados) {
         final normalizado = _normalizarMovimentacao(
@@ -525,9 +525,9 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       // Ordenar datas
       final datasOrdenadas = porDia.keys.toList()..sort();
 
-      // Calcular saldos começando com estoque inicial
-      num saldoAmbAcumulado = _estoqueInicial['ambiente'] as num;
-      num saldoVinteAcumulado = _estoqueInicial['vinte_graus'] as num;
+      // Calcular saldos começando com contábil x físico inicial
+      num saldoAmbAcumulado = _contabilFisicoInicial['ambiente'] as num;
+      num saldoVinteAcumulado = _contabilFisicoInicial['vinte_graus'] as num;
 
       for (var dataStr in datasOrdenadas) {
         final movsDoDia = porDia[dataStr]!;
@@ -618,8 +618,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
         'dataFinal': widget.dataFinal.toIso8601String(),
         'produtoFiltro': widget.produtoFiltro,
         'tipoRelatorio': widget.tipoRelatorio,
-        'estoqueInicial': _estoqueInicial,
-        'estoqueFinal': _estoqueFinal,
+        'estoqueInicial': _contabilFisicoInicial,
+        'estoqueFinal': _contabilFisicoFinal,
       };
 
       final response = await _chamarEdgeFunctionBinaria(requestData);
@@ -651,7 +651,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
       final diaF = widget.dataFinal.day.toString().padLeft(2, '0');
       final mesF = widget.dataFinal.month.toString().padLeft(2, '0');
       final anoF = widget.dataFinal.year.toString();
-      final fileName = 'estoque_${nomeFormatado}_${diaI}_${mesI}_${anoI}_a_${diaF}_${mesF}_${anoF}.xlsx';
+      final fileName = 'contabil_fisico_${nomeFormatado}_${diaI}_${mesI}_${anoI}_a_${diaF}_${mesF}_${anoF}.xlsx';
       
       html.AnchorElement(href: url)
         ..setAttribute('download', fileName)
@@ -840,7 +840,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Estoque – ${widget.nomeFilial}',
+              'Contábil x Físico – ${widget.nomeFilial}',
               style: const TextStyle(
                 fontWeight: FontWeight.w600,
               ),
@@ -946,7 +946,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                           if (widget.produtoFiltro != null)
                             _buildIndicadorFiltros(),
                           const SizedBox(height: 16),
-                          Expanded(child: _buildTabelaComEstoque()),
+                          Expanded(child: _buildTabelaComContabilFisico()),
                         ],
                       ),
       ),
@@ -1107,8 +1107,8 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
     }
   }
 
-  // Método principal da tabela com estoque
-  Widget _buildTabelaComEstoque() {
+  // Método principal da tabela com Contábil x Físico
+  Widget _buildTabelaComContabilFisico() {
     return Scrollbar(
       controller: _verticalScrollController,
       thumbVisibility: true,
@@ -1207,21 +1207,21 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
           child: ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: _movimentacoesOrdenadas.length + 2, // +2 para estoque inicial e final
+            itemCount: _movimentacoesOrdenadas.length + 2, // +2 para saldo inicial e final
             itemBuilder: (context, index) {
-              // Primeira linha: Estoque Inicial
+              // Primeira linha: Saldo Inicial
               if (index == 0) {
                 return Container(
                   height: _alturaLinha,
                   color: Colors.blue.shade50, // Cor diferenciada
                   child: Row(
                     children: [
-                      // Data vazia para estoque inicial
+                      // Data vazia para saldo inicial
                       _cell('', _larguraData),
                       if (mostrarColunaProduto)
                         _cell('', _larguraProduto),
-                      // Descrição: Estoque Inicial
-                      _cell('Estoque Inicial', _larguraDescricao, cor: Colors.blue, fontWeight: FontWeight.bold),
+                      // Descrição: Saldo Inicial
+                      _cell('Saldo Inicial', _larguraDescricao, cor: Colors.blue, fontWeight: FontWeight.bold),
                       // Cliente/Destino vazio para linha inicial
                       _cell('', _larguraClienteDestino),
                       // Entradas e Saídas zeradas
@@ -1231,17 +1231,17 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                       _cell('0', _larguraNumerica, isNumber: true),
                       // Sobra/Perda vazia
                       _cell('-', _larguraNumerica, isNumber: true),
-                      // Saldo Ambiente (estoque inicial)
+                      // Saldo Ambiente (saldo inicial)
                       _cell(
-                        _formatarNumero(_estoqueInicial['ambiente'] as num?),
+                        _formatarNumero(_contabilFisicoInicial['ambiente'] as num?),
                         _larguraNumerica,
                         cor: Colors.blue,
                         fontWeight: FontWeight.bold,
                         isNumber: true,
                       ),
-                      // Saldo 20ºC (estoque inicial)
+                      // Saldo 20ºC (saldo inicial)
                       _cell(
-                        _formatarNumero(_estoqueInicial['vinte_graus'] as num?),
+                        _formatarNumero(_contabilFisicoInicial['vinte_graus'] as num?),
                         _larguraNumerica,
                         cor: Colors.blue,
                         fontWeight: FontWeight.bold,
@@ -1252,19 +1252,19 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                 );
               }
               
-              // Última linha: Estoque Final
+              // Última linha: Saldo Final
               if (index == _movimentacoesOrdenadas.length + 1) {
                 return Container(
                   height: _alturaLinha,
                   color: Colors.grey.shade100, // Cor diferenciada
                   child: Row(
                     children: [
-                      // Data vazia para estoque final
+                      // Data vazia para saldo final
                       _cell('', _larguraData),
                       if (mostrarColunaProduto)
                         _cell('', _larguraProduto),
-                      // Descrição: Estoque Final
-                      _cell('Estoque Final', _larguraDescricao, cor: Colors.grey.shade700, fontWeight: FontWeight.bold),
+                      // Descrição: Saldo Final
+                      _cell('Saldo Final', _larguraDescricao, cor: Colors.grey.shade700, fontWeight: FontWeight.bold),
                       // Cliente/Destino vazio para linha final
                       _cell('', _larguraClienteDestino),
                       // Entradas e Saídas zeradas
@@ -1274,20 +1274,20 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
                       _cell('0', _larguraNumerica, isNumber: true),
                       // Sobra/Perda vazia
                       _cell('-', _larguraNumerica, isNumber: true),
-                      // Saldo Ambiente (estoque final)
+                      // Saldo Ambiente (saldo final)
                       _cell(
-                        _formatarNumero(_estoqueFinal['ambiente'] as num?),
+                        _formatarNumero(_contabilFisicoFinal['ambiente'] as num?),
                         _larguraNumerica,
-                        cor: ((_estoqueFinal['ambiente'] as num?) ?? 0) < 0 ? Colors.red : Colors.black,
+                        cor: ((_contabilFisicoFinal['ambiente'] as num?) ?? 0) < 0 ? Colors.red : Colors.black,
                         fontWeight: FontWeight.bold,
                         isNumber: true,
                       ),
 
-                      // Saldo 20ºC (estoque final)
+                      // Saldo 20ºC (saldo final)
                       _cell(
-                        _formatarNumero(_estoqueFinal['vinte_graus'] as num?),
+                        _formatarNumero(_contabilFisicoFinal['vinte_graus'] as num?),
                         _larguraNumerica,
-                        cor: ((_estoqueFinal['vinte_graus'] as num?) ?? 0) < 0 ? Colors.red : Colors.black,
+                        cor: ((_contabilFisicoFinal['vinte_graus'] as num?) ?? 0) < 0 ? Colors.red : Colors.black,
                         fontWeight: FontWeight.bold,
                         isNumber: true,
                       ),
@@ -1297,7 +1297,7 @@ class _EstoqueMesPageState extends State<EstoqueMesPage> {
               }
               
               // Linhas normais das movimentações
-              final movIndex = index - 1; // -1 porque a primeira linha é o estoque inicial
+              final movIndex = index - 1; // -1 porque a primeira linha é o saldo inicial
               final e = _movimentacoesOrdenadas[movIndex];
               final saldoAmb = e['saldo_amb'] ?? 0;
               final saldoVinte = e['saldo_vinte'] ?? 0;
