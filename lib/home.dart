@@ -38,6 +38,7 @@ import 'sessoes/operacao/estoque_produto.dart';
 import 'sessoes/operacao/filtro_estoque_produto.dart';
 import 'sessoes/estoques/controle_descargas.dart';
 import 'sessoes/bombeios/ordem_bombeio.dart';
+import 'sessoes/financeiro/conta_corrente_refinarias.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -111,6 +112,7 @@ class _HomePageState extends State<HomePage>
   bool _mostrarTempDensMedia = false;
   bool _mostrarEstoqueProduto = false;
   bool _mostrarCardsFilial = false;
+  bool _mostrarContaCorrenteRefinarias = false;
   bool _voltarParaTanquesApoCACL = false; // ← RASTREIA SE VEIO DE TANQUES
   bool _estoquePorTanqueVemDaApuracao =
       false; // ← RASTREIA ORIGEM DO ESTOQUE POR TANQUE
@@ -377,6 +379,7 @@ class _HomePageState extends State<HomePage>
       _mostrarFiliaisDaEmpresa = false;
       _mostrarMedicaoTanques = false;
       _mostrarCardsFilial = false;
+      _mostrarContaCorrenteRefinarias = false;
     });
 
     _navegarParaCardFilho(card);
@@ -699,21 +702,18 @@ class _HomePageState extends State<HomePage>
     ];
 
     _filhosPorSessao['Laboratório'] = [
+      /* Lines 703-718 omitted */
+    ];
+
+    _filhosPorSessao['Financeiro'] = [
       {
-        'id': 'fallback-temp',
-        'icon': Icons.thermostat,
-        'label': 'Temperatura e Densidade média',
-        'descricao': 'Cálculo de temperatura e densidade média',
-        'tipo': 'temp_dens_media',
-        'sessao_pai': 'Laboratório',
-      },
-      {
-        'id': 'analise-conformidade',
-        'icon': Icons.fact_check,
-        'label': 'Análise de conformidade e qualidade',
-        'descricao': 'Relatórios de conformidade e qualidade de produtos',
-        'tipo': 'analise_conformidade',
-        'sessao_pai': 'Laboratório',
+        'id': 'conta-corrente-refinarias',
+        'icon': Icons.account_balance,
+        'label': 'Conta-corrente Refinarias',
+        'descricao': 'Movimentação financeira com refinarias',
+        'tipo': 'conta_corrente_refinarias',
+        'sessao_pai': 'Financeiro',
+        'favorito': false,
       },
     ];
 
@@ -792,6 +792,7 @@ class _HomePageState extends State<HomePage>
       'carregamento_rodoviario': Icons.local_shipping,
       'contratos_particulares': Icons.people,
       'contratos_refinarias': Icons.factory,
+      'conta_corrente_refinarias': Icons.account_balance,
     };
     return mapaIcones[tipo] ?? Icons.apps;
   }
@@ -831,6 +832,7 @@ class _HomePageState extends State<HomePage>
       'carregamento_rodoviario': 'Gestão de contratos de carregamento rodoviário conforme ANP nº 42/2011',
       'contratos_particulares': 'Gestão de contratos firmados com particulares',
       'contratos_refinarias': 'Gestão de contratos firmados com refinarias',
+      'conta_corrente_refinarias': 'Movimentação financeira com refinarias',
     };
     return mapaDescricoes[tipo] ?? '';
   }
@@ -1121,6 +1123,7 @@ class _HomePageState extends State<HomePage>
       _mostrarMenuSuporte = false;
       _mostrarSuporte = false;
       _mostrarEstoqueProduto = false;
+      _mostrarContaCorrenteRefinarias = false;
       _voltarParaTanquesApoCACL = false;
       _resetarTodasFlagsGestaoFrota();
       _mostrarFilhosSessao = false;
@@ -1743,7 +1746,6 @@ class _HomePageState extends State<HomePage>
 
         return _buildSuportePage();
 
-      case 'Financeiro':
       case 'Jurídico':
       case 'Gestão de Projetos':
       case 'Recursos Humanos':
@@ -1810,6 +1812,7 @@ class _HomePageState extends State<HomePage>
       case 'Vendas':
       case 'Gestão de Frota':
       case 'Laboratório':
+      case 'Financeiro':
       case 'Gestão de contratos':
       case 'Bombeios e Cotas Contratuais':
         return _buildConteudoSessoes();
@@ -2583,9 +2586,25 @@ class _HomePageState extends State<HomePage>
       return _buildFilhosSessaoPage();
     }
 
+    // SEÇÃO: Financeiro
+    if (sessaoAtual == 'Financeiro') {
+      if (_mostrarContaCorrenteRefinarias) {
+        return ContaCorrenteRefinariasPage(
+          filialId: _filialSelecionadaId,
+          nomeFilial: _filialSelecionadaNome ?? 'Geral',
+          onVoltar: () {
+            setState(() {
+              _mostrarContaCorrenteRefinarias = false;
+              _mostrarFilhosDaSessao('Financeiro');
+            });
+          },
+        );
+      }
+      return _buildFilhosSessaoPage();
+    }
+
     // Páginas indisponíveis
-    if (sessaoAtual == 'Financeiro' ||
-        sessaoAtual == 'Jurídico' ||
+    if (sessaoAtual == 'Jurídico' ||
         sessaoAtual == 'Gestão de Projetos' ||
         sessaoAtual == 'Recursos Humanos' ||
         sessaoAtual == 'Segurança & Compliance' ||
@@ -3306,6 +3325,9 @@ class _HomePageState extends State<HomePage>
       case 'Laboratório':
         _navegarParaCardLaboratorio(tipo);
         break;
+      case 'Financeiro':
+        _navegarParaCardFinanceiro(tipo);
+        break;
       case 'Almoxerifado':
         _navegarParaCardAlmoxerifado(tipo);
         break;
@@ -3755,6 +3777,16 @@ class _HomePageState extends State<HomePage>
             duration: Duration(seconds: 2),
           ),
         );
+        break;
+    }
+  }
+
+  void _navegarParaCardFinanceiro(String tipo) {
+    switch (tipo) {
+      case 'conta_corrente_refinarias':
+        setState(() {
+          _mostrarContaCorrenteRefinarias = true;
+        });
         break;
     }
   }

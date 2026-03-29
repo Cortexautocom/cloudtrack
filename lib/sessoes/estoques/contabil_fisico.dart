@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:html' as html;
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -865,65 +866,18 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
                       ),
                     ),
                   )
-                : IconButton(
-                    icon: const Icon(Icons.download),
-                    onPressed: _baixarExcel,
-                    tooltip: 'Baixar relatório Excel (XLSX)',
+                : Padding(
+                    padding: const EdgeInsets.only(right: 100),
+                    child: IconButton(
+                        icon: const FaIcon(
+                          FontAwesomeIcons.fileExcel,
+                          size: 28,
+                          color: Colors.green,
+                        ),
+                        onPressed: _baixarExcel,
+                        tooltip: 'Baixar relatório Excel (XLSX)',
+                      ),
                   ),
-          
-          if (!_carregando && widget.produtoFiltro != null)
-            IconButton(
-              icon: const Icon(Icons.filter_alt),
-              tooltip: 'Alterar filtros',
-              onPressed: () {
-                Navigator.pop(context);
-              },
-            ),
-          
-          if (!_carregando && !_erro && _movimentacoes.isNotEmpty)
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.sort),
-              tooltip: 'Ordenar por',
-              onSelected: (value) {
-                _onSort(value);
-              },
-              itemBuilder: (context) {
-                return [
-                  PopupMenuItem<String>(
-                    value: 'data_mov',
-                    child: Text(_ordenacaoAscendente && _colunaOrdenacao == 'data_mov' 
-                      ? 'Data (mais antigo primeiro)' 
-                      : 'Data (mais recente primeiro)'),
-                  ),
-                  if (widget.produtoFiltro == null || widget.produtoFiltro == 'todos')
-                    PopupMenuItem<String>(
-                      value: 'produto_nome',
-                      child: Text(_ordenacaoAscendente && _colunaOrdenacao == 'produto_nome'
-                        ? 'Produto (Z-A)'
-                        : 'Produto (A-Z)'),
-                    ),
-                  PopupMenuItem<String>(
-                    value: 'entrada_amb',
-                    child: Text(_ordenacaoAscendente && _colunaOrdenacao == 'entrada_amb'
-                      ? 'Entrada Ambiente (menor-maior)'
-                      : 'Entrada Ambiente (maior-menor)'),
-                  ),
-                  PopupMenuItem<String>(
-                    value: 'saldo_amb',
-                    child: Text(_ordenacaoAscendente && _colunaOrdenacao == 'saldo_amb'
-                      ? 'Saldo Ambiente (menor-maior)'
-                      : 'Saldo Ambiente (maior-menor)'),
-                  ),
-                ];
-              },
-            ),
-          
-          if (!_carregando && !_erro)
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _carregarDados,
-              tooltip: 'Atualizar dados',
-            ),
         ],
       ),
       body: Padding(
