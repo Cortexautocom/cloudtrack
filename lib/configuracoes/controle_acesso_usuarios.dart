@@ -23,44 +23,11 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
 
   List<Map<String, dynamic>> usuarios = [];
   List<Map<String, dynamic>> usuariosFiltrados = [];
-  List<Map<String, dynamic>> cards = []; // Agora carrega cards, não sessoes
-  List<Map<String, dynamic>> cardsFiltrados = []; // Cards filtrados
+  List<Map<String, dynamic>> cards = [];
+  List<Map<String, dynamic>> cardsFiltrados = [];
   Map<String, bool> permissoes = {};
   String? usuarioSelecionadoId;
   String? usuarioSelecionadoNome;
-  String? sessaoSelecionada; // Para agrupar cards por sessão
-
-  // NOVO: Cards fixos de vendas (os mesmos que estão no HomePage)
-  final List<Map<String, dynamic>> _cardsFixosVendas = [
-    {
-      'id': '9d476aa0-11fe-4470-8881-2699cb528690',
-      'nome': 'Jequié',
-      'tipo': 'programacao_filial',
-      'sessao_pai': 'Vendas',
-      'ordem': 1,
-    },
-    {
-      'id': 'b4225bea-63f1-4e0f-b04f-ae936d8ccda8',
-      'nome': 'PHL',
-      'tipo': 'programacao_filial',
-      'sessao_pai': 'Vendas',
-      'ordem': 2,
-    },
-    {
-      'id': 'bcc92c8e-bd40-4d26-acb0-87acdd2ce2b7',
-      'nome': 'Janaúba',
-      'tipo': 'programacao_filial',
-      'sessao_pai': 'Vendas',
-      'ordem': 3,
-    },
-    {
-      'id': 'ff09efd0-b71f-40ce-8bbb-0fa3b738e73e',
-      'nome': 'Sidel Terminais',
-      'tipo': 'programacao_filial',
-      'sessao_pai': 'Vendas',
-      'ordem': 4,
-    }
-  ];
 
   @override
   void initState() {
@@ -105,14 +72,11 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
       }
 
       final queryLower = query.toLowerCase();
-      
+
       cardsFiltrados = cards
           .where((card) {
             final nome = card['nome']?.toString() ?? '';
-            final sessaoPai = card['sessao_pai']?.toString() ?? '';
-            
-            return nome.toLowerCase().contains(queryLower) ||
-                  sessaoPai.toLowerCase().contains(queryLower);
+            return nome.toLowerCase().contains(queryLower);
           })
           .toList();
     });
@@ -162,7 +126,7 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
     }
   }
 
-  // Carregar cards da tabela 'cards' e substituir cards de Vendas pelos fixos
+  // Carregar todos os cards ativos e permissões do usuário
   Future<void> _carregarCards(String usuarioId, String usuarioNome) async {
     setState(() {
       exibindoCards = true;
@@ -172,14 +136,12 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
     });
 
     try {
-      // 1. Carregar todos os cards ativos do banco
+      // 1. Carregar todos os cards ativos do banco (apenas id e nome)
       final cardsData = await supabase
           .from('cards')
-          .select('id, nome, tipo, sessao_pai, ordem')
+          .select('id, nome')
           .eq('ativo', true)
-          .order('sessao_pai')
-          .order('ordem');
-
+          .order('nome');
 
       // 2. Carregar permissões deste usuário
       final permissoesData = await supabase
@@ -189,8 +151,7 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
 
       // 3. Criar mapa de permissões (id_card → permitido)
       Map<String, bool> mapaPermissoes = {};
-      
-      // Primeiro carregar permissões dos cards do banco
+
       for (var card in cardsData) {
         final cardId = card['id'].toString();
         final permissaoEncontrada = permissoesData.firstWhere(
@@ -200,64 +161,27 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
         mapaPermissoes[cardId] = permissaoEncontrada['permitido'] ?? false;
       }
 
-      // 4. Adicionar permissões para cards fixos de vendas (sobrescrevendo se existir)
-      for (var cardFixo in _cardsFixosVendas) {
-        final cardId = cardFixo['id'];
-        final permissaoEncontrada = permissoesData.firstWhere(
-          (p) => p['id_sessao'] == cardId,
-          orElse: () => {'permitido': false},
-        );
-        mapaPermissoes[cardId] = permissaoEncontrada['permitido'] ?? false;
-      }
-
-      // 5. Preparar lista de cards com informações completas
+      // 4. Preparar lista de cards
       List<Map<String, dynamic>> listaCards = [];
-      
-      // Adicionar cards do banco, EXCETO os da sessão "Vendas"
+
       for (var card in cardsData) {
-        final sessaoPai = card['sessao_pai']?.toString() ?? 'Geral';
-        
-        // Pular cards da sessão "Vendas" (serão substituídos pelos fixos)
-        if (sessaoPai == 'Vendas') {
-          continue;
-        }
-        
+        final cardId = card['id'].toString();
         listaCards.add({
-          'id': card['id'].toString(),
+          'id': cardId,
           'nome': card['nome'],
-          'tipo': card['tipo'],
-          'sessao_pai': sessaoPai,
-          'ordem': card['ordem'] ?? 0,
-          'permitido': mapaPermissoes[card['id'].toString()] ?? false,
-        });
-      }
-      
-      // 6. Adicionar APENAS os cards fixos de vendas
-      for (var cardFixo in _cardsFixosVendas) {
-        listaCards.add({
-          'id': cardFixo['id'],
-          'nome': cardFixo['nome'],
-          'tipo': cardFixo['tipo'],
-          'sessao_pai': cardFixo['sessao_pai'],
-          'ordem': cardFixo['ordem'],
-          'permitido': mapaPermissoes[cardFixo['id']] ?? false,
+          'permitido': mapaPermissoes[cardId] ?? false,
         });
       }
 
-      // 7. Ordenar por sessão e ordem
-      listaCards.sort((a, b) {
-        final sessaoCompare = (a['sessao_pai'] ?? '').compareTo(b['sessao_pai'] ?? '');
-        if (sessaoCompare != 0) return sessaoCompare;
-        return (a['ordem'] ?? 0).compareTo(b['ordem'] ?? 0);
-      });
+      // 5. Ordenar de A a Z de forma insensível a maiúsculas e minúsculas
+      listaCards.sort((a, b) => (a['nome'] as String).toLowerCase().compareTo((b['nome'] as String).toLowerCase()));
 
       setState(() {
         cards = listaCards;
         cardsFiltrados = listaCards;
         permissoes = mapaPermissoes;
-        sessaoSelecionada = null; // Resetar sessão selecionada
       });
-      
+
     } catch (e) {
       debugPrint('❌ Erro ao carregar cards: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -351,12 +275,6 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
         permissoes[cardId] = !permitido;
       });
     }
-  }
-
-  // Obter lista de sessões únicas dos cards
-  List<String> _obterSessoesUnicas() {
-    final sessoes = cards.map((c) => c['sessao_pai']?.toString() ?? 'Geral').toSet();
-    return sessoes.toList()..sort();
   }
 
   @override
@@ -505,29 +423,15 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
                 onPressed: () => setState(() {
                   exibindoCards = false;
                   usuarioSelecionadoId = null;
-                  sessaoSelecionada = null;
                 }),
               ),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Permissões — ${usuarioSelecionadoNome ?? ''}",
-                      style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0D47A1)),
-                    ),
-                    if (usuarioSelecionadoNome != null)
-                      Text(
-                        "Controle de acesso aos cards individuais",
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                  ],
+                child: Text(
+                  "Permissões — ${usuarioSelecionadoNome ?? ''}",
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0D47A1)),
                 ),
               ),
               SizedBox(
@@ -536,7 +440,7 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
                   controller: _buscaCardsController,
                   onChanged: _filtrarCards,
                   decoration: InputDecoration(
-                    hintText: "Buscar por card ou sessão...",
+                    hintText: "Buscar por nome do card...",
                     prefixIcon: const Icon(Icons.search, size: 20),
                     isDense: true,
                     border:
@@ -556,7 +460,7 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
     );
   }
 
-  // Conteúdo dos cards (agrupado por sessão ou lista simples)
+  // Conteúdo dos cards (lista simples por nome)
   Widget _buildConteudoCards() {
     if (cardsFiltrados.isEmpty) {
       return const Center(
@@ -578,164 +482,76 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
       );
     }
 
-    // Se estiver buscando, mostrar lista simples
-    if (_buscaCardsController.text.isNotEmpty) {
-      return ListView.separated(
-        itemCount: cardsFiltrados.length,
-        separatorBuilder: (context, index) =>
-            Divider(color: Colors.grey.shade200, height: 1),
-        itemBuilder: (context, index) {
-          final card = cardsFiltrados[index];
-          return _buildCardItem(card);
-        },
-      );
-    }
+    final totalPermitidos = cardsFiltrados.where((c) => c['permitido'] == true).length;
+    final totalCards = cardsFiltrados.length;
 
-    // Senão, agrupar por sessão
-    final sessoes = _obterSessoesUnicas();
-    return ListView.builder(
-      itemCount: sessoes.length,
-      itemBuilder: (context, index) {
-        final sessao = sessoes[index];
-        final cardsDaSessao = cardsFiltrados
-            .where((c) => c['sessao_pai'] == sessao)
-            .toList()
-          ..sort((a, b) => (a['ordem'] ?? 0).compareTo(b['ordem'] ?? 0));
-        
-        final totalPermitidos = cardsDaSessao.where((c) => c['permitido'] == true).length;
-        final totalCards = cardsDaSessao.length;
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 15),
-          elevation: 2,
-          child: ExpansionTile(
-            key: ValueKey(sessao),
-            initiallyExpanded: sessaoSelecionada == sessao,
-            onExpansionChanged: (expanded) {
-              setState(() {
-                sessaoSelecionada = expanded ? sessao : null;
-              });
-            },
-            leading: CircleAvatar(
-              backgroundColor: _getCorSessao(sessao).withOpacity(0.1),
-              child: Text(
-                sessao.substring(0, 1).toUpperCase(),
-                style: TextStyle(
-                  color: _getCorSessao(sessao),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            '$totalPermitidos de $totalCards cards permitidos',
+            style: TextStyle(
+              fontSize: 13,
+              color: totalPermitidos == totalCards
+                  ? Colors.green
+                  : totalPermitidos == 0
+                      ? Colors.red
+                      : Colors.orange,
+              fontWeight: FontWeight.w500,
             ),
-            title: Text(
-              sessao,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: _getCorSessao(sessao),
-              ),
-            ),
-            subtitle: Text(
-              '$totalPermitidos de $totalCards cards permitidos',
-              style: TextStyle(
-                fontSize: 12,
-                color: totalPermitidos == totalCards 
-                  ? Colors.green 
-                  : totalPermitidos == 0 
-                    ? Colors.red 
-                    : Colors.orange,
-              ),
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (totalPermitidos > 0 && totalPermitidos < totalCards)
-                  Chip(
-                    label: Text('$totalPermitidos/$totalCards'),
-                    backgroundColor: Colors.orange.shade100,
-                    labelStyle: const TextStyle(fontSize: 12),
-                  ),
-                const SizedBox(width: 8),
-                Icon(
-                  sessaoSelecionada == sessao 
-                    ? Icons.expand_less 
-                    : Icons.expand_more,
-                  color: Colors.grey,
-                ),
-              ],
-            ),
-            children: cardsDaSessao.map((card) => _buildCardItem(card)).toList(),
           ),
-        );
-      },
+        ),
+        Expanded(
+          child: ListView.separated(
+            itemCount: cardsFiltrados.length,
+            separatorBuilder: (context, index) =>
+                Divider(color: Colors.grey.shade200, height: 1),
+            itemBuilder: (context, index) {
+              final card = cardsFiltrados[index];
+              return _buildCardItem(card);
+            },
+          ),
+        ),
+      ],
     );
   }
 
   // Widget para item individual do card
   Widget _buildCardItem(Map<String, dynamic> card) {
     final permitido = card['permitido'] ?? false;
-    final sessaoPai = card['sessao_pai'] ?? 'Geral';
-    final tipo = card['tipo'] ?? '';
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       color: permitido ? Colors.green.shade50 : Colors.white,
       child: Row(
         children: [
           // Indicador visual
           Container(
-            width: 4,
-            height: 48,
+            width: 3,
+            height: 32,
             color: permitido ? Colors.green : Colors.grey.shade300,
           ),
           const SizedBox(width: 12),
-          
-          // Ícone baseado no tipo
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: _getCorSessao(sessaoPai).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              _getIconePorTipo(tipo),
-              color: permitido 
-                ? _getCorSessao(sessaoPai) 
-                : Colors.grey.shade500,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 12),
-          
-          // Informações do card
+
+          // Nome do card
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  card['nome'] ?? 'Sem nome',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: permitido 
-                      ? _getCorSessao(sessaoPai).withOpacity(0.9)
-                      : Colors.grey.shade800,
-                  ),
-                ),
-                if (sessaoPai.isNotEmpty && sessaoPai != 'Geral')
-                  Text(
-                    'Sessão: $sessaoPai',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-              ],
+            child: Text(
+              card['nome'] ?? 'Sem nome',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: permitido
+                    ? const Color(0xFF2E7D32)
+                    : Colors.grey.shade800,
+              ),
             ),
           ),
-          
+
           // Checkbox de permissão
           Transform.scale(
-            scale: 1.3,
+            scale: 0.9,
             child: Checkbox(
               value: permitido,
               activeColor: const Color(0xFF2E7D32),
@@ -753,45 +569,4 @@ class _ControleAcessoUsuariosState extends State<ControleAcessoUsuarios> {
     );
   }
 
-  // Mapeamento tipo → ícone (consistente com HomePage)
-  IconData _getIconePorTipo(String tipo) {
-    const mapaIcones = {
-      'cacl': Icons.analytics,
-      'ordens_analise': Icons.assignment,
-      'historico_cacl': Icons.history,
-      'tabelas_conversao': Icons.table_chart,
-      'temp_dens_media': Icons.thermostat,
-      'tanques': Icons.oil_barrel,
-      'estoque_geral': Icons.hub,
-      'estoque_por_empresa': Icons.business,
-      'movimentacoes': Icons.swap_horiz,
-      'transferencias': Icons.low_priority,
-      'iniciar_circuito': Icons.play_arrow,
-      'acompanhar_ordem': Icons.directions_car,
-      'visao_geral_circuito': Icons.dashboard,
-      'veiculos': Icons.directions_car,
-      'veiculos_terceiros': Icons.local_shipping,
-      'motoristas': Icons.people,
-      'documentacao': Icons.description,
-      'bombeios': Icons.invert_colors,
-      'programacao_filial': Icons.local_gas_station,
-    };
-    return mapaIcones[tipo] ?? Icons.apps;
-  }
-
-  // Método para obter cor da sessão (consistente com HomePage)
-  Color _getCorSessao(String sessao) {
-    final mapaCores = {
-      'Estoques': const Color(0xFFFF9800), // Laranja
-      'Apuração': const Color(0xFF2196F3), // Azul
-      'Circuito': const Color(0xFF9C27B0), // Roxo
-      'Vendas': const Color(0xFF4CAF50),   // Verde
-      'Gestão de Frota': const Color(0xFFF44336), // Vermelho
-      'Bombeios e Cotas': const Color(0xFF00BCD4), // Ciano
-      'Relatórios': const Color(0xFF795548), // Marrom
-      'Configurações': const Color(0xFF607D8B), // Azul cinza
-      'Ajuda': const Color(0xFF673AB7), // Roxo profundo
-    };
-    return mapaCores[sessao] ?? const Color(0xFF2E7D32);
-  }
 }

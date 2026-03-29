@@ -417,31 +417,14 @@ class _HomePageState extends State<HomePage>
       for (var card in cardsDb) {
         final cardId = card['id'].toString();
         final sessaoPai = card['sessao_pai']?.toString() ?? 'Geral';
-
-        // Cards que devem ser sempre incluídos (sem filtro de permissão)
-        final cardsObrigatorios = ['estoque_por_tanque'];
         final tipoRaw = card['tipo']?.toString() ?? '';
         final tipo = (tipoRaw == 'movimentaces' || tipoRaw == 'entradas_e_saidas') ? 'movimentacoes' : tipoRaw;
 
         // Remover card isolado de CACL: acesso passa a ser feito via Estoque por tanque
         if (tipo == 'cacl') continue;
 
-        // Para usuários de nível 1 e 2, permitir acesso a cards de movimentacoes
-        if (usuario.nivel <= 2 && tipo == 'movimentacoes') {
-          todosCards.add({
-            'id': cardId,
-            'label': card['nome'],
-            'tipo': tipo,
-            'sessao_pai': sessaoPai,
-            'icon': _definirIconePorTipo(tipo),
-            'descricao': _definirDescricaoPorTipo(tipo),
-            'favorito': favoritosIds.contains(cardId),
-          });
-        }
-        // Para os demais casos, manter a lógica original
-        else if (usuario.nivel >= 3 ||
-            usuario.podeAcessarCard(cardId) ||
-            cardsObrigatorios.contains(tipo)) {
+        // Permissão baseada unicamente no id do card
+        if (usuario.podeAcessarCard(cardId)) {
           todosCards.add({
             'id': cardId,
             'label': card['nome'],
@@ -2773,13 +2756,6 @@ class _HomePageState extends State<HomePage>
 
     for (var card in _filhosSessaoAtual) {
       final cardId = card['id']?.toString();
-      final tipo = card['tipo']?.toString();
-
-      // Cards de transportadoras são sempre permitidos
-      if (tipo == 'transportadoras') {
-        cardsPermitidos.add(card);
-        continue;
-      }
 
       // Se não tem usuário, não permite
       if (usuario == null) continue;
@@ -2787,13 +2763,7 @@ class _HomePageState extends State<HomePage>
       // Se não tem cardId, não permite
       if (cardId == null || cardId.isEmpty) continue;
 
-      // Cards de venda são permitidos automaticamente
-      if (tipo == 'programacao_filial') {
-        cardsPermitidos.add(card);
-        continue;
-      }
-
-      // Para os demais cards, verificar permissão normal
+      // Permissão baseada unicamente no id do card
       try {
         if (usuario.podeAcessarCard(cardId)) {
           cardsPermitidos.add(card);
@@ -2986,10 +2956,8 @@ class _HomePageState extends State<HomePage>
   Widget _buildCardFilho(Map<String, dynamic> card) {
     final usuario = UsuarioAtual.instance;
     final cardId = card['id']?.toString();
-    final tipo = card['tipo']?.toString();
 
-    if (tipo != 'transportadoras' &&
-        usuario != null &&
+    if (usuario != null &&
         cardId != null &&
         !usuario.podeAcessarCard(cardId)) {
       return const SizedBox.shrink();
@@ -3286,8 +3254,7 @@ class _HomePageState extends State<HomePage>
     final tipo = card['tipo'];
     final sessaoPai = _sessaoAtual;
 
-    if (tipo != 'transportadoras' &&
-        usuario != null &&
+    if (usuario != null &&
         cardId != null &&
         !usuario.podeAcessarCard(cardId)) {
       ScaffoldMessenger.of(context).showSnackBar(
