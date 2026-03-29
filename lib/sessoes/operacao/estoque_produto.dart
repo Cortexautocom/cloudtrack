@@ -34,7 +34,7 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
   bool _carregando = true;
   bool _erro = false;
   String _mensagemErro = '';
-  
+
   String? _terminalId;
   bool _carregandoTerminal = true;
 
@@ -122,18 +122,12 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
 
       final response = await _supabase.rpc(
         'calcular_estoque_inicial_produto',
-        params: {
-          'p_produto_id': widget.produtoId,
-          'p_data': dataStr,
-        },
+        params: {'p_produto_id': widget.produtoId, 'p_data': dataStr},
       );
 
       final num saldo = (response ?? 0) as num;
 
-      _estoqueInicial = {
-        'amb': saldo,
-        'vinte': saldo,
-      };
+      _estoqueInicial = {'amb': saldo, 'vinte': saldo};
     } catch (e) {
       debugPrint('Erro ao buscar estoque inicial via função: $e');
       _estoqueInicial = {'amb': 0, 'vinte': 0};
@@ -166,8 +160,10 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
 
       final inicio = widget.dataInicial;
       final fim = widget.dataFinal;
-      dataInicio = '${inicio.year}-${inicio.month.toString().padLeft(2, '0')}-${inicio.day.toString().padLeft(2, '0')} 00:00:00';
-      dataFim = '${fim.year}-${fim.month.toString().padLeft(2, '0')}-${fim.day.toString().padLeft(2, '0')} 23:59:59';
+      dataInicio =
+          '${inicio.year}-${inicio.month.toString().padLeft(2, '0')}-${inicio.day.toString().padLeft(2, '0')} 00:00:00';
+      dataFim =
+          '${fim.year}-${fim.month.toString().padLeft(2, '0')}-${fim.day.toString().padLeft(2, '0')} 23:59:59';
 
       // Buscar movimentações do produto no terminal
       final dados = await _supabase
@@ -192,11 +188,41 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
           .eq('tanques.id_produto', widget.produtoId)
           .eq('tanques.terminais.id', terminalId)
           .gte('data_mov', dataInicio)
-          .lte('data_mov', dataFim)
-          .order('data_mov', ascending: true);
+          .lte('data_mov', dataFim);
 
       final List<Map<String, dynamic>> listaOrdenadaParaUI =
           List<Map<String, dynamic>>.from(dados);
+
+      listaOrdenadaParaUI.sort((a, b) {
+        final da = DateTime.parse(a['data_mov']);
+        final db = DateTime.parse(b['data_mov']);
+
+        final dataA = DateTime(da.year, da.month, da.day);
+        final dataB = DateTime(db.year, db.month, db.day);
+
+        final cmpData = dataA.compareTo(dataB);
+        if (cmpData != 0) return cmpData;
+
+        // Dentro da mesma data (Apenas Dia/Mês/Ano): registros com 'Sobra' ou 'Perda' vão por último
+        bool temSobraOuPerda(Map<String, dynamic> m) {
+          final cliente = (m['cliente']?.toString() ?? '').toUpperCase();
+          final descricao = (m['descricao']?.toString() ?? '').toUpperCase();
+          return cliente.contains('SOBRA') ||
+              descricao.contains('SOBRA') ||
+              cliente.contains('PERDA') ||
+              descricao.contains('PERDA');
+        }
+
+        final aLast = temSobraOuPerda(a) ? 1 : 0;
+        final bLast = temSobraOuPerda(b) ? 1 : 0;
+
+        if (aLast != bLast) {
+          return aLast.compareTo(bLast);
+        }
+
+        // Se ambos forem do mesmo tipo (ambos normais ou ambos sobra/perda), mantém a ordem do horário
+        return da.compareTo(db);
+      });
 
       num saldoAmb = _estoqueInicial['amb'] ?? 0;
       num saldoVinte = _estoqueInicial['vinte'] ?? 0;
@@ -349,10 +375,7 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
             icon: const Icon(Icons.sort),
             onPressed: () => _onSort('data_mov'),
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _carregar,
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _carregar),
         ],
       ),
       body: Padding(
@@ -393,10 +416,7 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildCampoResumo(
-            'Estoque final (20ºC):',
-            estoqueFinalCalculado,
-          ),
+          _buildCampoResumo('Estoque final (20ºC):', estoqueFinalCalculado),
         ],
       ),
     );
@@ -603,7 +623,7 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
       alignment: Alignment.centerLeft,
       color: Colors.grey.shade100,
       child: Text(
-      '${_movsOrdenadas.length} movimentação(oes) no período',
+        '${_movsOrdenadas.length} movimentação(oes) no período',
         style: TextStyle(
           fontSize: 12,
           color: Colors.grey.shade600,
@@ -611,5 +631,5 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
         ),
       ),
     );
-  }  
+  }
 }

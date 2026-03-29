@@ -17,7 +17,8 @@ class FiltroEstoqueProdutoPage extends StatefulWidget {
     required DateTime dataFinal,
     required String produtoId,
     required String produtoNome,
-  }) onConsultarEstoqueProduto;
+  })
+  onConsultarEstoqueProduto;
   final VoidCallback onVoltar;
 
   const FiltroEstoqueProdutoPage({
@@ -32,7 +33,8 @@ class FiltroEstoqueProdutoPage extends StatefulWidget {
   });
 
   @override
-  State<FiltroEstoqueProdutoPage> createState() => _FiltroEstoqueProdutoPageState();
+  State<FiltroEstoqueProdutoPage> createState() =>
+      _FiltroEstoqueProdutoPageState();
 }
 
 class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
@@ -58,19 +60,19 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
     super.initState();
 
     final usuario = UsuarioAtual.instance;
-    
+
     // Verificar se usuário tem terminal vinculado no login
     if (usuario?.terminalId != null && usuario!.terminalId!.isNotEmpty) {
       _terminalVinculado = true;
       _terminalSelecionadoId = usuario.terminalId;
       _terminalSelecionadoNome = usuario.terminalNome ?? 'Terminal vinculado';
-      
+
       // Se tem terminal vinculado, já carrega as filiais baseadas nele
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _carregarFilialPorTerminal(_terminalSelecionadoId!);
       });
     }
-    
+
     // Inicializar filial a partir do usuário logado
     _filialSelecionadaId = usuario?.filialId ?? '';
 
@@ -96,18 +98,15 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
       }
 
       if (empresaId == null || empresaId.isEmpty) {
-        debugPrint('⚠️ Empresa ID não disponível para buscar filial do terminal');
         setState(() {
           _filialSelecionadaId = '';
           _filialSelecionadaNome = null;
           _filiaisDisponiveis = [
-            {'id': '', 'nome': '<empresa não identificada>'}
+            {'id': '', 'nome': '<empresa não identificada>'},
           ];
         });
         return;
       }
-
-      debugPrint('🔍 Buscando filial para terminal: $terminalId, empresa: $empresaId');
 
       // Primeiro, buscar a relação para obter os IDs das filiais
       final relacao = await _supabase
@@ -133,11 +132,9 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                 .maybeSingle();
 
             if (filialData1 != null) {
-              final nome = filialData1['nome_dois'] ?? filialData1['nome'] ?? '';
-              filiais.add({
-                'id': filialId1,
-                'nome': nome.toString(),
-              });
+              final nome =
+                  filialData1['nome_dois'] ?? filialData1['nome'] ?? '';
+              filiais.add({'id': filialId1, 'nome': nome.toString()});
             }
           }
         }
@@ -155,24 +152,21 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                   .maybeSingle();
 
               if (filialData2 != null) {
-                final nome = filialData2['nome_dois'] ?? filialData2['nome'] ?? '';
-                filiais.add({
-                  'id': filialId2,
-                  'nome': nome.toString(),
-                });
+                final nome =
+                    filialData2['nome_dois'] ?? filialData2['nome'] ?? '';
+                filiais.add({'id': filialId2, 'nome': nome.toString()});
               }
             }
           }
         }
       }
 
-      debugPrint('✅ Filiais encontradas: ${filiais.length - 1}');
-
       setState(() {
         _filiaisDisponiveis = filiais;
-        
+
         // Se só tiver uma filial disponível (além da opção <selecione>), pré-selecionar automaticamente
-        if (filiais.length == 2) { // 1 opção <selecione> + 1 filial
+        if (filiais.length == 2) {
+          // 1 opção <selecione> + 1 filial
           _filialSelecionadaId = filiais[1]['id'];
           _filialSelecionadaNome = filiais[1]['nome'];
         } else {
@@ -180,12 +174,11 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
           _filialSelecionadaNome = null;
         }
       });
-
     } catch (e) {
       debugPrint('❌ Erro ao carregar filial por terminal: $e');
       setState(() {
         _filiaisDisponiveis = [
-          {'id': '', 'nome': '<erro ao carregar filiais>'}
+          {'id': '', 'nome': '<erro ao carregar filiais>'},
         ];
         _filialSelecionadaId = '';
         _filialSelecionadaNome = null;
@@ -200,7 +193,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
     if (_terminalVinculado) {
       setState(() {
         _terminaisDisponiveis = [
-          {'id': _terminalSelecionadoId!, 'nome': _terminalSelecionadoNome!}
+          {'id': _terminalSelecionadoId!, 'nome': _terminalSelecionadoNome!},
         ];
       });
       return;
@@ -213,7 +206,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
       if (usuario == null) {
         setState(() {
           _terminaisDisponiveis = [
-            {'id': '', 'nome': '<usuário não logado>'}
+            {'id': '', 'nome': '<usuário não logado>'},
           ];
         });
         return;
@@ -221,23 +214,20 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
 
       // Buscar empresa_id do usuário
       String? empresaId = usuario.empresaId;
-      
+
       // Se não tiver empresa_id no usuário, tentar usar o do parâmetro
       if (empresaId == null || empresaId.isEmpty) {
         empresaId = widget.empresaId;
       }
 
       if (empresaId == null || empresaId.isEmpty) {
-        debugPrint('⚠️ Empresa ID não disponível para buscar terminais');
         setState(() {
           _terminaisDisponiveis = [
-            {'id': '', 'nome': '<empresa não identificada>'}
+            {'id': '', 'nome': '<empresa não identificada>'},
           ];
         });
         return;
       }
-
-      debugPrint('🔍 Buscando terminais para empresa: $empresaId');
 
       // Buscar terminais através da tabela relacoes_terminais
       final relacoes = await _supabase
@@ -251,15 +241,13 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
           ''')
           .eq('empresa_id', empresaId);
 
-      debugPrint('📊 Relações encontradas: ${relacoes.length}');
-
       final Map<String, Map<String, dynamic>> terminaisUnicos = {};
-      
+
       for (var relacao in relacoes) {
         if (relacao['terminais'] != null) {
           final terminal = relacao['terminais'] as Map<String, dynamic>;
           final terminalId = terminal['id']?.toString();
-          
+
           if (terminalId != null && !terminaisUnicos.containsKey(terminalId)) {
             terminaisUnicos[terminalId] = {
               'id': terminalId,
@@ -271,8 +259,6 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
 
       List<Map<String, dynamic>> terminais = terminaisUnicos.values.toList()
         ..sort((a, b) => (a['nome'] ?? '').compareTo(b['nome'] ?? ''));
-
-      debugPrint('✅ Terminais encontrados: ${terminais.length}');
 
       final List<Map<String, dynamic>> listaFinal = [];
       listaFinal.add({'id': '', 'nome': '<selecione>'});
@@ -300,12 +286,11 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
           });
         }
       });
-
     } catch (e) {
       debugPrint('❌ Erro ao carregar terminais: $e');
       setState(() {
         _terminaisDisponiveis = [
-          {'id': '', 'nome': '<erro ao carregar terminais>'}
+          {'id': '', 'nome': '<erro ao carregar terminais>'},
         ];
         _terminalSelecionadoId = '';
       });
@@ -316,10 +301,8 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
 
   Future<void> _carregarProdutosPorTerminal(String terminalId) async {
     setState(() => _carregandoProdutos = true);
-    
-    try {
-      debugPrint('🔍 Buscando produtos para o terminal: $terminalId');
 
+    try {
       // Buscar produtos dos tanques do terminal selecionado
       final response = await _supabase
           .from('tanques')
@@ -334,18 +317,17 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
           .eq('terminal_id', terminalId)
           .not('id_produto', 'is', null); // Ignorar tanques sem produto
 
-      debugPrint('📊 Tanques encontrados: ${response.length}');
-
       // Usar um Map para evitar produtos duplicados
       final Map<String, Map<String, dynamic>> produtosUnicos = {};
-      
+
       for (var tanque in response) {
         if (tanque['produtos'] != null) {
           final produto = tanque['produtos'] as Map<String, dynamic>;
           final produtoId = produto['id']?.toString();
-          
+
           if (produtoId != null && !produtosUnicos.containsKey(produtoId)) {
-            final nome = produto['nome_dois'] ?? produto['nome'] ?? 'Produto sem nome';
+            final nome =
+                produto['nome_dois'] ?? produto['nome'] ?? 'Produto sem nome';
             produtosUnicos[produtoId] = {
               'id': produtoId,
               'nome': nome.toString(),
@@ -358,24 +340,21 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
       List<Map<String, dynamic>> produtos = produtosUnicos.values.toList()
         ..sort((a, b) => (a['nome'] ?? '').compareTo(b['nome'] ?? ''));
 
-      debugPrint('✅ Produtos únicos encontrados: ${produtos.length}');
-
       // Montar lista final com opção "selecione"
       final List<Map<String, dynamic>> listaFinal = [];
       listaFinal.add({'id': '', 'nome': '<selecione>'});
       listaFinal.addAll(produtos);
-      
+
       setState(() {
         _produtosDisponiveis = listaFinal;
         _produtoSelecionadoId = '';
         _produtoSelecionadoNome = null;
       });
-      
     } catch (e) {
       debugPrint('❌ Erro ao carregar produtos por terminal: $e');
       setState(() {
         _produtosDisponiveis = [
-          {'id': '', 'nome': '<erro ao carregar produtos>'}
+          {'id': '', 'nome': '<erro ao carregar produtos>'},
         ];
         _produtoSelecionadoId = '';
       });
@@ -391,7 +370,9 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
       builder: (BuildContext context) {
         return Dialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Container(
             width: 350,
             padding: const EdgeInsets.all(20),
@@ -403,11 +384,28 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.calendar_today, color: Color(0xFF0D47A1), size: 24),
+                        const Icon(
+                          Icons.calendar_today,
+                          color: Color(0xFF0D47A1),
+                          size: 24,
+                        ),
                         const SizedBox(width: 12),
-                        const Text('Data inicial', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF0D47A1))),
+                        const Text(
+                          'Data inicial',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0D47A1),
+                          ),
+                        ),
                         const Spacer(),
-                        IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop(), color: Colors.grey, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(context).pop(),
+                          color: Colors.grey,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -416,9 +414,44 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          IconButton(icon: const Icon(Icons.chevron_left, color: Color(0xFF0D47A1)), onPressed: () { setStateDialog(() { tempDate = DateTime(tempDate.year, tempDate.month - 1, tempDate.day); }); }),
-                          Text('${_getMonthName(tempDate.month)} ${tempDate.year}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF0D47A1))),
-                          IconButton(icon: const Icon(Icons.chevron_right, color: Color(0xFF0D47A1)), onPressed: () { setStateDialog(() { tempDate = DateTime(tempDate.year, tempDate.month + 1, tempDate.day); }); }),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.chevron_left,
+                              color: Color(0xFF0D47A1),
+                            ),
+                            onPressed: () {
+                              setStateDialog(() {
+                                tempDate = DateTime(
+                                  tempDate.year,
+                                  tempDate.month - 1,
+                                  tempDate.day,
+                                );
+                              });
+                            },
+                          ),
+                          Text(
+                            '${_getMonthName(tempDate.month)} ${tempDate.year}',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF0D47A1),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.chevron_right,
+                              color: Color(0xFF0D47A1),
+                            ),
+                            onPressed: () {
+                              setStateDialog(() {
+                                tempDate = DateTime(
+                                  tempDate.year,
+                                  tempDate.month + 1,
+                                  tempDate.day,
+                                );
+                              });
+                            },
+                          ),
                         ],
                       ),
                     ),
@@ -427,7 +460,15 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                       crossAxisCount: 7,
                       childAspectRatio: 1.0,
                       children: ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day) {
-                        return Center(child: Text(day, style: const TextStyle(color: Color(0xFF0D47A1), fontWeight: FontWeight.bold)));
+                        return Center(
+                          child: Text(
+                            day,
+                            style: const TextStyle(
+                              color: Color(0xFF0D47A1),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        );
                       }).toList(),
                     ),
                     GridView.count(
@@ -436,30 +477,74 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                       childAspectRatio: 1.0,
                       children: _getDaysInMonth(tempDate).map((day) {
                         final isSelected = day != null && day == tempDate.day;
-                        final isToday = day != null && day == DateTime.now().day && tempDate.month == DateTime.now().month && tempDate.year == DateTime.now().year;
+                        final isToday =
+                            day != null &&
+                            day == DateTime.now().day &&
+                            tempDate.month == DateTime.now().month &&
+                            tempDate.year == DateTime.now().year;
                         return StatefulBuilder(
                           builder: (context, setDayState) {
                             return MouseRegion(
-                              cursor: day != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
-                              onEnter: (_) { if (day != null) { setDayState(() => hoveredDay = day); } },
-                              onExit: (_) { if (day != null) { setDayState(() => hoveredDay = null); } },
+                              cursor: day != null
+                                  ? SystemMouseCursors.click
+                                  : SystemMouseCursors.basic,
+                              onEnter: (_) {
+                                if (day != null) {
+                                  setDayState(() => hoveredDay = day);
+                                }
+                              },
+                              onExit: (_) {
+                                if (day != null) {
+                                  setDayState(() => hoveredDay = null);
+                                }
+                              },
                               child: GestureDetector(
-                                onTap: day != null ? () { setStateDialog(() { tempDate = DateTime(tempDate.year, tempDate.month, day); }); } : null,
+                                onTap: day != null
+                                    ? () {
+                                        setStateDialog(() {
+                                          tempDate = DateTime(
+                                            tempDate.year,
+                                            tempDate.month,
+                                            day,
+                                          );
+                                        });
+                                      }
+                                    : null,
                                 child: Container(
                                   margin: const EdgeInsets.all(2),
                                   decoration: BoxDecoration(
-                                    color: isSelected ? const Color(0xFF0D47A1)
-                                        : (day != null && hoveredDay == day) ? const Color(0xFF0D47A1).withOpacity(0.1)
-                                        : isToday ? const Color(0x220D47A1) : Colors.transparent,
+                                    color: isSelected
+                                        ? const Color(0xFF0D47A1)
+                                        : (day != null && hoveredDay == day)
+                                        ? const Color(
+                                            0xFF0D47A1,
+                                          ).withOpacity(0.1)
+                                        : isToday
+                                        ? const Color(0x220D47A1)
+                                        : Colors.transparent,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: Center(child: Text(
-                                    day != null ? day.toString() : '',
-                                    style: TextStyle(
-                                      color: isSelected ? Colors.white : isToday || (day != null && hoveredDay == day) ? const Color(0xFF0D47A1) : Colors.black87,
-                                      fontWeight: isSelected || isToday || (day != null && hoveredDay == day) ? FontWeight.bold : FontWeight.normal,
+                                  child: Center(
+                                    child: Text(
+                                      day != null ? day.toString() : '',
+                                      style: TextStyle(
+                                        color: isSelected
+                                            ? Colors.white
+                                            : isToday ||
+                                                  (day != null &&
+                                                      hoveredDay == day)
+                                            ? const Color(0xFF0D47A1)
+                                            : Colors.black87,
+                                        fontWeight:
+                                            isSelected ||
+                                                isToday ||
+                                                (day != null &&
+                                                    hoveredDay == day)
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                      ),
                                     ),
-                                  )),
+                                  ),
                                 ),
                               ),
                             );
@@ -471,12 +556,36 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        TextButton(onPressed: () => Navigator.of(context).pop(), style: TextButton.styleFrom(foregroundColor: Colors.black87, padding: const EdgeInsets.symmetric(horizontal: 16)), child: const Text('CANCELAR')),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.black87,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          child: const Text('CANCELAR'),
+                        ),
                         const SizedBox(width: 8),
                         ElevatedButton(
                           onPressed: () => Navigator.of(context).pop(tempDate),
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D47A1), foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                          child: const Text('SELECIONAR', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D47A1),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'SELECIONAR',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -506,7 +615,9 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
       builder: (BuildContext context) {
         return Dialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Container(
             width: 350,
             padding: const EdgeInsets.all(20),
@@ -518,11 +629,28 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.calendar_today, color: Color(0xFF0D47A1), size: 24),
+                        const Icon(
+                          Icons.calendar_today,
+                          color: Color(0xFF0D47A1),
+                          size: 24,
+                        ),
                         const SizedBox(width: 12),
-                        const Text('Data final', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF0D47A1))),
+                        const Text(
+                          'Data final',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0D47A1),
+                          ),
+                        ),
                         const Spacer(),
-                        IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(context).pop(), color: Colors.grey, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(context).pop(),
+                          color: Colors.grey,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -531,9 +659,44 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          IconButton(icon: const Icon(Icons.chevron_left, color: Color(0xFF0D47A1)), onPressed: () { setStateDialog(() { tempDate = DateTime(tempDate.year, tempDate.month - 1, tempDate.day); }); }),
-                          Text('${_getMonthName(tempDate.month)} ${tempDate.year}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF0D47A1))),
-                          IconButton(icon: const Icon(Icons.chevron_right, color: Color(0xFF0D47A1)), onPressed: () { setStateDialog(() { tempDate = DateTime(tempDate.year, tempDate.month + 1, tempDate.day); }); }),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.chevron_left,
+                              color: Color(0xFF0D47A1),
+                            ),
+                            onPressed: () {
+                              setStateDialog(() {
+                                tempDate = DateTime(
+                                  tempDate.year,
+                                  tempDate.month - 1,
+                                  tempDate.day,
+                                );
+                              });
+                            },
+                          ),
+                          Text(
+                            '${_getMonthName(tempDate.month)} ${tempDate.year}',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF0D47A1),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.chevron_right,
+                              color: Color(0xFF0D47A1),
+                            ),
+                            onPressed: () {
+                              setStateDialog(() {
+                                tempDate = DateTime(
+                                  tempDate.year,
+                                  tempDate.month + 1,
+                                  tempDate.day,
+                                );
+                              });
+                            },
+                          ),
                         ],
                       ),
                     ),
@@ -542,7 +705,15 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                       crossAxisCount: 7,
                       childAspectRatio: 1.0,
                       children: ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day) {
-                        return Center(child: Text(day, style: const TextStyle(color: Color(0xFF0D47A1), fontWeight: FontWeight.bold)));
+                        return Center(
+                          child: Text(
+                            day,
+                            style: const TextStyle(
+                              color: Color(0xFF0D47A1),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        );
                       }).toList(),
                     ),
                     GridView.count(
@@ -551,30 +722,74 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                       childAspectRatio: 1.0,
                       children: _getDaysInMonth(tempDate).map((day) {
                         final isSelected = day != null && day == tempDate.day;
-                        final isToday = day != null && day == DateTime.now().day && tempDate.month == DateTime.now().month && tempDate.year == DateTime.now().year;
+                        final isToday =
+                            day != null &&
+                            day == DateTime.now().day &&
+                            tempDate.month == DateTime.now().month &&
+                            tempDate.year == DateTime.now().year;
                         return StatefulBuilder(
                           builder: (context, setDayState) {
                             return MouseRegion(
-                              cursor: day != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
-                              onEnter: (_) { if (day != null) { setDayState(() => hoveredDay = day); } },
-                              onExit: (_) { if (day != null) { setDayState(() => hoveredDay = null); } },
+                              cursor: day != null
+                                  ? SystemMouseCursors.click
+                                  : SystemMouseCursors.basic,
+                              onEnter: (_) {
+                                if (day != null) {
+                                  setDayState(() => hoveredDay = day);
+                                }
+                              },
+                              onExit: (_) {
+                                if (day != null) {
+                                  setDayState(() => hoveredDay = null);
+                                }
+                              },
                               child: GestureDetector(
-                                onTap: day != null ? () { setStateDialog(() { tempDate = DateTime(tempDate.year, tempDate.month, day); }); } : null,
+                                onTap: day != null
+                                    ? () {
+                                        setStateDialog(() {
+                                          tempDate = DateTime(
+                                            tempDate.year,
+                                            tempDate.month,
+                                            day,
+                                          );
+                                        });
+                                      }
+                                    : null,
                                 child: Container(
                                   margin: const EdgeInsets.all(2),
                                   decoration: BoxDecoration(
-                                    color: isSelected ? const Color(0xFF0D47A1)
-                                        : (day != null && hoveredDay == day) ? const Color(0xFF0D47A1).withOpacity(0.1)
-                                        : isToday ? const Color(0x220D47A1) : Colors.transparent,
+                                    color: isSelected
+                                        ? const Color(0xFF0D47A1)
+                                        : (day != null && hoveredDay == day)
+                                        ? const Color(
+                                            0xFF0D47A1,
+                                          ).withOpacity(0.1)
+                                        : isToday
+                                        ? const Color(0x220D47A1)
+                                        : Colors.transparent,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: Center(child: Text(
-                                    day != null ? day.toString() : '',
-                                    style: TextStyle(
-                                      color: isSelected ? Colors.white : isToday || (day != null && hoveredDay == day) ? const Color(0xFF0D47A1) : Colors.black87,
-                                      fontWeight: isSelected || isToday || (day != null && hoveredDay == day) ? FontWeight.bold : FontWeight.normal,
+                                  child: Center(
+                                    child: Text(
+                                      day != null ? day.toString() : '',
+                                      style: TextStyle(
+                                        color: isSelected
+                                            ? Colors.white
+                                            : isToday ||
+                                                  (day != null &&
+                                                      hoveredDay == day)
+                                            ? const Color(0xFF0D47A1)
+                                            : Colors.black87,
+                                        fontWeight:
+                                            isSelected ||
+                                                isToday ||
+                                                (day != null &&
+                                                    hoveredDay == day)
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                      ),
                                     ),
-                                  )),
+                                  ),
                                 ),
                               ),
                             );
@@ -586,12 +801,36 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        TextButton(onPressed: () => Navigator.of(context).pop(), style: TextButton.styleFrom(foregroundColor: Colors.black87, padding: const EdgeInsets.symmetric(horizontal: 16)), child: const Text('CANCELAR')),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.black87,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          child: const Text('CANCELAR'),
+                        ),
                         const SizedBox(width: 8),
                         ElevatedButton(
                           onPressed: () => Navigator.of(context).pop(tempDate),
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D47A1), foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                          child: const Text('SELECIONAR', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D47A1),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'SELECIONAR',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -654,14 +893,18 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
     );
     _produtoSelecionadoNome = produtoSelecionado['nome'];
 
-    final String? filialToPass = (_filialSelecionadaId != null && _filialSelecionadaId!.isNotEmpty)
+    final String? filialToPass =
+        (_filialSelecionadaId != null && _filialSelecionadaId!.isNotEmpty)
         ? _filialSelecionadaId
         : null;
 
     widget.onConsultarEstoqueProduto(
       filialId: filialToPass,
       terminalId: _terminalSelecionadoId,
-      nomeFilial: _terminalSelecionadoNome ?? _filialSelecionadaNome ?? 'Terminal não selecionado',
+      nomeFilial:
+          _terminalSelecionadoNome ??
+          _filialSelecionadaNome ??
+          'Terminal não selecionado',
       empresaId: widget.empresaId,
       dataInicial: _dataInicial,
       dataFinal: _dataFinal,
@@ -677,7 +920,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
       _dataFinal = agora;
       _produtoSelecionadoId = '';
       _produtoSelecionadoNome = null;
-      
+
       // Se não tiver terminal vinculado, resetar também
       if (!_terminalVinculado) {
         _terminalSelecionadoId = '';
@@ -688,7 +931,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
         _produtosDisponiveis = []; // Limpar produtos
       }
     });
-    
+
     // Se tiver terminal vinculado, recarregar os produtos dele
     if (_terminalVinculado && _terminalSelecionadoId != null) {
       _carregarProdutosPorTerminal(_terminalSelecionadoId!);
@@ -708,9 +951,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
           children: [
             const Text(
               'Estoque por Produto',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w600),
             ),
             Text(
               widget.nomeFilial,
@@ -726,10 +967,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
           onPressed: widget.onVoltar,
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: _buildConteudo(),
-      ),
+      body: Padding(padding: const EdgeInsets.all(20), child: _buildConteudo()),
     );
   }
 
@@ -766,7 +1004,11 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
             padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
             child: Row(
               children: [
-                Icon(Icons.filter_alt, color: const Color(0xFF0D47A1), size: 20),
+                Icon(
+                  Icons.filter_alt,
+                  color: const Color(0xFF0D47A1),
+                  size: 20,
+                ),
                 const SizedBox(width: 10),
                 const Text(
                   'Filtros de Consulta',
@@ -802,19 +1044,12 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                         ),
                         if (_terminalVinculado) ...[
                           const SizedBox(width: 8),
-                          const Icon(
-                            Icons.lock,
-                            size: 14,
-                            color: Colors.grey,
-                          ),
+                          const Icon(Icons.lock, size: 14, color: Colors.grey),
                         ],
                       ],
                     ),
                     const SizedBox(height: 4),
-                    SizedBox(
-                      height: 50,
-                      child: _buildCampoTerminal(),
-                    ),
+                    SizedBox(height: 50, child: _buildCampoTerminal()),
                   ],
                 ),
               ),
@@ -835,10 +1070,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    SizedBox(
-                      height: 50,
-                      child: _buildCampoFilial(),
-                    ),
+                    SizedBox(height: 50, child: _buildCampoFilial()),
                   ],
                 ),
               ),
@@ -859,10 +1091,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    SizedBox(
-                      height: 50,
-                      child: _buildCampoProduto(),
-                    ),
+                    SizedBox(height: 50, child: _buildCampoProduto()),
                   ],
                 ),
               ),
@@ -891,7 +1120,10 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          border: Border.all(color: Colors.grey.shade400, width: 1),
+                          border: Border.all(
+                            color: Colors.grey.shade400,
+                            width: 1,
+                          ),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Row(
@@ -899,7 +1131,10 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                           children: [
                             Text(
                               '${_dataInicial.day.toString().padLeft(2, '0')}/${_dataInicial.month.toString().padLeft(2, '0')}/${_dataInicial.year}',
-                              style: const TextStyle(fontSize: 13, color: Colors.black),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.black,
+                              ),
                             ),
                             Icon(
                               Icons.calendar_today,
@@ -938,7 +1173,10 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          border: Border.all(color: Colors.grey.shade400, width: 1),
+                          border: Border.all(
+                            color: Colors.grey.shade400,
+                            width: 1,
+                          ),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Row(
@@ -946,7 +1184,10 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                           children: [
                             Text(
                               '${_dataFinal.day.toString().padLeft(2, '0')}/${_dataFinal.month.toString().padLeft(2, '0')}/${_dataFinal.year}',
-                              style: const TextStyle(fontSize: 13, color: Colors.black),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.black,
+                              ),
                             ),
                             Icon(
                               Icons.calendar_today,
@@ -1001,7 +1242,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
           itemHeight: 50,
           icon: const Icon(Icons.arrow_drop_down, size: 20),
           style: const TextStyle(fontSize: 13, color: Colors.black),
-          onChanged: _terminalVinculado 
+          onChanged: _terminalVinculado
               ? null
               : (String? novoValor) async {
                   setState(() {
@@ -1012,7 +1253,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                         orElse: () => {'id': '', 'nome': ''},
                       );
                       _terminalSelecionadoNome = terminal['nome'];
-                      
+
                       // Limpar produto selecionado ao mudar de terminal
                       _produtoSelecionadoId = '';
                       _produtoSelecionadoNome = null;
@@ -1034,7 +1275,9 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                     await _carregarProdutosPorTerminal(novoValor);
                   }
                 },
-          items: _terminaisDisponiveis.map<DropdownMenuItem<String>>((terminal) {
+          items: _terminaisDisponiveis.map<DropdownMenuItem<String>>((
+            terminal,
+          ) {
             return DropdownMenuItem<String>(
               value: terminal['id']!,
               child: Padding(
@@ -1076,7 +1319,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
         ),
       );
     }
-    
+
     // Terminal não selecionado
     if (_terminalSelecionadoId == null || _terminalSelecionadoId!.isEmpty) {
       return Container(
@@ -1102,10 +1345,11 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
         ),
       );
     }
-    
+
     // Nenhuma filial disponível
-    if (_filiaisDisponiveis.isEmpty || 
-        (_filiaisDisponiveis.length == 1 && _filiaisDisponiveis.first['id'] == '')) {
+    if (_filiaisDisponiveis.isEmpty ||
+        (_filiaisDisponiveis.length == 1 &&
+            _filiaisDisponiveis.first['id'] == '')) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
@@ -1129,7 +1373,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
         ),
       );
     }
-    
+
     // Dropdown normal com filiais
     return Container(
       decoration: BoxDecoration(
@@ -1200,7 +1444,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
         ),
       );
     }
-    
+
     // Terminal não selecionado
     if (_terminalSelecionadoId == null || _terminalSelecionadoId!.isEmpty) {
       return Container(
@@ -1226,10 +1470,11 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
         ),
       );
     }
-    
+
     // Nenhum produto disponível
-    if (_produtosDisponiveis.isEmpty || 
-        (_produtosDisponiveis.length == 1 && _produtosDisponiveis.first['id'] == '')) {
+    if (_produtosDisponiveis.isEmpty ||
+        (_produtosDisponiveis.length == 1 &&
+            _produtosDisponiveis.first['id'] == '')) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
@@ -1253,7 +1498,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
         ),
       );
     }
-    
+
     // Dropdown normal com produtos
     return Container(
       decoration: BoxDecoration(
@@ -1281,8 +1526,8 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                 child: Text(
                   produto['nome']!,
                   style: TextStyle(
-                    color: produto['id']!.isEmpty 
-                        ? Colors.grey.shade600 
+                    color: produto['id']!.isEmpty
+                        ? Colors.grey.shade600
                         : Colors.black,
                   ),
                 ),
@@ -1320,7 +1565,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
             ],
           ),
           const SizedBox(height: 16),
-          
+
           // Grid de itens do resumo
           Wrap(
             spacing: 24,
@@ -1345,23 +1590,26 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
               _buildItemResumo(
                 icon: Icons.calendar_today,
                 label: 'Data inicial',
-                value: '${_dataInicial.day.toString().padLeft(2, '0')}/${_dataInicial.month.toString().padLeft(2, '0')}/${_dataInicial.year}',
+                value:
+                    '${_dataInicial.day.toString().padLeft(2, '0')}/${_dataInicial.month.toString().padLeft(2, '0')}/${_dataInicial.year}',
               ),
               _buildItemResumo(
                 icon: Icons.calendar_today,
                 label: 'Data final',
-                value: '${_dataFinal.day.toString().padLeft(2, '0')}/${_dataFinal.month.toString().padLeft(2, '0')}/${_dataFinal.year}',
+                value:
+                    '${_dataFinal.day.toString().padLeft(2, '0')}/${_dataFinal.month.toString().padLeft(2, '0')}/${_dataFinal.year}',
               ),
               _buildItemResumo(
                 icon: Icons.inventory_2,
                 label: 'Produto',
-                value: _produtoSelecionadoId != null && _produtoSelecionadoId!.isNotEmpty
-                  ? _produtosDisponiveis
-                      .firstWhere(
+                value:
+                    _produtoSelecionadoId != null &&
+                        _produtoSelecionadoId!.isNotEmpty
+                    ? _produtosDisponiveis.firstWhere(
                         (prod) => prod['id'] == _produtoSelecionadoId,
-                        orElse: () => {'id': '', 'nome': 'Não selecionado'}
+                        orElse: () => {'id': '', 'nome': 'Não selecionado'},
                       )['nome']!
-                  : 'Não selecionado',
+                    : 'Não selecionado',
               ),
             ],
           ),
@@ -1439,15 +1687,18 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                   SizedBox(width: 6),
                   Text(
                     'Redefinir',
-                    style: TextStyle(fontSize: 13, color: Color.fromARGB(255, 95, 95, 95)),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Color.fromARGB(255, 95, 95, 95),
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-          
+
           const SizedBox(width: 16),
-          
+
           // Botão Consultar
           SizedBox(
             width: 140,
@@ -1509,10 +1760,7 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
                   _terminalVinculado
                       ? 'Terminal vinculado ao seu usuário (não pode ser alterado).'
                       : 'Mostra o estoque do produto no terminal selecionado no período informado.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.orange.shade700,
-                  ),
+                  style: TextStyle(fontSize: 11, color: Colors.orange.shade700),
                 ),
               ],
             ),
@@ -1524,8 +1772,18 @@ class _FiltroEstoqueProdutoPageState extends State<FiltroEstoqueProdutoPage> {
 
   String _getMonthName(int month) {
     const months = [
-      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+      'Janeiro',
+      'Fevereiro',
+      'Março',
+      'Abril',
+      'Maio',
+      'Junho',
+      'Julho',
+      'Agosto',
+      'Setembro',
+      'Outubro',
+      'Novembro',
+      'Dezembro',
     ];
     return months[month - 1];
   }

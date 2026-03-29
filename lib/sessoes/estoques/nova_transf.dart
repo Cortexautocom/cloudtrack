@@ -717,7 +717,7 @@ class _NovaTransferenciaDialogState extends State<NovaTransferenciaDialog> {
       final filialDestinoId = await _buscarFilialPorTerminal(terminalDestId!);
 
       // VALIDAÇÃO: Verificar apenas se o terminal de destino possui tanques com o produto selecionado
-      if (terminalDestId != null && _produtoId != null) {
+      if (_produtoId != null) {
         final tanquesDestino = await supabase
             .from('tanques')
             .select('id')
