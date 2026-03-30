@@ -164,6 +164,11 @@ class _HomePageState extends State<HomePage>
   // NOVA LISTA PARA ARMAZENAR FILIAIS PARA PROGRAMACAO
   List<Map<String, dynamic>> _filiaisProgramacao = [];
 
+  // Mapa nome normalizado -> UUID real do banco (para match de cards de filiais)
+  Map<String, String> _idPorNome = {};
+  Set<String> _favoritosIds = {};
+  Map<String, int> _ordemPorId = {};
+
   // NOVO: Mapa de cores por sessão
   final Map<String, Color> _coresSessoes = {
     'Estoques': const Color(0xFFFF9800), // Laranja
@@ -191,6 +196,7 @@ class _HomePageState extends State<HomePage>
   void initState() {
     super.initState();
     selectedIndex = -1;
+    _inicializarFilhosPorSessaoFallback();
     _carregarFilialParaProgramacao();
     _carregarCardsDoBanco();
     _carregarNomeFilialUsuario();
@@ -297,6 +303,14 @@ class _HomePageState extends State<HomePage>
     final supabase = Supabase.instance.client;
     final usuario = UsuarioAtual.instance;
     if (usuario == null) return;
+
+    // Cards de fallback (IDs não-UUID) não podem ser favoritados no banco
+    final uuidRegex = RegExp(
+      r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+      caseSensitive: false,
+    );
+    if (!uuidRegex.hasMatch(cardId)) return;
+
     try {
       if (novoValor) {
         await supabase.from('relacoes_cards_favoritos').insert({
@@ -394,12 +408,11 @@ class _HomePageState extends State<HomePage>
     try {
       final supabase = Supabase.instance.client;
 
+      // Buscar id, nome e ordem
       final cardsDb = await supabase
           .from('cards')
-          .select('id, nome, tipo, sessao_pai, ordem')
-          .eq('ativo', true)
-          .order('sessao_pai')
-          .order('ordem');
+          .select('id, nome, ordem')
+          .eq('ativo', true);
 
       // Buscar IDs dos cards favoritados pelo usuário atual
       final favoritosDb = await supabase
@@ -412,61 +425,71 @@ class _HomePageState extends State<HomePage>
         for (final f in favoritosDb) f['card_id'].toString()
       };
 
-      final List<Map<String, dynamic>> todosCards = [];
+      // Mapear nome normalizado -> id real (UUID) para fazer correspondência por label
+      final idPorNome = <String, String>{
+        for (final c in cardsDb)
+          (c['nome']?.toString().trim().toLowerCase() ?? ''): c['id'].toString(),
+      };
 
-      for (var card in cardsDb) {
-        final cardId = card['id'].toString();
-        final sessaoPai = card['sessao_pai']?.toString() ?? 'Geral';
-        final tipoRaw = card['tipo']?.toString() ?? '';
-        final tipo = (tipoRaw == 'movimentaces' || tipoRaw == 'entradas_e_saidas') ? 'movimentacoes' : tipoRaw;
+      // Mapear id -> ordem
+      final ordemPorId = <String, int>{
+        for (final c in cardsDb)
+          c['id'].toString(): (c['ordem'] as int? ?? 0),
+      };
 
-        // Remover card isolado de CACL: acesso passa a ser feito via Estoque por tanque
-        if (tipo == 'cacl') continue;
+      // Armazenar para uso em _carregarFilialParaProgramacao (que pode rodar depois)
+      _idPorNome = idPorNome;
+      _favoritosIds = favoritosIds;
+      _ordemPorId = ordemPorId;
 
-        // Permissão baseada unicamente no id do card
-        if (usuario.podeAcessarCard(cardId)) {
-          todosCards.add({
-            'id': cardId,
-            'label': card['nome'],
-            'tipo': tipo,
-            'sessao_pai': sessaoPai,
-            'icon': _definirIconePorTipo(tipo),
-            'descricao': _definirDescricaoPorTipo(tipo),
-            'favorito': favoritosIds.contains(cardId),
-          });
+      // Para cada card do fallback: encontrar o UUID real pelo nome e atualizar id/favorito/label
+      for (final cards in _filhosPorSessao.values) {
+        for (final card in cards) {
+          final labelNorm = card['label']?.toString().trim().toLowerCase() ?? '';
+          final realId = idPorNome[labelNorm];
+          if (realId != null && realId.isNotEmpty) {
+            card['id'] = realId;
+          }
+          final currentId = card['id']?.toString() ?? '';
+          card['favorito'] = favoritosIds.contains(currentId);
+          if (ordemPorId.containsKey(currentId)) {
+            card['ordem'] = ordemPorId[currentId];
+          }
         }
+        // Ordenar do menor para o maior
+        cards.sort((a, b) =>
+            ((a['ordem'] as int?) ?? 0).compareTo((b['ordem'] as int?) ?? 0));
       }
 
-      final Map<String, List<Map<String, dynamic>>> cardsOrganizados = {};
-
-      for (var card in todosCards) {
-        var sessaoPai = card['sessao_pai'];
-
-        // Reatribuir Estoque por tanque para Operação
-        if (card['tipo']?.toString() == 'estoque_por_tanque') {
-          sessaoPai = 'Operação';
-        }
-
-        // Reatribuir Movimentações para Vendas
-        if (card['tipo']?.toString() == 'movimentacoes') {
-          sessaoPai = 'Vendas';
-        }
-
-        cardsOrganizados.putIfAbsent(sessaoPai, () => []);
-        // Inserir no início para manter a ordem da consulta reversed
-        cardsOrganizados[sessaoPai]!.insert(0, card);
-      }
+      // Também atualizar _filiaisProgramacao caso já esteja carregado
+      _aplicarIdsDoBancoEmFiliais();
 
       setState(() {
-        _filhosPorSessao.clear();
-        _filhosPorSessao.addAll(cardsOrganizados);
         _carregandoCards = false;
       });
     } catch (e) {
       debugPrint('❌ Erro ao carregar cards do banco: $e');
       setState(() => _carregandoCards = false);
-      _inicializarFilhosPorSessaoFallback();
     }
+  }
+
+  /// Atualiza os IDs e favoritos dos cards de _filiaisProgramacao usando o mapa do banco.
+  void _aplicarIdsDoBancoEmFiliais() {
+    if (_idPorNome.isEmpty) return;
+    for (final card in _filiaisProgramacao) {
+      final labelNorm = card['label']?.toString().trim().toLowerCase() ?? '';
+      final realId = _idPorNome[labelNorm];
+      if (realId != null && realId.isNotEmpty) {
+        card['id'] = realId;
+      }
+      final currentId = card['id']?.toString() ?? '';
+      card['favorito'] = _favoritosIds.contains(currentId);
+      if (_ordemPorId.containsKey(currentId)) {
+        card['ordem'] = _ordemPorId[currentId];
+      }
+    }
+    _filiaisProgramacao.sort((a, b) =>
+        ((a['ordem'] as int?) ?? 0).compareTo((b['ordem'] as int?) ?? 0));
   }
 
   void _inicializarFilhosPorSessaoFallback() {
@@ -518,6 +541,15 @@ class _HomePageState extends State<HomePage>
         'descricao': 'Controle de perdas e sobras operacionais',
         'tipo': 'perdas_sobras',
         'sessao_pai': 'Operação',
+      },
+      {
+        'id': 'c44f87b1-ab75-4b5f-bacc-f29eefe1a75f',
+        'icon': Icons.opacity,
+        'label': 'Estoque por produto',
+        'descricao': 'Consultar movimentação e estoque por produto',
+        'tipo': 'estoque_produto',
+        'sessao_pai': 'Operação',
+        'favorito': false,
       },
     ];
 
@@ -662,6 +694,18 @@ class _HomePageState extends State<HomePage>
       },
     ];
 
+    _filhosPorSessao['Vendas'] = [
+      {
+        'id': 'fallback-mov',
+        'icon': Icons.swap_horiz,
+        'label': 'Relatório de Entradas e Saídas',
+        'descricao': 'Acompanhar entradas e saídas em geral',
+        'tipo': 'movimentacoes',
+        'sessao_pai': 'Vendas',
+        'favorito': false,
+      },
+    ];
+
     _filhosPorSessao['Bombeios e Cotas Contratuais'] = [
       {
         'id': 'fallback-bombeios',
@@ -685,7 +729,24 @@ class _HomePageState extends State<HomePage>
     ];
 
     _filhosPorSessao['Laboratório'] = [
-      /* Lines 703-718 omitted */
+      {
+        'id': 'd1b2c3a4-5e6f-7a8b-9c0d-1e2f3a4b5c6d',
+        'icon': Icons.thermostat,
+        'label': 'Temperatura e Densidade Média',
+        'descricao': 'Temperatura e densidade média por produto',
+        'tipo': 'temp_dens_media',
+        'sessao_pai': 'Laboratório',
+        'favorito': false,
+      },
+      {
+        'id': '2b34cdd6-6f80-4588-8ecd-f22cc954920a',
+        'icon': Icons.fact_check,
+        'label': 'Análise de conformidade e qualidade',
+        'descricao': 'Análise de conformidade e qualidade',
+        'tipo': 'analise_conformidade',
+        'sessao_pai': 'Laboratório',
+        'favorito': false,
+      },
     ];
 
     _filhosPorSessao['Financeiro'] = [
@@ -734,91 +795,7 @@ class _HomePageState extends State<HomePage>
         'sessao_pai': 'Gestão de contratos',
       },
     ];
-  }
-
-  IconData _definirIconePorTipo(String tipo) {
-    const mapaIcones = {
-      'cacl': Icons.analytics,
-      'ordens_analise': Icons.assignment,
-      'historico_cacl': Icons.history,
-      'tabelas_conversao': Icons.table_chart,
-      'temp_dens_media': Icons.thermostat,
-      'tanques': Icons.oil_barrel,
-      'estoque_geral': Icons.hub,
-      'compacto_final': Icons.view_compact,
-      'estoque_por_empresa': Icons.business,
-      'estoque_por_tanque': Icons.water_drop,
-      'movimentacoes': Icons.swap_horiz,
-      'movimentacao_por_empresa': Icons.business,
-      'movimentaces': Icons.swap_horiz,
-      'transferencias': Icons.low_priority,
-      'controle_descargas': Icons.swap_horizontal_circle,
-      'acompanhar_ordem': Icons.directions_car,
-      'visao_geral_circuito': Icons.dashboard,
-      'veiculos': Icons.directions_car,
-      'transportadoras': Icons.local_shipping,
-      'veiculos_terceiros': Icons.local_shipping,
-      'motoristas': Icons.people,
-      'documentacao': Icons.description,
-      'bombeios': Icons.invert_colors,
-      'ordem_bombeio': Icons.playlist_add_check,
-      'programacao_filial': Icons.local_gas_station,
-      'criar_ordem': Icons.add_circle_outline,
-      'frascos_amostra': Icons.science_outlined,
-      'estoque_fiscal': Icons.receipt_long,
-      'estoque_produto': Icons.opacity,
-      'analise_conformidade': Icons.fact_check,
-      'perdas_sobras': Icons.insights,
-      'dutoviario': Icons.blur_linear,
-      'rodoviario': Icons.local_shipping,
-      'contratos_etanol': Icons.water_drop,
-      'carregamento_rodoviario': Icons.local_shipping,
-      'contratos_particulares': Icons.people,
-      'contratos_refinarias': Icons.factory,
-      'conta_corrente_refinarias': Icons.account_balance,
-    };
-    return mapaIcones[tipo] ?? Icons.apps;
-  }
-
-  String _definirDescricaoPorTipo(String tipo) {
-    const mapaDescricoes = {
-      'cacl': 'Emitir CACL',
-      'ordens_analise': 'Geração e gestão de ordens',
-      'historico_cacl': 'Consultar histórico de CACLs emitidos',
-      'tabelas_conversao': 'Tabelas de conversão de densidade e temperatura',
-      'temp_dens_media': 'Cálculo de temperatura e densidade média',
-      'tanques': 'Gerenciamento de tanques',
-      'estoque_geral': 'Visão consolidada dos estoques da base',
-      'compacto_final': 'Visão compacta do final do dia',
-      'estoque_por_empresa': 'Movimentações por empresa',
-      'estoque_por_tanque': 'Acompanhar estoques por tanque',
-      'movimentacoes': 'Relatório Entradas e Saídas',
-      'movimentacao_por_empresa': 'Movimentações por empresa',
-      'movimentaces': 'Relatório Entradas e Saídas',
-      'transferencias': 'Gerenciar transferências entre filiais',
-      'controle_descargas': 'Controle de recebimento de produtos',
-      'acompanhar_ordem': 'Acompanhar situação da ordem',
-      'visao_geral_circuito': 'Panorama completo dos circuitos',
-      'veiculos': 'Gerenciar frota de veículos próprios',
-      'transportadoras': 'Gerenciar transportadoras',
-      'veiculos_terceiros': 'Gerenciar veículos de transportadoras',
-      'motoristas': 'Gerenciar cadastro de motoristas',
-      'documentacao': 'Controle de documentos da frota',
-      'bombeios': 'Controle de bombeios',
-      'ordem_bombeio': 'Emitir e acompanhar ordens de bombeio',
-      'programacao_filial': 'Programação de vendas por filial',
-      'frascos_amostra': 'Controle de frascos de amostras',
-      'estoque_fiscal': 'Acompanhar estoque fiscal e tributário',
-      'estoque_produto': 'Acompanhar estoque por produto',
-      'analise_conformidade': 'Análise de conformidade e qualidade',
-      'contratos_etanol': 'Gestão de contratos de etanol conforme RANP 946/2023',
-      'carregamento_rodoviario': 'Gestão de contratos de carregamento rodoviário conforme ANP nº 42/2011',
-      'contratos_particulares': 'Gestão de contratos firmados com particulares',
-      'contratos_refinarias': 'Gestão de contratos firmados com refinarias',
-      'conta_corrente_refinarias': 'Movimentação financeira com refinarias',
-    };
-    return mapaDescricoes[tipo] ?? '';
-  }
+  }    
 
   Future<void> _carregarFilialParaProgramacao() async {
     final supabase = Supabase.instance.client;
@@ -869,6 +846,9 @@ class _HomePageState extends State<HomePage>
       setState(() {
         _filiaisProgramacao = filiaisProcessadas;
       });
+
+      // Aplicar UUIDs do banco caso _carregarCardsDoBanco já tenha rodado
+      _aplicarIdsDoBancoEmFiliais();
     } catch (e) {
       debugPrint('❌ ERRO ao carregar filiais: $e');
       debugPrint('❌ Stack trace: ${StackTrace.current}');
@@ -1133,16 +1113,7 @@ class _HomePageState extends State<HomePage>
       // Combinar cards do banco (ou fallback) + filiais de programação
       // Excluir programacao_filial do banco para evitar duplicação com _filiaisProgramacao
       final cardsVendas = <Map<String, dynamic>>[
-        ...(_filhosPorSessao['Vendas'] ?? [
-          {
-            'id': 'fallback-mov',
-            'icon': Icons.swap_horiz,
-            'label': 'Relatório Entradas e Saídas',
-            'descricao': 'Acompanhar entradas e saídas em geral',
-            'tipo': 'movimentacoes',
-            'sessao_pai': 'Vendas',
-          },
-        ]).where((c) => c['tipo'] != 'programacao_filial'),
+        ...(_filhosPorSessao['Vendas'] ?? []).where((c) => c['tipo'] != 'programacao_filial'),
         ..._filiaisProgramacao,
       ];
 
@@ -2750,33 +2721,7 @@ class _HomePageState extends State<HomePage>
       return _buildSemPermissaoPage();
     }
 
-    // Filtrar apenas os cards que o usuário tem permissão
-    final usuario = UsuarioAtual.instance;
-    final cardsPermitidos = <Map<String, dynamic>>[];
-
-    for (var card in _filhosSessaoAtual) {
-      final cardId = card['id']?.toString();
-
-      // Se não tem usuário, não permite
-      if (usuario == null) continue;
-
-      // Se não tem cardId, não permite
-      if (cardId == null || cardId.isEmpty) continue;
-
-      // Permissão baseada unicamente no id do card
-      try {
-        if (usuario.podeAcessarCard(cardId)) {
-          cardsPermitidos.add(card);
-        }
-      } catch (_) {
-        // Em caso de erro, não permitir o card
-      }
-    }
-
-    // Se não houver nenhum card permitido
-    if (cardsPermitidos.isEmpty) {
-      return _buildSemPermissaoPage();
-    }
+    final cardsPermitidos = _filhosSessaoAtual;
 
     // Se houver um card filho selecionado, exibe seu conteúdo
     if (_filhoSelecionadoTipo != null) {
@@ -2957,26 +2902,39 @@ class _HomePageState extends State<HomePage>
     final usuario = UsuarioAtual.instance;
     final cardId = card['id']?.toString();
 
-    if (usuario != null &&
+    final naoPermitido = usuario != null &&
         cardId != null &&
-        !usuario.podeAcessarCard(cardId)) {
-      return const SizedBox.shrink();
-    }
+        !usuario.podeAcessarCard(cardId);
 
     final corSessao = _getCorSessaoAtual();
     final isFavorito = card['favorito'] == true;
-    final podeFavoritar = card.containsKey('favorito') && cardId != null;
+    final uuidRegex = RegExp(
+      r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+      caseSensitive: false,
+    );
+    final isUuid = cardId != null && uuidRegex.hasMatch(cardId);
+    final podeFavoritar = card.containsKey('favorito') && isUuid;
 
     return _HoverScale(
       child: Stack(
         children: [
           Material(
             elevation: 2,
-            color: Colors.white,
+            color: naoPermitido ? Colors.grey.shade100 : Colors.white,
             borderRadius: BorderRadius.circular(12),
             clipBehavior: Clip.hardEdge,
             child: InkWell(
-              onTap: () => _navegarParaCardFilho(card),
+              onTap: naoPermitido
+                  ? () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Não permitido. Contate seu supervisor.'),
+                          backgroundColor: Colors.red,
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                  : () => _navegarParaCardFilho(card),
               hoverColor: corSessao.withOpacity(0.1),
               child: Container(
                 decoration: BoxDecoration(
@@ -2987,7 +2945,14 @@ class _HomePageState extends State<HomePage>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(card['icon'], color: corSessao, size: 55),
+                    Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        Icon(card['icon'], color: naoPermitido ? Colors.grey.shade400 : corSessao, size: 55),
+                        if (naoPermitido)
+                          const Icon(Icons.lock, size: 18, color: Colors.grey),
+                      ],
+                    ),
                     const SizedBox(height: 8),
                     ConstrainedBox(
                       constraints: const BoxConstraints(minHeight: 48, maxHeight: 48),
@@ -2998,7 +2963,7 @@ class _HomePageState extends State<HomePage>
                               : (card['label'] ?? ''),
                           style: TextStyle(
                             fontSize: (card['label']?.toString() ?? '').length > 25 ? 11 : 13,
-                            color: const Color(0xFF0D47A1),
+                            color: naoPermitido ? Colors.grey.shade500 : const Color(0xFF0D47A1),
                             fontWeight: FontWeight.w600,
                           ),
                           textAlign: TextAlign.center,
@@ -3918,6 +3883,11 @@ class _HomePageState extends State<HomePage>
         }
       }
     }
+    for (final card in _filiaisProgramacao) {
+      if (card['favorito'] == true) {
+        favoritos.add(card);
+      }
+    }
 
     return Container(
       padding: const EdgeInsets.fromLTRB(30, 20, 30, 30),
@@ -3997,7 +3967,7 @@ class _HomePageState extends State<HomePage>
       {
         'id': 'movimentacoes-filial',
         'icon': Icons.swap_horiz,
-        'label': 'Relatório Entradas e Saídas',
+        'label': 'Relatório de Entradas e Saídas',
         'descricao': 'Consultar movimentações da filial',
         'tipo': 'movimentacoes',
       },
