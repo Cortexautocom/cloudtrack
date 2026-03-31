@@ -37,6 +37,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
   
   final TextEditingController dataInicialController = TextEditingController();
   final TextEditingController dataFinalController = TextEditingController();
+  final TextEditingController pesquisaController = TextEditingController();
 
   Map<String, dynamic>? _usuarioData;
 
@@ -67,6 +68,10 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
     dataInicialController.text = _formatarData(dataInicial);
     
     _carregarDadosIniciais();
+
+    pesquisaController.addListener(() {
+      _aplicarFiltros(resetarPagina: true);
+    });
   }
 
   @override
@@ -74,6 +79,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
     WidgetsBinding.instance.removeObserver(this);
     dataInicialController.dispose();
     dataFinalController.dispose();
+    pesquisaController.dispose();
     super.dispose();
   }
 
@@ -197,8 +203,14 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
         entrada_saida_20,
         faturado_final,
         diferenca_faturado,
-        porcentagem_diferenca
+        porcentagem_diferenca,
+        numero_controle
       ''');
+
+      if (pesquisaController.text.isNotEmpty) {
+        final search = pesquisaController.text;
+        query = query.or('numero_controle.ilike.%$search%,produto.ilike.%$search%,status.ilike.%$search%');
+      }
 
       if (dataInicial == null && dataFinal == null) {
         // Nenhuma data selecionada pelo usuário — mostrar apenas CACLs da data atual
@@ -789,7 +801,19 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
 
                 const SizedBox(width: 8),
 
-                const SizedBox.shrink(),
+                Expanded(
+                  child: TextField(
+                    controller: pesquisaController,
+                    decoration: InputDecoration(
+                      labelText: 'Pesquisa geral',
+                      prefixIcon: const Icon(Icons.search, size: 18),
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      isDense: true,
+                    ),
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
               ],
             ),
           ],
@@ -940,6 +964,10 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                   child: Text('H.Final', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
                 ),
                 Expanded(
+                  flex: 1,
+                  child: Text('Nº Controle', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
+                ),
+                Expanded(
                   flex: 2,
                   child: Text('Status', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
                 ),
@@ -998,6 +1026,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                     final data = _formatarData(cacl['data']);
                                     final horarioInicial = _formatarHora(cacl['horario_inicial']);
                                     final horarioFinal = _formatarHora(cacl['horario_final']);
+                                    final numeroControle = cacl['numero_controle']?.toString() ?? '-';
 
                                     return MouseRegion(
                                       cursor: SystemMouseCursors.click,
@@ -1119,6 +1148,16 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                                 child: Text(
                                                   horarioFinal,
                                                   style: const TextStyle(fontSize: 12),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              
+                                              // Nº de controle
+                                              Expanded(
+                                                flex: 1,
+                                                child: Text(
+                                                  numeroControle,
+                                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0D47A1)),
                                                   overflow: TextOverflow.ellipsis,
                                                 ),
                                               ),

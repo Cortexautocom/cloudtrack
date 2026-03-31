@@ -63,7 +63,7 @@ class _HomePageState extends State<HomePage>
     'Circuito',
     'Vendas',
     'Gestão de Frota',
-    'Bombeios e Cotas Contratuais',
+    'Suprimentos',
     'Laboratório',
     'Financeiro',
     'Jurídico',
@@ -176,7 +176,7 @@ class _HomePageState extends State<HomePage>
     'Circuito': const Color(0xFF9C27B0), // Roxo
     'Vendas': const Color(0xFF4CAF50), // Verde
     'Gestão de Frota': const Color(0xFFF44336), // Vermelho
-    'Bombeios e Cotas Contratuais': const Color(0xFF00BCD4), // Ciano
+    'Suprimentos': const Color(0xFF00BCD4), // Ciano
     'Laboratório': const Color(0xFF8BC34A), // Verde claro
     'Financeiro': const Color(0xFF009688), // Verde-água
     'Jurídico': const Color(0xFF3F51B5), // Índigo
@@ -706,14 +706,23 @@ class _HomePageState extends State<HomePage>
       },
     ];
 
-    _filhosPorSessao['Bombeios e Cotas Contratuais'] = [
+    _filhosPorSessao['Suprimentos'] = [
       {
         'id': 'fallback-bombeios',
         'icon': Icons.invert_colors,
         'label': 'Bombeios e Cotas Contratuais',
         'descricao': 'Controle de bombeios',
         'tipo': 'bombeios',
-        'sessao_pai': 'Bombeios e Cotas Contratuais',
+        'sessao_pai': 'Suprimentos',
+      },
+      {
+        'id': 'f4b33579-63ee-415e-925e-32540ebb38e5',
+        'icon': Icons.price_change,
+        'label': 'Tabela de Preços - Refinaria',
+        'descricao': 'Tabela de preços da refinaria',
+        'tipo': 'tabela_precos_refinaria',
+        'sessao_pai': 'Suprimentos',
+        'favorito': false,
       },
     ];
 
@@ -1768,7 +1777,7 @@ class _HomePageState extends State<HomePage>
       case 'Laboratório':
       case 'Financeiro':
       case 'Gestão de contratos':
-      case 'Bombeios e Cotas Contratuais':
+      case 'Suprimentos':
         return _buildConteudoSessoes();
 
       default:
@@ -2492,9 +2501,9 @@ class _HomePageState extends State<HomePage>
       }
     }
 
-    // SEÇÃO: Bombeios e Cotas Contratuais
-    if (sessaoAtual == 'Bombeios e Cotas Contratuais') {
-      if (_mostrarFilhosSessao && _sessaoAtual == 'Bombeios e Cotas Contratuais') {
+    // SEÇÃO: Suprimentos
+    if (sessaoAtual == 'Suprimentos') {
+      if (_mostrarFilhosSessao && _sessaoAtual == 'Suprimentos') {
         return _buildFilhosSessaoPage();
       }
     }
@@ -2792,6 +2801,22 @@ class _HomePageState extends State<HomePage>
                   _filhoSelecionadoTipo = null;
                 });
               },
+            ),
+            mostrarVoltar: true,
+            onVoltar: () {
+              setState(() {
+                _filhoSelecionadoTipo = null;
+              });
+            },
+          );
+        case 'tabela_precos_refinaria':
+          return _buildPaginaPadronizada(
+            titulo: 'Tabela de Preços - Refinaria',
+            conteudo: const Center(
+              child: Text(
+                'Seção não disponível no plano contratado.',
+                style: TextStyle(fontSize: 18),
+              ),
             ),
             mostrarVoltar: true,
             onVoltar: () {
@@ -3251,7 +3276,7 @@ class _HomePageState extends State<HomePage>
       case 'Vendas':
         _navegarParaCardVendas(tipo, card);
         break;
-      case 'Bombeios e Cotas Contratuais':
+      case 'Suprimentos':
         _navegarParaCardBombeios(tipo);
         break;
       case 'Laboratório':
@@ -3670,6 +3695,18 @@ class _HomePageState extends State<HomePage>
         });
         break;
       case 'bombeios':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Indisponível no plano contratado.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        break;
+      case 'tabela_precos_refinaria':
+        setState(() {
+          _filhoSelecionadoTipo = tipo;
+        });
         break;
     }
   }
@@ -3843,7 +3880,7 @@ class _HomePageState extends State<HomePage>
         return Icons.local_gas_station;
       case 'Gestão de Frota':
         return Icons.local_shipping;
-      case 'Bombeios e Cotas Contratuais':
+      case 'Suprimentos':
         return Icons.invert_colors;
       case 'Laboratório':
         return Icons.science;
@@ -4121,7 +4158,7 @@ class _HomePageState extends State<HomePage>
     final Map<String, String> quebras = {
       'Recursos Humanos': 'Recursos\nHumanos',
       'Gestão de Projetos': 'Gestão de\nProjetos',
-      'Bombeios e Cotas Contratuais': 'Bombeios\ne Cotas Contratuais',
+      'Suprimentos': 'Suprimentos',
       'Manutenção e ativos': 'Manutenção\ne ativos',
       'Segurança & Compliance': 'Segurança &\nCompliance',
       'Configurações': 'Configurações', // Mantém igual (opcional)

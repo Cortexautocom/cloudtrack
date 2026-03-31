@@ -88,8 +88,7 @@ class _SplashScreenState extends State<SplashScreen> {
         return _compararVersoes(versaoServidor, versaoAtual);
       }
     } catch (e) {
-      print('Erro ao verificar atualização: $e');
-      // Em caso de erro, continua o login normalmente
+      // Servidor de versão não configurado ainda — ignora silenciosamente
     }
     return false; // Retorna false para desenvolvimento
   }
