@@ -226,7 +226,6 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
   Future<void> _carregarContabilFisicoInicial() async {
     try {
       final diaAnterior = widget.dataInicial.subtract(const Duration(days: 1));
-      final diaAnteriorStr = diaAnterior.toIso8601String().split('T')[0];
 
       if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
         final movsProduto = await _supabase
@@ -235,12 +234,13 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
               entrada_amb,
               entrada_vinte,
               saida_amb,
-              saida_vinte
+              saida_vinte,
+              data_mov,
+              data_descarga
             ''')
             .or('filial_id.eq.$_filialIdUsar,filial_destino_id.eq.$_filialIdUsar,filial_origem_id.eq.$_filialIdUsar')
             .eq('empresa_id', _empresaId!)
-            .eq('produto_id', widget.produtoFiltro!)
-            .lte('data_mov', diaAnteriorStr);
+            .eq('produto_id', widget.produtoFiltro!);
 
         if (movsProduto.isNotEmpty) {
           num saldoAmb = 0;
@@ -248,6 +248,11 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
           num saldoVinteBase = 0;
 
           for (var mov in movsProduto) {
+            bool isEntrada = (mov['entrada_amb'] ?? 0) > 0 || (mov['entrada_vinte'] ?? 0) > 0;
+            String dataComparacao = isEntrada ? (mov['data_descarga'] ?? mov['data_mov']) : mov['data_mov'];
+            
+            if (DateTime.parse(dataComparacao).isAfter(diaAnterior)) continue;
+
             saldoAmb += (mov['entrada_amb'] ?? 0) as num;
             saldoAmb -= (mov['saida_amb'] ?? 0) as num;
             saldoVinte += (mov['entrada_vinte'] ?? 0) as num;
@@ -271,17 +276,23 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
             entrada_amb,
             entrada_vinte,
             saida_amb,
-            saida_vinte
+            saida_vinte,
+            data_mov,
+            data_descarga
           ''')
           .or('filial_id.eq.$_filialIdUsar,filial_destino_id.eq.$_filialIdUsar,filial_origem_id.eq.$_filialIdUsar')
-          .eq('empresa_id', _empresaId!)
-          .lte('data_mov', diaAnteriorStr);
+          .eq('empresa_id', _empresaId!);
 
       num saldoAmb = 0;
       num saldoVinte = 0;
       num saldoVinteBase = 0;
 
       for (var mov in movimentacoesAnteriores) {
+        bool isEntrada = (mov['entrada_amb'] ?? 0) > 0 || (mov['entrada_vinte'] ?? 0) > 0;
+        String dataComparacao = isEntrada ? (mov['data_descarga'] ?? mov['data_mov']) : mov['data_mov'];
+        
+        if (DateTime.parse(dataComparacao).isAfter(diaAnterior)) continue;
+
         saldoAmb += (mov['entrada_amb'] ?? 0) as num;
         saldoAmb -= (mov['saida_amb'] ?? 0) as num;
         saldoVinte += (mov['entrada_vinte'] ?? 0) as num;
@@ -377,6 +388,7 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
           .select('''
             id,
             data_mov,
+            data_descarga,
             ts_mov,
             descricao,
             cliente,
@@ -398,24 +410,6 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
           ''')
           .or('filial_id.eq.$_filialIdUsar,filial_destino_id.eq.$_filialIdUsar,filial_origem_id.eq.$_filialIdUsar')
           .eq('empresa_id', _empresaId!);
-
-      final dataInicioStr = DateTime(
-        widget.dataInicial.year,
-        widget.dataInicial.month,
-        widget.dataInicial.day,
-        0, 0, 0, 0,
-      ).toIso8601String();
-
-      final dataFimStr = DateTime(
-        widget.dataFinal.year,
-        widget.dataFinal.month,
-        widget.dataFinal.day,
-        23, 59, 59, 999,
-      ).toIso8601String();
-
-      query = query
-          .gte('data_mov', dataInicioStr)
-          .lte('data_mov', dataFimStr);
 
       if (widget.produtoFiltro != null && widget.produtoFiltro != 'todos') {
         query = query.eq('produto_id', widget.produtoFiltro!);
@@ -462,6 +456,18 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
         final produto = mov['produtos'] as Map<String, dynamic>?;
         final produtoNome = produto?['nome']?.toString() ?? '';
 
+        // Se for entrada, usa data_descarga se disponível, senão data_mov
+        String dataExibicao = mov['data_mov'];
+        if ((normalizado['entrada_amb'] as num) > 0 || (normalizado['entrada_vinte'] as num) > 0) {
+          dataExibicao = mov['data_descarga'] ?? mov['data_mov'];
+        }
+
+        // Filtro local pelo período, já que agora estamos baseando na data de exibição
+        final dataExibicaoDT = DateTime.parse(dataExibicao);
+        if (dataExibicaoDT.isBefore(widget.dataInicial) || dataExibicaoDT.isAfter(widget.dataFinal)) {
+          continue;
+        }
+
         saldoAmb += (normalizado['entrada_amb'] as num) - (normalizado['saida_amb'] as num);
         saldoVinte += (normalizado['entrada_vinte'] as num) - (normalizado['saida_vinte'] as num);
         saldoVinteBase += (normalizado['entrada_vinte_base'] as num) - (normalizado['saida_vinte_base'] as num);
@@ -469,7 +475,9 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
         analitico.add({
           ...normalizado,
           'id': mov['id'],
-          'data_mov': mov['data_mov'],
+          'data_mov': dataExibicao,
+          'data_mov_original': mov['data_mov'],
+          'data_descarga': mov['data_descarga'],
           'descricao': mov['descricao'] ?? '',
           'cliente_destino': (() {
             final tipoOpMov = mov['tipo_op']?.toString() ?? '';
