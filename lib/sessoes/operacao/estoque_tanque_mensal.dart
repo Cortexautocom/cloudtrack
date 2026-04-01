@@ -47,7 +47,9 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
   Map<String, num?> _estoqueFinal = {'amb': null, 'vinte': null};
 
   num _totalEntradas = 0;
+  num _totalEntradasAmb = 0;
   num _totalSaidas = 0;
+  num _totalSaidasAmb = 0;
   num _totalSobraPerda = 0;
   String? _produtoNome;
 
@@ -67,7 +69,7 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
   static const double _wDesc = 240;
   static const double _wNum = 130;
 
-  double get _wTable => _wData + _wEmpresa + _wDesc + (_wNum * 6);
+  double get _wTable => _wData + _wEmpresa + _wDesc + (_wNum * 7);
 
   String _coluna = 'data_mov';
   bool _asc = true;
@@ -184,48 +186,62 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
 
   Future<void> _calcularTotais() async {
     try {
-      // Soma todas as entradas do mês
+      // Soma todas as entradas do mês (20ºC e Amb)
       final entradasResp = await _supabase
           .from('movimentacoes_tanque')
-          .select('entrada_vinte')
+          .select('entrada_vinte, entrada_amb, tipo_mov, descricao, cliente')
           .eq('tanque_id', widget.tanqueId)
           .gte('data_mov', _inicioMes.toIso8601String())
           .lte('data_mov', _fimMes.toIso8601String());
 
       _totalEntradas = 0;
+      _totalEntradasAmb = 0;
+      _totalSobraPerda = 0;
+
       for (final item in entradasResp) {
-        _totalEntradas += (item['entrada_vinte'] ?? 0) as num;
+        final num ev = (item['entrada_vinte'] ?? 0) as num;
+        final num ea = (item['entrada_amb'] ?? 0) as num;
+        
+        final String tipo = (item['tipo_mov']?.toString() ?? '').toLowerCase();
+        final String desc = (item['descricao']?.toString() ?? '').toLowerCase();
+        final String cli = (item['cliente']?.toString() ?? '').toLowerCase();
+
+        final bool eSobra = tipo.contains('sobra') || desc.contains('sobra') || cli.contains('sobra');
+
+        if (eSobra) {
+          _totalSobraPerda += ev;
+        } else {
+          _totalEntradas += ev;
+          _totalEntradasAmb += ea;
+        }
       }
 
-      // Soma todas as saídas do mês
+      // Soma todas as saídas do mês (20ºC e Amb)
       final saidasResp = await _supabase
           .from('movimentacoes_tanque')
-          .select('saida_vinte')
+          .select('saida_vinte, saida_amb, tipo_mov, descricao, cliente')
           .eq('tanque_id', widget.tanqueId)
           .gte('data_mov', _inicioMes.toIso8601String())
           .lte('data_mov', _fimMes.toIso8601String());
 
       _totalSaidas = 0;
+      _totalSaidasAmb = 0;
+
       for (final item in saidasResp) {
-        _totalSaidas += (item['saida_vinte'] ?? 0) as num;
-      }
+        final num sv = (item['saida_vinte'] ?? 0) as num;
+        final num sa = (item['saida_amb'] ?? 0) as num;
+        
+        final String tipo = (item['tipo_mov']?.toString() ?? '').toLowerCase();
+        final String desc = (item['descricao']?.toString() ?? '').toLowerCase();
+        final String cli = (item['cliente']?.toString() ?? '').toLowerCase();
 
-      // Busca e soma todas as sobras/perdas do mês
-      final sobrasPerdasResp = await _supabase
-          .from('movimentacoes_tanque')
-          .select('entrada_vinte, saida_vinte, descricao')
-          .eq('tanque_id', widget.tanqueId)
-          .gte('data_mov', _inicioMes.toIso8601String())
-          .lte('data_mov', _fimMes.toIso8601String())
-          .or("descricao.ilike.Sobra CACL%,descricao.ilike.Perda CACL%");
+        final bool ePerda = tipo.contains('perda') || desc.contains('perda') || cli.contains('perda');
 
-      _totalSobraPerda = 0;
-      for (final item in sobrasPerdasResp) {
-        final descricao = (item['descricao'] ?? '').toString();
-        if (descricao.startsWith('Sobra CACL')) {
-          _totalSobraPerda += (item['entrada_vinte'] ?? 0) as num;
-        } else if (descricao.startsWith('Perda CACL')) {
-          _totalSobraPerda += (item['saida_vinte'] ?? 0) as num;
+        if (ePerda) {
+          _totalSobraPerda -= sv;
+        } else if (!(tipo.contains('sobra') || desc.contains('sobra') || cli.contains('sobra'))) {
+          _totalSaidas += sv;
+          _totalSaidasAmb += sa;
         }
       }
     } catch (e) {
@@ -264,6 +280,7 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
             data_mov,
             cliente,
             descricao,
+            tipo_mov,
             entrada_amb,
             entrada_vinte,
             saida_amb,
@@ -342,12 +359,42 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
           }
         }
 
-        saldoAmb += entradaAmb - saidaAmb; // Wait, original code says 'saidaAmb' - I will fix my reference below
-        // I need to be careful. Let me re-read the loop in mensal.
-        // Re-reading mensal code from attachment... it has: saldoAmb += entradaAmb - saidaAmb;
-        // OK.
+        final String? tipoMovRaw = m['tipo_mov']?.toString();
+        final String tipoMov = (tipoMovRaw ?? '').toLowerCase();
+        final String descLower = desc.toLowerCase();
+        final String clienteLower = cliente.toLowerCase();
+
+        // tipo_mov has priority; fall back to description/cliente when null
+        final bool eSobra = tipoMovRaw != null
+            ? tipoMov.contains('sobra')
+            : descLower.contains('sobra') || clienteLower.contains('sobra');
+        final bool ePerda = tipoMovRaw != null
+            ? tipoMov.contains('perda')
+            : descLower.contains('perda') || clienteLower.contains('perda');
+
+        // For sobra/perda rows the value must appear ONLY in the sobra_perda column.
+        // Zero out entrada/saida for display so they don't show in those columns.
+        final num magnitude = entradaVinte != 0 ? entradaVinte : saidaVinte;
+        num? sobraPerda;
+        final num entradaVinteDisplay;
+        final num saidaVinteDisplay;
+
+        if (eSobra) {
+          sobraPerda = magnitude;
+          entradaVinteDisplay = 0;
+          saidaVinteDisplay = 0;
+        } else if (ePerda) {
+          sobraPerda = -magnitude;
+          entradaVinteDisplay = 0;
+          saidaVinteDisplay = 0;
+        } else {
+          entradaVinteDisplay = entradaVinte;
+          saidaVinteDisplay = saidaVinte;
+        }
+
+        // saldo = saldo_anterior + entrada(20°) - saída(20°) + sobra_perda
         saldoAmb += entradaAmb - saidaAmb;
-        saldoVinte += entradaVinte - saidaVinte;
+        saldoVinte += entradaVinteDisplay - saidaVinteDisplay + (sobraPerda ?? 0);
 
         listaComSaldo.add({
           'id': m['id'],
@@ -357,9 +404,10 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
           'empresa_nome': empresaNome,
           'descricao': descricao,
           'entrada_amb': entradaAmb,
-          'entrada_vinte': entradaVinte,
+          'entrada_vinte': entradaVinteDisplay,
           'saida_amb': saidaAmb,
-          'saida_vinte': saidaVinte,
+          'saida_vinte': saidaVinteDisplay,
+          'sobra_perda': sobraPerda,
           'saldo_amb': saldoAmb,
           'saldo_vinte': saldoVinte,
         });
@@ -385,33 +433,37 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
   }
 
   List<Map<String, dynamic>> _consolidarPorData(List<Map<String, dynamic>> movs) {
-    final Map<String, Map<String, num>> porData = {};
+    // Group rows by date and accumulate display totals.
+    // Saldo is taken from the last row of each day (already correctly computed).
+    final Map<String, Map<String, dynamic>> porData = {};
     final List<String> ordem = [];
     for (final m in movs) {
       final dataKey = m['data_mov'].toString().substring(0, 10);
       if (!porData.containsKey(dataKey)) {
-        porData[dataKey] = {'entrada_vinte': 0, 'saida_vinte': 0, 'entrada_amb': 0, 'saida_amb': 0};
+        porData[dataKey] = {'entrada_vinte': 0 as num, 'saida_vinte': 0 as num, 'entrada_amb': 0 as num, 'saida_amb': 0 as num, 'sobra_perda': 0 as num};
         ordem.add(dataKey);
       }
       porData[dataKey]!['entrada_vinte'] =
-          porData[dataKey]!['entrada_vinte']! + ((m['entrada_vinte'] ?? 0) as num);
+          (porData[dataKey]!['entrada_vinte'] as num) + ((m['entrada_vinte'] ?? 0) as num);
       porData[dataKey]!['saida_vinte'] =
-          porData[dataKey]!['saida_vinte']! + ((m['saida_vinte'] ?? 0) as num);
+          (porData[dataKey]!['saida_vinte'] as num) + ((m['saida_vinte'] ?? 0) as num);
       porData[dataKey]!['entrada_amb'] =
-          porData[dataKey]!['entrada_amb']! + ((m['entrada_amb'] ?? 0) as num);
+          (porData[dataKey]!['entrada_amb'] as num) + ((m['entrada_amb'] ?? 0) as num);
       porData[dataKey]!['saida_amb'] =
-          porData[dataKey]!['saida_amb']! + ((m['saida_amb'] ?? 0) as num);
+          (porData[dataKey]!['saida_amb'] as num) + ((m['saida_amb'] ?? 0) as num);
+      porData[dataKey]!['sobra_perda'] =
+          (porData[dataKey]!['sobra_perda'] as num) + ((m['sobra_perda'] ?? 0) as num);
+      // Always keep the last row's running saldo for this day
+      porData[dataKey]!['saldo_vinte'] = m['saldo_vinte'];
+      porData[dataKey]!['saldo_amb'] = m['saldo_amb'];
     }
-    num saldoVinte = _estoqueInicial['vinte'] ?? 0;
-    num saldoAmb = _estoqueInicial['amb'] ?? 0;
     final result = <Map<String, dynamic>>[];
     for (final dataKey in ordem) {
-      final entradaVinte = porData[dataKey]!['entrada_vinte']!;
-      final saidaVinte = porData[dataKey]!['saida_vinte']!;
-      final entradaAmb = porData[dataKey]!['entrada_amb']!;
-      final saidaAmb = porData[dataKey]!['saida_amb']!;
-      saldoVinte += entradaVinte - saidaVinte;
-      saldoAmb += entradaAmb - saidaAmb;
+      final entradaVinte = porData[dataKey]!['entrada_vinte'] as num;
+      final saidaVinte = porData[dataKey]!['saida_vinte'] as num;
+      final entradaAmb = porData[dataKey]!['entrada_amb'] as num;
+      final saidaAmb = porData[dataKey]!['saida_amb'] as num;
+      final sobraPerda = porData[dataKey]!['sobra_perda'] as num;
       result.add({
         'data_mov': '${dataKey}T00:00:00',
         'descricao': 'Consolidado',
@@ -419,8 +471,9 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
         'entrada_vinte': entradaVinte,
         'saida_amb': saidaAmb,
         'saida_vinte': saidaVinte,
-        'saldo_amb': saldoAmb,
-        'saldo_vinte': saldoVinte,
+        'sobra_perda': sobraPerda != 0 ? sobraPerda : null,
+        'saldo_amb': porData[dataKey]!['saldo_amb'],
+        'saldo_vinte': porData[dataKey]!['saldo_vinte'],
       });
     }
     return result;
@@ -443,6 +496,7 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
         case 'entrada_vinte':
         case 'saida_amb':
         case 'saida_vinte':
+        case 'sobra_perda':
         case 'saldo_amb':
         case 'saldo_vinte':
           va = a[col] ?? 0;
@@ -678,9 +732,16 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
         ),
         border: Border.all(color: Colors.grey.shade300),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+      child: Wrap(
+        spacing: 20,
+        runSpacing: 16,
+        alignment: WrapAlignment.spaceAround,
         children: [
+          _buildCampoResumo(
+            'Saldo Inicial (20ºC):',
+            _estoqueInicial['vinte'] ?? 0,
+            cor: Colors.blue,
+          ),
           _buildCampoResumo(
             'Total Entradas (20ºC):',
             _totalEntradas,
@@ -775,6 +836,7 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
                 _th('Entrada (20ºC)', _wNum, () => _onSort('entrada_vinte')),
                 _th('Saída (Amb)', _wNum, () => _onSort('saida_amb')),
                 _th('Saída (20ºC)', _wNum, () => _onSort('saida_vinte')),
+                _th('Sobra/Perda', _wNum, () => _onSort('sobra_perda')),
                 _th('Saldo (Amb)', _wNum, () => _onSort('saldo_amb')),
                 _th('Saldo (20ºC)', _wNum, () => _onSort('saldo_vinte')),
               ],
@@ -834,6 +896,11 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
                   _estoqueFinal['amb'],
                   _estoqueFinal['vinte'],
                   cor: Colors.grey.shade700,
+                  entAmb: _totalEntradasAmb,
+                  entVinte: _totalEntradas,
+                  saiAmb: _totalSaidasAmb,
+                  saiVinte: _totalSaidas,
+                  sobraPerda: _totalSobraPerda,
                 );
               }
 
@@ -850,6 +917,13 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
                     _cell(_fmtNum(e['entrada_vinte']), _wNum, bg: _bgEntrada()),
                     _cell(_fmtNum(e['saida_amb']), _wNum, bg: _bgSaida()),
                     _cell(_fmtNum(e['saida_vinte']), _wNum, bg: _bgSaida()),
+                    _cell(
+                      e['sobra_perda'] != null ? _fmtNum(e['sobra_perda'] as num) : '-',
+                      _wNum,
+                      cor: e['sobra_perda'] != null
+                          ? ((e['sobra_perda'] as num) < 0 ? Colors.red : const Color(0xFF0D47A1))
+                          : null,
+                    ),
                     _cell(
                       _fmtNum(e['saldo_amb']),
                       _wNum,
@@ -898,6 +972,11 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
                   _estoqueFinal['amb'],
                   _estoqueFinal['vinte'],
                   cor: Colors.grey.shade700,
+                  entAmb: _totalEntradasAmb,
+                  entVinte: _totalEntradas,
+                  saiAmb: _totalSaidasAmb,
+                  saiVinte: _totalSaidas,
+                  sobraPerda: _totalSobraPerda,
                 );
               }
               final e = _movsConsolidadas[i - 1];
@@ -913,6 +992,13 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
                     _cell(_fmtNum(e['entrada_vinte']), _wNum, bg: _bgEntrada()),
                     _cell(_fmtNum(e['saida_amb']), _wNum, bg: _bgSaida()),
                     _cell(_fmtNum(e['saida_vinte']), _wNum, bg: _bgSaida()),
+                    _cell(
+                      e['sobra_perda'] != null ? _fmtNum(e['sobra_perda'] as num) : '-',
+                      _wNum,
+                      cor: e['sobra_perda'] != null
+                          ? ((e['sobra_perda'] as num) < 0 ? Colors.red : const Color(0xFF0D47A1))
+                          : null,
+                    ),
                     _cell(
                       _fmtNum(e['saldo_amb']),
                       _wNum,
@@ -933,7 +1019,17 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
     );
   }
 
-  Widget _linhaResumo(String label, num? amb, num? vinte, {Color? cor}) {
+  Widget _linhaResumo(
+    String label,
+    num? amb,
+    num? vinte, {
+    Color? cor,
+    num? entAmb,
+    num? entVinte,
+    num? saiAmb,
+    num? saiVinte,
+    num? sobraPerda,
+  }) {
     return Container(
       height: _hRow,
       color: Colors.blue.shade50,
@@ -942,10 +1038,18 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
           _cell('', _wData),
           _cell('', _wEmpresa),
           _cell(label, _wDesc, cor: cor, fw: FontWeight.bold),
-          _cell('-', _wNum),
-          _cell('-', _wNum),
-          _cell('-', _wNum),
-          _cell('-', _wNum),
+          _cell(_fmtNum(entAmb), _wNum, bg: _bgEntrada(), fw: FontWeight.bold),
+          _cell(_fmtNum(entVinte), _wNum, bg: _bgEntrada(), fw: FontWeight.bold),
+          _cell(_fmtNum(saiAmb), _wNum, bg: _bgSaida(), fw: FontWeight.bold),
+          _cell(_fmtNum(saiVinte), _wNum, bg: _bgSaida(), fw: FontWeight.bold),
+          _cell(
+            _fmtNum(sobraPerda),
+            _wNum,
+            cor: sobraPerda != null
+                ? (sobraPerda < 0 ? Colors.red : const Color(0xFF0D47A1))
+                : null,
+            fw: FontWeight.bold,
+          ),
           _cell(_fmtNum(amb), _wNum, cor: cor, fw: FontWeight.bold),
           _cell(_fmtNum(vinte), _wNum, cor: cor, fw: FontWeight.bold),
         ],

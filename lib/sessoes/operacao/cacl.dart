@@ -1405,6 +1405,7 @@ class _CalcPageState extends State<CalcPage> {
         'saida_amb': 0,
         'saida_vinte': isSobra ? 0 : quantidade,
         'descricao': descricao,
+        'tipo_mov': isSobra ? 'sobra' : 'perda',
         'estoque_final_calculado': _obterEstoqueFinalCalculado20(),
       };
 
