@@ -543,102 +543,112 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              Wrap(
-                spacing: 20,
-                runSpacing: 20,
-                alignment: WrapAlignment.center,
-                children: tanques.map((tanque) {
-                  final percentual = tanque.percentualPreenchimento;
-                  final double baseWidth = 280;
-                  final double baseHeight = 320;
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final int totalTanques = tanques.length;
+                  final availableWidth = constraints.maxWidth;
 
-                  double scale = 1.0;
-                  if (tanques.length > 2) scale = 0.8;
-                  if (tanques.length > 4) scale = 0.6;
-                  if (tanques.length > 8) scale = 0.45;
-                  if (tanques.length > 12) scale = 0.35;
+                  // Calcula o tamanho base para que TODOS caibam sem scroll horizontal de imediato.
+                  // Reduzimos o multiplicador de ocupação (de 1.0 para 0.85) para encolher o conjunto levemente.
+                  final double spacing = 16.0;
+                  double dynamicBaseWidth =
+                      (((availableWidth - (spacing * (totalTanques - 1))) /
+                                  totalTanques) *
+                              0.85)
+                          .clamp(50.0, 240.0);
+                  double dynamicBaseHeight = dynamicBaseWidth * 1.15;
+                  double dynamicScale = dynamicBaseWidth / 280.0;
 
-                  return MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          tanqueSelecionadoIndex = tanques.indexOf(tanque);
-                        });
-                      },
-                      child: Tooltip(
-                        message:
-                            'Estoque total: ${_formatarValor(tanque.estoqueAtual)}\nEstoque disponível: ${_formatarValor(tanque.estoqueAtual - tanque.lastro)}\n───────────────\nCapacidade total: ${_formatarValor(tanque.capacidadeTotal)}\nEspaço disponível: ${_formatarValor(tanque.capacidadeTotal - tanque.estoqueAtual)}',
-                        preferBelow: false,
-                        verticalOffset: 120,
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF222B45).withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(8),
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: tanques.map((tanque) {
+                      final percentual = tanque.percentualPreenchimento;
+
+                      return Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: spacing / 2,
                         ),
-                        textStyle: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox(
-                              width: baseWidth * scale,
-                              height: baseHeight * scale,
-                              child: TankIllustration(
-                                percentual: percentual / 100,
-                                lastroPercentual:
-                                    tanque.lastro / tanque.capacidadeTotal,
-                                estoqueAtual: tanque.estoqueAtual,
-                                capacidade: tanque.capacidadeTotal,
-                                produtoDisponivel:
-                                    (tanque.estoqueAtual - tanque.lastro).clamp(
-                                      0,
-                                      tanque.capacidadeTotal,
-                                    ),
-                                espacoLivre:
-                                    (tanque.capacidadeTotal -
-                                            tanque.estoqueAtual)
-                                        .clamp(0, tanque.capacidadeTotal),
-                                hideDetails: false,
-                                scale: scale,
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                tanqueSelecionadoIndex = tanques.indexOf(tanque);
+                              });
+                            },
+                            child: Tooltip(
+                              message:
+                                  'Estoque total: ${_formatarValor(tanque.estoqueAtual)}\nEstoque disponível: ${_formatarValor(tanque.estoqueAtual - tanque.lastro)}\n───────────────\nCapacidade total: ${_formatarValor(tanque.capacidadeTotal)}\nEspaço disponível: ${_formatarValor(tanque.capacidadeTotal - tanque.estoqueAtual)}',
+                              preferBelow: false,
+                              verticalOffset: dynamicBaseHeight / 2,
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF222B45).withOpacity(0.9),
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  tanque.nome.split(' - ').first,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12 * (scale < 0.6 ? 0.9 : 1.0),
-                                    color: const Color(0xFF222B45),
-                                  ),
-                                ),
-                                if (tanque.nome.contains(' - ')) ...[
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    tanque.nome.split(' - ').last,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12 * (scale < 0.6 ? 0.9 : 1.0),
-                                      color: const Color(0xFF5A6275),
+                              textStyle: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: dynamicBaseWidth,
+                                    height: dynamicBaseHeight,
+                                    child: TankIllustration(
+                                      percentual: percentual / 100,
+                                      lastroPercentual:
+                                          tanque.lastro / tanque.capacidadeTotal,
+                                      estoqueAtual: tanque.estoqueAtual,
+                                      capacidade: tanque.capacidadeTotal,
+                                      produtoDisponivel:
+                                          (tanque.estoqueAtual - tanque.lastro)
+                                              .clamp(0, tanque.capacidadeTotal),
+                                      espacoLivre: (tanque.capacidadeTotal -
+                                              tanque.estoqueAtual)
+                                          .clamp(0, tanque.capacidadeTotal),
+                                      hideDetails: dynamicScale < 0.35,
+                                      scale: dynamicScale,
                                     ),
-                                    textAlign: TextAlign.center,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        tanque.nome.split(' - ').first,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12.0, // Tamanho fixo
+                                          color: Color(0xFF222B45),
+                                        ),
+                                      ),
+                                      if (tanque.nome.contains(' - ')) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          tanque.nome.split(' - ').last,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11.0, // Tamanho fixo
+                                            color: Color(0xFF5A6275),
+                                          ),
+                                          textAlign: TextAlign.center,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ],
-                              ],
+                              ),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    }).toList(),
                   );
-                }).toList(),
+                },
               ),
               const SizedBox(height: 24),
               Row(
@@ -879,9 +889,13 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
               Expanded(
                 flex: 3,
                 child: Center(
-                  child: SizedBox(
-                    width: 260,
-                    height: 300,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: 200, // Reduzido bruscamente (era 400)
+                      maxHeight: 220, // Reduzido bruscamente (era 450)
+                      minWidth: 100,
+                      minHeight: 120,
+                    ),
                     child: TankIllustration(
                       percentual: percentual / 100,
                       lastroPercentual: capacidade > 0
@@ -1111,18 +1125,43 @@ class _TankIllustrationState extends State<TankIllustration>
     return AnimatedBuilder(
       animation: _liquidAnimation,
       builder: (context, child) {
-        return CustomPaint(
-          painter: TankPainter(
-            percentual: _liquidAnimation.value,
-            lastroPercentual: widget.lastroPercentual,
-            estoqueAtual: widget.estoqueAtual,
-            capacidade: widget.capacidade,
-            produtoDisponivel: widget.produtoDisponivel,
-            espacoLivre: widget.espacoLivre,
-            hideDetails: widget.hideDetails,
-            scale: widget.scale,
-          ),
-          size: Size(280 * widget.scale, 320 * widget.scale),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final double maxWidth = constraints.maxWidth;
+            final double maxHeight = constraints.maxHeight;
+
+            // Define um tamanho base padrão se não houver restrições
+            final double sizeFactorWidth = maxWidth.isFinite ? maxWidth : 280.0;
+            final double sizeFactorHeight =
+                maxHeight.isFinite ? maxHeight : 320.0;
+
+            // Mantém a proporção aproximada de 280/320 (0.875)
+            double finalWidth = sizeFactorWidth;
+            double finalHeight = sizeFactorHeight;
+
+            if (finalWidth / finalHeight > 0.875) {
+              finalWidth = finalHeight * 0.875;
+            } else {
+              finalHeight = finalWidth / 0.875;
+            }
+
+            // O scale agora é dinâmico baseado no tamanho final vs base
+            final double dynamicScale = (finalWidth / 280.0).clamp(0.1, 5.0);
+
+            return CustomPaint(
+              painter: TankPainter(
+                percentual: _liquidAnimation.value,
+                lastroPercentual: widget.lastroPercentual,
+                estoqueAtual: widget.estoqueAtual,
+                capacidade: widget.capacidade,
+                produtoDisponivel: widget.produtoDisponivel,
+                espacoLivre: widget.espacoLivre,
+                hideDetails: widget.hideDetails,
+                scale: widget.scale * dynamicScale,
+              ),
+              size: Size(finalWidth, finalHeight),
+            );
+          },
         );
       },
     );
@@ -1322,7 +1361,7 @@ class TankPainter extends CustomPainter {
       ..strokeWidth = 1;
 
     final textStyle = TextStyle(
-      fontSize: 11 * scale,
+      fontSize: 11.0, // Tamanho fixo para melhor legibilidade
       color: Colors.grey.shade600,
       fontWeight: FontWeight.w500,
     );
@@ -1345,9 +1384,10 @@ class TankPainter extends CustomPainter {
         textDirection: ui.TextDirection.ltr,
       );
       textPainter.layout();
+      // Aproximando levemente os percentuais fixos (de +12 para +6 de margem)
       textPainter.paint(
         canvas,
-        Offset(tankX - 35 * scale, markerY - 6 * scale),
+        Offset(tankX - (textPainter.width + 6), markerY - (textPainter.height / 2)),
       );
     }
   }
@@ -1363,7 +1403,7 @@ class TankPainter extends CustomPainter {
     final liquidY = tankY + tankHeight - (tankHeight * percentual);
     final percentText = '${(percentual * 100).toInt()}%';
     final textStyle = TextStyle(
-      fontSize: 16 * scale,
+      fontSize: 12.0, // Reduzido de 16.0 para 14.0 para diminuir levemente
       fontWeight: FontWeight.bold,
       color: _getLiquidColor(percentual),
     );
@@ -1378,7 +1418,7 @@ class TankPainter extends CustomPainter {
     textPainter.paint(
       canvas,
       Offset(
-        tankX + tankWidth + 12 * scale,
+        tankX + tankWidth + 6, // Reduzido de 12 para 6 para aproximar levemente do tanque
         liquidY - (textPainter.height / 2),
       ),
     );
