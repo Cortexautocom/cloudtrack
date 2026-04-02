@@ -44,6 +44,9 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
   Map<String, num?> _estoqueInicial = {'amb': 0, 'vinte': 0};
   Map<String, num?> _estoqueFinal = {'amb': null, 'vinte': null};
 
+  num _totalEntradas = 0;
+  num _totalSaidas = 0;
+  num _totalSobraPerda = 0;
   String? _produtoNome;
 
   final ScrollController _vertical = ScrollController();
@@ -58,7 +61,7 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
   static const double _wDesc = 240;
   static const double _wNum = 130;
 
-  double get _wTable => _wData + _wDesc + (_wNum * 6);
+  double get _wTable => _wData + _wDesc + (_wNum * 7);
 
   String _coluna = 'data_mov';
   bool _asc = true;
@@ -227,6 +230,10 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
       num saldoAmb = _estoqueInicial['amb'] ?? 0;
       num saldoVinte = _estoqueInicial['vinte'] ?? 0;
 
+      num totalEntradas = 0;
+      num totalSaidas = 0;
+      num totalSobraPerda = 0;
+
       final List<Map<String, dynamic>> listaComSaldo = [];
 
       for (final m in listaOrdenadaParaUI) {
@@ -239,8 +246,16 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
         final String desc = (m['descricao']?.toString().trim() ?? '');
         final String descricao = cliente.isNotEmpty ? cliente : desc;
 
+        // "mostre apenas o resultado da subtração de saída ambiente menos saída 20"
+        // Filtro: se saída ambiente ou saída 20 for zero, não calcula a diferença.
+        final num? sobraPerda = (saidaAmb != 0 && saidaVinte != 0) ? saidaAmb - saidaVinte : null;
+
         saldoAmb += entradaAmb - saidaAmb;
         saldoVinte += entradaVinte - saidaVinte;
+
+        totalEntradas += entradaVinte;
+        totalSaidas += saidaVinte;
+        totalSobraPerda += sobraPerda ?? 0;
 
         listaComSaldo.add({
           'id': m['id'],
@@ -251,6 +266,7 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
           'entrada_vinte': entradaVinte,
           'saida_amb': saidaAmb,
           'saida_vinte': saidaVinte,
+          'sobra_perda': sobraPerda,
           'saldo_amb': saldoAmb,
           'saldo_vinte': saldoVinte,
         });
@@ -258,6 +274,9 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
 
       _movs = List<Map<String, dynamic>>.from(listaComSaldo);
       _movsOrdenadas = List<Map<String, dynamic>>.from(listaComSaldo);
+      _totalEntradas = totalEntradas;
+      _totalSaidas = totalSaidas;
+      _totalSobraPerda = totalSobraPerda;
 
       _estoqueFinal = {
         'amb': _movs.isEmpty ? null : _movs.last['saldo_amb'],
@@ -400,8 +419,6 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
   }
 
   Widget _buildBlocoResumo() {
-    final estoqueFinalCalculado = _estoqueFinal['vinte'] ?? 0;
-
     return Container(
       width: _wTable,
       padding: const EdgeInsets.all(16),
@@ -413,10 +430,36 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
         ),
         border: Border.all(color: Colors.grey.shade300),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Wrap(
+        spacing: 20,
+        runSpacing: 16,
+        alignment: WrapAlignment.spaceAround,
         children: [
-          _buildCampoResumo('Estoque final (20ºC):', estoqueFinalCalculado),
+          _buildCampoResumo(
+            'Saldo Inicial (20ºC):',
+            _estoqueInicial['vinte'] ?? 0,
+            cor: Colors.blue,
+          ),
+          _buildCampoResumo(
+            'Total Entradas (20ºC):',
+            _totalEntradas,
+          ),
+          _buildCampoResumo(
+            'Total Saídas (20ºC):',
+            _totalSaidas,
+            cor: Colors.red,
+          ),
+          _buildCampoResumo(
+            'Total Sobra/Perda (20ºC):',
+            _totalSobraPerda,
+            cor: _totalSobraPerda >= 0 ? const Color(0xFF0D47A1) : Colors.red,
+          ),
+          _buildCampoResumo(
+            'Saldo Final (20ºC):',
+            _estoqueFinal['vinte'] ?? 0,
+            cor: const Color(0xFF0D47A1),
+            negrito: true,
+          ),
         ],
       ),
     );
@@ -453,19 +496,26 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
   }
 
   Widget _buildTabela() {
-    return Scrollbar(
-      controller: _vertical,
-      thumbVisibility: true,
-      child: SingleChildScrollView(
-        controller: _vertical,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.grey.shade300),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        children: [
+          _cabecalho(),
+          Expanded(
+            child: Scrollbar(
+              controller: _vertical,
+              thumbVisibility: true,
+              child: SingleChildScrollView(
+                controller: _vertical,
+                child: Column(children: [_corpo(), _rodape()]),
+              ),
+            ),
           ),
-          child: Column(children: [_cabecalho(), _corpo(), _rodape()]),
-        ),
+        ],
       ),
     );
   }
@@ -490,6 +540,7 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
                 _th('Entrada (20ºC)', _wNum, () => _onSort('entrada_vinte')),
                 _th('Saída (Amb)', _wNum, () => _onSort('saida_amb')),
                 _th('Saída (20ºC)', _wNum, () => _onSort('saida_vinte')),
+                _th('Sobra/Perda', _wNum, () => _onSort('sobra_perda')),
                 _th('Saldo (Amb)', _wNum, () => _onSort('saldo_amb')),
                 _th('Saldo (20ºC)', _wNum, () => _onSort('saldo_vinte')),
               ],
@@ -519,6 +570,21 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
   }
 
   Widget _corpo() {
+    // Calcular totais para o rodapé
+    num totalEntradaAmb = 0;
+    num totalEntradaVinte = 0;
+    num totalSaidaAmb = 0;
+    num totalSaidaVinte = 0;
+    num totalSobraPerda = 0;
+
+    for (final e in _movsOrdenadas) {
+      totalEntradaAmb += (e['entrada_amb'] ?? 0) as num;
+      totalEntradaVinte += (e['entrada_vinte'] ?? 0) as num;
+      totalSaidaAmb += (e['saida_amb'] ?? 0) as num;
+      totalSaidaVinte += (e['saida_vinte'] ?? 0) as num;
+      totalSobraPerda += (e['sobra_perda'] ?? 0) as num;
+    }
+
     return Scrollbar(
       controller: _hBody,
       thumbVisibility: true,
@@ -546,6 +612,11 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
                   _estoqueFinal['amb'],
                   _estoqueFinal['vinte'],
                   cor: Colors.grey.shade700,
+                  entAmb: totalEntradaAmb,
+                  entVinte: totalEntradaVinte,
+                  saiAmb: totalSaidaAmb,
+                  saiVinte: totalSaidaVinte,
+                  sobraPerda: totalSobraPerda,
                 );
               }
 
@@ -561,6 +632,11 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
                     _cell(_fmtNum(e['entrada_vinte']), _wNum, bg: _bgEntrada()),
                     _cell(_fmtNum(e['saida_amb']), _wNum, bg: _bgSaida()),
                     _cell(_fmtNum(e['saida_vinte']), _wNum, bg: _bgSaida()),
+                    _cell(
+                      e['sobra_perda'] == null ? '' : _fmtNum(e['sobra_perda']),
+                      _wNum,
+                      cor: (e['sobra_perda'] ?? 0) < 0 ? Colors.red : Colors.green,
+                    ),
                     _cell(
                       _fmtNum(e['saldo_amb']),
                       _wNum,
@@ -581,7 +657,17 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
     );
   }
 
-  Widget _linhaResumo(String label, num? amb, num? vinte, {Color? cor}) {
+  Widget _linhaResumo(
+    String label,
+    num? amb,
+    num? vinte, {
+    Color? cor,
+    num? entAmb,
+    num? entVinte,
+    num? saiAmb,
+    num? saiVinte,
+    num? sobraPerda,
+  }) {
     return Container(
       height: _hRow,
       color: Colors.blue.shade50,
@@ -589,10 +675,11 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
         children: [
           _cell('', _wData),
           _cell(label, _wDesc, cor: cor, fw: FontWeight.bold),
-          _cell('-', _wNum),
-          _cell('-', _wNum),
-          _cell('-', _wNum),
-          _cell('-', _wNum),
+          _cell(entAmb != null ? _fmtNum(entAmb) : '-', _wNum, cor: cor, fw: FontWeight.bold),
+          _cell(entVinte != null ? _fmtNum(entVinte) : '-', _wNum, cor: cor, fw: FontWeight.bold),
+          _cell(saiAmb != null ? _fmtNum(saiAmb) : '-', _wNum, cor: cor, fw: FontWeight.bold),
+          _cell(saiVinte != null ? _fmtNum(saiVinte) : '-', _wNum, cor: cor, fw: FontWeight.bold),
+          _cell(sobraPerda != null ? _fmtNum(sobraPerda) : '-', _wNum, cor: cor, fw: FontWeight.bold),
           _cell(_fmtNum(amb), _wNum, cor: cor, fw: FontWeight.bold),
           _cell(_fmtNum(vinte), _wNum, cor: cor, fw: FontWeight.bold),
         ],

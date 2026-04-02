@@ -199,7 +199,7 @@ class _EstoqueGeralPageState extends State<EstoqueGeralPage> {
   List<EstoqueProduto> _produtos = [];
 
   // Unidade de medida: 'litros' ou 'metros'
-  String _unidadeMedida = 'litros';
+  String _unidadeMedida = 'metros';
 
   bool _mostrarTransito = false;
 

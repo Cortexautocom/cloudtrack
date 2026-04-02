@@ -798,19 +798,26 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
   }
 
   Widget _buildTabela() {
-    return Scrollbar(
-      controller: _vertical,
-      thumbVisibility: true,
-      child: SingleChildScrollView(
-        controller: _vertical,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.grey.shade300),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        children: [
+          _cabecalho(),
+          Expanded(
+            child: Scrollbar(
+              controller: _vertical,
+              thumbVisibility: true,
+              child: SingleChildScrollView(
+                controller: _vertical,
+                child: Column(children: [_corpo(), _rodape()]),
+              ),
+            ),
           ),
-          child: Column(children: [_cabecalho(), _corpo(), _rodape()]),
-        ),
+        ],
       ),
     );
   }

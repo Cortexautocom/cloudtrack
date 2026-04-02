@@ -946,6 +946,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        _cabecalho(),
         Expanded(child: _buildTabela()),
         _buildBlocoResumo(),
       ],
@@ -1072,10 +1073,13 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.grey.shade300),
+            border: Border(
+              left: BorderSide(color: Colors.grey.shade300),
+              right: BorderSide(color: Colors.grey.shade300),
+              bottom: BorderSide(color: Colors.grey.shade300),
+            ),
           ),
-          child: Column(children: [_cabecalho(), _corpo(), _rodape()]),
+          child: Column(children: [_corpo(), _rodape()]),
         ),
       ),
     );
