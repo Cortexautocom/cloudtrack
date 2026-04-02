@@ -17,72 +17,173 @@ class _ResultadosPageState extends State<ResultadosPage> {
   String? _selectedTerminalId;
   List<Map<String, dynamic>> _terminais = [];
   bool _carregandoTerminais = false;
+  bool _isTerminalFixado = false;
+  
+  // Dados dos tanques
+  List<Map<String, dynamic>> _tanques = [];
+  bool _carregandoTanques = false;
 
   @override
   void initState() {
     super.initState();
     _carregarTerminais();
-    // Inicializar o terminal selecionado com o do usuário, se houver
+    
+    // Verificar se o usuário tem terminal fixo
     if (UsuarioAtual.instance != null && UsuarioAtual.instance!.terminalId != null) {
       _selectedTerminalId = UsuarioAtual.instance!.terminalId;
+      _isTerminalFixado = true;
     }
   }
 
   Future<void> _carregarTerminais() async {
     setState(() => _carregandoTerminais = true);
     try {
-      final response = await _supabase
-          .from('terminais')
-          .select('id, nome')
-          .order('nome');
-      
+      final user = UsuarioAtual.instance;
+      if (user == null) {
+        setState(() => _carregandoTerminais = false);
+        return;
+      }
+
+      // Se o usuário tem um terminal fixo, usamos apenas ele.
+      if (user.terminalId != null && user.terminalId!.isNotEmpty) {
+        final response = await _supabase
+            .from('terminais')
+            .select('id, nome')
+            .eq('id', user.terminalId!)
+            .maybeSingle();
+        
+        if (response != null) {
+          setState(() {
+            _terminais = [response];
+            _selectedTerminalId = user.terminalId;
+            _isTerminalFixado = true;
+            _carregandoTerminais = false;
+          });
+          await _carregarTanques();
+          return;
+        }
+      }
+
+      // Caso contrário, buscamos todos os terminais da empresa através de relacoes_terminais
+      final empresaIdEfetivo = (user.empresaId ?? '').trim();
+      List<Map<String, dynamic>> listaTerminais = [];
+
+      if (empresaIdEfetivo.isNotEmpty) {
+        final relacoes = await _supabase
+            .from('relacoes_terminais')
+            .select('terminal_id')
+            .eq('empresa_id', empresaIdEfetivo);
+
+        final terminaisIds = relacoes
+            .map((r) => r['terminal_id']?.toString())
+            .where((id) => id != null && id.isNotEmpty)
+            .toSet()
+            .toList();
+
+        if (terminaisIds.isNotEmpty) {
+          final dados = await _supabase
+              .from('terminais')
+              .select('id, nome')
+              .inFilter('id', terminaisIds)
+              .order('nome');
+
+          listaTerminais = dados
+              .map<Map<String, dynamic>>((t) => {
+                    'id': t['id'].toString(),
+                    'nome': t['nome'].toString(),
+                  })
+              .toList();
+        }
+      } else {
+        final dados = await _supabase
+            .from('terminais')
+            .select('id, nome')
+            .order('nome');
+
+        listaTerminais = dados
+            .map<Map<String, dynamic>>((t) => {
+                  'id': t['id'].toString(),
+                  'nome': t['nome'].toString(),
+                })
+            .toList();
+      }
+
       setState(() {
-        _terminais = List<Map<String, dynamic>>.from(response);
+        _terminais = listaTerminais;
         _carregandoTerminais = false;
+        _isTerminalFixado = false;
       });
+      
+      if (_selectedTerminalId != null) {
+        await _carregarTanques();
+      }
     } catch (e) {
       debugPrint('Erro ao carregar terminais: $e');
       setState(() => _carregandoTerminais = false);
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          // Custom AppBar
-          _buildAppBar(),
-          
-          // Divider
-          Container(height: 1, color: Colors.grey.shade300),
-          
-          // Content
-          Expanded(
-            child: SelectionArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24.0),
-                child: Align(
-                  alignment: Alignment.topLeft,
-                  child: SizedBox(
-                    width: 1000,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildControleEntradaSaidaTable(),
-                        const SizedBox(height: 40),
-                        _buildGanhoOperacionalTable(),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  // Função para extrair o número da referência do tanque
+  int _extractNumberFromReferencia(String referencia) {
+    // Procura por padrões como TQ-01-JN, TQ-02-JN, etc.
+    final regex = RegExp(r'TQ-(\d+)-');
+    final match = regex.firstMatch(referencia);
+    if (match != null && match.groupCount >= 1) {
+      return int.tryParse(match.group(1)!) ?? 0;
+    }
+    return 0;
+  }
+
+  Future<void> _carregarTanques() async {
+    if (_selectedTerminalId == null || _selectedTerminalId!.isEmpty) {
+      setState(() => _tanques = []);
+      return;
+    }
+    
+    setState(() => _carregandoTanques = true);
+    try {
+      final terminalId = _selectedTerminalId!;
+      
+      final dados = await _supabase
+          .from('tanques')
+          .select('''
+            id,
+            referencia,
+            id_produto,
+            produtos (
+              id,
+              nome
+            )
+          ''')
+          .eq('terminal_id', terminalId);
+      
+      final List<Map<String, dynamic>> tanquesFormatados = [];
+      
+      for (var tanque in dados) {
+        final produto = tanque['produtos'];
+        tanquesFormatados.add({
+          'id': tanque['id'].toString(),
+          'referencia': tanque['referencia'].toString(),
+          'produto_nome': produto != null ? produto['nome'].toString() : 'Sem Produto',
+          'produto_id': tanque['id_produto']?.toString(),
+        });
+      }
+      
+      // Ordenar os tanques pelo número extraído da referência
+      tanquesFormatados.sort((a, b) {
+        final numA = _extractNumberFromReferencia(a['referencia']);
+        final numB = _extractNumberFromReferencia(b['referencia']);
+        return numA.compareTo(numB);
+      });
+      
+      setState(() {
+        _tanques = tanquesFormatados;
+        _carregandoTanques = false;
+      });
+    } catch (e) {
+      debugPrint('Erro ao carregar tanques: $e');
+      setState(() => _carregandoTanques = false);
+    }
   }
 
   Widget _buildAppBar() {
@@ -111,7 +212,6 @@ class _ResultadosPageState extends State<ResultadosPage> {
               ),
             ),
           ),
-          _buildTerminalSelector(),
         ],
       ),
     );
@@ -119,20 +219,25 @@ class _ResultadosPageState extends State<ResultadosPage> {
 
   Widget _buildTerminalSelector() {
     if (_carregandoTerminais) {
-      return const SizedBox(
-        width: 24,
-        height: 24,
-        child: CircularProgressIndicator(strokeWidth: 2),
+      return const Padding(
+        padding: EdgeInsets.only(bottom: 16.0),
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
       );
     }
 
-    // Se o nível for alto o suficiente, mostra dropdown. Caso contrário, mostra apenas o nome do terminal.
-    if (UsuarioAtual.instance != null && UsuarioAtual.instance!.nivel >= 3) {
-      return Container(
-        width: 250,
+    if (UsuarioAtual.instance == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Container(
+        width: 300,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: Colors.grey.shade100,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Colors.grey.shade300),
         ),
@@ -140,41 +245,77 @@ class _ResultadosPageState extends State<ResultadosPage> {
           child: DropdownButton<String>(
             isExpanded: true,
             dropdownColor: Colors.white,
-            hint: const Text('Selecione um Terminal'),
+            hint: const Text('Selecione um Terminal', style: TextStyle(fontSize: 14)),
             value: _selectedTerminalId,
-            items: _terminais.map((t) {
-              return DropdownMenuItem<String>(
-                value: t['id'].toString(),
-                child: Text(t['nome'].toString()),
-              );
-            }).toList(),
-            onChanged: (val) {
+            items: [
+              if (!_isTerminalFixado)
+                const DropdownMenuItem<String>(
+                  value: null,
+                  child: Text('Todos os Terminais', style: TextStyle(fontSize: 14)),
+                ),
+              ..._terminais.map((t) {
+                return DropdownMenuItem<String>(
+                  value: t['id'].toString(),
+                  child: Text(t['nome'].toString(), style: const TextStyle(fontSize: 14)),
+                );
+              }).toList(),
+            ],
+            onChanged: _isTerminalFixado ? null : (val) {
               setState(() => _selectedTerminalId = val);
+              _carregarTanques();
             },
           ),
         ),
-      );
-    } else if (UsuarioAtual.instance?.terminalNome != null) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.store, color: Colors.grey.shade600, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              UsuarioAtual.instance!.terminalNome!,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Column(
+        children: [
+          _buildAppBar(),
+          Container(height: 1, color: Colors.grey.shade300),
+          Expanded(
+            child: SelectionArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildTerminalSelector(),
+                      if (_carregandoTanques)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(32.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else if (_tanques.isEmpty && _selectedTerminalId != null)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(32.0),
+                            child: Text('Nenhum tanque encontrado para este terminal.'),
+                          ),
+                        )
+                      else if (_tanques.isNotEmpty) ...[
+                        _buildControleEntradaSaidaTable(),
+                        const SizedBox(height: 40),
+                        _buildGanhoOperacionalTable(),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ],
-        ),
-      );
-    }
-    return const SizedBox.shrink();
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildControleEntradaSaidaTable() {
@@ -216,8 +357,8 @@ class _ResultadosPageState extends State<ResultadosPage> {
               ),
             ),
           ),
-          SizedBox(
-            width: double.infinity,
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
             child: DataTable(
               headingRowColor: WidgetStateProperty.all(Colors.white),
               dataRowMinHeight: 40,
@@ -225,28 +366,126 @@ class _ResultadosPageState extends State<ResultadosPage> {
               columnSpacing: 12,
               horizontalMargin: 20,
               dividerThickness: 0.5,
-              columns: [
-                DataColumn(label: _headerText('CONCEITO')),
-                DataColumn(label: _headerText('DIESEL-S500 A', isProduct: true)),
-                DataColumn(label: _headerText('GASOLINA C', isProduct: true)),
-                DataColumn(label: _headerText('ANIDRO', isProduct: true)),
-                DataColumn(label: _headerText('AEHC', isProduct: true)),
-                DataColumn(label: _headerText('B - 100', isProduct: true)),
-                DataColumn(label: _headerText('DIESEL S-10 B', isProduct: true)),
-                DataColumn(label: _headerText('GERAL', isTotal: true, isProduct: true)),
-              ],
-              rows: [
-                _dataRow('Abertura Mês', ['367.078', '965.788', '789.434', '187.304', '212.711', '716.118', '3.238.433']),
-                _dataRow('Entrada', ['99.410', '149.936', '0', '0', '0', '114.779', '364.125']),
-                _dataRow('Saída', ['19.430', '73.033', '31.296', '125.996', '10.288', '38.873', '298.916']),
-                _dataRow('Perda/Sobra', ['174', '1.050', '836', '171', '35', '471', '2.737']),
-                _dataRow('Percentual', ['0,90%', '1,44%', '2,67%', '0,14%', '0,34%', '1,21%', '0,75%']),
-                _dataRow('Saldo Final', ['447.232', '1.043.741', '758.974', '61.479', '202.458', '792.495', '2.513.884'], isHighlighted: true),
-              ],
+              columns: _buildColumns(),
+              rows: _buildRows(),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  List<DataColumn> _buildColumns() {
+    final columns = <DataColumn>[
+      const DataColumn(
+        label: SizedBox(
+          width: 150,
+          child: Center(
+            child: Text(
+              '',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+            ),
+          ),
+        ),
+      ),
+    ];
+    
+    for (var tanque in _tanques) {
+      columns.add(
+        DataColumn(
+          label: SizedBox(
+            width: 120,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  tanque['referencia'],
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: Color(0xFF0D47A1),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  tanque['produto_nome'],
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.normal,
+                    fontSize: 10,
+                    color: Color(0xFF1565C0),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    
+    return columns;
+  }
+
+  List<DataRow> _buildRows() {
+    final List<DataRow> rows = [];
+    
+    // Linha: Abertura Mês
+    rows.add(_buildDataRow('Abertura Mês', List.filled(_tanques.length, '0')));
+    
+    // Linha: Entrada
+    rows.add(_buildDataRow('Entrada', List.filled(_tanques.length, '0')));
+    
+    // Linha: Saída
+    rows.add(_buildDataRow('Saída', List.filled(_tanques.length, '0')));
+    
+    // Linha: Perda/Sobra
+    rows.add(_buildDataRow('Perda/Sobra', List.filled(_tanques.length, '0')));
+    
+    // Linha: Diferença Amb/20ºC
+    rows.add(_buildDataRow('Diferença Amb/20ºC', List.filled(_tanques.length, '0')));
+    
+    // Linha: Saldo Final (destacada)
+    rows.add(_buildDataRow('Saldo Final', List.filled(_tanques.length, '0'), isHighlighted: true));
+    
+    return rows;
+  }
+
+  DataRow _buildDataRow(String label, List<String> values, {bool isHighlighted = false}) {
+    return DataRow(
+      color: isHighlighted ? WidgetStateProperty.all(Colors.blue.shade50.withOpacity(0.3)) : null,
+      cells: [
+        DataCell(
+          SizedBox(
+            width: 150,
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontWeight: isHighlighted ? FontWeight.bold : FontWeight.w500,
+                  color: Colors.blue.shade900,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+        ),
+        ...values.map((value) => DataCell(
+          SizedBox(
+            width: 120,
+            child: Center(
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
+                  color: isHighlighted ? Colors.blue.shade900 : Colors.black87,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+        )),
+      ],
     );
   }
 
@@ -277,7 +516,7 @@ class _ResultadosPageState extends State<ResultadosPage> {
                   Icon(Icons.trending_up, color: Color(0xFF1565C0), size: 20),
                   SizedBox(width: 12),
                   Text(
-                    'GANHO OPERACIONAL',
+                    'Variação Tanque / Volume 20ºC',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
@@ -289,43 +528,62 @@ class _ResultadosPageState extends State<ResultadosPage> {
               ),
             ),
           ),
-          SizedBox(
-            width: double.infinity,
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
             child: DataTable(
               headingRowColor: WidgetStateProperty.all(Colors.white),
               columnSpacing: 12,
               horizontalMargin: 20,
               dividerThickness: 0.5,
-              columns: [
-                DataColumn(label: _headerText('DIESEL-S500 A', isProduct: true)),
-                DataColumn(label: _headerText('GASOLINA C', isProduct: true)),
-                DataColumn(label: _headerText('ANIDRO', isProduct: true)),
-                DataColumn(label: _headerText('AEHC', isProduct: true)),
-                DataColumn(label: _headerText('B - 100', isProduct: true)),
-                DataColumn(label: _headerText('DIESEL S-10 B', isProduct: true)),
-                DataColumn(label: _headerText('GERAL', isTotal: true, isProduct: true)),
-              ],
+              columns: _buildGanhoColumns(),
               rows: [
                 DataRow(
                   cells: [
-                    _dataCell('366', isBold: true),
-                    _dataCell('1.474', isBold: true),
-                    _dataCell('1.040', isBold: true),
-                    _dataCell('171', isBold: true),
-                    _dataCell('97', isBold: true),
-                    _dataCell('532', isBold: true),
-                    _dataCell('3.680', isBold: true, textColor: Colors.blue.shade800),
+                    const DataCell(
+                      SizedBox(
+                        width: 150,
+                        child: SizedBox.shrink(),
+                      ),
+                    ),
+                    ..._tanques.map((_) => DataCell(
+                      SizedBox(
+                        width: 120,
+                        child: Center(
+                          child: Text(
+                            '0',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue.shade800,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )),
                   ],
                 ),
                 DataRow(
                   cells: [
-                    _dataCell('1,8836 %', isSmall: true),
-                    _dataCell('2,0182 %', isSmall: true),
-                    _dataCell('3,3231 %', isSmall: true),
-                    _dataCell('0,1357 %', isSmall: true),
-                    _dataCell('0,9428 %', isSmall: true),
-                    _dataCell('1,3685 %', isSmall: true),
-                    _dataCell('1,2311 %', isSmall: true, textColor: Colors.blue.shade700),
+                    const DataCell(
+                      SizedBox(
+                        width: 150,
+                        child: SizedBox.shrink(),
+                      ),
+                    ),
+                    ..._tanques.map((_) => DataCell(
+                      SizedBox(
+                        width: 120,
+                        child: Center(
+                          child: Text(
+                            '0 %',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.blue.shade700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )),
                   ],
                 ),
               ],
@@ -336,69 +594,50 @@ class _ResultadosPageState extends State<ResultadosPage> {
     );
   }
 
-  Widget _headerText(String label, {bool isTotal = false, bool isProduct = false}) {
-    return Expanded(
-      child: Center(
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontWeight: isProduct ? FontWeight.bold : FontWeight.bold,
-            color: isTotal ? Colors.blue.shade900 : Colors.blue.shade700,
-            fontSize: isProduct ? 12 : 11,
-          ),
+  List<DataColumn> _buildGanhoColumns() {
+    final columns = <DataColumn>[
+      const DataColumn(
+        label: SizedBox(
+          width: 150,
+          child: SizedBox.shrink(),
         ),
       ),
-    );
-  }
-
-  DataRow _dataRow(String label, List<String> values, {bool isHighlighted = false, bool addPercent = false}) {
-    return DataRow(
-      color: isHighlighted ? WidgetStateProperty.all(Colors.blue.shade50.withOpacity(0.3)) : null,
-      cells: [
-        DataCell(
-          Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontWeight: isHighlighted ? FontWeight.bold : FontWeight.w500,
-                color: Colors.blue.shade900,
-                fontSize: 12,
-              ),
+    ];
+    
+    for (var tanque in _tanques) {
+      columns.add(
+        DataColumn(
+          label: SizedBox(
+            width: 120,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  tanque['referencia'],
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: Color(0xFF0D47A1),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  tanque['produto_nome'],
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.normal,
+                    fontSize: 10,
+                    color: Color(0xFF1565C0),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
-        ...values.asMap().entries.map((entry) {
-          bool isLast = entry.key == values.length - 1;
-          String value = entry.value;
-          if (addPercent) {
-            value = '$value %';
-          }
-          
-          return _dataCell(
-            value,
-            isBold: isHighlighted || isLast,
-            textColor: isLast
-                ? Colors.blue.shade900
-                : (isHighlighted ? Colors.blue.shade700 : Colors.black87),
-          );
-        }).toList(),
-      ],
-    );
-  }
-
-  DataCell _dataCell(String text, {bool isBold = false, Color? textColor, bool isSmall = false}) {
-    return DataCell(
-      Center(
-        child: Text(
-          text,
-          style: TextStyle(
-            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-            color: textColor ?? Colors.black87,
-            fontSize: isSmall ? 10 : 12,
-          ),
-        ),
-      ),
-    );
+      );
+    }
+    
+    return columns;
   }
 }
