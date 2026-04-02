@@ -42,6 +42,10 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   Map<String, num?> _estoqueCACL = {'amb': null, 'vinte': null};
   bool _possuiCACL = false;
 
+  num _totalEntradas = 0;
+  num _totalSaidas = 0;
+  num _totalSobraPerda = 0;
+
   num? _valorSobraPerda;
   bool? _ehSobra;
   bool _baixandoExcel = false;
@@ -62,7 +66,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   static const double _wDesc = 240;
   static const double _wNum = 130;
 
-  double get _wTable => _wData + _wEmpresa + _wDesc + (_wNum * 6);
+  double get _wTable => _wData + _wEmpresa + _wDesc + (_wNum * 7);
 
   String _coluna = 'data_mov';
   bool _asc = true;
@@ -279,6 +283,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             data_mov,
             cliente,
             descricao,
+            tipo_mov,
             entrada_amb,
             entrada_vinte,
             saida_amb,
@@ -297,26 +302,33 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       final List<Map<String, dynamic>> listaOrdenadaParaUI =
           List<Map<String, dynamic>>.from(dados);
 
-      bool temCaclValido(Map<String, dynamic> m) {
-        final c = m['cacl_id']?.toString().trim();
-        return c != null && c.isNotEmpty && c.toLowerCase() != 'null';
-      }
-
       listaOrdenadaParaUI.sort((a, b) {
-        final aTemCacl = temCaclValido(a);
-        final bTemCacl = temCaclValido(b);
-
-        if (aTemCacl && !bTemCacl) return 1;
-        if (!aTemCacl && bTemCacl) return -1;
-
         final da = DateTime.parse(a['data_mov']);
         final db = DateTime.parse(b['data_mov']);
-        final c = da.compareTo(db);
-        if (c != 0) return c;
+        
+        final dataA = DateTime(da.year, da.month, da.day);
+        final dataB = DateTime(db.year, db.month, db.day);
+        
+        final cmpData = dataA.compareTo(dataB);
+        if (cmpData != 0) return cmpData;
+        
+        // Dentro da mesma data (Apenas Dia/Mês/Ano): registros com 'Sobra' ou 'Perda' vão por último
+        bool temSobraOuPerda(Map<String, dynamic> m) {
+          final cliente = (m['cliente']?.toString() ?? '').toUpperCase();
+          final descricao = (m['descricao']?.toString() ?? '').toUpperCase();
+          final tipo = (m['tipo_mov']?.toString() ?? '').toUpperCase();
+          return cliente.contains('SOBRA') || descricao.contains('SOBRA') || tipo.contains('SOBRA') ||
+                 cliente.contains('PERDA') || descricao.contains('PERDA') || tipo.contains('PERDA');
+        }
 
-        final ia = a['id'].toString();
-        final ib = b['id'].toString();
-        return ia.compareTo(ib);
+        final aLast = temSobraOuPerda(a) ? 1 : 0;
+        final bLast = temSobraOuPerda(b) ? 1 : 0;
+
+        if (aLast != bLast) {
+          return aLast.compareTo(bLast);
+        }
+        
+        return da.compareTo(db);
       });
 
       num saldoAmb = _estoqueInicial['amb'] ?? 0;
@@ -349,8 +361,40 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           }
         }
 
+        final String? tipoMovRaw = m['tipo_mov']?.toString();
+        final String tipoMov = (tipoMovRaw ?? '').toLowerCase();
+        final String descLower = desc.toLowerCase();
+        final String clienteLower = cliente.toLowerCase();
+
+        final bool eSobra = tipoMovRaw != null
+            ? tipoMov.contains('sobra')
+            : descLower.contains('sobra') || clienteLower.contains('sobra');
+        final bool ePerda = tipoMovRaw != null
+            ? tipoMov.contains('perda')
+            : descLower.contains('perda') || clienteLower.contains('perda');
+
+        // For sobra/perda rows the value must appear ONLY in the sobra_perda column.
+        // Zero out entrada/saida for display so they don't show in those columns.
+        final num magnitude = entradaVinte != 0 ? entradaVinte : saidaVinte;
+        num? sobraPerda;
+        final num entradaVinteDisplay;
+        final num saidaVinteDisplay;
+
+        if (eSobra) {
+          sobraPerda = magnitude;
+          entradaVinteDisplay = 0;
+          saidaVinteDisplay = 0;
+        } else if (ePerda) {
+          sobraPerda = -magnitude;
+          entradaVinteDisplay = 0;
+          saidaVinteDisplay = 0;
+        } else {
+          entradaVinteDisplay = entradaVinte;
+          saidaVinteDisplay = saidaVinte;
+        }
+
         saldoAmb += entradaAmb - saidaAmb;
-        saldoVinte += entradaVinte - saidaVinte;
+        saldoVinte += entradaVinteDisplay - saidaVinteDisplay + (sobraPerda ?? 0);
 
         listaComSaldo.add({
           'id': m['id'],
@@ -360,9 +404,10 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           'empresa_nome': empresaNome,
           'descricao': descricao,
           'entrada_amb': entradaAmb,
-          'entrada_vinte': entradaVinte,
+          'entrada_vinte': entradaVinteDisplay,
           'saida_amb': saidaAmb,
-          'saida_vinte': saidaVinte,
+          'saida_vinte': saidaVinteDisplay,
+          'sobra_perda': sobraPerda,
           'saldo_amb': saldoAmb,
           'saldo_vinte': saldoVinte,
         });
@@ -370,6 +415,11 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
 
       _movs = List<Map<String, dynamic>>.from(listaComSaldo);
       _movsOrdenadas = List<Map<String, dynamic>>.from(listaComSaldo);
+
+      // Calcular totais para o rodapé
+      _totalEntradas = _movs.fold<num>(0, (s, m) => s + ((m['entrada_vinte'] ?? 0) as num));
+      _totalSaidas = _movs.fold<num>(0, (s, m) => s + ((m['saida_vinte'] ?? 0) as num));
+      _totalSobraPerda = _movs.fold<num>(0, (s, m) => s + ((m['sobra_perda'] ?? 0) as num));
 
       _estoqueFinal = {
         'amb': _movs.isEmpty ? (_estoqueInicial['amb'] ?? 0) : _movs.last['saldo_amb'],
@@ -410,6 +460,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         case 'entrada_vinte':
         case 'saida_amb':
         case 'saida_vinte':
+        case 'sobra_perda':
         case 'saldo_amb':
         case 'saldo_vinte':
           va = a[col] ?? 0;
@@ -902,16 +953,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   }
 
   Widget _buildBlocoResumo() {
-    num? estoqueFinalCalculado;
-    for (int i = _movsOrdenadas.length - 1; i >= 0; i--) {
-      if (!_temCaclIdValido(_movsOrdenadas[i])) {
-        estoqueFinalCalculado = _movsOrdenadas[i]['saldo_vinte'] as num?;
-        break;
-      }
-    }
-    estoqueFinalCalculado ??= _estoqueInicial['vinte'] ?? 0;
-    final estoqueCACL = _estoqueCACL['vinte'];
-
     return Container(
       width: _wTable,
       padding: const EdgeInsets.all(16),
@@ -923,31 +964,48 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         ),
         border: Border.all(color: Colors.grey.shade300),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+      child: Wrap(
+        spacing: 20,
+        runSpacing: 16,
+        alignment: WrapAlignment.spaceAround,
         children: [
           _buildCampoResumo(
-            'Estoque final calculado (20º):',
-            estoqueFinalCalculado,
+            'Saldo Inicial (20ºC):',
+            _estoqueInicial['vinte'] ?? 0,
+            cor: Colors.blue,
           ),
-
-          if (_possuiCACL && estoqueCACL != null)
-            _buildCampoResumo(
-              'Saldo apurado no CACL (20ºC):',
-              estoqueCACL,
-              cor: const Color(0xFF2E7D32),
-            )
-          else
+          _buildCampoResumo(
+            'Total Entradas (20ºC):',
+            _totalEntradas,
+          ),
+          _buildCampoResumo(
+            'Total Saídas (20ºC):',
+            _totalSaidas,
+            cor: Colors.red,
+          ),
+          _buildCampoResumo(
+            'Total Sobra/Perda (20ºC):',
+            _totalSobraPerda,
+            cor: _totalSobraPerda >= 0 ? const Color(0xFF0D47A1) : Colors.red,
+          ),
+          _buildCampoResumo(
+            'Saldo Final (20ºC):',
+            _estoqueFinal['vinte'] ?? 0,
+            cor: const Color(0xFF0D47A1),
+            negrito: true,
+          ),
+          // Botão Fechar Tanque (CACL)
+          if (!_possuiCACL)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: SizedBox(
-                width: 220,
+                width: 200,
                 child: ElevatedButton(
                   onPressed: _navegarParaCACL,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0D47A1),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -956,51 +1014,19 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.inventory, size: 20),
+                      const Icon(Icons.inventory, size: 18),
                       const SizedBox(width: 8),
                       const Text(
                         'FECHAR TANQUE',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-            ),
-
-          if (_possuiCACL && _valorSobraPerda != null && _ehSobra != null)
-            _buildCampoResumo(
-              _ehSobra! ? 'Sobra (20ºC):' : 'Perda (20ºC):',
-              _valorSobraPerda!,
-              cor: _ehSobra! ? const Color(0xFF0D47A1) : Colors.red,
-              negrito: true,
-            )
-          else
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  'Sobra/Perda (20ºC):',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '-',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey.shade400,
-                  ),
-                ),
-              ],
             ),
         ],
       ),
@@ -1076,6 +1102,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
                 _th('Entrada (20ºC)', _wNum, () => _onSort('entrada_vinte')),
                 _th('Saída (Amb)', _wNum, () => _onSort('saida_amb')),
                 _th('Saída (20ºC)', _wNum, () => _onSort('saida_vinte')),
+                _th('Sobra/Perda', _wNum, () => _onSort('sobra_perda')),
                 _th('Saldo (Amb)', _wNum, () => _onSort('saldo_amb')),
                 _th('Saldo (20ºC)', _wNum, () => _onSort('saldo_vinte')),
               ],
@@ -1116,25 +1143,33 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           child: ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: _movsOrdenadas.length + 3,
+            itemCount: _movsOrdenadas.length + 2,
             itemBuilder: (context, i) {
               if (i == 0) {
                 return _linhaResumo(
-                  'Estoque Inicial →',
+                  'Estoque Inicial do Dia',
                   _estoqueInicial['amb'],
                   _estoqueInicial['vinte'],
                   cor: Colors.blue,
                 );
               }
               if (i == _movsOrdenadas.length + 1) {
-                return _linhaTotais();
-              }
-              if (i == _movsOrdenadas.length + 2) {
+                num totalEntradaAmb = _movsOrdenadas.fold<num>(0, (s, m) => s + ((m['entrada_amb'] ?? 0) as num));
+                num totalEntradaVinte = _movsOrdenadas.fold<num>(0, (s, m) => s + ((m['entrada_vinte'] ?? 0) as num));
+                num totalSaidaAmb = _movsOrdenadas.fold<num>(0, (s, m) => s + ((m['saida_amb'] ?? 0) as num));
+                num totalSaidaVinte = _movsOrdenadas.fold<num>(0, (s, m) => s + ((m['saida_vinte'] ?? 0) as num));
+                num totalSobraPerda = _movsOrdenadas.fold<num>(0, (s, m) => s + ((m['sobra_perda'] ?? 0) as num));
+
                 return _linhaResumo(
-                  'Estoque Final →',
+                  'Estoque Final',
                   _estoqueFinal['amb'],
                   _estoqueFinal['vinte'],
                   cor: Colors.grey.shade700,
+                  entAmb: totalEntradaAmb,
+                  entVinte: totalEntradaVinte,
+                  saiAmb: totalSaidaAmb,
+                  saiVinte: totalSaidaVinte,
+                  sobraPerda: totalSobraPerda,
                 );
               }
 
@@ -1151,6 +1186,16 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
                     _cell(_fmtNum(e['entrada_vinte']), _wNum, bg: _bgEntrada()),
                     _cell(_fmtNum(e['saida_amb']), _wNum, bg: _bgSaida()),
                     _cell(_fmtNum(e['saida_vinte']), _wNum, bg: _bgSaida()),
+                    _cell(
+                      _fmtNum(e['sobra_perda']),
+                      _wNum,
+                      cor: (e['sobra_perda'] ?? 0) < 0
+                          ? Colors.red
+                          : (e['sobra_perda'] ?? 0) > 0
+                              ? Colors.green
+                              : null,
+                      fw: (e['sobra_perda'] ?? 0) != 0 ? FontWeight.bold : null,
+                    ),
                     _cell(
                       _fmtNum(e['saldo_amb']),
                       _wNum,
@@ -1171,32 +1216,17 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     );
   }
 
-  Widget _linhaTotais() {
-    num totalEntradaAmb = _movsOrdenadas.fold<num>(0, (s, m) => s + ((m['entrada_amb'] ?? 0) as num));
-    num totalEntradaVinte = _movsOrdenadas.fold<num>(0, (s, m) => s + ((m['entrada_vinte'] ?? 0) as num));
-    num totalSaidaAmb = _movsOrdenadas.fold<num>(0, (s, m) => s + ((m['saida_amb'] ?? 0) as num));
-    num totalSaidaVinte = _movsOrdenadas.fold<num>(0, (s, m) => s + ((m['saida_vinte'] ?? 0) as num));
-
-    return Container(
-      height: _hRow,
-      color: Colors.orange.shade50,
-      child: Row(
-        children: [
-          _cell('', _wData),
-          _cell('', _wEmpresa),
-          _cell('Totais', _wDesc, cor: Colors.orange.shade800, fw: FontWeight.bold),
-          _cell(_fmtNum(totalEntradaAmb), _wNum, bg: _bgEntrada(), cor: Colors.orange.shade800, fw: FontWeight.bold),
-          _cell(_fmtNum(totalEntradaVinte), _wNum, bg: _bgEntrada(), cor: Colors.orange.shade800, fw: FontWeight.bold),
-          _cell(_fmtNum(totalSaidaAmb), _wNum, bg: _bgSaida(), cor: Colors.orange.shade800, fw: FontWeight.bold),
-          _cell(_fmtNum(totalSaidaVinte), _wNum, bg: _bgSaida(), cor: Colors.orange.shade800, fw: FontWeight.bold),
-          _cell('-', _wNum),
-          _cell('-', _wNum),
-        ],
-      ),
-    );
-  }
-
-  Widget _linhaResumo(String label, num? amb, num? vinte, {Color? cor}) {
+  Widget _linhaResumo(
+    String label,
+    num? amb,
+    num? vinte, {
+    Color? cor,
+    num? entAmb,
+    num? entVinte,
+    num? saiAmb,
+    num? saiVinte,
+    num? sobraPerda,
+  }) {
     return Container(
       height: _hRow,
       color: Colors.blue.shade50,
@@ -1205,10 +1235,18 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           _cell('', _wData),
           _cell('', _wEmpresa),
           _cell(label, _wDesc, cor: cor, fw: FontWeight.bold),
-          _cell('-', _wNum),
-          _cell('-', _wNum),
-          _cell('-', _wNum),
-          _cell('-', _wNum),
+          _cell(_fmtNum(entAmb), _wNum, bg: _bgEntrada(), fw: FontWeight.bold),
+          _cell(_fmtNum(entVinte), _wNum, bg: _bgEntrada(), fw: FontWeight.bold),
+          _cell(_fmtNum(saiAmb), _wNum, bg: _bgSaida(), fw: FontWeight.bold),
+          _cell(_fmtNum(saiVinte), _wNum, bg: _bgSaida(), fw: FontWeight.bold),
+          _cell(
+            _fmtNum(sobraPerda),
+            _wNum,
+            cor: sobraPerda != null
+                ? (sobraPerda < 0 ? Colors.red : const Color(0xFF0D47A1))
+                : null,
+            fw: FontWeight.bold,
+          ),
           _cell(_fmtNum(amb), _wNum, cor: cor, fw: FontWeight.bold),
           _cell(_fmtNum(vinte), _wNum, cor: cor, fw: FontWeight.bold),
         ],

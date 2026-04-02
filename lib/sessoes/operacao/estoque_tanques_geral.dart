@@ -1609,44 +1609,56 @@ class _SelecaoTipoVisualizacaoEstoqueBottomSheetState
                             day == DateTime.now().day &&
                             tempDate.month == DateTime.now().month &&
                             tempDate.year == DateTime.now().year;
-                        return GestureDetector(
-                          onTap: day != null
-                              ? () {
-                                  setStateDialog(() {
-                                    tempDate = DateTime(
-                                      tempDate.year,
-                                      tempDate.month,
-                                      day,
-                                    );
-                                  });
-                                }
-                              : null,
-                          child: Container(
-                            margin: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? const Color(0xFF0D47A1)
-                                  : isToday
-                                  ? const Color(0x220D47A1)
-                                  : Colors.transparent,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Center(
-                              child: Text(
-                                day != null ? day.toString() : '',
-                                style: TextStyle(
-                                  color: isSelected
-                                      ? Colors.white
-                                      : isToday
-                                      ? const Color(0xFF0D47A1)
-                                      : Colors.black87,
-                                  fontWeight: isSelected || isToday
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
+                        return StatefulBuilder(
+                          builder: (context, setDayState) {
+                            bool isHovered = false;
+                            return MouseRegion(
+                              cursor: day != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+                              onEnter: (_) => setDayState(() => isHovered = true),
+                              onExit: (_) => setDayState(() => isHovered = false),
+                              child: GestureDetector(
+                                onTap: day != null
+                                    ? () {
+                                        setStateDialog(() {
+                                          tempDate = DateTime(
+                                            tempDate.year,
+                                            tempDate.month,
+                                            day,
+                                          );
+                                        });
+                                      }
+                                    : null,
+                                child: Container(
+                                  margin: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? const Color(0xFF0D47A1)
+                                        : isHovered
+                                        ? const Color(0xFF0D47A1).withOpacity(0.1)
+                                        : isToday
+                                        ? const Color(0x220D47A1)
+                                        : Colors.transparent,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      day != null ? day.toString() : '',
+                                      style: TextStyle(
+                                        color: isSelected
+                                            ? Colors.white
+                                            : (isToday || isHovered)
+                                            ? const Color(0xFF0D47A1)
+                                            : Colors.black87,
+                                        fontWeight: isSelected || isToday || isHovered
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
+                            );
+                          },
                         );
                       }).toList(),
                     ),
