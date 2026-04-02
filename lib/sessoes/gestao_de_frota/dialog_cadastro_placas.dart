@@ -440,7 +440,7 @@ class _DialogCadastroPlacasState extends State<DialogCadastroPlacas>
               child: Row(
                 children: [
                   Text(
-                    ehProprios ? 'Cadastrar Veículos Próprios' : 'Cadastrar Veículos de Terceiros',
+                    ehProprios ? 'Cadastrar Veículo Próprio' : 'Cadastrar Veículo de Terceiro',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

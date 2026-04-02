@@ -734,19 +734,27 @@ class _NovaVendaDialogState extends State<NovaVendaDialog> {
         children: [
           SizedBox(
             width: 140,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tanque • ${tanque.capacidade}.000 L',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    height: 1.2,
-                    color: incompleto ? Colors.orange.shade800 : Colors.black,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D47A1).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFF0D47A1).withOpacity(0.3),
+                    width: 1,
                   ),
                 ),
-              ],
+                child: Text(
+                  '${tanque.capacidade}.000 L',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0D47A1),
+                    height: 1.2,
+                  ),
+                ),
+              ),
             ),
           ),
           
@@ -1429,14 +1437,9 @@ class UpperCaseTextFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    final upper = newValue.text.toUpperCase();
     return TextEditingValue(
-      text: upper,
-      selection: newValue.selection.copyWith(
-        baseOffset: upper.length,
-        extentOffset: upper.length,
-      ),
-      composing: TextRange.empty,
+      text: newValue.text.toUpperCase(),
+      selection: newValue.selection,
     );
   }
 }
