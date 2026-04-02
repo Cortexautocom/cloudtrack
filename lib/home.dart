@@ -551,6 +551,15 @@ class _HomePageState extends State<HomePage>
         'sessao_pai': 'Operação',
         'favorito': false,
       },
+      {
+        'id': '7b2fab05-4ce9-4a1e-b1e6-96b3527565d8',
+        'icon': Icons.bar_chart,
+        'label': 'Resultados',
+        'descricao': 'Acompanhamento de resultados operacionais',
+        'tipo': 'resultados',
+        'sessao_pai': 'Operação',
+        'favorito': false,
+      },
     ];
 
     _filhosPorSessao['Perdas e Sobras'] = [
@@ -3398,6 +3407,15 @@ class _HomePageState extends State<HomePage>
             _mostrarEstoquePorTanque = true;
           });
         }
+        break;
+      case 'resultados':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Em desenvolvimento.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
+        );
         break;
     }
   }
