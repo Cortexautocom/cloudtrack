@@ -1611,11 +1611,8 @@ class _SelecaoTipoVisualizacaoEstoqueBottomSheetState
                             tempDate.year == DateTime.now().year;
                         return StatefulBuilder(
                           builder: (context, setDayState) {
-                            bool isHovered = false;
                             return MouseRegion(
                               cursor: day != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
-                              onEnter: (_) => setDayState(() => isHovered = true),
-                              onExit: (_) => setDayState(() => isHovered = false),
                               child: GestureDetector(
                                 onTap: day != null
                                     ? () {
@@ -1633,8 +1630,6 @@ class _SelecaoTipoVisualizacaoEstoqueBottomSheetState
                                   decoration: BoxDecoration(
                                     color: isSelected
                                         ? const Color(0xFF0D47A1)
-                                        : isHovered
-                                        ? const Color(0xFF0D47A1).withOpacity(0.1)
                                         : isToday
                                         ? const Color(0x220D47A1)
                                         : Colors.transparent,
@@ -1646,10 +1641,10 @@ class _SelecaoTipoVisualizacaoEstoqueBottomSheetState
                                       style: TextStyle(
                                         color: isSelected
                                             ? Colors.white
-                                            : (isToday || isHovered)
+                                            : isToday
                                             ? const Color(0xFF0D47A1)
                                             : Colors.black87,
-                                        fontWeight: isSelected || isToday || isHovered
+                                        fontWeight: isSelected || isToday
                                             ? FontWeight.bold
                                             : FontWeight.normal,
                                       ),
