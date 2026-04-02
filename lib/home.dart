@@ -521,7 +521,7 @@ class _HomePageState extends State<HomePage>
       {
         'id': 'fallback-tanques',
         'icon': Icons.oil_barrel,
-        'label': 'Tanques',
+        'label': 'Gerenciamento de Tanques',
         'descricao': 'Gerenciamento de tanques',
         'tipo': 'tanques',
         'sessao_pai': 'Operação',
@@ -2286,11 +2286,15 @@ class _HomePageState extends State<HomePage>
                 _filialSelecionadaId = idTerminal;
                 _filialSelecionadaNome = 'Terminal';
                 _mostrarEscolherTerminal = false;
-                if (_contextoEscolhaTerminal == 'cacl')
+                if (_contextoEscolhaTerminal == 'cacl') {
                   _mostrarListarCacls = true;
-                if (_contextoEscolhaTerminal == 'tanques') _mostrarTanques = true;
-                if (_contextoEscolhaTerminal == 'estoque_por_tanque')
+                }
+                if (_contextoEscolhaTerminal == 'tanques') {
+                  _mostrarTanques = true;
+                }
+                if (_contextoEscolhaTerminal == 'estoque_por_tanque') {
                   _mostrarEstoquePorTanque = true;
+                }
                 _contextoEscolhaTerminal = '';
               });
             } catch (e) {
