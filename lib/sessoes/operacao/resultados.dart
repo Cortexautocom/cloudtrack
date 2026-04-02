@@ -60,19 +60,21 @@ class _ResultadosPageState extends State<ResultadosPage> {
           
           // Content
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: SizedBox(
-                  width: 1000,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                       _buildControleEntradaSaidaTable(),
-                       const SizedBox(height: 40),
-                       _buildGanhoOperacionalTable(),
-                    ],
+            child: SelectionArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 1000,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildControleEntradaSaidaTable(),
+                        const SizedBox(height: 40),
+                        _buildGanhoOperacionalTable(),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -137,6 +139,7 @@ class _ResultadosPageState extends State<ResultadosPage> {
         child: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
             isExpanded: true,
+            dropdownColor: Colors.white,
             hint: const Text('Selecione um Terminal'),
             value: _selectedTerminalId,
             items: _terminais.map((t) {

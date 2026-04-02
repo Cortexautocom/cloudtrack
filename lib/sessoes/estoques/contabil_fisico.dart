@@ -888,22 +888,24 @@ class _ContabilFisicoPageState extends State<ContabilFisicoPage> {
                   ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: _carregando
-            ? _buildCarregando()
-            : _erro
-                ? _buildErro()
-                : _movimentacoes.isEmpty
-                    ? _buildSemDados()
-                    : Column(
-                        children: [
-                          if (widget.produtoFiltro != null)
-                            _buildIndicadorFiltros(),
-                          const SizedBox(height: 16),
-                          Expanded(child: _buildTabelaComContabilFisico()),
-                        ],
-                      ),
+      body: SelectionArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: _carregando
+              ? _buildCarregando()
+              : _erro
+                  ? _buildErro()
+                  : _movimentacoes.isEmpty
+                      ? _buildSemDados()
+                      : Column(
+                          children: [
+                            if (widget.produtoFiltro != null)
+                              _buildIndicadorFiltros(),
+                            const SizedBox(height: 16),
+                            Expanded(child: _buildTabelaComContabilFisico()),
+                          ],
+                        ),
+        ),
       ),
     );
   }

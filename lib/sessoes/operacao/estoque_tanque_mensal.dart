@@ -699,13 +699,15 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
           IconButton(icon: const Icon(Icons.refresh), onPressed: _carregar),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: _carregandoTerminal || _carregando
-            ? const Center(child: CircularProgressIndicator())
-            : _erro
-            ? Center(child: Text(_mensagemErro))
-            : _buildConteudo(),
+      body: SelectionArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: _carregandoTerminal || _carregando
+              ? const Center(child: CircularProgressIndicator())
+              : _erro
+              ? Center(child: Text(_mensagemErro))
+              : _buildConteudo(),
+        ),
       ),
     );
   }

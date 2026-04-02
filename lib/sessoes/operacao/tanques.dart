@@ -935,6 +935,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                               width: fieldWidth,
                               child: DropdownButtonFormField<String>(
                                 value: _produtoSelecionado,
+                                dropdownColor: Colors.white,
                                 decoration: const InputDecoration(
                                   labelText: 'Produto *',
                                   border: OutlineInputBorder(),
@@ -963,6 +964,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                               width: fieldWidth,
                               child: DropdownButtonFormField<String>(
                                 value: _statusSelecionado,
+                                dropdownColor: Colors.white,
                                 decoration: const InputDecoration(
                                   labelText: 'Status *',
                                   border: OutlineInputBorder(),
