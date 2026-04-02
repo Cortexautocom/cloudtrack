@@ -36,6 +36,7 @@ import 'sessoes/almoxerifado/frascos_amostras.dart';
 import 'sessoes/almoxerifado/filtro_estoque_frascos.dart';
 import 'sessoes/operacao/estoque_produto.dart';
 import 'sessoes/operacao/filtro_estoque_produto.dart';
+import 'sessoes/operacao/resultados.dart';
 import 'sessoes/estoques/controle_descargas.dart';
 import 'sessoes/bombeios/ordem_bombeio.dart';
 import 'sessoes/financeiro/conta_corrente_refinarias.dart';
@@ -111,6 +112,7 @@ class _HomePageState extends State<HomePage>
   bool _mostrarFilaSolicitacoes = false;
   bool _mostrarTempDensMedia = false;
   bool _mostrarEstoqueProduto = false;
+  bool _mostrarResultadoMensal = false;
   bool _mostrarCardsFilial = false;
   bool _mostrarContaCorrenteRefinarias = false;
   bool _voltarParaTanquesApoCACL = false; // ← RASTREIA SE VEIO DE TANQUES
@@ -1528,6 +1530,7 @@ class _HomePageState extends State<HomePage>
 
                                     setState(() {
                                       selectedIndex = index;
+                                      _mostrarResultadoMensal = false;
                                     });
 
                                     final itemSelecionado = menuItems[index];
@@ -1652,7 +1655,7 @@ class _HomePageState extends State<HomePage>
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '© Norton Technology - 550 California St, W-325, San Francisco, CA - EUA.',
+                    'Licenciado e Comercializado por Metabots Business Intelligence - Rua Leais Paulistanos, 36, Ipiranga - São Paulo, SP | Uma iniciativa © Norton Technology',
                     style: TextStyle(
                       fontSize: 10,
                       color: Colors.grey[500],
@@ -2392,6 +2395,17 @@ class _HomePageState extends State<HomePage>
           onVoltar: () {
             setState(() {
               _mostrarEstoqueProduto = false;
+              _mostrarFilhosDaSessao('Operação');
+            });
+          },
+        );
+      }
+
+      if (_mostrarResultadoMensal) {
+        return ResultadosPage(
+          onVoltar: () {
+            setState(() {
+              _mostrarResultadoMensal = false;
               _mostrarFilhosDaSessao('Operação');
             });
           },
@@ -3409,13 +3423,9 @@ class _HomePageState extends State<HomePage>
         }
         break;
       case 'resultados':
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Em desenvolvimento.'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 2),
-          ),
-        );
+        setState(() {
+          _mostrarResultadoMensal = true;
+        });
         break;
     }
   }
