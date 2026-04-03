@@ -1001,6 +1001,7 @@ class _CalcPageState extends State<CalcPage> {
         'updated_at': timestampReferencia,
         'created_by': session.user.id,
         'estoque_final_calculado': _obterEstoqueFinalCalculado20(),
+        'sobra_perda': _obterValorSobraPerda(medicoes),
       };
 
       final entradaSaida20 =

@@ -204,7 +204,8 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
         faturado_final,
         diferenca_faturado,
         porcentagem_diferenca,
-        numero_controle
+        numero_controle,
+        sobra_perda
       ''');
 
       if (pesquisaController.text.isNotEmpty) {
@@ -912,8 +913,8 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
+                    children: const [
+                      Text(
                         'Histórico de CACLs',
                         style: TextStyle(
                           fontSize: 20,
@@ -921,7 +922,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                           color: Color(0xFF0D47A1),
                         ),
                       ),
-
                     ],
                   ),
                 ),
@@ -945,33 +945,37 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                 const SizedBox(width: 12),
                 Expanded(
                   flex: 2,
-                  child: Text('Tanque', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
+                  child: Text('Tanque', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
                 ),
                 Expanded(
                   flex: 2,
-                  child: Text('Produto', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
+                  child: Text('Produto', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
                 ),
                 Expanded(
                   flex: 1,
-                  child: Text('Data', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
+                  child: Text('Sobra/Perda', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
                 ),
                 Expanded(
                   flex: 1,
-                  child: Text('H.Inicial', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
+                  child: Text('Data', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
                 ),
                 Expanded(
                   flex: 1,
-                  child: Text('H.Final', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
+                  child: Text('H.Inicial', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
                 ),
                 Expanded(
                   flex: 1,
-                  child: Text('Nº Controle', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
+                  child: Text('H.Final', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: Text('Nº Controle', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
                 ),
                 Expanded(
                   flex: 2,
-                  child: Text('Status', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
+                  child: Text('Status', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey[700])),
                 ),
-                SizedBox(width: 24), // Espaço para o ícone
+                const SizedBox(width: 24), // Espaço para o ícone
               ],
             ),
           ),
@@ -1027,6 +1031,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                     final horarioInicial = _formatarHora(cacl['horario_inicial']);
                                     final horarioFinal = _formatarHora(cacl['horario_final']);
                                     final numeroControle = cacl['numero_controle']?.toString() ?? '-';
+                                    final sobraPerda = cacl['sobra_perda']?.toString() ?? '0';
 
                                     return MouseRegion(
                                       cursor: SystemMouseCursors.click,
@@ -1107,6 +1112,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                                 flex: 2,
                                                 child: Text(
                                                   tanqueRef,
+                                                  textAlign: TextAlign.center,
                                                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                                                   overflow: TextOverflow.ellipsis,
                                                 ),
@@ -1117,7 +1123,23 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                                 flex: 2,
                                                 child: Text(
                                                   produto,
+                                                  textAlign: TextAlign.center,
                                                   style: const TextStyle(fontSize: 12),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+
+                                              // Sobra/Perda
+                                              Expanded(
+                                                flex: 1,
+                                                child: Text(
+                                                  sobraPerda,
+                                                  textAlign: TextAlign.center,
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: (double.tryParse(sobraPerda) ?? 0) >= 0 ? Colors.green : Colors.red,
+                                                  ),
                                                   overflow: TextOverflow.ellipsis,
                                                 ),
                                               ),
@@ -1127,6 +1149,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                                 flex: 1,
                                                 child: Text(
                                                   data,
+                                                  textAlign: TextAlign.center,
                                                   style: const TextStyle(fontSize: 12),
                                                   overflow: TextOverflow.ellipsis,
                                                 ),
@@ -1137,6 +1160,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                                 flex: 1,
                                                 child: Text(
                                                   horarioInicial,
+                                                  textAlign: TextAlign.center,
                                                   style: const TextStyle(fontSize: 12),
                                                   overflow: TextOverflow.ellipsis,
                                                 ),
@@ -1147,6 +1171,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                                 flex: 1,
                                                 child: Text(
                                                   horarioFinal,
+                                                  textAlign: TextAlign.center,
                                                   style: const TextStyle(fontSize: 12),
                                                   overflow: TextOverflow.ellipsis,
                                                 ),
@@ -1157,6 +1182,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                                 flex: 1,
                                                 child: Text(
                                                   numeroControle,
+                                                  textAlign: TextAlign.center,
                                                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0D47A1)),
                                                   overflow: TextOverflow.ellipsis,
                                                 ),
@@ -1166,6 +1192,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                               Expanded(
                                                 flex: 2,
                                                 child: Row(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
                                                   children: [
                                                     Container(
                                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1182,7 +1209,6 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                                         ),
                                                       ),
                                                     ),
-
                                                   ],
                                                 ),
                                               ),
@@ -1218,10 +1244,27 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
     );
   }
 
+  // Método atualizado para cancelar CACL e remover da movimentacoes_tanque
   Future<void> _cancelarCacl(String caclId) async {
     try {
       final supabase = Supabase.instance.client;
       
+      // Primeiro, verificar se existe registro na tabela movimentacoes_tanque
+      final movimentacaoExistente = await supabase
+          .from('movimentacoes_tanque')
+          .select('id')
+          .eq('cacl_id', caclId)
+          .maybeSingle();
+      
+      // Se existir, remover o registro
+      if (movimentacaoExistente != null) {
+        await supabase
+            .from('movimentacoes_tanque')
+            .delete()
+            .eq('cacl_id', caclId);
+      }
+      
+      // Depois, atualizar o status do CACL para cancelado
       await supabase
           .from('cacl')
           .update({'status': 'cancelado'})
@@ -1335,7 +1378,8 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                   const SizedBox(height: 16),
                   
                   const Text(
-                    'Tem certeza que quer cancelar o CACL já emitido?',
+                    'Tem certeza que quer cancelar o CACL já emitido?\n\n'
+                    'Esta ação também removerá todas as movimentações de tanque associadas a este CACL.',
                     style: TextStyle(
                       fontSize: 15,
                       color: Colors.black87,
