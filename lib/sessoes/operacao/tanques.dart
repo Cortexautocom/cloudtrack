@@ -564,7 +564,7 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
 
       final Map<String, dynamic> dadosAtualizados = {
         'referencia': _referenciaController.text.trim(),
-        'capacidade': capacidadeTexto,
+        'capacidade': capacidadeTexto.replaceAll('.', ''),
         'lastro': lastroValor,
         'status': _statusSelecionado,
         'id_produto': _produtoSelecionado,
@@ -579,17 +579,20 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
       }
 
       await _carregarDados();
-      
-      _cancelarEdicao();
 
       if (mounted) {
+        final String referencia = _referenciaController.text.trim();
+        final String acao = _tanqueEditando != null ? 'editado' : 'criado';
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Tanque ${_tanqueEditando != null ? 'atualizado' : 'criado'} com sucesso!'),
+            content: Text('Tanque $referencia $acao com sucesso!'),
             backgroundColor: Colors.green,
           ),
         );
       }
+
+      _cancelarEdicao();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1600,7 +1603,7 @@ class _TanqueCardState extends State<_TanqueCard> {
                           border: Border.all(color: _line, width: 1.2),
                         ),
                         child: Text(
-                          '${widget.tanque['capacidade']} L',
+                          '${_formatarMilhar(widget.tanque['capacidade'])} L',
                           style: const TextStyle(
                             color: _ink,
                             fontSize: 11,

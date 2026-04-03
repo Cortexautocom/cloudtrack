@@ -19,9 +19,18 @@ class _ResultadosPageState extends State<ResultadosPage> {
   bool _carregandoTerminais = false;
   bool _isTerminalFixado = false;
   
+  DateTime _selectedDate = DateTime.now();
+  
   // Dados dos tanques
   List<Map<String, dynamic>> _tanques = [];
   bool _carregandoTanques = false;
+  
+  // Dados de movimentação por tanque
+  Map<String, Map<String, dynamic>> _dadosTanques = {}; // key: tanqueId
+  
+  // Estados de carregamento
+  bool _carregandoDados = false;
+  String? _erroMensagem;
 
   @override
   void initState() {
@@ -35,6 +44,124 @@ class _ResultadosPageState extends State<ResultadosPage> {
     }
   }
 
+  String _getMonthName(int month) {
+    const months = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    return months[month - 1];
+  }
+
+  void _showMonthPicker() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: Color(0xFF1565C0), width: 1),
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 350),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F5F5),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back_ios, size: 18, color: Color(0xFF1565C0)),
+                            onPressed: () {
+                              setDialogState(() {
+                                _selectedDate = DateTime(_selectedDate.year - 1, _selectedDate.month);
+                              });
+                            },
+                          ),
+                          Text(
+                            '${_selectedDate.year}',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1565C0),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.arrow_forward_ios, size: 18, color: Color(0xFF1565C0)),
+                            onPressed: () {
+                              setDialogState(() {
+                                _selectedDate = DateTime(_selectedDate.year + 1, _selectedDate.month);
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      const Divider(),
+                      const SizedBox(height: 10),
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          childAspectRatio: 1.5,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                        ),
+                        itemCount: 12,
+                        itemBuilder: (context, index) {
+                          final month = index + 1;
+                          final isSelected = _selectedDate.month == month;
+                          return InkWell(
+                            onTap: () {
+                              setState(() {
+                                _selectedDate = DateTime(_selectedDate.year, month);
+                              });
+                              Navigator.pop(context);
+                              _carregarDadosMovimentacao();
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: isSelected ? const Color(0xFF1565C0) : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isSelected ? const Color(0xFF1565C0) : Colors.grey.shade300,
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                _getMonthName(month).substring(0, 3),
+                                style: TextStyle(
+                                  color: isSelected ? Colors.white : Colors.black87,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('CANCELAR', style: TextStyle(color: Colors.grey)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _carregarTerminais() async {
     setState(() => _carregandoTerminais = true);
     try {
@@ -44,7 +171,6 @@ class _ResultadosPageState extends State<ResultadosPage> {
         return;
       }
 
-      // Se o usuário tem um terminal fixo, usamos apenas ele.
       if (user.terminalId != null && user.terminalId!.isNotEmpty) {
         final response = await _supabase
             .from('terminais')
@@ -64,7 +190,6 @@ class _ResultadosPageState extends State<ResultadosPage> {
         }
       }
 
-      // Caso contrário, buscamos todos os terminais da empresa através de relacoes_terminais
       final empresaIdEfetivo = (user.empresaId ?? '').trim();
       List<Map<String, dynamic>> listaTerminais = [];
 
@@ -123,9 +248,7 @@ class _ResultadosPageState extends State<ResultadosPage> {
     }
   }
 
-  // Função para extrair o número da referência do tanque
   int _extractNumberFromReferencia(String referencia) {
-    // Procura por padrões como TQ-01-JN, TQ-02-JN, etc.
     final regex = RegExp(r'TQ-(\d+)-');
     final match = regex.firstMatch(referencia);
     if (match != null && match.groupCount >= 1) {
@@ -169,7 +292,6 @@ class _ResultadosPageState extends State<ResultadosPage> {
         });
       }
       
-      // Ordenar os tanques pelo número extraído da referência
       tanquesFormatados.sort((a, b) {
         final numA = _extractNumberFromReferencia(a['referencia']);
         final numB = _extractNumberFromReferencia(b['referencia']);
@@ -180,10 +302,154 @@ class _ResultadosPageState extends State<ResultadosPage> {
         _tanques = tanquesFormatados;
         _carregandoTanques = false;
       });
+      
+      // Após carregar os tanques, carrega os dados de movimentação
+      await _carregarDadosMovimentacao();
+      
     } catch (e) {
       debugPrint('Erro ao carregar tanques: $e');
       setState(() => _carregandoTanques = false);
     }
+  }
+
+  Future<void> _carregarDadosMovimentacao() async {
+    if (_tanques.isEmpty) return;
+    
+    setState(() {
+      _carregandoDados = true;
+      _erroMensagem = null;
+    });
+    
+    try {
+      final inicioMes = DateTime(_selectedDate.year, _selectedDate.month, 1);
+      final fimMes = DateTime(_selectedDate.year, _selectedDate.month + 1, 0, 23, 59, 59);
+      final dataRefStr = inicioMes.toIso8601String().split('T')[0];
+      
+      final Map<String, Map<String, dynamic>> novosDados = {};
+      
+      for (var tanque in _tanques) {
+        final tanqueId = tanque['id'];
+        
+        // 1. Buscar estoque inicial via função do banco
+        num estoqueInicial = 0;
+        try {
+          final response = await _supabase.rpc(
+            'fn_estoque_inicial_mes_tanque',
+            params: {
+              'p_tanque_id': tanqueId,
+              'p_data': dataRefStr,
+            },
+          );
+          estoqueInicial = (response ?? 0) as num;
+        } catch (e) {
+          debugPrint('Erro ao buscar estoque inicial para tanque $tanqueId: $e');
+          estoqueInicial = 0;
+        }
+        
+        // 2. Buscar movimentações do mês
+        final movimentacoes = await _supabase
+            .from('movimentacoes_tanque')
+            .select('''
+              entrada_vinte,
+              entrada_amb,
+              saida_vinte,
+              saida_amb,
+              tipo_mov,
+              descricao,
+              cliente
+            ''')
+            .eq('tanque_id', tanqueId)
+            .gte('data_mov', inicioMes.toIso8601String())
+            .lte('data_mov', fimMes.toIso8601String());
+        
+        // 3. Calcular totais
+        num totalEntradas = 0;
+        num totalEntradasAmb = 0;
+        num totalSaidas = 0;
+        num totalSaidasAmb = 0;
+        num totalSobraPerda = 0;
+        
+        for (final mov in movimentacoes) {
+          final num entradaVinte = (mov['entrada_vinte'] ?? 0) as num;
+          final num entradaAmb = (mov['entrada_amb'] ?? 0) as num;
+          final num saidaVinte = (mov['saida_vinte'] ?? 0) as num;
+          final num saidaAmb = (mov['saida_amb'] ?? 0) as num;
+          
+          final String tipo = (mov['tipo_mov']?.toString() ?? '').toLowerCase();
+          final String desc = (mov['descricao']?.toString() ?? '').toLowerCase();
+          final String cli = (mov['cliente']?.toString() ?? '').toLowerCase();
+          
+          final bool eSobra = tipo.contains('sobra') || desc.contains('sobra') || cli.contains('sobra');
+          final bool ePerda = tipo.contains('perda') || desc.contains('perda') || cli.contains('perda');
+          
+          if (eSobra) {
+            totalSobraPerda += entradaVinte;
+          } else if (ePerda) {
+            totalSobraPerda -= saidaVinte;
+          } else {
+            totalEntradas += entradaVinte;
+            totalEntradasAmb += entradaAmb;
+            totalSaidas += saidaVinte;
+            totalSaidasAmb += saidaAmb;
+          }
+        }
+        
+        // 4. Calcular saldo final
+        final saldoFinal = estoqueInicial + totalEntradas - totalSaidas + totalSobraPerda;
+        
+        // 5. Calcular diferença amb/20°C
+        final totalEntradasLiquidas = totalEntradas + (totalSobraPerda > 0 ? totalSobraPerda : 0);
+        final totalSaidasLiquidas = totalSaidas + (totalSobraPerda < 0 ? -totalSobraPerda : 0);
+        
+        final diferencaAmb = (totalEntradasAmb - totalSaidasAmb) - (totalEntradasLiquidas - totalSaidasLiquidas);
+        
+        // 6. Calcular variação percentual
+        double variacaoPercentual = 0;
+        if (estoqueInicial != 0) {
+          variacaoPercentual = (saldoFinal - estoqueInicial) / estoqueInicial.abs() * 100;
+        }
+        
+        novosDados[tanqueId] = {
+          'estoqueInicial': estoqueInicial,
+          'totalEntradas': totalEntradas,
+          'totalSaidas': totalSaidas,
+          'saldoFinal': saldoFinal,
+          'totalSobraPerda': totalSobraPerda,
+          'diferencaAmb': diferencaAmb,
+          'totalGeral': saldoFinal + diferencaAmb,
+          'variacaoPercentual': variacaoPercentual,
+        };
+      }
+      
+      setState(() {
+        _dadosTanques = novosDados;
+        _carregandoDados = false;
+      });
+      
+    } catch (e) {
+      debugPrint('Erro ao carregar dados de movimentação: $e');
+      setState(() {
+        _carregandoDados = false;
+        _erroMensagem = 'Erro ao carregar dados: $e';
+      });
+    }
+  }
+
+  String _formatarNumero(num? valor) {
+    if (valor == null) return '0';
+    final abs = valor.abs();
+    final str = abs.toStringAsFixed(0);
+    final buffer = StringBuffer();
+    for (int i = 0; i < str.length; i++) {
+      final pos = str.length - i;
+      buffer.write(str[i]);
+      if (pos > 1 && pos % 3 == 1) buffer.write('.');
+    }
+    return valor < 0 ? '-${buffer.toString()}' : buffer.toString();
+  }
+
+  String _formatarPercentual(double valor) {
+    return '${valor.toStringAsFixed(2)} %';
   }
 
   Widget _buildAppBar() {
@@ -212,6 +478,12 @@ class _ResultadosPageState extends State<ResultadosPage> {
               ),
             ),
           ),
+          if (_carregandoDados)
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
         ],
       ),
     );
@@ -219,54 +491,76 @@ class _ResultadosPageState extends State<ResultadosPage> {
 
   Widget _buildTerminalSelector() {
     if (_carregandoTerminais) {
-      return const Padding(
-        padding: EdgeInsets.only(bottom: 16.0),
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+      return const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(strokeWidth: 2),
       );
     }
 
     if (UsuarioAtual.instance == null) return const SizedBox.shrink();
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
-      child: Container(
-        width: 300,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            isExpanded: true,
-            dropdownColor: Colors.white,
-            hint: const Text('Selecione um Terminal', style: TextStyle(fontSize: 14)),
-            value: _selectedTerminalId,
-            items: [
-              if (!_isTerminalFixado)
-                const DropdownMenuItem<String>(
-                  value: null,
-                  child: Text('Todos os Terminais', style: TextStyle(fontSize: 14)),
-                ),
-              ..._terminais.map((t) {
-                return DropdownMenuItem<String>(
-                  value: t['id'].toString(),
-                  child: Text(t['nome'].toString(), style: const TextStyle(fontSize: 14)),
-                );
-              }).toList(),
-            ],
-            onChanged: _isTerminalFixado ? null : (val) {
-              setState(() => _selectedTerminalId = val);
-              _carregarTanques();
-            },
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 250,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              isExpanded: true,
+              dropdownColor: Colors.white,
+              hint: const Text('Selecione um Terminal', style: TextStyle(fontSize: 14)),
+              value: _selectedTerminalId,
+              items: [
+                if (!_isTerminalFixado)
+                  const DropdownMenuItem<String>(
+                    value: null,
+                    child: Text('Todos os Terminais', style: TextStyle(fontSize: 14)),
+                  ),
+                ..._terminais.map((t) {
+                  return DropdownMenuItem<String>(
+                    value: t['id'].toString(),
+                    child: Text(t['nome'].toString(), style: const TextStyle(fontSize: 14)),
+                  );
+                }),
+              ],
+              onChanged: _isTerminalFixado ? null : (val) {
+                setState(() => _selectedTerminalId = val);
+                _carregarTanques();
+              },
+            ),
           ),
         ),
-      ),
+        const SizedBox(width: 16),
+        InkWell(
+          onTap: _showMonthPicker,
+          child: Container(
+            width: 180,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${_getMonthName(_selectedDate.month)} de ${_selectedDate.year}',
+                  style: const TextStyle(fontSize: 14, color: Colors.black87),
+                ),
+                const Icon(Icons.calendar_today, size: 18, color: Color(0xFF1565C0)),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -277,38 +571,82 @@ class _ResultadosPageState extends State<ResultadosPage> {
       body: Column(
         children: [
           _buildAppBar(),
-          Container(height: 1, color: Colors.grey.shade300),
+          Container(height: 1, color: Colors.grey.shade200),
           Expanded(
-            child: SelectionArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24.0),
-                child: Align(
-                  alignment: Alignment.topLeft,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildTerminalSelector(),
-                      if (_carregandoTanques)
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(32.0),
-                            child: CircularProgressIndicator(),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(32.0),
+              child: Center(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildTerminalSelector(),
+                    const SizedBox(height: 16),
+                    if (_carregandoTanques || _carregandoDados)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32.0),
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+                    else if (_erroMensagem != null)
+                      Container(
+                        padding: const EdgeInsets.all(32),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Column(
+                          children: [
+                            const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                            const SizedBox(height: 16),
+                            Text(
+                              _erroMensagem!,
+                              style: const TextStyle(color: Colors.red),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: _carregarDadosMovimentacao,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1565C0),
+                              ),
+                              child: const Text('Tentar Novamente'),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (_tanques.isEmpty && _selectedTerminalId != null)
+                      Container(
+                        padding: const EdgeInsets.all(32),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        child: const Text(
+                          'Nenhum tanque encontrado para este terminal.',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      )
+                    else if (_tanques.isNotEmpty)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildTableSection(
+                            title: 'Resumo da movimentação mensal',
+                            rows: _buildSaldoRows,
                           ),
-                        )
-                      else if (_tanques.isEmpty && _selectedTerminalId != null)
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(32.0),
-                            child: Text('Nenhum tanque encontrado para este terminal.'),
+                          const SizedBox(height: 24),
+                          _buildTableSection(
+                            title: 'Ganhos / Perdas / Variação',
+                            rows: _buildPerdaSobraRows,
+                            showColumnHeader: false,
                           ),
-                        )
-                      else if (_tanques.isNotEmpty) ...[
-                        _buildControleEntradaSaidaTable(),
-                        const SizedBox(height: 40),
-                        _buildGanhoOperacionalTable(),
-                      ],
-                    ],
-                  ),
+                        ],
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -318,56 +656,79 @@ class _ResultadosPageState extends State<ResultadosPage> {
     );
   }
 
-  Widget _buildControleEntradaSaidaTable() {
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.blue.shade100, width: 1),
+  Widget _buildTableSection({
+    required String title,
+    required List<DataRow> Function(double, double) rows,
+    bool showColumnHeader = true,
+  }) {
+    final double columnWidth = 140.0;
+    final double firstColumnWidth = 180.0;
+    final double totalWidth = firstColumnWidth + (_tanques.length * columnWidth);
+    
+    return Container(
+      width: totalWidth,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.blue.shade50.withOpacity(0.5),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF1565C0), Color(0xFF1976D2)],
+              ),
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(8),
-                topRight: Radius.circular(8),
+                topLeft: Radius.circular(11),
+                topRight: Radius.circular(11),
               ),
             ),
-            child: const Center(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.analytics_outlined, color: Color(0xFF1565C0), size: 20),
-                  SizedBox(width: 12),
-                  Text(
-                    'CONTROLE DE ENTRADA / SAÍDA DE PRODUTOS',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: Color(0xFF0D47A1),
-                      letterSpacing: 0.5,
-                    ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.analytics_outlined, color: Colors.white, size: 20),
+                const SizedBox(width: 12),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Colors.white,
+                    letterSpacing: 1,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: DataTable(
-              headingRowColor: WidgetStateProperty.all(Colors.white),
+              headingRowColor: WidgetStateProperty.all(const Color(0xFFF8F9FA)),
+              headingRowHeight: showColumnHeader ? 60 : 0,
               dataRowMinHeight: 40,
               dataRowMaxHeight: 40,
-              columnSpacing: 12,
-              horizontalMargin: 20,
+              columnSpacing: 0,
+              horizontalMargin: 0,
               dividerThickness: 0.5,
-              columns: _buildColumns(),
-              rows: _buildRows(),
+              border: TableBorder(
+                horizontalInside: BorderSide(color: Colors.grey.shade200),
+              ),
+              columns: _buildColumns(firstColumnWidth, columnWidth),
+              rows: rows(firstColumnWidth, columnWidth),
             ),
           ),
         ],
@@ -375,15 +736,20 @@ class _ResultadosPageState extends State<ResultadosPage> {
     );
   }
 
-  List<DataColumn> _buildColumns() {
+  List<DataColumn> _buildColumns(double firstColumnWidth, double columnWidth) {
     final columns = <DataColumn>[
-      const DataColumn(
+      DataColumn(
         label: SizedBox(
-          width: 150,
-          child: Center(
+          width: firstColumnWidth,
+          child: const Center(
             child: Text(
               '',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                color: Color(0xFF546E7A),
+                letterSpacing: 0.5,
+              ),
             ),
           ),
         ),
@@ -394,27 +760,34 @@ class _ResultadosPageState extends State<ResultadosPage> {
       columns.add(
         DataColumn(
           label: SizedBox(
-            width: 120,
+            width: columnWidth,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  tanque['referencia'],
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    color: Color(0xFF0D47A1),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE3F2FD),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    tanque['referencia'],
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Color(0xFF1565C0),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
                   tanque['produto_nome'],
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontWeight: FontWeight.normal,
-                    fontSize: 10,
-                    color: Color(0xFF1565C0),
+                    fontSize: 11,
+                    color: Color(0xFF546E7A),
                   ),
                 ),
               ],
@@ -427,217 +800,114 @@ class _ResultadosPageState extends State<ResultadosPage> {
     return columns;
   }
 
-  List<DataRow> _buildRows() {
+  List<DataRow> _buildSaldoRows(double firstColumnWidth, double columnWidth) {
     final List<DataRow> rows = [];
     
-    // Linha: Abertura Mês
-    rows.add(_buildDataRow('Abertura Mês', List.filled(_tanques.length, '0')));
+    final aberturaValues = _tanques.map((tanque) {
+      final dados = _dadosTanques[tanque['id']];
+      return _formatarNumero(dados?['estoqueInicial']);
+    }).toList();
+    rows.add(_buildDataRow('Abertura Mês', aberturaValues, firstColumnWidth, columnWidth));
     
-    // Linha: Entrada
-    rows.add(_buildDataRow('Entrada', List.filled(_tanques.length, '0')));
+    final entradasValues = _tanques.map((tanque) {
+      final dados = _dadosTanques[tanque['id']];
+      return _formatarNumero(dados?['totalEntradas']);
+    }).toList();
+    rows.add(_buildDataRow('Entradas', entradasValues, firstColumnWidth, columnWidth));
     
-    // Linha: Saída
-    rows.add(_buildDataRow('Saída', List.filled(_tanques.length, '0')));
+    final saidasValues = _tanques.map((tanque) {
+      final dados = _dadosTanques[tanque['id']];
+      return _formatarNumero(dados?['totalSaidas']);
+    }).toList();
+    rows.add(_buildDataRow('Saídas', saidasValues, firstColumnWidth, columnWidth));
     
-    // Linha: Perda/Sobra
-    rows.add(_buildDataRow('Perda/Sobra', List.filled(_tanques.length, '0')));
-    
-    // Linha: Diferença Amb/20ºC
-    rows.add(_buildDataRow('Diferença Amb/20ºC', List.filled(_tanques.length, '0')));
-    
-    // Linha: Saldo Final (destacada)
-    rows.add(_buildDataRow('Saldo Final', List.filled(_tanques.length, '0'), isHighlighted: true));
+    final saldoValues = _tanques.map((tanque) {
+      final dados = _dadosTanques[tanque['id']];
+      return _formatarNumero(dados?['saldoFinal']);
+    }).toList();
+    rows.add(_buildDataRow('Saldo', saldoValues, firstColumnWidth, columnWidth, isHighlighted: true));
     
     return rows;
   }
 
-  DataRow _buildDataRow(String label, List<String> values, {bool isHighlighted = false}) {
+  List<DataRow> _buildPerdaSobraRows(double firstColumnWidth, double columnWidth) {
+    final List<DataRow> rows = [];
+    
+    final sobraPerdaValues = _tanques.map((tanque) {
+      final dados = _dadosTanques[tanque['id']];
+      return _formatarNumero(dados?['totalSobraPerda']);
+    }).toList();
+    rows.add(_buildDataRow('Sobra/Perda', sobraPerdaValues, firstColumnWidth, columnWidth));
+    
+    final diferencaValues = _tanques.map((tanque) {
+      final dados = _dadosTanques[tanque['id']];
+      return _formatarNumero(dados?['diferencaAmb']);
+    }).toList();
+    rows.add(_buildDataRow('Diferença amb/20ºC', diferencaValues, firstColumnWidth, columnWidth));
+    
+    final totalValues = _tanques.map((tanque) {
+      final dados = _dadosTanques[tanque['id']];
+      return _formatarNumero(dados?['totalGeral']);
+    }).toList();
+    rows.add(_buildDataRow('Total', totalValues, firstColumnWidth, columnWidth, isHighlighted: true));
+    
+    final variacaoValues = _tanques.map((tanque) {
+      final dados = _dadosTanques[tanque['id']];
+      return _formatarPercentual(dados?['variacaoPercentual'] ?? 0);
+    }).toList();
+    rows.add(_buildDataRow('Variação %', variacaoValues, firstColumnWidth, columnWidth));
+    
+    return rows;
+  }
+
+  DataRow _buildDataRow(String label, List<String> values, double firstColumnWidth, double columnWidth, {bool isHighlighted = false}) {
     return DataRow(
-      color: isHighlighted ? WidgetStateProperty.all(Colors.blue.shade50.withOpacity(0.3)) : null,
+      color: isHighlighted 
+          ? WidgetStateProperty.all(const Color(0xFFF0F7FF))
+          : null,
       cells: [
         DataCell(
           SizedBox(
-            width: 150,
-            child: Center(
+            width: firstColumnWidth,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                 label,
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontWeight: isHighlighted ? FontWeight.bold : FontWeight.w500,
-                  color: Colors.blue.shade900,
-                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: isHighlighted ? const Color(0xFF1565C0) : const Color(0xFF37474F),
+                  fontSize: 13,
                 ),
               ),
             ),
           ),
         ),
-        ...values.map((value) => DataCell(
-          SizedBox(
-            width: 120,
-            child: Center(
-              child: Text(
-                value,
-                style: TextStyle(
-                  fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
-                  color: isHighlighted ? Colors.blue.shade900 : Colors.black87,
-                  fontSize: 12,
+        ...values.asMap().entries.map((entry) {
+          final value = entry.value;
+          // Verifica se o valor é negativo para mostrar em vermelho
+          final isNegative = value.contains('-') && !value.contains('%');
+          return DataCell(
+            SizedBox(
+              width: columnWidth,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text(
+                    value,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: isHighlighted ? FontWeight.w600 : FontWeight.normal,
+                      color: isNegative ? Colors.red : (isHighlighted ? const Color(0xFF1565C0) : const Color(0xFF37474F)),
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-        )),
+          );
+        }).toList(),
       ],
     );
-  }
-
-  Widget _buildGanhoOperacionalTable() {
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.blue.shade100, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50.withOpacity(0.5),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(8),
-                topRight: Radius.circular(8),
-              ),
-            ),
-            child: const Center(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.trending_up, color: Color(0xFF1565C0), size: 20),
-                  SizedBox(width: 12),
-                  Text(
-                    'Variação Tanque / Volume 20ºC',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: Color(0xFF0D47A1),
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              headingRowColor: WidgetStateProperty.all(Colors.white),
-              columnSpacing: 12,
-              horizontalMargin: 20,
-              dividerThickness: 0.5,
-              columns: _buildGanhoColumns(),
-              rows: [
-                DataRow(
-                  cells: [
-                    const DataCell(
-                      SizedBox(
-                        width: 150,
-                        child: SizedBox.shrink(),
-                      ),
-                    ),
-                    ..._tanques.map((_) => DataCell(
-                      SizedBox(
-                        width: 120,
-                        child: Center(
-                          child: Text(
-                            '0',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue.shade800,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ),
-                    )),
-                  ],
-                ),
-                DataRow(
-                  cells: [
-                    const DataCell(
-                      SizedBox(
-                        width: 150,
-                        child: SizedBox.shrink(),
-                      ),
-                    ),
-                    ..._tanques.map((_) => DataCell(
-                      SizedBox(
-                        width: 120,
-                        child: Center(
-                          child: Text(
-                            '0 %',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.blue.shade700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    )),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<DataColumn> _buildGanhoColumns() {
-    final columns = <DataColumn>[
-      const DataColumn(
-        label: SizedBox(
-          width: 150,
-          child: SizedBox.shrink(),
-        ),
-      ),
-    ];
-    
-    for (var tanque in _tanques) {
-      columns.add(
-        DataColumn(
-          label: SizedBox(
-            width: 120,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  tanque['referencia'],
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    color: Color(0xFF0D47A1),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  tanque['produto_nome'],
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.normal,
-                    fontSize: 10,
-                    color: Color(0xFF1565C0),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-    
-    return columns;
   }
 }
