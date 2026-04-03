@@ -403,10 +403,13 @@ class _ResultadosPageState extends State<ResultadosPage> {
         
         final diferencaAmb = (totalEntradasAmb - totalSaidasAmb) - (totalEntradasLiquidas - totalSaidasLiquidas);
         
-        // 6. Calcular variação percentual
+        // 6. Novo Total: Soma de Diferença amb + Sobra/Perda
+        final totalGeralSegundaTabela = totalSobraPerda + diferencaAmb;
+        
+        // 7. Calcular variação percentual: Total (da segunda tabela) / Saídas (da primeira tabela)
         double variacaoPercentual = 0;
-        if (estoqueInicial != 0) {
-          variacaoPercentual = (saldoFinal - estoqueInicial) / estoqueInicial.abs() * 100;
+        if (totalSaidas != 0) {
+          variacaoPercentual = (totalGeralSegundaTabela / totalSaidas.abs()) * 100;
         }
         
         novosDados[tanqueId] = {
@@ -416,7 +419,7 @@ class _ResultadosPageState extends State<ResultadosPage> {
           'saldoFinal': saldoFinal,
           'totalSobraPerda': totalSobraPerda,
           'diferencaAmb': diferencaAmb,
-          'totalGeral': saldoFinal + diferencaAmb,
+          'totalGeral': totalGeralSegundaTabela,
           'variacaoPercentual': variacaoPercentual,
         };
       }
