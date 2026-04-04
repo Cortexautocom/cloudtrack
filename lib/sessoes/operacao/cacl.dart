@@ -35,6 +35,8 @@ class _CalcPageState extends State<CalcPage> {
   double volumeFinal = 0;
   double volumeTotalLiquidoInicial = 0;
   double volumeTotalLiquidoFinal = 0;
+  double totalSaidasAmbienteReal = 0;
+  double totalSaidas20Real = 0;
   bool _isGeneratingPDF = false;
   bool _isEmittingCACL = false;
   bool _caclJaEmitido = false;
@@ -60,20 +62,21 @@ class _CalcPageState extends State<CalcPage> {
     final volume20FinalRaw = medicoes['volume20Final']?.toString().trim();
     final volume20InicialRaw = medicoes['volume20Inicial']?.toString().trim();
     
-    // ✅ REGRA: Se for CACL de verificação, usa SEMPRE a medição inicial
-    final bool isVerificacao = widget.dadosFormulario['cacl_verificacao'] == true;
+    // ✅ REGRA: Se for CACL de verificação ou origem de estoque tanque, 
+    //            o cálculo da Sobra/Perda usa o volume final (2ª medição)
+    final bool isCalculoSobra = widget.dadosFormulario['cacl_verificacao'] == true || 
+                               widget.dadosFormulario['origem_estoque_tanque'] == true;
     
-    if (isVerificacao) {
-      // Para verificação, retorna apenas o volume inicial se for válido
-      bool validoInicial(String? valor) {
+    if (isCalculoSobra) {
+      bool validoFinal(String? valor) {
         if (valor == null || valor.isEmpty || valor == '-') return false;
         return valor.replaceAll(RegExp(r'[^0-9]'), '').isNotEmpty;
       }
       
-      return validoInicial(volume20InicialRaw) ? volume20InicialRaw : null;
+      return validoFinal(volume20FinalRaw) ? volume20FinalRaw : null;
     }
     
-    // Para movimentação (comportamento atual): prioriza final, fallback para inicial
+    // Para outros casos: prioriza final, fallback para inicial
     bool valido(String? valor) {
       if (valor == null || valor.isEmpty || valor == '-') return false;
       return valor.replaceAll(RegExp(r'[^0-9]'), '').isNotEmpty;
@@ -240,6 +243,13 @@ class _CalcPageState extends State<CalcPage> {
         volumeTotalLiquidoFinal = _extrairNumero(
           medicoes['volumeTotalLiquidoFinal']?.toString(),
         );
+
+        final num totalSaidasRecAmb =
+            widget.dadosFormulario['total_saidas_ambiente'] ?? 0;
+        final num totalSaidasRec20 =
+            widget.dadosFormulario['total_saidas_periodo'] ?? 0;
+        totalSaidasAmbienteReal = totalSaidasRecAmb.toDouble();
+        totalSaidas20Real = totalSaidasRec20.toDouble();
 
         setState(() {
           _caclJaEmitido = true;
@@ -452,6 +462,50 @@ class _CalcPageState extends State<CalcPage> {
                   resultado['estoque_final_calculado'];
             }
 
+            if (resultado['total_entradas'] != null) {
+              widget.dadosFormulario['total_entradas_periodo'] =
+                  resultado['total_entradas'];
+              medicoesAtualizadas['totalEntradasPeriodo'] =
+                  _formatarVolumeLitros(resultado['total_entradas'].toDouble());
+            }
+
+            // ✅ NOVO: Carregar total_saidas_ambiente do banco para o histórico
+            if (resultado['total_saidas_ambiente'] != null &&
+                resultado['total_saidas_ambiente'] != 0) {
+              totalSaidasAmbienteReal =
+                  (resultado['total_saidas_ambiente'] ?? 0).toDouble();
+            } else {
+              // REPLICAÇÃO DA LÓGICA DE ESTOQUE_TANQUE_DIA.DART
+              try {
+                final dataOriginal = resultado['data']?.toString() ?? '';
+                final tanqueId = resultado['tanque_id']?.toString();
+                if (tanqueId != null && dataOriginal.isNotEmpty) {
+                  final responseMovs = await supabase
+                      .from('movimentacoes_tanque')
+                      .select('saida_amb')
+                      .eq('tanque_id', tanqueId)
+                      .gte('data_mov', '$dataOriginal 00:00:00')
+                      .lte('data_mov', '$dataOriginal 23:59:59');
+
+                  double somaSaidasAmb = 0;
+                  for (final m in responseMovs) {
+                    final num sAmb = (m['saida_amb'] ?? 0) as num;
+                    somaSaidasAmb += sAmb.toDouble();
+                  }
+                  totalSaidasAmbienteReal = somaSaidasAmb;
+                }
+              } catch (e) {
+                debugPrint('Erro ao buscar saídas ambiente no Histórico: $e');
+              }
+            }
+
+            if (resultado['total_saidas'] != null) {
+              widget.dadosFormulario['total_saidas_periodo'] =
+                  resultado['total_saidas'];
+              medicoesAtualizadas['totalSaidasPeriodo'] =
+                  _formatarVolumeLitros(resultado['total_saidas'].toDouble());
+            }
+
             widget.dadosFormulario['medicoes'] = medicoesAtualizadas;
 
             setState(() {
@@ -615,11 +669,49 @@ class _CalcPageState extends State<CalcPage> {
     final volumeTotalInicial = volProdutoInicial;
     final volumeTotalFinal = volProdutoFinal;
 
+    // ✅ BUSCAR TOTAL DE SAÍDAS AMBIENTE E 20ºC DO DIA (Lógica EstonqueTanquePage)
+    double totalSaidasAmb = 0;
+    double totalSaidas20 = 0;
+    try {
+      final supabase = Supabase.instance.client;
+      final dataRaw = widget.dadosFormulario['data']?.toString() ?? '';
+      String dataBusca = '';
+      if (dataRaw.contains('/')) {
+        final partes = dataRaw.split('/');
+        if (partes.length == 3) {
+          dataBusca = "${partes[2]}-${partes[1]}-${partes[0]}";
+        }
+      } else {
+        dataBusca = dataRaw;
+      }
+
+      final tanqueId = widget.dadosFormulario['tanque_id']?.toString();
+      if (tanqueId != null && dataBusca.isNotEmpty) {
+        final response = await supabase
+            .from('movimentacoes_tanque')
+            .select('saida_amb, saida_vinte')
+            .eq('tanque_id', tanqueId)
+            .gte('data_mov', '$dataBusca 00:00:00')
+            .lte('data_mov', '$dataBusca 23:59:59');
+
+        for (final m in response) {
+          final num saidaAmb = (m['saida_amb'] ?? 0) as num;
+          final num saidaVinte = (m['saida_vinte'] ?? 0) as num;
+          totalSaidasAmb += saidaAmb.toDouble();
+          totalSaidas20 += saidaVinte.toDouble();
+        }
+      }
+    } catch (e) {
+      debugPrint('Erro ao calcular saídas no CACL: $e');
+    }
+
     setState(() {
       this.volumeInicial = volProdutoInicial;
       this.volumeFinal = volProdutoFinal;
       this.volumeTotalLiquidoInicial = volumeTotalLiquidoInicial;
       this.volumeTotalLiquidoFinal = volumeTotalLiquidoFinal;
+      this.totalSaidasAmbienteReal = totalSaidasAmb;
+      this.totalSaidas20Real = totalSaidas20;
     });
 
     final volumeProdutoInicialFormatado = _formatarVolumeLitros(
@@ -961,7 +1053,6 @@ class _CalcPageState extends State<CalcPage> {
         'horario_final': _formatarHorarioParaTime(
           medicoes['horarioFinal']?.toString(),
         ),
-        'altura_total_liquido_final': medicoes['alturaTotalFinal']?.toString(),
         'altura_total_cm_final': medicoes['cmFinal']?.toString(),
         'altura_total_mm_final': medicoes['mmFinal']?.toString(),
         'volume_total_liquido_final': volumeTotalLiquidoFinal,
@@ -1002,6 +1093,12 @@ class _CalcPageState extends State<CalcPage> {
         'created_by': session.user.id,
         'estoque_final_calculado': _obterEstoqueFinalCalculado20(),
         'sobra_perda': _obterValorSobraPerda(medicoes),
+        'total_entradas': _extrairNumeroFormatado(
+          medicoes['totalEntradasPeriodo']?.toString(),
+        ),
+        'total_saidas': _extrairNumeroFormatado(
+          medicoes['totalSaidasPeriodo']?.toString(),
+        ),
       };
 
       final entradaSaida20 =
@@ -1504,6 +1601,7 @@ class _CalcPageState extends State<CalcPage> {
                       children: [
                         // ✅ NOVO CAMPO: Nº DE CONTROLE
                         Expanded(
+                          flex: 16, // Redução leve (antes era 12, valor base era flex: 1 equivalente)
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1517,9 +1615,10 @@ class _CalcPageState extends State<CalcPage> {
                             ],
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 10), // Voltou para 10 para evitar aperto excessivo
 
                         Expanded(
+                          flex: 16, // Redução leve
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1535,6 +1634,7 @@ class _CalcPageState extends State<CalcPage> {
                         ),
                         const SizedBox(width: 10),
                         Expanded(
+                          flex: 28, // Aumento moderado para a BASE
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1548,6 +1648,7 @@ class _CalcPageState extends State<CalcPage> {
                         ),
                         const SizedBox(width: 10),
                         Expanded(
+                          flex: 20, // Redução leve no PRODUTO
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1561,6 +1662,7 @@ class _CalcPageState extends State<CalcPage> {
                         ),
                         const SizedBox(width: 10),
                         Expanded(
+                          flex: 20, // Redução leve no TANQUE
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1667,14 +1769,10 @@ class _CalcPageState extends State<CalcPage> {
                       volume20Final: _extrairNumero(
                         medicoes['volume20Final']?.toString(),
                       ),
-                      entradaSaidaAmbiente: volumeFinal - volumeInicial,
-                      entradaSaida20:
-                          _extrairNumero(
-                            medicoes['volume20Final']?.toString(),
-                          ) -
-                          _extrairNumero(
-                            medicoes['volume20Inicial']?.toString(),
-                          ),
+                      entradaSaidaAmbiente: totalSaidasAmbienteReal,
+                      entradaSaida20: (widget.modo == CaclModo.visualizacao)
+                          ? _extrairNumero(medicoes['totalSaidasPeriodo']?.toString())
+                          : totalSaidas20Real,
                     ),
 
                     // BLOCO FATURADO
@@ -2041,6 +2139,64 @@ class _CalcPageState extends State<CalcPage> {
           ],
         ),
 
+        if (widget.dadosFormulario['cacl_verificacao'] == true ||
+            widget.dadosFormulario['origem_estoque_tanque'] == true) ...[
+          TableRow(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  "Total de entradas no período:",
+                  style: const TextStyle(fontSize: 11),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  "-",
+                  style: TextStyle(fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  _obterValorMedicao(medicoes['totalEntradasPeriodo']),
+                  style: const TextStyle(fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+          TableRow(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  "Total de saídas no período:",
+                  style: const TextStyle(fontSize: 11),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  "-",
+                  style: TextStyle(fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  _obterValorMedicao(medicoes['totalSaidasPeriodo']),
+                  style: const TextStyle(fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+        ],
+
         if (_mostrarCampoSobraPerda)
           TableRow(
             children: [
@@ -2051,19 +2207,19 @@ class _CalcPageState extends State<CalcPage> {
                   style: const TextStyle(fontSize: 11),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                child: Text(
-                  _obterEstoqueFinalCalculadoFormatado(),
-                  style: const TextStyle(fontSize: 11),
-                  textAlign: TextAlign.center,
-                ),
-              ),
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                 child: Text(
                   "-",
                   style: TextStyle(fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  _obterEstoqueFinalCalculadoFormatado(),
+                  style: const TextStyle(fontSize: 11),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -2083,19 +2239,19 @@ class _CalcPageState extends State<CalcPage> {
                   style: const TextStyle(fontSize: 11),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                child: Text(
-                  _obterSobraPerdaFormatada(medicoes),
-                  style: _obterEstiloSobraPerda(medicoes),
-                  textAlign: TextAlign.center,
-                ),
-              ),
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                 child: Text(
                   "-",
                   style: TextStyle(fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  _obterSobraPerdaFormatada(medicoes),
+                  style: _obterEstiloSobraPerda(medicoes),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -2207,6 +2363,7 @@ class _CalcPageState extends State<CalcPage> {
         1: FlexColumnWidth(1.0),
         2: FlexColumnWidth(1.0),
         3: FlexColumnWidth(1.0),
+        4: FlexColumnWidth(1.0),
       },
       children: [
         // CABEÇALHO - REDUZIDO
@@ -2231,6 +2388,14 @@ class _CalcPageState extends State<CalcPage> {
             Padding(
               padding: EdgeInsets.all(6.0),
               child: Text(
+                "ENTRADA/SAÍDA",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.all(6.0),
+              child: Text(
                 "2ª MEDIÇÃO",
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
@@ -2239,7 +2404,7 @@ class _CalcPageState extends State<CalcPage> {
             Padding(
               padding: EdgeInsets.all(6.0),
               child: Text(
-                "ENTRADA/SAÍDA",
+                "DIFERENÇA",
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
               ),
@@ -2265,6 +2430,14 @@ class _CalcPageState extends State<CalcPage> {
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
               child: Text(
+                fmt(entradaSaidaAmbiente),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
+              child: Text(
                 fmt(volumeAmbienteFinal),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 10),
@@ -2273,7 +2446,7 @@ class _CalcPageState extends State<CalcPage> {
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
               child: Text(
-                fmt(entradaSaidaAmbiente),
+                fmt(volumeAmbienteFinal + entradaSaidaAmbiente - volumeAmbienteInicial),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 10),
               ),
@@ -2299,6 +2472,14 @@ class _CalcPageState extends State<CalcPage> {
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
               child: Text(
+                fmt(entradaSaida20),
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
+              child: Text(
                 fmt(volume20Final),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 10),
@@ -2307,7 +2488,7 @@ class _CalcPageState extends State<CalcPage> {
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
               child: Text(
-                fmt(entradaSaida20),
+                fmt(volume20Final + entradaSaida20 - volume20Inicial),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 10),
               ),
@@ -2818,6 +2999,95 @@ class _CalcPageState extends State<CalcPage> {
       }
     } else {
       widget.dadosFormulario['medicoes']['massaFinal'] = '-';
+    }
+
+    // ✅ NOVO: Buscar e povoar Total de Entradas e Saídas se for verificação
+    if (widget.dadosFormulario['cacl_verificacao'] == true || 
+        widget.dadosFormulario['origem_estoque_tanque'] == true) {
+      await _buscarTotaisEntradasSaidasVinte();
+    }
+  }
+
+  Future<void> _buscarTotaisEntradasSaidasVinte() async {
+    final tanqueId = _obterTanqueId();
+    if (tanqueId == null) return;
+
+    final dataReferencia = _obterDataParaEstoque();
+    final dataStr = dataReferencia.toIso8601String().split('T')[0];
+    final inicioDoDia = '$dataStr 00:00:00';
+    final fimDoDia = '$dataStr 23:59:59';
+
+    try {
+      final supabase = Supabase.instance.client;
+      
+      // Busca terminal_id dos dados do formulário ou do usuário logado
+      String? terminalId = widget.dadosFormulario['terminal_id']?.toString();
+      
+      if (terminalId == null || terminalId.isEmpty) {
+        final user = supabase.auth.currentUser;
+        if (user != null) {
+          final res = await supabase
+              .from('usuarios')
+              .select('terminal_id')
+              .eq('id', user.id)
+              .maybeSingle();
+          if (res != null) {
+            terminalId = res['terminal_id']?.toString();
+          }
+        }
+      }
+
+      var query = supabase
+          .from('movimentacoes_tanque')
+          .select('entrada_vinte, saida_vinte')
+          .eq('tanque_id', tanqueId)
+          .gte('data_mov', inicioDoDia)
+          .lte('data_mov', fimDoDia);
+
+      // Se tivermos o terminal_id, filtramos por ele também, 
+      // seguindo a lógica de que o estoque é por tanque e terminal.
+      if (terminalId != null && terminalId.isNotEmpty) {
+        // Nota: A tabela movimentacoes_tanque geralmente tem terminal_id se 
+        // a lógica do estoque_tanque_dia considerar terminal.
+        // Verificando se devemos filtrar. No estoque_tanque_dia.dart, 
+        // ele carrega o terminal do usuário.
+        // query = query.eq('terminal_id', terminalId); 
+        // No entanto, movimentacoes_tanque costuma ser vinculada ao tanque.
+      }
+
+      final response = await query;
+
+      double totalEntradas = 0;
+      double totalSaidas = 0;
+
+      for (final m in response) {
+        totalEntradas += (m['entrada_vinte'] ?? 0).toDouble();
+        totalSaidas += (m['saida_vinte'] ?? 0).toDouble();
+      }
+
+      setState(() {
+        widget.dadosFormulario['medicoes']['totalEntradasPeriodo'] =
+            _formatarVolumeLitros(totalEntradas);
+        widget.dadosFormulario['medicoes']['totalSaidasPeriodo'] =
+            _formatarVolumeLitros(totalSaidas);
+
+        // ✅ Atualiza o estoque final calculado baseando-se na fórmula:
+        // Volume20 Inicial + Entradas - Saídas
+        final volume20InicialStr =
+            widget.dadosFormulario['medicoes']['volume20Inicial']?.toString();
+        if (volume20InicialStr != null &&
+            volume20InicialStr.isNotEmpty &&
+            volume20InicialStr != '-') {
+          final volume20Inicial = _converterVolumeParaDouble(volume20InicialStr);
+          final estoqueCalculado =
+              volume20Inicial + totalEntradas - totalSaidas;
+
+          widget.dadosFormulario['estoque_final_calculado_20'] =
+              estoqueCalculado;
+        }
+      });
+    } catch (e) {
+      debugPrint('Erro ao buscar totais de entradas e saídas: $e');
     }
   }
 

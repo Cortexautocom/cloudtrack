@@ -286,6 +286,15 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
             resultado['porcentagem_diferenca']?.toString();
       }
 
+      // ✅ NOVO: Buscar e povoar Total de Entradas e Saídas se for verificação
+      if (resultado['cacl_verificacao'] == true) {
+        _dadosFormulario['cacl_verificacao'] = true;
+        await _buscarTotaisEntradasSaidasVinteHistorico(
+          tanqueId: resultado['tanque_id']?.toString(),
+          dataSql: resultado['data']?.toString(),
+        );
+      }
+
       _dadosFormulario['medicoes'] = medicoesAtualizadas;
 
       setState(() {
@@ -419,6 +428,16 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
     return '$horarioLimpo h';
   }
 
+  double _extrairNumero(String? valor) {
+    if (valor == null) return 0;
+
+    final somenteNumeros = valor.replaceAll(RegExp(r'[^0-9]'), '');
+
+    if (somenteNumeros.isEmpty) return 0;
+
+    return double.tryParse(somenteNumeros) ?? 0;
+  }
+
   // WIDGETS DE UI (copiados da CalcPage)
   Widget _secaoTitulo(String texto) {
     return Text(
@@ -540,6 +559,63 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
             ),
           ],
         ),
+
+        if (_dadosFormulario['cacl_verificacao'] == true) ...[
+          TableRow(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  "Total de entradas no período:",
+                  style: const TextStyle(fontSize: 11),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  "-",
+                  style: TextStyle(fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  _formatarVolumeLitros(_extrairNumero(_dadosFormulario['total_entradas_periodo']?.toString())),
+                  style: const TextStyle(fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+          TableRow(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  "Total de saídas no período:",
+                  style: const TextStyle(fontSize: 11),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  "-",
+                  style: TextStyle(fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  _formatarVolumeLitros(_extrairNumero(_dadosFormulario['total_saidas_periodo']?.toString())),
+                  style: const TextStyle(fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -735,6 +811,43 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
         ),
       ],
     );
+  }
+
+  Future<void> _buscarTotaisEntradasSaidasVinteHistorico({
+    required String? tanqueId,
+    required String? dataSql,
+  }) async {
+    if (tanqueId == null || dataSql == null) return;
+
+    final inicioDoDia = '$dataSql 00:00:00';
+    final fimDoDia = '$dataSql 23:59:59';
+
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase
+          .from('movimentacoes_tanque')
+          .select('entrada_vinte, saida_vinte')
+          .eq('tanque_id', tanqueId)
+          .gte('data_mov', inicioDoDia)
+          .lte('data_mov', fimDoDia);
+
+      double totalEntradas = 0;
+      double totalSaidas = 0;
+
+      for (final m in response) {
+        totalEntradas += (m['entrada_vinte'] ?? 0).toDouble();
+        totalSaidas += (m['saida_vinte'] ?? 0).toDouble();
+      }
+
+      setState(() {
+        _dadosFormulario['medicoes']['totalEntradasPeriodo'] =
+            _formatarVolumeLitros(totalEntradas);
+        _dadosFormulario['medicoes']['totalSaidasPeriodo'] =
+            _formatarVolumeLitros(totalSaidas);
+      });
+    } catch (e) {
+      debugPrint('Erro ao buscar totais de entradas e saídas no histórico: $e');
+    }
   }
 
   double _converterVolumeParaDouble(String volumeStr) {

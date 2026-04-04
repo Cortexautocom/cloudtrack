@@ -431,6 +431,98 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
     }
   }
 
+  Future<void> _abrirCACLVerificacao() async {
+    final tanqueId = _tanqueSelecionadoParaAcoes?['id']?.toString();
+    if (tanqueId == null) return;
+
+    setState(() => _carregandoCacls = true);
+
+    try {
+      final supabase = Supabase.instance.client;
+      final hoje = DateTime.now();
+      final dataStr = hoje.toIso8601String().split('T')[0];
+
+      // 1. Buscar estoque inicial (Fiel ao estoque_tanque_dia.dart)
+      final responseEstoque = await supabase.rpc(
+        'fn_estoque_inicial_tanque',
+        params: {
+          'p_tanque_id': tanqueId,
+          'p_data': dataStr,
+        },
+      );
+      final num estoqueInicial = (responseEstoque ?? 0) as num;
+
+      // 2. Buscar movimentações (Fiel ao estoque_tanque_dia.dart - sem sobra_perda que não existe na tabela)
+      final dadosMovs = await supabase
+          .from('movimentacoes_tanque')
+          .select('entrada_vinte, saida_vinte, movimentacao_id, data_mov, cliente, descricao')
+          .eq('tanque_id', tanqueId)
+          .gte('data_mov', '$dataStr 00:00:00')
+          .lte('data_mov', '$dataStr 23:59:59');
+
+      final List<Map<String, dynamic>> movs = List<Map<String, dynamic>>.from(dadosMovs);
+      
+      // 3. Ordenar (Fiel ao estoque_tanque_dia.dart)
+      movs.sort((a, b) {
+        final da = DateTime.parse(a['data_mov'].toString());
+        final db = DateTime.parse(b['data_mov'].toString());
+        final dataA = DateTime(da.year, da.month, da.day);
+        final dataB = DateTime(db.year, db.month, db.day);
+        final cmpData = dataA.compareTo(dataB);
+        if (cmpData != 0) return cmpData;
+        return da.compareTo(db);
+      });
+
+      // 4. Calcular saldo final (Fiel ao estoque_tanque_dia.dart)
+      num saldoVinte = estoqueInicial;
+      String? lastMovId;
+
+      for (final m in movs) {
+        final num entradaVinte = (m['entrada_vinte'] ?? 0) as num;
+        final num saidaVinte = (m['saida_vinte'] ?? 0) as num;
+
+        saldoVinte += entradaVinte - saidaVinte;
+
+        final mid = m['movimentacao_id']?.toString();
+        if (mid != null && mid.isNotEmpty && mid.toLowerCase() != 'null') {
+          lastMovId = mid;
+        }
+      }
+
+      if (!mounted) return;
+
+      bool caclFinalizado = false;
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => MedicaoTanquesPage(
+            onVoltar: () => Navigator.pop(context),
+            tanqueSelecionadoId: tanqueId,
+            dataReferencia: hoje,
+            caclBloqueadoComoVerificacao: true,
+            estoqueFinalCalculado20: saldoVinte.toDouble(),
+            movimentacaoIdReferencia: lastMovId,
+            onFinalizarCACL: () {
+              caclFinalizado = true;
+            },
+          ),
+        ),
+      );
+
+      if (!mounted) return;
+      if (caclFinalizado) await _carregarDados();
+      await _carregarCaclsDoTanque(tanqueId);
+
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao preparar CACL Verificação: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _carregandoCacls = false);
+    }
+  }
+
   void _abrirEdicaoTanque() {
     if (_tanqueSelecionadoParaAcoes != null) {
       final tanqueId = _tanqueSelecionadoParaAcoes?['id'];
@@ -1084,6 +1176,15 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                 children: [
                   Expanded(
                     child: _buildCardAcao(
+                      icon: Icons.inventory_2,
+                      titulo: 'Movimentação tanque',
+                      descricao: 'Consultar movimentação do tanque',
+                      onTap: _abrirEstoqueTanque,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildCardAcao(
                       icon: Icons.analytics,
                       titulo: 'CACL Movimentação',
                       descricao: 'Emitir CACL Movimentação',
@@ -1094,10 +1195,14 @@ class _GerenciamentoTanquesPageState extends State<GerenciamentoTanquesPage> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: _buildCardAcao(
-                      icon: Icons.inventory_2,
-                      titulo: 'Movimentação tanque',
-                      descricao: 'Consultar movimentação do tanque',
-                      onTap: _abrirEstoqueTanque,
+                      icon: Icons.check_circle,
+                      titulo: 'CACL verificação',
+                      descricao: 'Emitir CACL Verificação',
+                      onTap: _abrirCACLVerificacao,
+                      enabled: !_caclesTanque.any((cacl) {
+                        final status = cacl['status']?.toString().toLowerCase() ?? '';
+                        return status.contains('emitido');
+                      }),
                     ),
                   ),
                   const SizedBox(width: 16),
