@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../login_page.dart';
 import 'medicoes_emitir_cacl.dart';
-import 'cacl_historico.dart';
+import 'cacl_visualizacao.dart';
 import 'estoque_tanque_dia.dart';
 import 'estoque_tanque_mensal.dart';
 import 'editar_cacl.dart';

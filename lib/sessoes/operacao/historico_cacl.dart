@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'cacl_historico.dart';
+import 'cacl_visualizacao.dart';
 import 'cacl.dart';
 
 class HistoricoCaclPage extends StatefulWidget {
@@ -1057,6 +1057,8 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                             }
                                           }
 
+                                          if (!context.mounted) return;
+
                                           if (tipo == 'verificacao') {
                                             await Navigator.push(
                                               context,
@@ -1076,6 +1078,7 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
                                               ),
                                             );
                                           } else {
+                                            if (!context.mounted) return;
                                             await Navigator.push(
                                               context,
                                               MaterialPageRoute(

@@ -31,12 +31,84 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
   double _volumeFinal = 0;
   double _volumeTotalLiquidoInicial = 0;
   double _volumeTotalLiquidoFinal = 0;
+  double _totalSaidasAmbienteReal = 0;
+  double _totalSaidas20Real = 0;
   
   // Controles de estado
   bool _isLoading = true;
   bool _isGeneratingPDF = false;
   bool _caclEmitido = false;
   String? _numeroControle;
+
+  bool get _mostrarCampoSobraPerda {
+    return _dadosFormulario['origem_estoque_tanque'] == true;
+  }
+
+  double _obterEstoqueFinalCalculado20() {
+    final estoqueRaw = _dadosFormulario['estoque_final_calculado_20'];
+    if (estoqueRaw is num) return estoqueRaw.toDouble();
+    return double.tryParse(estoqueRaw?.toString() ?? '') ?? 0.0;
+  }
+
+  String _obterEstoqueFinalCalculadoFormatado() {
+    return _formatarVolumeLitros(_obterEstoqueFinalCalculado20());
+  }
+
+  String? _obterVolume20DisponivelRaw(Map<String, dynamic> medicoes) {
+    final volume20FinalRaw = medicoes['volume20Final']?.toString().trim();
+    final volume20InicialRaw = medicoes['volume20Inicial']?.toString().trim();
+    
+    final bool isCalculoSobra = _dadosFormulario['cacl_verificacao'] == true || 
+                               _dadosFormulario['origem_estoque_tanque'] == true;
+    
+    if (isCalculoSobra) {
+      bool validoFinal(String? valor) {
+        if (valor == null || valor.isEmpty || valor == '-') return false;
+        return valor.replaceAll(RegExp(r'[^0-9]'), '').isNotEmpty;
+      }
+      return validoFinal(volume20FinalRaw) ? volume20FinalRaw : null;
+    }
+    
+    bool valido(String? valor) {
+      if (valor == null || valor.isEmpty || valor == '-') return false;
+      return valor.replaceAll(RegExp(r'[^0-9]'), '').isNotEmpty;
+    }
+
+    if (valido(volume20FinalRaw)) return volume20FinalRaw;
+    if (valido(volume20InicialRaw)) return volume20InicialRaw;
+    return null;
+  }
+
+  double? _obterValorSobraPerda(Map<String, dynamic> medicoes) {
+    if (_obterVolume20DisponivelRaw(medicoes) == null) return null;
+
+    final volume20Raw = _obterVolume20DisponivelRaw(medicoes);
+    final volume20 = _extrairNumero(volume20Raw);
+    return volume20 - _obterEstoqueFinalCalculado20();
+  }
+
+  String _formatarSobraPerdaComSinal(double valor) {
+    final sinal = valor >= 0 ? '+' : '-';
+    final valorFormatado = _formatarVolumeLitros(valor.abs());
+    return '$sinal$valorFormatado';
+  }
+
+  String _obterSobraPerdaFormatada(Map<String, dynamic> medicoes) {
+    final sobraPerda = _obterValorSobraPerda(medicoes);
+    if (sobraPerda == null) return '-';
+    return _formatarSobraPerdaComSinal(sobraPerda);
+  }
+
+  TextStyle _obterEstiloSobraPerda(Map<String, dynamic> medicoes) {
+    final valor = _obterValorSobraPerda(medicoes);
+    if (valor == null) return const TextStyle(fontSize: 11);
+
+    return TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.bold,
+      color: valor >= 0 ? Colors.blue[700] : Colors.red[700],
+    );
+  }
 
   @override
   void initState() {
@@ -87,6 +159,7 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
         final tipo = resultado['tipo']?.toString();
         _dadosFormulario['cacl_verificacao'] = tipo == 'verificacao';
         _dadosFormulario['cacl_movimentacao'] = tipo == 'movimentacao';
+        _dadosFormulario['origem_estoque_tanque'] = resultado['origem_estoque_tanque'] == true;
       }
 
       // 4. BUSCAR NOME DO TANQUE (se tanque_id existir)
@@ -114,6 +187,9 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
       _volumeFinal = resultado['volume_produto_final']?.toDouble() ?? 0.0;
       _volumeTotalLiquidoInicial = resultado['volume_total_liquido_inicial']?.toDouble() ?? 0.0;
       _volumeTotalLiquidoFinal = resultado['volume_total_liquido_final']?.toDouble() ?? 0.0;
+      
+      _totalSaidasAmbienteReal = (resultado['total_saidas_ambiente'] ?? 0.0).toDouble();
+      _totalSaidas20Real = (resultado['total_saidas_periodo'] ?? 0.0).toDouble();
 
       // 6. MEDIÇÕES - Mapear campos do banco para o formato de exibição
       final medicoesAtualizadas = <String, dynamic>{};
@@ -264,6 +340,21 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
         medicoesAtualizadas['faturadoFinal'] = 
             resultado['faturado_final']?.toString();
       }
+      
+      if (resultado['estoque_final_calculado'] != null) {
+        _dadosFormulario['estoque_final_calculado_20'] = 
+            resultado['estoque_final_calculado'];
+      }
+      
+      if (resultado['total_entradas'] != null) {
+        _dadosFormulario['total_entradas_periodo'] = 
+            resultado['total_entradas'];
+        medicoesAtualizadas['totalEntradasPeriodo'] = 
+            _formatarVolumeLitros(resultado['total_entradas']?.toDouble() ?? 0.0);
+      }
+      
+      medicoesAtualizadas['totalSaidasPeriodo'] = 
+          _formatarVolumeLitros(_totalSaidas20Real);
 
       // 6.4. CAMPOS DE COMPARAÇÃO (se existirem)
       if (resultado['entrada_saida_ambiente'] != null) {
@@ -287,10 +378,9 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
       }
 
       // ✅ NOVO: Buscar e povoar Total de Entradas e Saídas se for verificação
-      if (resultado['cacl_verificacao'] == true) {
-        _dadosFormulario['cacl_verificacao'] = true;
+      if (_dadosFormulario['cacl_verificacao'] == true) {
         await _buscarTotaisEntradasSaidasVinteHistorico(
-          tanqueId: resultado['tanque_id']?.toString(),
+          tanqueId: tanqueId,
           dataSql: resultado['data']?.toString(),
         );
       }
@@ -476,7 +566,7 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
     );
   }
 
-  Widget _tabelaMedicoes(List<TableRow> linhas, Map<String, dynamic> medicoes) {
+  Widget _tabelaMedicoes(List<TableRow> linhas, Map<String, dynamic> medicoes, {TableRow? extraAposEstoque}) {
     return Table(
       border: TableBorder.all(
         color: Colors.black54,
@@ -497,7 +587,7 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
               child: Text(
                 "DESCRIÇÃO",
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
@@ -560,7 +650,8 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
           ],
         ),
 
-        if (_dadosFormulario['cacl_verificacao'] == true) ...[
+        if (_dadosFormulario['cacl_verificacao'] == true ||
+            _dadosFormulario['origem_estoque_tanque'] == true) ...[
           TableRow(
             children: [
               Padding(
@@ -581,7 +672,7 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                 child: Text(
-                  _formatarVolumeLitros(_extrairNumero(_dadosFormulario['total_entradas_periodo']?.toString())),
+                  _obterValorMedicao(medicoes['totalEntradasPeriodo']),
                   style: const TextStyle(fontSize: 11),
                   textAlign: TextAlign.center,
                 ),
@@ -608,7 +699,7 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                 child: Text(
-                  _formatarVolumeLitros(_extrairNumero(_dadosFormulario['total_saidas_periodo']?.toString())),
+                  _obterValorMedicao(medicoes['totalSaidasPeriodo']),
                   style: const TextStyle(fontSize: 11),
                   textAlign: TextAlign.center,
                 ),
@@ -616,6 +707,67 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
             ],
           ),
         ],
+
+        if (_mostrarCampoSobraPerda)
+          TableRow(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  "Estoque final calculado (20ºC):",
+                  style: const TextStyle(fontSize: 11),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  "-",
+                  style: TextStyle(fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  _obterEstoqueFinalCalculadoFormatado(),
+                  style: const TextStyle(fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+
+        if (extraAposEstoque != null)
+          extraAposEstoque,
+
+        if (_mostrarCampoSobraPerda)
+          TableRow(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  "Sobra/perda:",
+                  style: const TextStyle(fontSize: 11),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  "-",
+                  style: TextStyle(fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  _obterSobraPerdaFormatada(medicoes),
+                  style: _obterEstiloSobraPerda(medicoes),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
       ],
     );
   }
@@ -650,9 +802,14 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
     );
   }
 
-  Widget _tabelaComparacaoResultados() {
-    final medicoes = _dadosFormulario['medicoes'] ?? {};
-    
+  Widget _tabelaComparacaoResultados({
+    required double volumeAmbienteInicial,
+    required double volumeAmbienteFinal,
+    required double volume20Inicial,
+    required double volume20Final,
+    required double entradaSaidaAmbiente,
+    required double entradaSaida20,
+  }) {
     // Função para formatar no padrão "999.999 L"
     String fmt(dynamic v) {
       if (v == null) return "-";
@@ -697,24 +854,6 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
       }
     }
 
-    // Buscar valores do banco (já armazenados)
-    final volumeAmbienteInicial = _volumeInicial;
-    final volumeAmbienteFinal = _volumeFinal;
-    
-    final volume20Inicial = medicoes['volume20Inicial'] != null ? 
-        _converterVolumeParaDouble(medicoes['volume20Inicial'].toString()) : 0.0;
-    final volume20Final = medicoes['volume20Final'] != null ? 
-        _converterVolumeParaDouble(medicoes['volume20Final'].toString()) : 0.0;
-    
-    // Usar valores armazenados ou calcular se não existirem
-    final entradaSaidaAmbiente = medicoes['entradaSaidaAmbiente'] != null ?
-        double.tryParse(medicoes['entradaSaidaAmbiente'].toString().replaceAll(',', '.')) ?? 0.0 :
-        volumeAmbienteFinal - volumeAmbienteInicial;
-    
-    final entradaSaida20 = medicoes['entradaSaida20'] != null ?
-        double.tryParse(medicoes['entradaSaida20'].toString().replaceAll(',', '.')) ?? 0.0 :
-        volume20Final - volume20Inicial;
-
     return Table(
       border: TableBorder.all(
         color: Colors.black54,
@@ -725,6 +864,7 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
         1: FlexColumnWidth(1.0),
         2: FlexColumnWidth(1.0),
         3: FlexColumnWidth(1.0),
+        4: FlexColumnWidth(1.0),
       },
       children: [
         TableRow(
@@ -750,6 +890,12 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
             Padding(
               padding: EdgeInsets.all(6.0),
               child: Text("ENTRADA/SAÍDA",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
+            Padding(
+              padding: EdgeInsets.all(6.0),
+              child: Text("DIFERENÇA",
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
             ),
@@ -780,6 +926,12 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10)),
             ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
+              child: Text(fmt((volumeAmbienteFinal - volumeAmbienteInicial) - entradaSaidaAmbiente),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10)),
+            ),
           ],
         ),
 
@@ -804,6 +956,12 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
               child: Text(fmt(entradaSaida20),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10)),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
+              child: Text(fmt((volume20Final - volume20Inicial) - entradaSaida20),
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10)),
             ),
@@ -1239,6 +1397,7 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
                       children: [
                         // Nº DE CONTROLE
                         Expanded(
+                          flex: 16,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1250,6 +1409,7 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
                         const SizedBox(width: 10),
                         
                         Expanded(
+                          flex: 16,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1260,6 +1420,7 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
                         ),
                         const SizedBox(width: 10),
                         Expanded(
+                          flex: 28,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1270,6 +1431,7 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
                         ),
                         const SizedBox(width: 10),
                         Expanded(
+                          flex: 20,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1280,6 +1442,7 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
                         ),
                         const SizedBox(width: 10),
                         Expanded(
+                          flex: 20,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1298,46 +1461,77 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
                   _subtitulo("VOLUME RECEBIDO NOS TANQUES DE TERRA E CANALIZAÇÃO RESPECTIVA"),
                   const SizedBox(height: 12),
 
-                  _tabelaMedicoes([
-                    _linhaMedicao("Altura total de líquido no tanque:", 
-                        _formatarAlturaTotal(medicoes['cmInicial'], medicoes['mmInicial']), 
-                        _formatarAlturaTotal(medicoes['cmFinal'], medicoes['mmFinal'])),
-                    _linhaMedicao("Volume total de líquido no tanque (temp. ambiente):", 
-                        _formatarVolumeLitros(_volumeTotalLiquidoInicial), 
-                        _formatarVolumeLitros(_volumeTotalLiquidoFinal)),
-                    _linhaMedicao("Altura da água aferida no tanque:", 
-                        _obterValorMedicao(medicoes['alturaAguaInicial']), 
-                        _obterValorMedicao(medicoes['alturaAguaFinal'])),
-                    _linhaMedicao("Volume correspondente à água:", 
-                        _obterValorMedicao(medicoes['volumeAguaInicial']), 
-                        _obterValorMedicao(medicoes['volumeAguaFinal'])),
-                    _linhaMedicao("Altura do produto aferido no tanque:", 
-                        _obterValorMedicao(medicoes['alturaProdutoInicial']), 
-                        _obterValorMedicao(medicoes['alturaProdutoFinal'])),
-                    _linhaMedicao(
-                      "Volume correspondente ao produto (temp. ambiente):",
-                      _formatarVolumeLitros(_volumeInicial),
-                      _formatarVolumeLitros(_volumeFinal),
+                  _tabelaMedicoes(
+                    [
+                      _linhaMedicao(
+                        "Altura total de líquido no tanque:",
+                        _formatarAlturaTotal(
+                          medicoes['cmInicial'],
+                          medicoes['mmInicial'],
+                        ),
+                        _formatarAlturaTotal(
+                          medicoes['cmFinal'],
+                          medicoes['mmFinal'],
+                        ),
+                      ),
+                      _linhaMedicao(
+                        "Volume total de líquido no tanque (temp. ambiente):",
+                        _formatarVolumeLitros(_volumeTotalLiquidoInicial),
+                        _formatarVolumeLitros(_volumeTotalLiquidoFinal),
+                      ),
+                      _linhaMedicao(
+                        "Altura da água aferida no tanque:",
+                        _obterValorMedicao(medicoes['alturaAguaInicial']),
+                        _obterValorMedicao(medicoes['alturaAguaFinal']),
+                      ),
+                      _linhaMedicao(
+                        "Volume correspondente à água:",
+                        _obterValorMedicao(medicoes['volumeAguaInicial']),
+                        _obterValorMedicao(medicoes['volumeAguaFinal']),
+                      ),
+                      _linhaMedicao(
+                        "Altura do produto aferido no tanque:",
+                        _obterValorMedicao(medicoes['alturaProdutoInicial']),
+                        _obterValorMedicao(medicoes['alturaProdutoFinal']),
+                      ),
+                      _linhaMedicao(
+                        "Volume correspondente ao produto (temp. ambiente):",
+                        _formatarVolumeLitros(_volumeInicial),
+                        _formatarVolumeLitros(_volumeFinal),
+                      ),
+                      _linhaMedicao(
+                        "Temperatura do produto no tanque:",
+                        _formatarTemperatura(medicoes['tempTanqueInicial']),
+                        _formatarTemperatura(medicoes['tempTanqueFinal']),
+                      ),
+                      _linhaMedicao(
+                        "Densidade observada na amostra:",
+                        _obterValorMedicao(medicoes['densidadeInicial']),
+                        _obterValorMedicao(medicoes['densidadeFinal']),
+                      ),
+                      _linhaMedicao(
+                        "Temperatura da amostra:",
+                        _formatarTemperatura(medicoes['tempAmostraInicial']),
+                        _formatarTemperatura(medicoes['tempAmostraFinal']),
+                      ),
+                      _linhaMedicao(
+                        "Densidade da amostra, considerada à temperatura padrão (20 ºC):",
+                        _obterValorMedicao(medicoes['densidade20Inicial']),
+                        _obterValorMedicao(medicoes['densidade20Final']),
+                      ),
+                      _linhaMedicao(
+                        "Fator de correção de volume do produto (FCV):",
+                        _obterValorMedicao(medicoes['fatorCorrecaoInicial']),
+                        _obterValorMedicao(medicoes['fatorCorrecaoFinal']),
+                      ),
+                    ],
+                    medicoes,
+                    extraAposEstoque: _linhaMedicao(
+                      "Volume total do produto, considerada a temperatura padrão (20 ºC):",
+                      _obterValorMedicao(medicoes['volume20Inicial']),
+                      _obterValorMedicao(medicoes['volume20Final']),
                     ),
-                    _linhaMedicao("Temperatura do produto no tanque:", 
-                        _formatarTemperatura(medicoes['tempTanqueInicial']), 
-                        _formatarTemperatura(medicoes['tempTanqueFinal'])),
-                    _linhaMedicao("Densidade observada na amostra:", 
-                        _obterValorMedicao(medicoes['densidadeInicial']), 
-                        _obterValorMedicao(medicoes['densidadeFinal'])),
-                    _linhaMedicao("Temperatura da amostra:", 
-                        _formatarTemperatura(medicoes['tempAmostraInicial']), 
-                        _formatarTemperatura(medicoes['tempAmostraFinal'])),
-                    _linhaMedicao("Densidade da amostra, considerada à temperatura padrão (20 ºC):", 
-                        _obterValorMedicao(medicoes['densidade20Inicial']), 
-                        _obterValorMedicao(medicoes['densidade20Final'])),                    
-                    _linhaMedicao("Fator de correção de volume do produto (FCV):", 
-                        _obterValorMedicao(medicoes['fatorCorrecaoInicial']), 
-                        _obterValorMedicao(medicoes['fatorCorrecaoFinal'])),                    
-                    _linhaMedicao("Volume total do produto, considerada a temperatura padrão (20 ºC):", 
-                        _obterValorMedicao(medicoes['volume20Inicial']), 
-                        _obterValorMedicao(medicoes['volume20Final'])),
-                  ], medicoes),
+                  ),
 
                   const SizedBox(height: 25),
 
@@ -1345,7 +1539,18 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
                   _subtitulo("COMPARAÇÃO DE RESULTADOS"),
                   const SizedBox(height: 8),
 
-                  _tabelaComparacaoResultados(),
+                  _tabelaComparacaoResultados(
+                    volumeAmbienteInicial: _volumeInicial,
+                    volumeAmbienteFinal: _volumeFinal,
+                    volume20Inicial: _converterVolumeParaDouble(
+                      medicoes['volume20Inicial']?.toString() ?? '0',
+                    ),
+                    volume20Final: _converterVolumeParaDouble(
+                      medicoes['volume20Final']?.toString() ?? '0',
+                    ),
+                    entradaSaidaAmbiente: _totalSaidasAmbienteReal,
+                    entradaSaida20: _totalSaidas20Real,
+                  ),
 
                   // BLOCO FATURADO
                   const SizedBox(height: 20),

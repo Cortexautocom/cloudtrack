@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 //import 'cacl.dart';
 import 'medicoes_emitir_cacl.dart';
 import 'editar_cacl.dart';
-import 'cacl_historico.dart';
+import 'cacl_visualizacao.dart';
 
 class ListarCaclsPage extends StatefulWidget {
   final VoidCallback onVoltar;
