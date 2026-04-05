@@ -188,8 +188,13 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
       _volumeTotalLiquidoInicial = resultado['volume_total_liquido_inicial']?.toDouble() ?? 0.0;
       _volumeTotalLiquidoFinal = resultado['volume_total_liquido_final']?.toDouble() ?? 0.0;
       
-      _totalSaidasAmbienteReal = (resultado['total_saidas_ambiente'] ?? 0.0).toDouble();
-      _totalSaidas20Real = (resultado['total_saidas_periodo'] ?? 0.0).toDouble();
+      final double totalEntradasBanco20 = (resultado['total_entradas'] ?? 0.0).toDouble();
+      final double totalSaidasBanco20 = (resultado['total_saidas'] ?? 0.0).toDouble();
+      final double totalEntradasBancoAmb = (resultado['total_entradas_ambiente'] ?? 0.0).toDouble();
+      final double totalSaidasBancoAmb = (resultado['total_saidas_ambiente'] ?? 0.0).toDouble();
+
+      _totalSaidasAmbienteReal = totalEntradasBancoAmb - totalSaidasBancoAmb;
+      _totalSaidas20Real = totalEntradasBanco20 - totalSaidasBanco20;
 
       // 6. MEDIÇÕES - Mapear campos do banco para o formato de exibição
       final medicoesAtualizadas = <String, dynamic>{};
@@ -351,6 +356,8 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
             resultado['total_entradas'];
         medicoesAtualizadas['totalEntradasPeriodo'] = 
             _formatarVolumeLitros(resultado['total_entradas']?.toDouble() ?? 0.0);
+      } else {
+        medicoesAtualizadas['totalEntradasPeriodo'] = '-';
       }
       
       medicoesAtualizadas['totalSaidasPeriodo'] = 
@@ -378,8 +385,8 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
       }
 
       // ✅ NOVO: Buscar e povoar Total de Entradas e Saídas se for verificação
-      if (_dadosFormulario['cacl_verificacao'] == true) {
-        await _buscarTotaisEntradasSaidasVinteHistorico(
+      if (_dadosFormulario['cacl_verificacao'] == true || _dadosFormulario['origem_estoque_tanque'] == true) {
+        await _buscarTotaisEntradasSaidasHistorico(
           tanqueId: tanqueId,
           dataSql: resultado['data']?.toString(),
         );
@@ -706,9 +713,36 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
               ),
             ],
           ),
+          TableRow(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  "Estoque final calculado:",
+                  style: const TextStyle(fontSize: 11),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  "-",
+                  style: TextStyle(fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  _formatarVolumeLitros((_dadosFormulario['estoque_final_calculado_20'] ?? 0).toDouble()),
+                  style: const TextStyle(fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
         ],
 
-        if (_mostrarCampoSobraPerda)
+        if (_mostrarCampoSobraPerda && !(_dadosFormulario['cacl_verificacao'] == true || _dadosFormulario['origem_estoque_tanque'] == true))
           TableRow(
             children: [
               Padding(
@@ -883,13 +917,13 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
             ),
             Padding(
               padding: EdgeInsets.all(6.0),
-              child: Text("2ª MEDIÇÃO",
+              child: Text("ENTRADA/SAÍDA",
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
             ),
             Padding(
               padding: EdgeInsets.all(6.0),
-              child: Text("ENTRADA/SAÍDA",
+              child: Text("2ª MEDIÇÃO",
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
             ),
@@ -916,13 +950,13 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
-              child: Text(fmt(volumeAmbienteFinal), 
+              child: Text(fmt(entradaSaidaAmbiente),
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10)),
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
-              child: Text(fmt(entradaSaidaAmbiente),
+              child: Text(fmt(volumeAmbienteFinal), 
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10)),
             ),
@@ -949,13 +983,13 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
-              child: Text(fmt(volume20Final), 
+              child: Text(fmt(entradaSaida20),
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10)),
             ),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
-              child: Text(fmt(entradaSaida20),
+              child: Text(fmt(volume20Final), 
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10)),
             ),
@@ -971,7 +1005,7 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
     );
   }
 
-  Future<void> _buscarTotaisEntradasSaidasVinteHistorico({
+  Future<void> _buscarTotaisEntradasSaidasHistorico({
     required String? tanqueId,
     required String? dataSql,
   }) async {
@@ -984,24 +1018,36 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
       final supabase = Supabase.instance.client;
       final response = await supabase
           .from('movimentacoes_tanque')
-          .select('entrada_vinte, saida_vinte')
+          .select('entrada_amb, saida_amb, entrada_vinte, saida_vinte')
           .eq('tanque_id', tanqueId)
           .gte('data_mov', inicioDoDia)
           .lte('data_mov', fimDoDia);
 
-      double totalEntradas = 0;
-      double totalSaidas = 0;
+      double totalEntradasAmb = 0;
+      double totalSaidasAmb = 0;
+      double totalEntradas20 = 0;
+      double totalSaidas20 = 0;
 
       for (final m in response) {
-        totalEntradas += (m['entrada_vinte'] ?? 0).toDouble();
-        totalSaidas += (m['saida_vinte'] ?? 0).toDouble();
+        totalEntradasAmb += (m['entrada_amb'] ?? 0).toDouble();
+        totalSaidasAmb += (m['saida_amb'] ?? 0).toDouble();
+        totalEntradas20 += (m['entrada_vinte'] ?? 0).toDouble();
+        totalSaidas20 += (m['saida_vinte'] ?? 0).toDouble();
       }
 
       setState(() {
+        // ✅ Retornando o saldo ambiente para o cálculo dinâmico do histórico (como solicitado)
+        _totalSaidasAmbienteReal = totalEntradasAmb - totalSaidasAmb;
+        
+        _dadosFormulario['medicoes']['entradaSaidaAmbiente'] =
+            _totalSaidasAmbienteReal.toString();
+        _dadosFormulario['medicoes']['entradaSaida20'] =
+            _totalSaidas20Real.toString();
+            
         _dadosFormulario['medicoes']['totalEntradasPeriodo'] =
-            _formatarVolumeLitros(totalEntradas);
+            _formatarVolumeLitros(totalEntradas20);
         _dadosFormulario['medicoes']['totalSaidasPeriodo'] =
-            _formatarVolumeLitros(totalSaidas);
+            _formatarVolumeLitros(totalSaidas20);
       });
     } catch (e) {
       debugPrint('Erro ao buscar totais de entradas e saídas no histórico: $e');
@@ -1101,8 +1147,8 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
     if (medicoes['diferencaFaturado'] != null) {
       diferenca = double.tryParse(medicoes['diferencaFaturado'].toString().replaceAll(',', '.')) ?? 0.0;
     } else {
-      final entradaSaida20 = volume20Final - volume20Inicial;
-      diferenca = entradaSaida20 - faturadoUsuario;
+      // ✅ ALTERAÇÃO: Usar a mesma variável _totalSaidas20Real que já contém (entradas - saídas) 20ºC
+      diferenca = (volume20Final - volume20Inicial) - _totalSaidas20Real;
     }
     
     if (medicoes['porcentagemDiferenca'] != null) {
@@ -1111,8 +1157,8 @@ class _CaclHistoricoPageState extends State<CaclHistoricoPage> {
           .replaceAll(',', '.');
       porcentagem = double.tryParse(porcentagemStr) ?? 0.0;
     } else {
-      final entradaSaida20 = volume20Final - volume20Inicial;
-      porcentagem = entradaSaida20 != 0 ? (diferenca / entradaSaida20) * 100 : 0.0;
+      // ✅ ALTERAÇÃO: Usar a mesma variável _totalSaidas20Real que já contém (entradas - saídas) 20ºC
+      porcentagem = _totalSaidas20Real != 0 ? (diferenca / _totalSaidas20Real) * 100 : 0.0;
     }
     
     final faturadoFormatado = faturadoUsuario > 0 ? fmt(faturadoUsuario) : "-";

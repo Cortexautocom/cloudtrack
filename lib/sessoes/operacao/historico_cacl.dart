@@ -1043,54 +1043,15 @@ class _HistoricoCaclPageState extends State<HistoricoCaclPage> with WidgetsBindi
 
                                           if (!context.mounted) return;
 
-                                          String? tipo = cacl['tipo']?.toString();
-                                          if (tipo == null) {
-                                            try {
-                                              final resp = await Supabase.instance.client
-                                                  .from('cacl')
-                                                  .select('tipo')
-                                                  .eq('id', caclId)
-                                                  .maybeSingle();
-                                              tipo = resp?['tipo']?.toString();
-                                            } catch (_) {
-                                              tipo = null;
-                                            }
-                                          }
-
-                                          if (!context.mounted) return;
-
-                                          if (tipo == 'verificacao') {
-                                            await Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) {
-                                                  final Map<String, dynamic> payload = <String, dynamic>{};
-                                                  payload['origem_estoque_tanque'] = true;
-                                                  return CalcPage(
-                                                    dadosFormulario: payload,
-                                                    modo: CaclModo.visualizacao,
-                                                    caclId: caclId,
-                                                    onVoltar: () {
-                                                      Navigator.pop(context);
-                                                    },
-                                                  );
-                                                },
+                                          await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => CaclHistoricoPage(
+                                                caclId: caclId,
+                                                onVoltar: () => Navigator.pop(context),
                                               ),
-                                            );
-                                          } else {
-                                            if (!context.mounted) return;
-                                            await Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) => CaclHistoricoPage(
-                                                  caclId: caclId,
-                                                  onVoltar: () {
-                                                    Navigator.pop(context);
-                                                  },
-                                                ),
-                                              ),
-                                            );
-                                          }
+                                            ),
+                                          );
 
                                           _refreshData();
                                         },
