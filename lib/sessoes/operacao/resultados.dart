@@ -340,7 +340,7 @@ class _ResultadosPageState extends State<ResultadosPage> {
               'p_data': dataRefStr,
             },
           );
-          estoqueInicial = (response ?? 0) as num;
+          estoqueInicial = (response['estoque_inicial'] ?? 0) as num;
         } catch (e) {
           debugPrint('Erro ao buscar estoque inicial para tanque $tanqueId: $e');
           estoqueInicial = 0;

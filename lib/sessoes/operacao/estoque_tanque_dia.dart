@@ -150,7 +150,12 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         },
       );
 
-      final num saldo = (response ?? 0) as num;
+      num saldo = 0;
+      if (response is Map) {
+        saldo = (response['estoque_inicial'] ?? 0) as num;
+      } else {
+        saldo = (response ?? 0) as num;
+      }
 
       _estoqueInicial = {
         'amb': saldo,
@@ -614,8 +619,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         'ehSobra': _ehSobra,
       };
 
-      debugPrint('Enviando para Edge Function: $requestData');
-
       final response = await _chamarEdgeFunctionBinaria(requestData);
 
       if (response.statusCode != 200) {
@@ -630,8 +633,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       if (bytes.isEmpty) {
         throw Exception('Arquivo vazio recebido da Edge Function');
       }
-
-      debugPrint('Arquivo XLSX recebido: ${bytes.length} bytes');
 
       final blob = html.Blob([
         bytes,
@@ -726,9 +727,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       },
       body: jsonEncode(requestData),
     );
-
-    debugPrint('Status Code: ${response.statusCode}');
-    debugPrint('Tamanho resposta: ${response.bodyBytes.length} bytes');
 
     return response;
   }

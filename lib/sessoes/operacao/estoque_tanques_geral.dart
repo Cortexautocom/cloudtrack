@@ -131,7 +131,12 @@ class _EstoquePorTanquePageState extends State<EstoquePorTanquePage> {
             'fn_estoque_inicial_tanque',
             params: {'p_tanque_id': id, 'p_data': dataStr},
           );
-          estoqueInicial = (rpc as num?)?.toDouble() ?? 0.0;
+
+          if (rpc is Map) {
+            estoqueInicial = (rpc['estoque_inicial'] ?? 0).toDouble();
+          } else {
+            estoqueInicial = (rpc ?? 0).toDouble();
+          }
         } catch (e) {
           estoqueInicial = 0.0;
         }

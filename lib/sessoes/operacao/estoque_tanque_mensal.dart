@@ -147,7 +147,7 @@ class _EstoqueTanqueMensalPageState extends State<EstoqueTanqueMensalPage> {
         },
       );
 
-      final num saldo = (response ?? 0) as num;
+      final num saldo = (response['estoque_inicial'] ?? 0) as num;
 
       _estoqueInicial = {
         'amb': saldo,
