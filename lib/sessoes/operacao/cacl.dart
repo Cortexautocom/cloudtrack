@@ -43,6 +43,7 @@ class _CalcPageState extends State<CalcPage> {
   String? _numeroControle; // Variável para armazenar o número de controle
   ScaffoldMessengerState? _scaffoldMessenger;
   NavigatorState? _navigatorState;
+  bool _emFaseDeSegundaMedicao = false;
 
   bool get _mostrarCampoSobraPerda {
     return widget.dadosFormulario['origem_estoque_tanque'] == true;
@@ -133,6 +134,15 @@ class _CalcPageState extends State<CalcPage> {
 
     // 🔒 REGRA ABSOLUTA: UI sempre começa sem nº de controle
     _numeroControle = null;
+
+    final medicoes = widget.dadosFormulario['medicoes'] ?? {};
+    final temHorarioFinal = medicoes['horarioFinal'] != null &&
+        medicoes['horarioFinal'].toString().isNotEmpty &&
+        medicoes['horarioFinal'].toString() != '-';
+
+    if (temHorarioFinal) {
+      _emFaseDeSegundaMedicao = true;
+    }
 
     if (widget.modo == CaclModo.emissao) {
       _calcularVolumesIniciais();
@@ -1160,16 +1170,6 @@ class _CalcPageState extends State<CalcPage> {
           }
 
           caclIdSalvo = idParaUpdate;
-
-          if (context.mounted) {
-            _mostrarSnackBar(
-              const SnackBar(
-                content: Text('✓ CACL atualizado com sucesso!'),
-                backgroundColor: Colors.green,
-                duration: Duration(seconds: 3),
-              ),
-            );
-          }
         } catch (e) {
           print('🔴 [CACL] Erro no Update (tentando fallback insert): $e');
           dadosParaInserir['created_by'] = session.user.id;
@@ -1222,7 +1222,7 @@ class _CalcPageState extends State<CalcPage> {
         if (context.mounted) {
           _mostrarSnackBar(
             const SnackBar(
-              content: Text('✓ CACL emitido e salvo no banco com sucesso!'),
+              content: Text('✓ CACL emitido com sucesso!'),
               backgroundColor: Colors.green,
               duration: Duration(seconds: 1),
             ),
@@ -1263,18 +1263,14 @@ class _CalcPageState extends State<CalcPage> {
         });
       }
 
-      if (!mounted) return;
-
-      // ✅ VERIFICA SE É EDIÇÃO DE PENDENTE
-      final bool isEdicaoPendente = widget.dadosFormulario['modo_edicao'] == true && 
-                                    widget.dadosFormulario['id_cacl'] != null;
-
-      if (isEdicaoPendente) {
-        // Para edição de pendente, usa o novo método
-        await _irParaEstoqueTanqueAposEmissao();
-      } else {
-        // Fluxo normal
-        await _irParaEstoqueTanqueAposEmissao();
+      if (context.mounted) {
+        _mostrarSnackBar(
+          const SnackBar(
+            content: Text('✓ CACL emitido com sucesso!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 1),
+          ),
+        );
       }
       return;
     } catch (e, stack) {
@@ -1917,7 +1913,9 @@ class _CalcPageState extends State<CalcPage> {
                                 widget.modo == CaclModo.edicao) &&
                             !_caclJaEmitido)
                           ElevatedButton.icon(
-                            onPressed: (_isEmittingCACL || !_temVolumeMinimoValido())
+                            onPressed: (_isEmittingCACL || 
+                                        !_temVolumeMinimoValido() || 
+                                        (!_dadosFinaisEstaoCompletos() && _emFaseDeSegundaMedicao))
                                 ? null
                                 : (_dadosFinaisEstaoCompletos()
                                       ? _emitirCACL
@@ -3408,7 +3406,7 @@ class _CalcPageState extends State<CalcPage> {
           const SnackBar(
             content: Text('✓ Certificado CACL baixado com sucesso!'),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
+            duration: Duration(seconds: 1),
           ),
         );
       }
@@ -3661,8 +3659,22 @@ class _CalcPageState extends State<CalcPage> {
         medicoes: medicoes,
       );
 
-      if (!mounted) return;
-      _navigatorState?.pop({'status': 'pendente_salvo'});
+      if (mounted) {
+        setState(() {
+          _caclJaEmitido = true;
+          _isEmittingCACL = false;
+        });
+      }
+
+      if (context.mounted) {
+        _mostrarSnackBar(
+          const SnackBar(
+            content: Text('✓ CACL salvo como pendente!'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
       return;
     } catch (e) {
       if (context.mounted) {
@@ -3709,16 +3721,22 @@ class _CalcPageState extends State<CalcPage> {
       }
     }
 
-    return true; // Todos os dados finais estão preenchidos
+    // ✅ NOVA REGRA: Volume total do produto a 20ºC da segunda medição deve ser > 0
+    final volume20Final = _extrairNumero(medicoes['volume20Final']?.toString());
+    if (volume20Final <= 0) {
+      return false; // Volume a 20ºC não calculado ou zero
+    }
+
+    return true; // Todos os dados finais estão preenchidos e válidos
   }
 
   bool _temVolumeMinimoValido() {
     final medicoes = widget.dadosFormulario['medicoes'] ?? {};
     final v20Inicial = _extrairNumero(medicoes['volume20Inicial']?.toString());
-    final v20Final = _extrairNumero(medicoes['volume20Final']?.toString());
-
-    // Se qualquer um dos dois for > 1, consideramos válido para habilitar os botões
-    return v20Inicial > 1 || v20Final > 1;
+    
+    // ✅ NOVA REGRA: O botão 'Salvar como pendente' só fica ativo se o 
+    //            Volume a 20ºC da 1ª Medição for > 0.
+    return v20Inicial > 0;
   }
 
   String? _formatarHorarioParaTime(String? horario) {

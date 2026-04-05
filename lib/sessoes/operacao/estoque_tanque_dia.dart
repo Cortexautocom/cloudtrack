@@ -4,6 +4,13 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'medicoes_emitir_cacl.dart';
+import 'medicoes_editar_cacl.dart';
+
+enum EstagioCACL {
+  semAbertura,
+  aberturaRealizada,
+  fechado,
+}
 
 class EstoqueTanquePage extends StatefulWidget {
   final String tanqueId;
@@ -57,6 +64,9 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
   final ScrollController _hHeader = ScrollController();
   final ScrollController _hBody = ScrollController();
 
+  EstagioCACL _estagioCACL = EstagioCACL.semAbertura;
+  String? _caclId;
+
   static const double _hCab = 40;
   static const double _hRow = 40;
   static const double _hFoot = 32;
@@ -96,7 +106,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         _terminalNome = terminal['nome']?.toString();
       }
       
-      // Após ter o terminal, carrega os dados
       await _carregar();
     } catch (e) {
       setState(() {
@@ -153,75 +162,73 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     }
   }
 
-  Future<void> _verificarCACLExistente() async {
+  Future<void> _verificarEstagioCACL() async {
     try {
       final dataStr = _dataFiltro.toIso8601String().split('T')[0];
-      final inicioDoDia = '$dataStr 00:00:00';
-      final fimDoDia = '$dataStr 23:59:59';
-
-      final response = await _supabase
+      
+      final saldoDiario = await _supabase
           .from('saldo_tanque_diario')
           .select('saldo')
           .eq('tanque_id', widget.tanqueId)
-          .gte('data_mov', inicioDoDia)
-          .lte('data_mov', fimDoDia)
+          .eq('data_mov', dataStr)
           .maybeSingle();
 
-      if (response != null) {
-        _possuiCACL = true;
-        _estoqueCACL = {
-          'amb': response['saldo'] ?? 0,
-          'vinte': response['saldo'] ?? 0,
-        };
-      } else {
-        _possuiCACL = false;
-        _estoqueCACL = {'amb': null, 'vinte': null};
+      if (saldoDiario != null) {
+        setState(() {
+          _estagioCACL = EstagioCACL.fechado;
+          _possuiCACL = true;
+          _estoqueCACL = {
+            'amb': saldoDiario['saldo'] ?? 0,
+            'vinte': saldoDiario['saldo'] ?? 0,
+          };
+          _caclId = null;
+        });
+        return;
       }
-    } catch (e) {
-      _possuiCACL = false;
-      _estoqueCACL = {'amb': null, 'vinte': null};
-    }
-  }
 
-  Future<void> buscarUltimaSobraPerdaDoTanque() async {
-    try {
-      final dataStr = _dataFiltro.toIso8601String().split('T')[0];
-      final inicioDoDia = '$dataStr 00:00:00';
-      final fimDoDia = '$dataStr 23:59:59';
-
-      final response = await _supabase
-          .from('movimentacoes_tanque')
-          .select('descricao, entrada_vinte, saida_vinte')
+      final caclExistente = await _supabase
+          .from('cacl')
+          .select('id, status, volume_20_final')
           .eq('tanque_id', widget.tanqueId)
-          .gte('data_mov', inicioDoDia)
-          .lte('data_mov', fimDoDia)
-          .or("descricao.ilike.Sobra CACL%,descricao.ilike.Perda CACL%")
-          .order('data_mov', ascending: false)
-          .limit(1)
+          .eq('data', dataStr)
+          .eq('tipo', 'verificacao')
+          .neq('status', 'cancelado')
           .maybeSingle();
 
-      if (response != null) {
-        final String descricao = (response['descricao'] ?? '').toString().trim();
-        final num entradaVinte = (response['entrada_vinte'] ?? 0) as num;
-        final num saidaVinte = (response['saida_vinte'] ?? 0) as num;
-
-        if (descricao.startsWith('Sobra CACL')) {
-          _valorSobraPerda = entradaVinte;
-          _ehSobra = true;
-        } else if (descricao.startsWith('Perda CACL')) {
-          _valorSobraPerda = saidaVinte;
-          _ehSobra = false;
+      if (caclExistente != null) {
+        final hasFechamento = caclExistente['volume_20_final'] != null;
+        
+        if (!hasFechamento) {
+          setState(() {
+            _estagioCACL = EstagioCACL.aberturaRealizada;
+            _possuiCACL = false;
+            _estoqueCACL = {'amb': null, 'vinte': null};
+            _caclId = caclExistente['id'].toString();
+          });
         } else {
-          _valorSobraPerda = null;
-          _ehSobra = null;
+          setState(() {
+            _estagioCACL = EstagioCACL.fechado;
+            _possuiCACL = true;
+            _estoqueCACL = {'amb': null, 'vinte': null};
+            _caclId = null;
+          });
         }
       } else {
-        _valorSobraPerda = null;
-        _ehSobra = null;
+        setState(() {
+          _estagioCACL = EstagioCACL.semAbertura;
+          _possuiCACL = false;
+          _estoqueCACL = {'amb': null, 'vinte': null};
+          _caclId = null;
+        });
       }
     } catch (e) {
-      _valorSobraPerda = null;
-      _ehSobra = null;
+      debugPrint('Erro ao verificar estágio CACL: $e');
+      setState(() {
+        _estagioCACL = EstagioCACL.semAbertura;
+        _possuiCACL = false;
+        _estoqueCACL = {'amb': null, 'vinte': null};
+        _caclId = null;
+      });
     }
   }
 
@@ -269,7 +276,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
 
     try {
       await _carregarEstoqueInicialDoBanco();
-      await _verificarCACLExistente();
       await _carregarProdutoDoTanque();
 
       final dataStr = _dataFiltro.toIso8601String().split('T')[0];
@@ -312,7 +318,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         final cmpData = dataA.compareTo(dataB);
         if (cmpData != 0) return cmpData;
         
-        // Dentro da mesma data (Apenas Dia/Mês/Ano): registros com 'Sobra' ou 'Perda' vão por último
         bool temSobraOuPerda(Map<String, dynamic> m) {
           final cliente = (m['cliente']?.toString() ?? '').toUpperCase();
           final descricao = (m['descricao']?.toString() ?? '').toUpperCase();
@@ -351,7 +356,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           descricao = "Venda - $descricao";
         }
 
-        // Extrair nome da empresa
         String empresaNome = '-';
         final movData = m['movimentacoes'];
         if (movData is Map) {
@@ -373,8 +377,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             ? tipoMov.contains('perda')
             : descLower.contains('perda') || clienteLower.contains('perda');
 
-        // For sobra/perda rows the value must appear ONLY in the sobra_perda column.
-        // Zero out entrada/saida for display so they don't show in those columns.
         final num magnitude = entradaVinte != 0 ? entradaVinte : saidaVinte;
         num? sobraPerda;
         final num entradaVinteDisplay;
@@ -416,7 +418,6 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
       _movs = List<Map<String, dynamic>>.from(listaComSaldo);
       _movsOrdenadas = List<Map<String, dynamic>>.from(listaComSaldo);
 
-      // Calcular totais para o rodapé
       _totalEntradas = _movs.fold<num>(0, (s, m) => s + ((m['entrada_vinte'] ?? 0) as num));
       _totalSaidas = _movs.fold<num>(0, (s, m) => s + ((m['saida_vinte'] ?? 0) as num));
       _totalSobraPerda = _movs.fold<num>(0, (s, m) => s + ((m['sobra_perda'] ?? 0) as num));
@@ -426,12 +427,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         'vinte': _movs.isEmpty ? (_estoqueInicial['vinte'] ?? 0) : _movs.last['saldo_vinte'],
       };
 
-      if (_possuiCACL) {
-        await buscarUltimaSobraPerdaDoTanque();
-      } else {
-        _valorSobraPerda = null;
-        _ehSobra = null;
-      }
+      await _verificarEstagioCACL();
 
       setState(() => _carregando = false);
     } catch (e) {
@@ -504,7 +500,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
     _ordenar(col, asc);
   }
 
-  Future<void> _navegarParaCACL() async {
+  Future<void> _navegarParaAbertura() async {
     final estoqueFinalCalculado20 = (_estoqueFinal['vinte'] ?? 0).toDouble();
     String? movimentacaoIdReferencia;
 
@@ -525,6 +521,42 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
           caclBloqueadoComoVerificacao: true,
           estoqueFinalCalculado20: estoqueFinalCalculado20,
           movimentacaoIdReferencia: movimentacaoIdReferencia,
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (resultado is Map && resultado['status'] == 'cacl_emitido') {
+      if (widget.onVoltar != null) {
+        widget.onVoltar!();
+      } else {
+        Navigator.of(context).pop();
+      }
+      return;
+    }
+
+    await _carregar();
+  }
+
+  Future<void> _navegarParaFechamento() async {
+    if (_caclId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Erro: CACL não encontrado para fechamento'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final resultado = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => EditarCaclPage(
+          onVoltar: () => Navigator.pop(context),
+          caclId: _caclId!,
+          tanqueReferencia: widget.referenciaTanque,
+          dataReferencia: _dataFiltro,
         ),
       ),
     );
@@ -971,6 +1003,7 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
         spacing: 20,
         runSpacing: 16,
         alignment: WrapAlignment.spaceAround,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           _buildCampoResumo(
             'Saldo Inicial (20ºC):',
@@ -997,41 +1030,68 @@ class _EstoqueTanquePageState extends State<EstoqueTanquePage> {
             cor: const Color(0xFF0D47A1),
             negrito: true,
           ),
-          // Botão Fechar Tanque (CACL)
-          if (!_possuiCACL)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: SizedBox(
-                width: 200,
-                child: ElevatedButton(
-                  onPressed: _navegarParaCACL,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0D47A1),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    elevation: 3,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.inventory, size: 18),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'FECHAR TANQUE',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+          _buildBotaoPorEstagio(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBotaoPorEstagio() {
+    switch (_estagioCACL) {
+      case EstagioCACL.semAbertura:
+        return _buildBotaoAcao(
+          texto: 'INSERIR MEDIÇÃO DE ABERTURA',
+          cor: Colors.green,
+          icone: Icons.play_arrow,
+          onPressed: _navegarParaAbertura,
+        );
+        
+      case EstagioCACL.aberturaRealizada:
+        return _buildBotaoAcao(
+          texto: 'FECHAR TANQUE',
+          cor: const Color(0xFF0D47A1),
+          icone: Icons.inventory,
+          onPressed: _navegarParaFechamento,
+        );
+        
+      case EstagioCACL.fechado:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildBotaoAcao({
+    required String texto,
+    required Color cor,
+    required IconData icone,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: 250,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: cor,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          elevation: 3,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icone, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              texto,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }

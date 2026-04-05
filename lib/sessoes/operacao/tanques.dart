@@ -7,7 +7,7 @@ import 'medicoes_emitir_cacl.dart';
 import 'cacl_visualizacao.dart';
 import 'estoque_tanque_dia.dart';
 import 'estoque_tanque_mensal.dart';
-import 'editar_cacl.dart';
+import 'medicoes_editar_cacl.dart';
 
 class GerenciamentoTanquesPage extends StatefulWidget {
   final VoidCallback onVoltar;

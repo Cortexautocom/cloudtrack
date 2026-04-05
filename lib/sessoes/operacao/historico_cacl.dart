@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'cacl_visualizacao.dart';
-import 'cacl.dart';
 
 class HistoricoCaclPage extends StatefulWidget {
   final VoidCallback onVoltar;
