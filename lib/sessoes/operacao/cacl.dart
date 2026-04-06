@@ -1218,16 +1218,6 @@ class _CalcPageState extends State<CalcPage> {
         }
 
         caclIdSalvo = resultadoInserir['id'].toString();
-
-        if (context.mounted) {
-          _mostrarSnackBar(
-            const SnackBar(
-              content: Text('✓ CACL emitido com sucesso!'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 1),
-            ),
-          );
-        }
       }
 
       if (tipoCACL == 'movimentacao' &&

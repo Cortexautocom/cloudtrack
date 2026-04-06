@@ -128,7 +128,19 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
         params: {'p_produto_id': widget.produtoId, 'p_data': dataStr},
       );
 
-      final num saldo = (response ?? 0) as num;
+      print('DEBUG PRODUTO: $response'); // 👈 importante
+
+      num saldo = 0;
+
+      if (response is Map) {
+        saldo = (response['estoque_inicial'] ?? 0) as num;
+
+        if (response.containsKey('debug')) {
+          print('DEBUG DETALHADO PRODUTO: ${response['debug']}');
+        }
+      } else {
+        saldo = (response ?? 0) as num;
+      }
 
       _estoqueInicial = {'amb': saldo, 'vinte': saldo};
     } catch (e) {
@@ -452,7 +464,7 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
             cor: Colors.red,
           ),
           _buildCampoResumo(
-            'Total Sobra/Perda (20ºC):',
+            'Total Dif amb/20°C:',
             _totalSobraPerda,
             cor: _totalSobraPerda >= 0 ? const Color(0xFF0D47A1) : Colors.red,
           ),
@@ -539,12 +551,12 @@ class _EstoqueProdutoPageState extends State<EstoqueProdutoPage> {
                 _th('Data', _wData, () => _onSort('data_mov')),
                 _th('Descrição', _wDesc, () => _onSort('descricao')),
                 _th('Entrada (Amb)', _wNum, () => _onSort('entrada_amb')),
-                _th('Entrada (20ºC)', _wNum, () => _onSort('entrada_vinte')),
+                _th('Entrada (20°C)', _wNum, () => _onSort('entrada_vinte')),
                 _th('Saída (Amb)', _wNum, () => _onSort('saida_amb')),
-                _th('Saída (20ºC)', _wNum, () => _onSort('saida_vinte')),
-                _th('Sobra/Perda', _wNum, () => _onSort('sobra_perda')),
+                _th('Saída (20°C)', _wNum, () => _onSort('saida_vinte')),
+                _th('Dif amb/20°C', _wNum, () => _onSort('sobra_perda')),
                 _th('Saldo (Amb)', _wNum, () => _onSort('saldo_amb')),
-                _th('Saldo (20ºC)', _wNum, () => _onSort('saldo_vinte')),
+                _th('Saldo (20°C)', _wNum, () => _onSort('saldo_vinte')),
               ],
             ),
           ),
